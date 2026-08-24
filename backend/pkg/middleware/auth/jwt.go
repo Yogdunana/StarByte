@@ -1,0 +1,171 @@
+package auth
+
+import (
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/Yogdunana/StarByte/backend/pkg/config"
+	"github.com/Yogdunana/StarByte/backend/pkg/response"
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+)
+
+const (
+	// AccessTokenType identifies access tokens.
+	AccessTokenType = "access"
+	// RefreshTokenType identifies refresh tokens.
+	RefreshTokenType = "refresh"
+)
+
+// context keys used to store authenticated user information.
+const (
+	ContextKeyUserID   = "user_id"
+	ContextKeyUsername = "username"
+)
+
+// Claims is the custom JWT claims object. It embeds jwt.RegisteredClaims so
+// that standard fields such as ID (jti), Issuer (iss) and ExpiresAt (exp) are
+// available.
+type Claims struct {
+	UserID    string `json:"user_id"`
+	Username  string `json:"username"`
+	TokenType string `json:"token_type"`
+	jwt.RegisteredClaims
+}
+
+// TokenPair holds a freshly generated access/refresh token pair together with
+// their expiry times.
+type TokenPair struct {
+	AccessToken         string
+	RefreshToken        string
+	AccessTokenExpires  time.Time
+	RefreshTokenExpires time.Time
+}
+
+// GenerateTokenPair creates a signed access token and a signed refresh token for
+// the given user.
+func GenerateTokenPair(userID string, username string, cfg *config.JWTConfig) (*TokenPair, error) {
+	now := time.Now()
+	accessExp := now.Add(time.Duration(cfg.AccessTokenExp) * time.Second)
+	refreshExp := now.Add(time.Duration(cfg.RefreshTokenExp) * time.Second)
+
+	accessClaims := &Claims{
+		UserID:    userID,
+		Username:  username,
+		TokenType: AccessTokenType,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        uuid.NewString(),
+			Issuer:    cfg.Issuer,
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(accessExp),
+		},
+	}
+
+	refreshClaims := &Claims{
+		UserID:    userID,
+		Username:  username,
+		TokenType: RefreshTokenType,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        uuid.NewString(),
+			Issuer:    cfg.Issuer,
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(refreshExp),
+		},
+	}
+
+	accessToken, err := signToken(accessClaims, cfg.Secret)
+	if err != nil {
+		return nil, fmt.Errorf("sign access token: %w", err)
+	}
+
+	refreshToken, err := signToken(refreshClaims, cfg.Secret)
+	if err != nil {
+		return nil, fmt.Errorf("sign refresh token: %w", err)
+	}
+
+	return &TokenPair{
+		AccessToken:         accessToken,
+		RefreshToken:        refreshToken,
+		AccessTokenExpires:  accessExp,
+		RefreshTokenExpires: refreshExp,
+	}, nil
+}
+
+func signToken(claims *Claims, secret string) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(secret))
+}
+
+// ParseToken validates and parses a token string, returning the claims.
+func ParseToken(tokenString string, cfg *config.JWTConfig) (*Claims, error) {
+	claims := &Claims{}
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
+		return []byte(cfg.Secret), nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !token.Valid {
+		return nil, errors.New("invalid token")
+	}
+	return claims, nil
+}
+
+// JWTAuth is a gin middleware that validates a Bearer access token from the
+// Authorization header and stores the user id and username in the context.
+func JWTAuth(cfg *config.JWTConfig) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			abortUnauthorized(c, "missing Authorization header")
+			return
+		}
+
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+			abortUnauthorized(c, "invalid Authorization header")
+			return
+		}
+
+		claims, err := ParseToken(parts[1], cfg)
+		if err != nil {
+			abortUnauthorized(c, "invalid or expired token")
+			return
+		}
+
+		if claims.TokenType != AccessTokenType {
+			abortUnauthorized(c, "invalid token type")
+			return
+		}
+
+		c.Set(ContextKeyUserID, claims.UserID)
+		c.Set(ContextKeyUsername, claims.Username)
+		c.Next()
+	}
+}
+
+func abortUnauthorized(c *gin.Context, msg string) {
+	response.Error(c, response.NewUnauthorizedError(msg))
+	c.Abort()
+}
+
+// GetUserID retrieves the authenticated user id stored in the context.
+func GetUserID(c *gin.Context) string {
+	return c.GetString(ContextKeyUserID)
+}
+
+// GetUsername retrieves the authenticated username stored in the context.
+func GetUsername(c *gin.Context) string {
+	return c.GetString(ContextKeyUsername)
+}
+
+// GetTokenID retrieves the token id (jti) stored in the context, if any.
+func GetTokenID(c *gin.Context) string {
+	return c.GetString("token_id")
+}

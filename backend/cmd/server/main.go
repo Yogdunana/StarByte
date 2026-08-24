@@ -79,7 +79,7 @@ func main() {
 	// 9. 初始化业务模块
 	// 用户模块
 	userRepo := repo.NewUserRepo(database.DB())
-	userService := service.NewUserService(userRepo, &cfg.JWT, redis.Client())
+	userService := service.NewUserService(database.DB(), userRepo, &cfg.JWT)
 	userHandler := handler.NewUserHandler(userService)
 
 	// 10. API 路由组

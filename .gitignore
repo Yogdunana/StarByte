@@ -1,6 +1,5 @@
 # Go
 backend/bin/
-backend/pkg/
 backend/tmp/
 *.exe
 *.exe~

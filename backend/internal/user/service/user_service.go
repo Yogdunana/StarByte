@@ -129,15 +129,15 @@ func (s *userService) Login(ctx context.Context, req *dto.LoginRequest, ip strin
 
 	// 构建用户信息
 	userInfo := &dto.UserInfoResponse{
-		ID:         user.ID.String(),
-		Username:   user.Username,
-		RealName:   user.RealName,
-		AvatarURL:  user.AvatarURL,
-		Email:      user.Email,
-		Phone:      user.Phone,
-		Gender:     user.Gender,
-		Status:     user.Status,
-		CreatedAt:  user.CreatedAt.Format(time.RFC3339),
+		ID:        user.ID.String(),
+		Username:  user.Username,
+		RealName:  user.RealName,
+		AvatarURL: user.AvatarURL,
+		Email:     user.Email,
+		Phone:     user.Phone,
+		Gender:    user.Gender,
+		Status:    user.Status,
+		CreatedAt: user.CreatedAt.Format(time.RFC3339),
 	}
 
 	return &dto.LoginResponse{
@@ -255,15 +255,15 @@ func (s *userService) GetByID(ctx context.Context, id uuid.UUID) (*dto.UserInfoR
 	}
 
 	return &dto.UserInfoResponse{
-		ID:           user.ID.String(),
-		Username:     user.Username,
-		RealName:     user.RealName,
-		AvatarURL:    user.AvatarURL,
-		Email:        user.Email,
-		Phone:        user.Phone,
-		Gender:       user.Gender,
-		Status:       user.Status,
-		CreatedAt:    user.CreatedAt.Format(time.RFC3339),
+		ID:        user.ID.String(),
+		Username:  user.Username,
+		RealName:  user.RealName,
+		AvatarURL: user.AvatarURL,
+		Email:     user.Email,
+		Phone:     user.Phone,
+		Gender:    user.Gender,
+		Status:    user.Status,
+		CreatedAt: user.CreatedAt.Format(time.RFC3339),
 	}, nil
 }
 
@@ -285,16 +285,16 @@ func (s *userService) List(ctx context.Context, req *dto.ListUserRequest) ([]dto
 	result := make([]dto.UserListResponse, 0, len(users))
 	for _, user := range users {
 		item := dto.UserListResponse{
-			ID:         user.ID.String(),
-			Username:   user.Username,
-			RealName:   user.RealName,
-			AvatarURL:  user.AvatarURL,
-			Email:      user.Email,
-			Phone:      user.Phone,
-			Gender:     user.Gender,
-			Status:     user.Status,
+			ID:          user.ID.String(),
+			Username:    user.Username,
+			RealName:    user.RealName,
+			AvatarURL:   user.AvatarURL,
+			Email:       user.Email,
+			Phone:       user.Phone,
+			Gender:      user.Gender,
+			Status:      user.Status,
 			LastLoginAt: formatTimePtr(user.LastLoginAt),
-			CreatedAt:  user.CreatedAt.Format(time.RFC3339),
+			CreatedAt:   user.CreatedAt.Format(time.RFC3339),
 		}
 		if user.DepartmentID != nil {
 			item.DepartmentID = user.DepartmentID.String()

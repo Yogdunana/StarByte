@@ -48,26 +48,26 @@ type ListUserRequest struct {
 
 // CreateUserRequest 创建用户请求
 type CreateUserRequest struct {
-	Username     string `json:"username" binding:"required,min=3,max=50"`
-	Password     string `json:"password" binding:"required,min=6,max=50"`
-	RealName     string `json:"real_name" binding:"omitempty,max=50"`
-	Email        string `json:"email" binding:"omitempty,email"`
-	Phone        string `json:"phone" binding:"omitempty,max=20"`
-	Gender       *int   `json:"gender" binding:"omitempty,oneof=0 1 2"`
-	DepartmentID string `json:"department_id"`
-	PositionID   string `json:"position_id"`
+	Username     string   `json:"username" binding:"required,min=3,max=50"`
+	Password     string   `json:"password" binding:"required,min=6,max=50"`
+	RealName     string   `json:"real_name" binding:"omitempty,max=50"`
+	Email        string   `json:"email" binding:"omitempty,email"`
+	Phone        string   `json:"phone" binding:"omitempty,max=20"`
+	Gender       *int     `json:"gender" binding:"omitempty,oneof=0 1 2"`
+	DepartmentID string   `json:"department_id"`
+	PositionID   string   `json:"position_id"`
 	RoleIDs      []string `json:"role_ids"`
 }
 
 // UpdateUserRequest 更新用户请求
 type UpdateUserRequest struct {
-	RealName     string `json:"real_name" binding:"omitempty,max=50"`
-	Email        string `json:"email" binding:"omitempty,email"`
-	Phone        string `json:"phone" binding:"omitempty,max=20"`
-	Gender       *int   `json:"gender" binding:"omitempty,oneof=0 1 2"`
-	Status       *int   `json:"status" binding:"omitempty,oneof=0 1 2"`
-	DepartmentID string `json:"department_id"`
-	PositionID   string `json:"position_id"`
+	RealName     string   `json:"real_name" binding:"omitempty,max=50"`
+	Email        string   `json:"email" binding:"omitempty,email"`
+	Phone        string   `json:"phone" binding:"omitempty,max=20"`
+	Gender       *int     `json:"gender" binding:"omitempty,oneof=0 1 2"`
+	Status       *int     `json:"status" binding:"omitempty,oneof=0 1 2"`
+	DepartmentID string   `json:"department_id"`
+	PositionID   string   `json:"position_id"`
 	RoleIDs      []string `json:"role_ids"`
 }
 
@@ -75,28 +75,28 @@ type UpdateUserRequest struct {
 
 // LoginResponse 登录响应
 type LoginResponse struct {
-	AccessToken         string `json:"access_token"`
-	RefreshToken        string `json:"refresh_token"`
-	AccessTokenExpires  int64  `json:"access_token_expires"`
-	RefreshTokenExpires int64  `json:"refresh_token_expires"`
+	AccessToken         string            `json:"access_token"`
+	RefreshToken        string            `json:"refresh_token"`
+	AccessTokenExpires  int64             `json:"access_token_expires"`
+	RefreshTokenExpires int64             `json:"refresh_token_expires"`
 	User                *UserInfoResponse `json:"user"`
 }
 
 // UserInfoResponse 用户信息响应
 type UserInfoResponse struct {
-	ID           string              `json:"id"`
-	Username     string              `json:"username"`
-	RealName     string              `json:"real_name"`
-	AvatarURL    string              `json:"avatar_url"`
-	Email        string              `json:"email"`
-	Phone        string              `json:"phone"`
-	Gender       int                 `json:"gender"`
-	Status       int                 `json:"status"`
-	DepartmentID string              `json:"department_id"`
-	PositionID   string              `json:"position_id"`
-	Roles        []RoleInfoResponse  `json:"roles"`
-	Permissions  []string            `json:"permissions"`
-	CreatedAt    string              `json:"created_at"`
+	ID           string             `json:"id"`
+	Username     string             `json:"username"`
+	RealName     string             `json:"real_name"`
+	AvatarURL    string             `json:"avatar_url"`
+	Email        string             `json:"email"`
+	Phone        string             `json:"phone"`
+	Gender       int                `json:"gender"`
+	Status       int                `json:"status"`
+	DepartmentID string             `json:"department_id"`
+	PositionID   string             `json:"position_id"`
+	Roles        []RoleInfoResponse `json:"roles"`
+	Permissions  []string           `json:"permissions"`
+	CreatedAt    string             `json:"created_at"`
 }
 
 // RoleInfoResponse 角色信息响应
