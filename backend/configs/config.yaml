@@ -1,0 +1,63 @@
+# 服务配置
+server:
+  port: 8080
+  mode: debug          # debug / release / test
+  read_timeout: 60     # 秒
+  write_timeout: 60    # 秒
+
+# 数据库配置
+database:
+  host: localhost
+  port: 5432
+  user: starbyte
+  password: starbyte123
+  dbname: starbyte
+  sslmode: disable
+  max_open_conns: 100
+  max_idle_conns: 10
+  conn_max_lifetime: 3600  # 秒
+
+# Redis 配置
+redis:
+  host: localhost
+  port: 6379
+  password: ""
+  db: 0
+  pool_size: 100
+  min_idle_conns: 10
+
+# MinIO 配置
+minio:
+  endpoint: localhost:9000
+  access_key: minioadmin
+  secret_key: minioadmin
+  use_ssl: false
+  bucket: starbyte
+
+# JWT 配置
+jwt:
+  secret: your-super-secret-key-change-in-production
+  access_token_ttl: 900       # 15分钟，单位：秒
+  refresh_token_ttl: 604800    # 7天，单位：秒
+  issuer: starbyte
+  audience: starbyte-web
+
+# 日志配置
+logger:
+  level: debug          # debug / info / warn / error
+  format: json          # json / text
+  output: stdout        # stdout / file
+  file_path: ./logs/app.log
+  max_size: 100         # MB
+  max_backups: 10
+  max_age: 30           # 天
+  compress: true
+
+# 邮件配置
+email:
+  enabled: false
+  host: smtp.example.com
+  port: 587
+  username: noreply@example.com
+  password: password
+  from: "StarByte <noreply@example.com>"

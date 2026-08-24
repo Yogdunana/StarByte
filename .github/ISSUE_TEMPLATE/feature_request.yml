@@ -1,0 +1,73 @@
+name: Feature Request
+description: 提交新功能需求
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢提出新功能建议！请填写以下信息帮助我们理解你的需求。
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 需求背景
+      description: 描述这个功能是为了解决什么问题
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: 期望方案
+      description: 描述你期望的实现方式
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 备选方案
+      description: 你考虑过的其他实现方式
+    validations:
+      required: false
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: 涉及模块
+      description: 这个功能涉及哪些模块
+      options:
+        - 用户认证
+        - 会员管理
+        - 面试管理
+        - 会议管理
+        - 任务流转
+        - 流程引擎
+        - 实习管理
+        - 数据统计
+        - 系统管理
+        - 其他
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 优先级
+      description: 你认为这个需求的优先级
+      options:
+        - 低优先级
+        - 中优先级
+        - 高优先级
+        - 紧急
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 补充信息
+      description: 其他相关信息、截图、参考链接等
+    validations:
+      required: false

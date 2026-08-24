@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  # 后端检查
+  backend-lint:
+    name: Backend Lint & Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Lint
+        run: |
+          go vet ./...
+          go fmt ./...
+          git diff --exit-code || (echo "Code is not formatted. Run 'go fmt ./...'." && exit 1)
+
+      - name: Build
+        run: go build -o starbyte-server ./cmd/server
+
+      - name: Run tests
+        run: go test -v -cover ./...
+
+  # 前端检查
+  frontend-lint:
+    name: Frontend Lint & Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+
+  # 数据库迁移检查
+  db-migration-check:
+    name: Database Migration Check
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: starbyte
+          POSTGRES_PASSWORD: starbyte
+          POSTGRES_DB: starbyte_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install migrate
+        run: |
+          curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz
+          sudo mv migrate /usr/local/bin/
+
+      - name: Run migrations
+        run: |
+          migrate -path migrations -database "postgres://starbyte:starbyte@localhost:5432/starbyte_test?sslmode=disable" up
+
+      - name: Verify rollback
+        run: |
+          migrate -path migrations -database "postgres://starbyte:starbyte@localhost:5432/starbyte_test?sslmode=disable" down 1
+          migrate -path migrations -database "postgres://starbyte:starbyte@localhost:5432/starbyte_test?sslmode=disable" up

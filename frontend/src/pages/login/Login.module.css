@@ -1,0 +1,92 @@
+.container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+.left {
+  flex: 1;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+}
+
+.left::before {
+  content: '';
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  top: -100px;
+  left: -100px;
+}
+
+.left::after {
+  content: '';
+  position: absolute;
+  width: 400px;
+  height: 400px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+  bottom: -80px;
+  right: -80px;
+}
+
+.brand {
+  text-align: center;
+  z-index: 1;
+}
+
+.brand h1 {
+  font-size: 64px;
+  font-weight: 700;
+  margin: 0 0 16px 0;
+  letter-spacing: 2px;
+}
+
+.brand p {
+  font-size: 20px;
+  margin: 0;
+  opacity: 0.9;
+}
+
+.right {
+  width: 480px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background: #f5f7fa;
+}
+
+.card {
+  width: 100%;
+  max-width: 400px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.card :global(.ant-tabs) {
+  margin-bottom: 24px;
+}
+
+.card :global(.ant-tabs-tab) {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .left {
+    display: none;
+  }
+
+  .right {
+    width: 100%;
+  }
+}

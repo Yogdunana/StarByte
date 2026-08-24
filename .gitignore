@@ -1,0 +1,57 @@
+# Go
+backend/bin/
+backend/pkg/
+backend/tmp/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Database
+*.db
+*.sqlite
+
+# Uploads
+uploads/
+files/
+
+# Docker volumes
+docker-data/
+
+# Coverage
+coverage/
+*.lcov
+
+# Misc
+*.pid
+*.seed
+*.pid.lock

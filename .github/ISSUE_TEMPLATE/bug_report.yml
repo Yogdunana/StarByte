@@ -1,0 +1,89 @@
+name: Bug Report
+description: 提交 Bug 报告
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢提交 Bug 报告！请填写以下信息帮助我们定位问题。
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 清晰简洁地描述遇到的问题
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      description: 请描述如何复现这个问题
+      value: |
+        1. 进入 '...'
+        2. 点击 '....'
+        3. 滚动到 '....'
+        4. 出现错误
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期行为
+      description: 描述你期望发生的事情
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+      description: 描述实际发生的事情
+    validations:
+      required: true
+
+  - type: dropdown
+    id: module
+    attributes:
+      label: 模块
+      description: 问题出在哪个模块
+      options:
+        - 用户认证
+        - 会员管理
+        - 面试管理
+        - 会议管理
+        - 任务流转
+        - 流程引擎
+        - 实习管理
+        - 数据统计
+        - 系统管理
+        - 其他
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: 你使用的版本或 commit hash
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 截图/日志
+      description: 如果适用，请添加截图或错误日志
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 补充信息
+      description: 其他相关信息
+    validations:
+      required: false

@@ -1,0 +1,130 @@
+version: "3.8"
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:16-alpine
+    container_name: starbyte-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-starbyte}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-starbyte123}
+      POSTGRES_DB: ${POSTGRES_DB:-starbyte}
+      TZ: Asia/Shanghai
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-starbyte} -d ${POSTGRES_DB:-starbyte}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: starbyte-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:-starbyte123} --appendonly yes
+    environment:
+      TZ: Asia/Shanghai
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-starbyte123}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO 对象存储
+  minio:
+    image: minio/minio:latest
+    container_name: starbyte-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      TZ: Asia/Shanghai
+    ports:
+      - "9000:9000"   # API
+      - "9001:9001"   # 控制台
+    volumes:
+      - minio-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # 后端 API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: starbyte-backend
+    environment:
+      - SERVER_PORT=8080
+      - SERVER_MODE=debug
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USER=${POSTGRES_USER:-starbyte}
+      - DATABASE_PASSWORD=${POSTGRES_PASSWORD:-starbyte123}
+      - DATABASE_NAME=${POSTGRES_DB:-starbyte}
+      - DATABASE_SSLMODE=disable
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-starbyte123}
+      - REDIS_DB=0
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - MINIO_USE_SSL=false
+      - MINIO_BUCKET=starbyte
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-key-change-in-production}
+      - JWT_ACCESS_TOKEN_TTL=900
+      - JWT_REFRESH_TOKEN_TTL=604800
+      - TZ=Asia/Shanghai
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend:/app
+      - go-mod-cache:/go/pkg/mod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # 前端 Web
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: starbyte-frontend
+    environment:
+      - VITE_API_BASE_URL=/api/v1
+      - VITE_WS_URL=ws://localhost:8080/ws
+      - TZ=Asia/Shanghai
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - node-modules:/app/node_modules
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
+  go-mod-cache:
+  node-modules:
