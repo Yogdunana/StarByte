@@ -1,0 +1,165 @@
+package service
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/Yogdunana/StarByte/backend/internal/rbac/model"
+	"github.com/Yogdunana/StarByte/backend/internal/rbac/repo"
+	"github.com/Yogdunana/StarByte/backend/pkg/logger"
+	"github.com/Yogdunana/StarByte/backend/pkg/redis"
+	"github.com/google/uuid"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
+)
+
+// 权限缓存相关常量
+const (
+	permCacheKeyPrefix = "rbac:perms:"
+	permCacheTTL       = 10 * time.Minute
+	superAdminRoleCode = "super_admin"
+)
+
+// PermissionCacheService 权限缓存服务接口
+type PermissionCacheService interface {
+	GetUserPermissions(ctx context.Context, userID uuid.UUID) ([]string, error)
+	InvalidateUserPermissions(ctx context.Context, userID uuid.UUID) error
+	InvalidateRolePermissions(ctx context.Context, roleID uuid.UUID) error
+	IsSuperAdmin(ctx context.Context, userID uuid.UUID) (bool, error)
+}
+
+type permissionCacheService struct {
+	db             *gorm.DB
+	permissionRepo repo.PermissionRepo
+	roleRepo       repo.RoleRepo
+}
+
+// NewPermissionCacheService 创建权限缓存服务
+func NewPermissionCacheService(db *gorm.DB, permissionRepo repo.PermissionRepo, roleRepo repo.RoleRepo) PermissionCacheService {
+	return &permissionCacheService{
+		db:             db,
+		permissionRepo: permissionRepo,
+		roleRepo:       roleRepo,
+	}
+}
+
+// permCacheKey 构造用户权限缓存键
+func (s *permissionCacheService) permCacheKey(userID uuid.UUID) string {
+	return permCacheKeyPrefix + userID.String()
+}
+
+// GetUserPermissions 获取用户权限码列表，优先读取 Redis 缓存，
+// 缓存未命中时查询数据库并回填缓存（10 分钟 TTL）
+func (s *permissionCacheService) GetUserPermissions(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	key := s.permCacheKey(userID)
+
+	// 1. 优先从 Redis 缓存读取
+	cached, err := redis.Get().Get(ctx, key).Result()
+	if err == nil && cached != "" {
+		var codes []string
+		if jsonErr := json.Unmarshal([]byte(cached), &codes); jsonErr == nil {
+			logger.Info("rbac permission cache hit",
+				zap.String("user_id", userID.String()))
+			return codes, nil
+		}
+		// 反序列化失败则继续回源查询
+	}
+
+	// 2. 缓存未命中，查询数据库
+	logger.Info("rbac permission cache miss, querying DB",
+		zap.String("user_id", userID.String()))
+
+	permIDs, err := s.permissionRepo.GetPermissionIDsByUserID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get user permission ids: %w", err)
+	}
+
+	var codes []string
+	if len(permIDs) > 0 {
+		if err := s.db.WithContext(ctx).
+			Model(&model.Permission{}).
+			Where("id IN ? AND status = ?", permIDs, model.PermissionStatusEnabled).
+			Pluck("code", &codes).Error; err != nil {
+			return nil, fmt.Errorf("get permission codes: %w", err)
+		}
+	}
+
+	// 3. 回填缓存（即使为空也缓存，防止缓存穿透）
+	data, err := json.Marshal(codes)
+	if err != nil {
+		logger.Error("marshal permission codes failed",
+			zap.String("user_id", userID.String()), zap.Error(err))
+	} else if setErr := redis.Get().Set(ctx, key, string(data), permCacheTTL).Err(); setErr != nil {
+		logger.Warn("set permission cache failed",
+			zap.String("user_id", userID.String()), zap.Error(setErr))
+	}
+
+	return codes, nil
+}
+
+// InvalidateUserPermissions 失效指定用户的权限缓存
+func (s *permissionCacheService) InvalidateUserPermissions(ctx context.Context, userID uuid.UUID) error {
+	key := s.permCacheKey(userID)
+	if err := redis.Get().Del(ctx, key).Err(); err != nil {
+		return fmt.Errorf("delete permission cache: %w", err)
+	}
+	return nil
+}
+
+// InvalidateRolePermissions 失效指定角色下所有用户的权限缓存
+func (s *permissionCacheService) InvalidateRolePermissions(ctx context.Context, roleID uuid.UUID) error {
+	// 查询该角色下所有有效用户 ID
+	var userIDs []uuid.UUID
+	err := s.db.WithContext(ctx).
+		Model(&model.UserRole{}).
+		Where("role_id = ? AND (expired_at IS NULL OR expired_at > NOW())", roleID).
+		Pluck("user_id", &userIDs).Error
+	if err != nil {
+		return fmt.Errorf("get user ids by role: %w", err)
+	}
+
+	// 逐个失效用户缓存，单条失败仅记录日志不中断流程
+	for _, uid := range userIDs {
+		key := s.permCacheKey(uid)
+		if delErr := redis.Get().Del(ctx, key).Err(); delErr != nil {
+			logger.Warn("invalidate user permission cache failed",
+				zap.String("user_id", uid.String()),
+				zap.String("role_id", roleID.String()),
+				zap.Error(delErr))
+		}
+	}
+
+	return nil
+}
+
+// IsSuperAdmin 判断用户是否拥有 super_admin 角色
+func (s *permissionCacheService) IsSuperAdmin(ctx context.Context, userID uuid.UUID) (bool, error) {
+	// 查询用户拥有的角色 ID 列表
+	roleIDs, err := s.roleRepo.GetRoleIDsByUserID(ctx, userID)
+	if err != nil {
+		return false, fmt.Errorf("get user role ids: %w", err)
+	}
+	if len(roleIDs) == 0 {
+		return false, nil
+	}
+
+	// 查询 super_admin 角色是否存在
+	role, err := s.roleRepo.GetByCode(ctx, superAdminRoleCode)
+	if err != nil {
+		return false, fmt.Errorf("get super_admin role: %w", err)
+	}
+	if role == nil {
+		return false, nil
+	}
+
+	// 判断用户角色列表中是否包含 super_admin
+	for _, rid := range roleIDs {
+		if rid == role.ID {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
