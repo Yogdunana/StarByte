@@ -9,6 +9,9 @@ import (
 	"syscall"
 	"time"
 
+	rbacHandler "github.com/Yogdunana/StarByte/backend/internal/rbac/handler"
+	rbacRepo "github.com/Yogdunana/StarByte/backend/internal/rbac/repo"
+	rbacService "github.com/Yogdunana/StarByte/backend/internal/rbac/service"
 	"github.com/Yogdunana/StarByte/backend/internal/user/handler"
 	"github.com/Yogdunana/StarByte/backend/internal/user/repo"
 	"github.com/Yogdunana/StarByte/backend/internal/user/service"
@@ -82,6 +85,24 @@ func main() {
 	userService := service.NewUserService(database.DB(), userRepo, &cfg.JWT)
 	userHandler := handler.NewUserHandler(userService)
 
+	// RBAC 权限模块
+	roleRepo := rbacRepo.NewRoleRepo(database.DB())
+	permRepo := rbacRepo.NewPermissionRepo(database.DB())
+	deptRepo := rbacRepo.NewDepartmentRepo(database.DB())
+	posRepo := rbacRepo.NewPositionRepo(database.DB())
+
+	cacheService := rbacService.NewPermissionCacheService(database.DB(), permRepo, roleRepo)
+
+	roleService := rbacService.NewRoleService(database.DB(), roleRepo, permRepo, cacheService)
+	permService := rbacService.NewPermissionService(database.DB(), permRepo)
+	deptService := rbacService.NewDepartmentService(database.DB(), deptRepo)
+	posService := rbacService.NewPositionService(database.DB(), posRepo)
+
+	roleHandler := rbacHandler.NewRoleHandler(roleService)
+	permHandler := rbacHandler.NewPermissionHandler(permService)
+	deptHandler := rbacHandler.NewDepartmentHandler(deptService)
+	posHandler := rbacHandler.NewPositionHandler(posService)
+
 	// 10. API 路由组
 	api := r.Group("/api/v1")
 	{
@@ -104,10 +125,12 @@ func main() {
 			// 用户模块
 			handler.RegisterUserRoutes(auth, userHandler)
 
-			// TODO: 注册其他模块路由
-			// memberModule.RegisterRoutes(auth)
-			// workflowModule.RegisterRoutes(auth)
-			// ...
+			// RBAC 系统管理模块（需要权限校验）
+			system := auth.Group("")
+			system.Use(middleware.PermissionRequired(cacheService))
+			{
+				rbacHandler.RegisterRoutes(system, roleHandler, permHandler, deptHandler, posHandler)
+			}
 		}
 	}
 
