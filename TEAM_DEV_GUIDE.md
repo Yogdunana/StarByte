@@ -677,14 +677,50 @@ Authorization: Bearer <access_token>
 
 ### 8.1 使用 TRAE 开发时的流程
 
-1. 在 GitHub Issues 中找到你要开发的任务
-2. 评论 `我来认领` 领取任务
-3. 从 main 拉取新分支：`git checkout -b feature/xxx`
-4. 让 AI 读取本文档（将此文件链接发给 AI）
-5. 描述你的具体需求 → AI 生成代码
-6. 人工 review AI 生成的代码
-7. 本地测试通过后提交
-8. 提交 PR（使用 PR 模板）
+> **⚠️ 强制规则：开始任何工作前，必须完成步骤 0-2，否则禁止编写代码。**
+
+#### 步骤 0：检查优先级与认领资格
+
+1. 打开 GitHub Issues 页面，按优先级标签筛选（`priority:p0` → `priority:p1` → `priority:p2` → `priority:p3`）
+2. **若 P0 Issue 尚未全部完成（存在 `status:available` 的 P0 Issue），禁止认领 P1/P2/P3 Issue**
+3. **若 P1 核心模块完成不足 50%，禁止认领 P2 Issue**
+4. **若 P2 业务模块完成不足 80%，禁止认领 P3 Issue**
+5. 每人**最多同时认领 2 个 Issue**，且**禁止同时认领 2 个 P0/P1 高优先级 Issue**
+
+#### 步骤 1：按格式认领
+
+在目标 Issue 评论区发布以下格式的认领评论：
+
+```
+我来认领 @Yogdunana
+GitHub 账户名：[你的 GitHub 用户名]
+预计完成时间：YYYY-MM-DD
+关联分支：feature/[issue-number]-[brief-description]
+```
+
+等待项目负责人确认并分配（设置 Assignee + 添加 `status:claimed` 标签）后，方可开始开发。
+
+#### 步骤 2：检查需求变更（每次开始编码前必做）
+
+> **这是强制步骤。即使你之前已经认领，每次让 AI 写代码前都必须执行。**
+
+1. 检查该 Issue 是否有 `req:changed` 标签
+2. 检查 Issue 评论中是否有 `[REQ_CHANGE]` 开头的评论
+3. 读取仓库根目录的 `REQUIREMENT_CHANGES.md`，查看与本 Issue 相关的未处理变更
+4. 若存在未处理的变更：
+   - 仔细阅读变更内容
+   - 在 `[REQ_CHANGE]` 评论下回复：`已确认变更，开始适配。适配计划：[简述]`
+   - 根据变更内容调整开发计划
+5. 若无变更，正常继续开发
+
+#### 步骤 3：开发
+
+1. 从 main 拉取新分支：`git checkout -b feature/xxx`
+2. 让 AI 读取本文档（将此文件链接发给 AI）
+3. 描述你的具体需求 → AI 生成代码
+4. 人工 review AI 生成的代码
+5. 本地测试通过后提交
+6. 提交 PR（使用 PR 模板）
 
 ### 8.2 给 AI 的系统提示词（可直接复制）
 
@@ -694,7 +730,31 @@ Authorization: Bearer <access_token>
 项目仓库：https://github.com/Yogdunana/StarByte
 请先阅读仓库中的 TEAM_DEV_GUIDE.md 文件，理解项目规范后再开始开发。
 
-关键规范摘要：
+═════════════════════════════════════════
+【强制】开发前检查清单（AI 必须按顺序执行）
+═════════════════════════════════════════
+
+1. 优先级检查：
+   - 检查当前 Issue 的优先级标签（priority:p0 / p1 / p2 / p3）
+   - 若存在未完成的 P0 Issue，且当前 Issue 不是 P0，提醒用户：「存在未完成的 P0 基础设施 Issue，建议优先认领 P0 任务」
+   - P0 未完成时禁止开发 P1/P2/P3，P1 完成 <50% 时禁止开发 P2，P2 完成 <80% 时禁止开发 P3
+
+2. 需求变更检查：
+   - 使用 GitHub API 检查当前 Issue 是否有 req:changed 标签
+   - 检查 Issue 评论中是否有 [REQ_CHANGE] 开头的评论
+   - 读取仓库根目录 REQUIREMENT_CHANGES.md，查找与当前 Issue 相关的未处理变更
+   - 若发现未处理的变更，停止开发，提醒用户：「检测到需求变更，请先阅读变更内容并回复确认后再继续」
+   - 若无变更，继续开发
+
+3. 认领确认检查：
+   - 确认用户已在 Issue 评论区按格式认领（包含 GitHub 账户名、预计完成时间、关联分支）
+   - 确认 Issue 已被分配（Assignee）且带有 status:claimed 标签
+   - 若未认领，提醒用户先完成认领流程
+
+═════════════════════════════════════════
+关键规范摘要
+═════════════════════════════════════════
+
 1. 后端四层架构：handler → service → repo → model（禁止反向依赖）
 2. 前端函数组件 + Hooks，TypeScript 严格模式
 3. 主键 UUID，表名复数
@@ -706,7 +766,19 @@ Authorization: Bearer <access_token>
 9. 提交前运行：后端 go fmt + go vet，前端 npm run lint
 10. 权限校验在后端做，前端只做 UI 控制
 
-参考实现：
+═════════════════════════════════════════
+认领格式（用户必须在 Issue 评论区发布）
+═════════════════════════════════════════
+
+我来认领 @Yogdunana
+GitHub 账户名：[你的 GitHub 用户名]
+预计完成时间：YYYY-MM-DD
+关联分支：feature/[issue-number]-[brief-description]
+
+═════════════════════════════════════════
+参考实现
+═════════════════════════════════════════
+
 - 后端用户模块：backend/internal/user/（完整四层架构）
 - 前端用户列表：frontend/src/pages/user/UserList.tsx
 - 前端登录页：frontend/src/pages/login/Login.tsx
@@ -725,32 +797,140 @@ Authorization: Bearer <access_token>
 
 ## 九、任务认领与 Issue 列表
 
-### Phase 1 - 核心基础（里程碑 #1，截止 9/10）
+### 9.1 优先级体系
 
-| Issue | 标题 | 优先级 | 模块 |
-|-------|------|--------|------|
-| [#1](https://github.com/Yogdunana/StarByte/issues/1) | RBAC 权限系统 + 组织架构 | critical | backend |
-| [#2](https://github.com/Yogdunana/StarByte/issues/2) | 流程引擎核心模块 | critical | backend |
-| [#3](https://github.com/Yogdunana/StarByte/issues/3) | 前端流程设计器（React Flow） | high | frontend |
-| [#4](https://github.com/Yogdunana/StarByte/issues/4) | 消息通知系统 | high | fullstack |
-| [#5](https://github.com/Yogdunana/StarByte/issues/5) | 审计日志系统 | high | backend |
+| 优先级 | 标签 | 说明 | 认领规则 |
+|--------|------|------|----------|
+| P0 | `priority:p0` | 核心基础设施，不完成则其他模块无法开发 | 必须最先完成，禁止跳过 |
+| P1 | `priority:p1` | 核心功能模块，其他业务模块依赖 | P0 全部完成后才能认领 |
+| P2 | `priority:p2` | 具体业务功能，模块间弱依赖 | P1 核心模块完成 50% 后可认领 |
+| P3 | `priority:p3` | 辅助功能、优化、文档 | P2 业务模块完成 80% 后可认领 |
 
-### Phase 1 - 业务模块（里程碑 #2，截止 9/15）
+**认领限制**：
+- 每人**最多同时认领 2 个 Issue**
+- **禁止同时认领 2 个 P0/P1 高优先级 Issue**（可 1 个 P1 + 1 个 P2，或 1 个 P2 + 1 个 P3）
+- 若需放弃认领，必须在评论区说明并通知 @Yogdunana 移除 `status:claimed` 标签
 
-| Issue | 标题 | 优先级 | 模块 |
-|-------|------|--------|------|
-| [#6](https://github.com/Yogdunana/StarByte/issues/6) | 入会申请 + 人员档案 | high | fullstack |
-| [#7](https://github.com/Yogdunana/StarByte/issues/7) | 面试管理 | high | fullstack |
-| [#8](https://github.com/Yogdunana/StarByte/issues/8) | 会议管理 + 投票系统 | high | fullstack |
-| [#9](https://github.com/Yogdunana/StarByte/issues/9) | 任务流转 | medium | fullstack |
-| [#10](https://github.com/Yogdunana/StarByte/issues/10) | IT 实习管理 | medium | fullstack |
-| [#11](https://github.com/Yogdunana/StarByte/issues/11) | 数据统计与可视化报表 | medium | fullstack |
+### 9.2 认领格式（强制）
 
-### 认领方式
+**必须在 Issue 评论区按以下格式认领**：
 
-在对应 Issue 下评论 `我来认领` 并 @Yogdunana，会将 Issue 分配给你。
+```
+我来认领 @Yogdunana
+GitHub 账户名：[你的 GitHub 用户名]
+预计完成时间：YYYY-MM-DD
+关联分支：feature/[issue-number]-[brief-description]
+```
 
-### 标签说明
+项目负责人确认后，会执行以下操作：
+1. 将你设为 Issue 的 Assignee
+2. 添加 `status:claimed` 标签
+3. 移除 `status:available` 标签
+
+**三重防撞机制**：评论区认领记录 + GitHub Assignees + `status:claimed` 标签，三者缺一不可。
+
+### 9.3 需求变更机制
+
+> **目的**：确保开发者认领任务后，若需求发生变更，开发者和 AI 都能及时感知并适配。
+
+#### 9.3.1 变更发布流程（项目负责人操作）
+
+当需求需要变更时，项目负责人执行以下操作：
+
+1. 在相关 Issue 评论区发布变更通知：
+   ```
+   [REQ_CHANGE]
+   变更类型：[新增/修改/删除]
+   影响范围：[API/数据模型/UI/流程/权限]
+   具体内容：[变更详情]
+   是否需要返工：[是/否，说明范围]
+   变更编号：RC-YYYYMMDD-NNN
+   ```
+
+2. 在该 Issue 上添加 `req:changed` 标签
+
+3. 更新仓库根目录 `REQUIREMENT_CHANGES.md`，添加变更记录
+
+#### 9.3.2 开发者响应流程（强制）
+
+开发者在每次让 AI 写代码前，必须执行以下检查：
+
+1. **检查标签**：查看 Issue 是否有 `req:changed` 标签
+2. **检查评论**：查看 Issue 评论中是否有 `[REQ_CHANGE]` 开头的评论
+3. **检查日志**：读取仓库根目录 `REQUIREMENT_CHANGES.md`，查找与当前 Issue 相关的未处理变更
+4. **响应变更**：若发现未处理的变更，在 `[REQ_CHANGE]` 评论下回复：
+   ```
+   已确认变更，开始适配。适配计划：[简述如何调整]
+   ```
+5. **完成适配后**：在 `[REQ_CHANGE]` 评论下回复：
+   ```
+   变更适配完成。关联 PR：#XXX
+   ```
+   项目负责人确认后将 `REQUIREMENT_CHANGES.md` 中对应条目标记为「已完成」
+
+#### 9.3.3 AI 开发提示词中的变更检查指令
+
+AI 系统提示词（见 8.2 节）已包含强制变更检查步骤。当开发者告诉 AI「我要开发 Issue #X」时，AI 会自动：
+1. 通过 GitHub API 检查 Issue 标签和评论
+2. 读取 `REQUIREMENT_CHANGES.md`
+3. 若发现未处理变更，停止开发并提醒开发者先处理变更
+
+### 9.4 Issue 完整列表（33 个）
+
+#### P0 - 核心基础设施（7 个，必须最先完成）
+
+| Issue | 标题 | 模块 | 依赖 |
+|-------|------|------|------|
+| [#1](https://github.com/Yogdunana/StarByte/issues/1) | RBAC 权限系统 + 组织架构 | backend | 无 |
+| [#2](https://github.com/Yogdunana/StarByte/issues/2) | 流程引擎核心模块 | backend | 无 |
+| #12 | 后端错误处理与统一异常管理 | backend | 无 |
+| #13 | 配置中心与多环境管理 | backend | 无 |
+| #14 | API 网关与路由中间件 | backend | 无 |
+| #15 | 前端公共组件库与布局系统 | frontend | 无 |
+| #16 | Docker 容器化与 CI/CD 完善 | devops | 无 |
+
+#### P1 - 核心服务（8 个，依赖 P0）
+
+| Issue | 标题 | 模块 | 依赖 |
+|-------|------|------|------|
+| [#3](https://github.com/Yogdunana/StarByte/issues/3) | 前端流程设计器（React Flow） | frontend | #2 |
+| [#4](https://github.com/Yogdunana/StarByte/issues/4) | 消息通知系统 | fullstack | #1 |
+| [#5](https://github.com/Yogdunana/StarByte/issues/5) | 审计日志系统 | backend | #1 |
+| #17 | 用户认证服务（JWT + Refresh Token + 第三方登录预留） | backend | #1 |
+| #18 | 文件上传与管理服务（MinIO 集成） | backend | #1 |
+| #19 | 数据库迁移与种子数据 | backend | #1 |
+| #20 | 前端权限路由与菜单系统 | frontend | #1, #15 |
+| #21 | 前端 API 层封装与类型定义 | frontend | #15 |
+
+#### P2 - 业务模块（13 个，依赖 P1）
+
+| Issue | 标题 | 模块 | 依赖 |
+|-------|------|------|------|
+| [#6](https://github.com/Yogdunana/StarByte/issues/6) | 入会申请 + 人员档案 | fullstack | #1, #2, #4 |
+| [#7](https://github.com/Yogdunana/StarByte/issues/7) | 面试管理 | fullstack | #1, #2, #6 |
+| [#8](https://github.com/Yogdunana/StarByte/issues/8) | 会议管理 + 投票系统 | fullstack | #1, #4 |
+| [#9](https://github.com/Yogdunana/StarByte/issues/9) | 任务流转 | fullstack | #1, #4 |
+| [#10](https://github.com/Yogdunana/StarByte/issues/10) | IT 实习管理 | fullstack | #1, #4 |
+| [#11](https://github.com/Yogdunana/StarByte/issues/11) | 数据统计与可视化报表 | fullstack | #1, #5 |
+| #22 | 财务管理模块（一期预留接口） | fullstack | #1, #4 |
+| #23 | 纪律处分记录模块 | fullstack | #1, #4 |
+| #24 | 合同管理模块（一期预留接口） | fullstack | #1, #4 |
+| #25 | 邮件通知服务 | backend | #4 |
+| #26 | 前端仪表盘与数据大屏 | frontend | #11, #15 |
+| #27 | 流程引擎节点插件（条件分支/并行网关） | backend | #2 |
+| #28 | 前端表单引擎与动态表单 | frontend | #3, #15 |
+
+#### P3 - 支持功能（5 个）
+
+| Issue | 标题 | 模块 | 依赖 |
+|-------|------|------|------|
+| #29 | API 文档生成与 Swagger 集成 | backend | #14 |
+| #30 | 单元测试与集成测试框架 | fullstack | P0/P1 完成 |
+| #31 | 前端国际化与主题切换 | frontend | #15 |
+| #32 | 性能监控与健康检查 | backend | #14 |
+| #33 | 开发者文档与 README 完善 | docs | 各模块基本完成 |
+
+### 9.5 标签说明
 
 | 标签 | 含义 |
 |------|------|
@@ -758,12 +938,17 @@ Authorization: Bearer <access_token>
 | `status:claimed` | 已认领 |
 | `status:in-progress` | 开发中 |
 | `status:blocked` | 阻塞中 |
-| `priority:critical` | 紧急（其他模块依赖） |
-| `priority:high` | 高优先级 |
-| `priority:medium` | 中优先级 |
+| `status:review` | 待 Review |
+| `priority:p0` | P0 - 核心基础设施（阻塞） |
+| `priority:p1` | P1 - 核心功能模块 |
+| `priority:p2` | P2 - 业务功能 |
+| `priority:p3` | P3 - 支持功能 |
+| `req:changed` | 需求已变更，开发者需检查 |
 | `module:backend` | 纯后端 |
 | `module:frontend` | 纯前端 |
 | `module:fullstack` | 前后端 |
+| `module:devops` | 运维/基础设施 |
+| `module:docs` | 文档 |
 
 ---
 
