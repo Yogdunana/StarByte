@@ -3,8 +3,10 @@
 > **本文档是 StarByte 项目唯一的一站式开发参考。**
 > **所有团队成员（含 AI 助手）在开始任何开发工作前，必须先阅读本文档。**
 >
+> **新手快速上手 → [DEV_QUICKSTART.md](DEV_QUICKSTART.md)**（一句话认领任务 + AI 提示词模板）
+>
 > 仓库地址：https://github.com/Yogdunana/StarByte
-> 最后更新：2026-08-24
+> 最后更新：2026-08-25
 
 ---
 
