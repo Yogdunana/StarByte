@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { message } from 'antd';
 import { getToken, getRefreshToken, setToken, setRefreshToken, removeToken } from '@/utils/storage';
 

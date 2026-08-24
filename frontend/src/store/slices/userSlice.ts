@@ -1,5 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { getCurrentUser, UserInfo } from '@/api/user';
+import { getCurrentUser } from '@/api/auth';
+import type { UserInfo } from '@/types/api';
+import type { RootState } from '@/store';
 
 interface UserState {
   currentUser: UserInfo | null;

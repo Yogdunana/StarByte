@@ -65,7 +65,7 @@ const Header: React.FC = () => {
   // 面包屑
   const getBreadcrumbItems = () => {
     const paths = location.pathname.split('/').filter(Boolean);
-    return paths.map((path, index) => ({
+    return paths.map((path) => ({
       title: path.charAt(0).toUpperCase() + path.slice(1),
     }));
   };

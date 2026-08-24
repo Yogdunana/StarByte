@@ -1,6 +1,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { login as loginApi, refreshToken as refreshTokenApi, LoginRequest, LoginResponse } from '@/api/auth';
-import { setToken, getRefreshToken, removeToken, setRefreshToken } from '@/utils/storage';
+import { login as loginApi, refreshToken as refreshTokenApi } from '@/api/auth';
+import type { LoginRequest, LoginResponse } from '@/types/api';
+import { setToken as saveToken, getRefreshToken, removeToken, setRefreshToken } from '@/utils/storage';
+import type { RootState } from '@/store';
 
 interface AuthState {
   token: string;
@@ -62,7 +64,7 @@ const authSlice = createSlice({
       state.token = action.payload.accessToken;
       state.refreshToken = action.payload.refreshToken;
       state.isAuthenticated = true;
-      setToken(action.payload.accessToken);
+      saveToken(action.payload.accessToken);
       setRefreshToken(action.payload.refreshToken);
     },
     clearError(state) {
@@ -80,7 +82,7 @@ const authSlice = createSlice({
         state.token = action.payload.access_token;
         state.refreshToken = action.payload.refresh_token;
         state.isAuthenticated = true;
-        setToken(action.payload.access_token);
+        saveToken(action.payload.access_token);
         setRefreshToken(action.payload.refresh_token);
       })
       .addCase(login.rejected, (state, action) => {
@@ -90,7 +92,7 @@ const authSlice = createSlice({
       .addCase(refreshToken.fulfilled, (state, action: PayloadAction<LoginResponse>) => {
         state.token = action.payload.access_token;
         state.refreshToken = action.payload.refresh_token;
-        setToken(action.payload.access_token);
+        saveToken(action.payload.access_token);
         setRefreshToken(action.payload.refresh_token);
       });
   },

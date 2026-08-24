@@ -18,8 +18,8 @@ const getMenuItems = (routeList: AppRouteObject[], parentPath = ''): MenuProps['
   return routeList
     .filter((route) => !route.meta?.hidden && route.path && route.path !== '*')
     .map((route) => {
-      const fullPath = route.path.startsWith('/')
-        ? route.path
+      const fullPath = route.path!.startsWith('/')
+        ? route.path!
         : `${parentPath}/${route.path}`;
 
       const IconComponent = route.meta?.icon
@@ -37,7 +37,7 @@ const getMenuItems = (routeList: AppRouteObject[], parentPath = ''): MenuProps['
           route.children.filter((c) => c.path !== 'index'),
           fullPath
         );
-        if (childItems.length > 0) {
+        if (childItems && childItems.length > 0) {
           item.children = childItems;
         }
       }
