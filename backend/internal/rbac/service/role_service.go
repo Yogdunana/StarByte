@@ -175,16 +175,10 @@ func (s *roleService) Delete(ctx context.Context, id uuid.UUID) error {
 
 // AssignPermissions 为角色分配权限（事务执行，并失效相关用户权限缓存）
 // 系统内置角色不可修改权限，防止 super_admin 等关键角色权限被篡改
+//
+// 注意：角色存在性校验放在事务内（加行锁时一并判断），省去一次事务外的独立查询。
+// 权限存在性校验仍放在事务外，避免持有行锁期间执行 N 次单条查询导致锁等待时间过长。
 func (s *roleService) AssignPermissions(ctx context.Context, id uuid.UUID, req *dto.AssignPermissionsRequest) error {
-	// 校验角色是否存在
-	role, err := s.roleRepo.GetByID(ctx, id)
-	if err != nil {
-		return fmt.Errorf("get role: %w", err)
-	}
-	if role == nil {
-		return rbac.NewRoleNotFoundError()
-	}
-
 	// 解析权限 ID 列表
 	permIDs := make([]uuid.UUID, 0, len(req.PermissionIDs))
 	for _, pidStr := range req.PermissionIDs {
@@ -195,7 +189,7 @@ func (s *roleService) AssignPermissions(ctx context.Context, id uuid.UUID, req *
 		permIDs = append(permIDs, pid)
 	}
 
-	// 校验权限是否存在
+	// 校验权限是否存在（在事务外执行，减少锁持有时间）
 	for _, pid := range permIDs {
 		perm, err := s.permissionRepo.GetByID(ctx, pid)
 		if err != nil {
@@ -207,8 +201,9 @@ func (s *roleService) AssignPermissions(ctx context.Context, id uuid.UUID, req *
 	}
 
 	// 事务执行权限分配
-	err = s.db.Transaction(func(tx *gorm.DB) error {
+	err := s.db.Transaction(func(tx *gorm.DB) error {
 		// 对角色记录加排他锁，防止并发分配权限时出现唯一键冲突
+		// 同时通过行锁查询判断角色是否存在，省去一次独立的 GetByID 查询
 		var role model.Role
 		if err := tx.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).First(&role, id).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {

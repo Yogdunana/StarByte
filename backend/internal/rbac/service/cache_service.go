@@ -143,8 +143,9 @@ func (s *permissionCacheService) InvalidateRolePermissions(ctx context.Context, 
 }
 
 // IsSuperAdmin 判断用户是否拥有 super_admin 角色
+// 注意：super_admin 角色本身必须是启用状态（status=0），否则不视为超级管理员
 func (s *permissionCacheService) IsSuperAdmin(ctx context.Context, userID uuid.UUID) (bool, error) {
-	// 查询用户拥有的角色 ID 列表
+	// 查询用户拥有的角色 ID 列表（已过滤已禁用角色）
 	roleIDs, err := s.roleRepo.GetRoleIDsByUserID(ctx, userID)
 	if err != nil {
 		return false, fmt.Errorf("get user role ids: %w", err)
@@ -153,12 +154,17 @@ func (s *permissionCacheService) IsSuperAdmin(ctx context.Context, userID uuid.U
 		return false, nil
 	}
 
-	// 查询 super_admin 角色是否存在
+	// 查询 super_admin 角色是否存在且启用
 	role, err := s.roleRepo.GetByCode(ctx, superAdminRoleCode)
 	if err != nil {
 		return false, fmt.Errorf("get super_admin role: %w", err)
 	}
 	if role == nil {
+		return false, nil
+	}
+
+	// super_admin 角色若被禁用，则不授予超级管理员权限
+	if role.Status != 0 {
 		return false, nil
 	}
 

@@ -7,6 +7,7 @@ import (
 	rbac "github.com/Yogdunana/StarByte/backend/internal/rbac"
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	rbacRepo "github.com/Yogdunana/StarByte/backend/internal/rbac/repo"
+	rbacService "github.com/Yogdunana/StarByte/backend/internal/rbac/service"
 	"github.com/Yogdunana/StarByte/backend/pkg/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -31,8 +32,13 @@ const dataScopeContextKey = "data_scope_condition"
 // 下游 handler 和 service 可通过 GetDataScopeFromContext 获取过滤条件
 // 这样可以确保数据权限统一生效，避免因遗漏调用而产生越权漏洞
 //
-// db 和 deptRepo 通过闭包注入，便于单元测试时替换为 mock 实现
-func DataScopeMiddleware(db *gorm.DB, deptRepo rbacRepo.DepartmentRepo) gin.HandlerFunc {
+// 参数说明：
+//   - db: 数据库连接，用于查询用户角色和数据范围
+//   - deptRepo: 部门仓储，用于查询部门及子部门 ID
+//   - cacheService: 权限缓存服务，用于判断用户是否为超级管理员
+//     （当 PermissionRequired 中间件已在 context 中设置 is_super_admin 标志时优先复用，
+//     未设置时自行查询，确保本中间件独立使用时超级管理员仍能正确豁免）
+func DataScopeMiddleware(db *gorm.DB, deptRepo rbacRepo.DepartmentRepo, cacheService rbacService.PermissionCacheService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 从 context 获取用户 ID（由 JWTAuth 中间件设置）
 		userIDStr, exists := c.Get("user_id")
@@ -59,7 +65,7 @@ func DataScopeMiddleware(db *gorm.DB, deptRepo rbacRepo.DepartmentRepo) gin.Hand
 		}
 
 		// 构建数据权限条件
-		condition, err := buildDataScopeCondition(c.Request.Context(), db, deptRepo, userID, resourceStr, c)
+		condition, err := buildDataScopeCondition(c.Request.Context(), db, deptRepo, cacheService, userID, resourceStr, c)
 		if err != nil {
 			logger.Error("build data scope condition failed",
 				zap.Stringer("user_id", userID),
@@ -106,14 +112,29 @@ func GetDataScopeFromContext(c *gin.Context) *DataScopeCondition {
 // buildDataScopeCondition 构建用户在指定资源上的数据权限过滤条件
 // 超级管理员或数据范围为 all 时返回空条件（不限制）
 // 其他情况根据数据范围返回对应的过滤条件
-func buildDataScopeCondition(ctx context.Context, db *gorm.DB, deptRepo rbacRepo.DepartmentRepo, userID uuid.UUID, resource string, c *gin.Context) (*DataScopeCondition, error) {
+//
+// cacheService 用于独立判断超级管理员身份：
+// 1. 优先读取 context 中的 is_super_admin 标志（PermissionRequired 中间件已设置时零成本）
+// 2. 标志不存在时通过 cacheService.IsSuperAdmin 自行查询（确保中间件独立可用）
+func buildDataScopeCondition(ctx context.Context, db *gorm.DB, deptRepo rbacRepo.DepartmentRepo, cacheService rbacService.PermissionCacheService, userID uuid.UUID, resource string, c *gin.Context) (*DataScopeCondition, error) {
 	if db == nil {
 		return nil, fmt.Errorf("data scope: database handle is nil")
 	}
 
 	// 超级管理员不进行数据过滤
+	// 优先复用 PermissionRequired 中间件设置的标志，避免重复查询
 	if isSuper, exists := c.Get("is_super_admin"); exists {
 		if b, ok := isSuper.(bool); ok && b {
+			return &DataScopeCondition{}, nil
+		}
+	} else if cacheService != nil {
+		// 上下文无标志时自行判断，确保中间件独立使用时超级管理员仍能豁免
+		isSuper, err := cacheService.IsSuperAdmin(ctx, userID)
+		if err != nil {
+			logger.Warn("data scope: check super admin failed, falling through to normal data scope",
+				zap.Error(err))
+		} else if isSuper {
+			c.Set("is_super_admin", true)
 			return &DataScopeCondition{}, nil
 		}
 	}
