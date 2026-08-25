@@ -31,14 +31,16 @@ func NewPositionHandler(positionService service.PositionService) *PositionHandle
 // @Success 200 {object} response.Response{data=response.PageResponse{list=[]dto.PositionResponse}}
 // @Router /system/positions [get]
 func (h *PositionHandler) List(c *gin.Context) {
-	var req struct {
-		Page     int    `form:"page,default=1" binding:"min=1"`
-		PageSize int    `form:"page_size,default=10" binding:"min=1,max=100"`
-		Keyword  string `form:"keyword"`
-	}
+	var req dto.ListPositionRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		response.BadRequest(c, "参数错误: "+err.Error())
+		response.BadRequest(c, "参数错误")
 		return
+	}
+	if req.Page <= 0 {
+		req.Page = 1
+	}
+	if req.PageSize <= 0 {
+		req.PageSize = 10
 	}
 
 	list, total, err := h.positionService.List(c.Request.Context(), req.Page, req.PageSize, req.Keyword)
@@ -89,7 +91,7 @@ func (h *PositionHandler) GetByID(c *gin.Context) {
 func (h *PositionHandler) Create(c *gin.Context) {
 	var req dto.CreatePositionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "参数错误: "+err.Error())
+		response.BadRequest(c, "参数错误")
 		return
 	}
 
@@ -123,7 +125,7 @@ func (h *PositionHandler) Update(c *gin.Context) {
 
 	var req dto.UpdatePositionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "参数错误: "+err.Error())
+		response.BadRequest(c, "参数错误")
 		return
 	}
 

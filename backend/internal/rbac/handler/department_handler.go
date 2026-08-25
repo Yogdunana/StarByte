@@ -75,7 +75,7 @@ func (h *DepartmentHandler) GetByID(c *gin.Context) {
 func (h *DepartmentHandler) Create(c *gin.Context) {
 	var req dto.CreateDepartmentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "参数错误: "+err.Error())
+		response.BadRequest(c, "参数错误")
 		return
 	}
 
@@ -109,7 +109,7 @@ func (h *DepartmentHandler) Update(c *gin.Context) {
 
 	var req dto.UpdateDepartmentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "参数错误: "+err.Error())
+		response.BadRequest(c, "参数错误")
 		return
 	}
 

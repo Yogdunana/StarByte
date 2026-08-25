@@ -33,8 +33,14 @@ func NewRoleHandler(roleService service.RoleService) *RoleHandler {
 func (h *RoleHandler) List(c *gin.Context) {
 	var req dto.ListRoleRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		response.BadRequest(c, "参数错误: "+err.Error())
+		response.BadRequest(c, "参数错误")
 		return
+	}
+	if req.Page <= 0 {
+		req.Page = 1
+	}
+	if req.PageSize <= 0 {
+		req.PageSize = 10
 	}
 
 	list, total, err := h.roleService.List(c.Request.Context(), &req)
@@ -85,7 +91,7 @@ func (h *RoleHandler) GetByID(c *gin.Context) {
 func (h *RoleHandler) Create(c *gin.Context) {
 	var req dto.CreateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "参数错误: "+err.Error())
+		response.BadRequest(c, "参数错误")
 		return
 	}
 
@@ -119,7 +125,7 @@ func (h *RoleHandler) Update(c *gin.Context) {
 
 	var req dto.UpdateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "参数错误: "+err.Error())
+		response.BadRequest(c, "参数错误")
 		return
 	}
 
@@ -178,8 +184,15 @@ func (h *RoleHandler) AssignPermissions(c *gin.Context) {
 
 	var req dto.AssignPermissionsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "参数错误: "+err.Error())
+		response.BadRequest(c, "参数错误")
 		return
+	}
+
+	for _, pid := range req.PermissionIDs {
+		if _, err := uuid.Parse(pid); err != nil {
+			response.BadRequest(c, "无效的权限ID")
+			return
+		}
 	}
 
 	if err := h.roleService.AssignPermissions(c.Request.Context(), id, &req); err != nil {
@@ -209,13 +222,16 @@ func (h *RoleHandler) GetRoleUsers(c *gin.Context) {
 		return
 	}
 
-	var req struct {
-		Page     int `form:"page,default=1" binding:"min=1"`
-		PageSize int `form:"page_size,default=10" binding:"min=1,max=100"`
-	}
+	var req dto.RoleUserListRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		response.BadRequest(c, "参数错误: "+err.Error())
+		response.BadRequest(c, "参数错误")
 		return
+	}
+	if req.Page <= 0 {
+		req.Page = 1
+	}
+	if req.PageSize <= 0 {
+		req.PageSize = 10
 	}
 
 	list, total, err := h.roleService.GetRoleUsers(c.Request.Context(), id, req.Page, req.PageSize)

@@ -8,7 +8,6 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/rbac/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/rbac/repo"
-	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -64,7 +63,7 @@ func (s *permissionService) Create(ctx context.Context, req *dto.CreatePermissio
 	if req.ParentID != "" {
 		parentID, err := uuid.Parse(req.ParentID)
 		if err != nil {
-			return nil, response.NewError(response.CodeBadRequest, "无效的父级权限ID")
+			return nil, fmt.Errorf("invalid parent_id: %w", err)
 		}
 		permission.ParentID = &parentID
 	}

@@ -103,9 +103,6 @@ func main() {
 	deptHandler := rbacHandler.NewDepartmentHandler(deptService)
 	posHandler := rbacHandler.NewPositionHandler(posService)
 
-	// 数据权限中间件实例
-	dataScopeMiddleware := middleware.DataScopeMiddleware(database.DB(), deptRepo, cacheService)
-
 	// 10. API 路由组
 	api := r.Group("/api/v1")
 	{
@@ -128,13 +125,9 @@ func main() {
 			// 用户模块
 			handler.RegisterUserRoutes(auth, userHandler)
 
-			// RBAC 系统管理模块（需要权限校验 + 数据权限）
-			system := auth.Group("")
-			system.Use(middleware.PermissionRequired(cacheService))
-			system.Use(dataScopeMiddleware)
-			{
-				rbacHandler.RegisterRoutes(system, roleHandler, permHandler, deptHandler, posHandler)
-			}
+			// RBAC 系统管理模块
+			// 权限校验和数据权限中间件在 RegisterRoutes 内部按正确顺序注册
+			rbacHandler.RegisterRoutes(auth, database.DB(), roleHandler, permHandler, deptHandler, posHandler, cacheService, deptRepo)
 		}
 	}
 
@@ -154,7 +147,7 @@ func main() {
 	// 12. 优雅关闭
 	go func() {
 		logger.Info("server started", zap.Int("port", cfg.Server.Port), zap.String("mode", cfg.Server.Mode))
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrClosed {
 			logger.Fatal("server listen failed", zap.Error(err))
 		}
 	}()

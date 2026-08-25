@@ -9,7 +9,6 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/rbac/repo"
 	"github.com/Yogdunana/StarByte/backend/pkg/logger"
-	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -60,6 +59,19 @@ func (s *roleService) Create(ctx context.Context, req *dto.CreateRoleRequest) (*
 		Name:        req.Name,
 		Code:        req.Code,
 		Description: req.Description,
+	}
+
+	// 解析 parent_id
+	if req.ParentID != "" {
+		parentID, err := uuid.Parse(req.ParentID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid parent_id: %w", err)
+		}
+		role.ParentID = &parentID
+	}
+
+	if req.SortOrder != nil {
+		role.SortOrder = *req.SortOrder
 	}
 
 	if err := s.roleRepo.Create(ctx, nil, role); err != nil {
@@ -133,6 +145,9 @@ func (s *roleService) Update(ctx context.Context, id uuid.UUID, req *dto.UpdateR
 	if req.Description != "" {
 		role.Description = req.Description
 	}
+	if req.Status != nil {
+		role.Status = *req.Status
+	}
 
 	if err := s.roleRepo.Update(ctx, nil, role); err != nil {
 		return nil, fmt.Errorf("update role: %w", err)
@@ -184,7 +199,7 @@ func (s *roleService) AssignPermissions(ctx context.Context, id uuid.UUID, req *
 	for _, pidStr := range req.PermissionIDs {
 		pid, err := uuid.Parse(pidStr)
 		if err != nil {
-			return response.NewError(response.CodeBadRequest, "无效的权限ID: "+pidStr)
+			return fmt.Errorf("invalid permission id: %s", pidStr)
 		}
 		permIDs = append(permIDs, pid)
 	}

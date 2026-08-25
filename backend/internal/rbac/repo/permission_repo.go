@@ -101,8 +101,7 @@ func (r *permissionRepo) GetPermissionIDsByUserID(ctx context.Context, userID uu
 		Joins("JOIN roles r ON ur.role_id = r.id").
 		Joins("JOIN role_permissions rp ON ur.role_id = rp.role_id").
 		Joins("JOIN permissions p ON rp.permission_id = p.id").
-		Where("ur.user_id = ?", userID).
-		Where("ur.expired_at IS NULL OR ur.expired_at > NOW()").
+		Where("ur.user_id = ? AND (ur.expired_at IS NULL OR ur.expired_at > NOW())", userID).
 		Where("r.status = ?", 0). // 角色需启用
 		Where("p.status = ?", 0). // 权限需启用
 		Group("rp.permission_id").
@@ -121,8 +120,7 @@ func (r *permissionRepo) GetPermissionCodesByUserID(ctx context.Context, userID 
 		Joins("JOIN roles r ON ur.role_id = r.id").
 		Joins("JOIN role_permissions rp ON ur.role_id = rp.role_id").
 		Joins("JOIN permissions p ON rp.permission_id = p.id").
-		Where("ur.user_id = ?", userID).
-		Where("ur.expired_at IS NULL OR ur.expired_at > NOW()").
+		Where("ur.user_id = ? AND (ur.expired_at IS NULL OR ur.expired_at > NOW())", userID).
 		Where("r.status = ?", 0). // 角色需启用
 		Where("p.status = ?", 0). // 权限需启用
 		Distinct("p.code").
