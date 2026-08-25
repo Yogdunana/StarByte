@@ -25,10 +25,11 @@ func (Role) TableName() string {
 }
 
 // RolePermission 角色-权限关联模型
+// 联合唯一索引 idx_role_perm 确保同一角色下同一权限只关联一次
 type RolePermission struct {
 	ID           uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
-	RoleID       uuid.UUID `gorm:"type:uuid;index;not null" json:"role_id"`
-	PermissionID uuid.UUID `gorm:"type:uuid;index;not null" json:"permission_id"`
+	RoleID       uuid.UUID `gorm:"type:uuid;uniqueIndex:idx_role_perm,priority:1;index;not null" json:"role_id"`
+	PermissionID uuid.UUID `gorm:"type:uuid;uniqueIndex:idx_role_perm,priority:2;index;not null" json:"permission_id"`
 	DataScope    string    `gorm:"type:varchar(20);default:department" json:"data_scope"` // all, department, department_and_sub, self, custom
 	CreatedAt    time.Time `json:"created_at"`
 }
@@ -38,10 +39,11 @@ func (RolePermission) TableName() string {
 }
 
 // UserRole 用户-角色关联模型
+// 联合唯一索引 idx_user_role 确保同一用户下同一角色只关联一次
 type UserRole struct {
 	ID        uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
-	UserID    uuid.UUID  `gorm:"type:uuid;index;not null" json:"user_id"`
-	RoleID    uuid.UUID  `gorm:"type:uuid;index;not null" json:"role_id"`
+	UserID    uuid.UUID  `gorm:"type:uuid;uniqueIndex:idx_user_role,priority:1;index;not null" json:"user_id"`
+	RoleID    uuid.UUID  `gorm:"type:uuid;uniqueIndex:idx_user_role,priority:2;index;not null" json:"role_id"`
 	ExpiredAt *time.Time `json:"expired_at"`
 	CreatedAt time.Time  `json:"created_at"`
 }

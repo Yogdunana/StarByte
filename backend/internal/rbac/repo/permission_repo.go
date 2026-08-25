@@ -91,17 +91,19 @@ func (r *permissionRepo) CountChildren(ctx context.Context, parentID uuid.UUID) 
 }
 
 // GetPermissionIDsByUserID 查询用户拥有的权限 ID 列表
-// 关联 user_roles -> role_permissions -> permissions，
-// 过滤已过期角色关联（expired_at IS NULL OR expired_at > NOW()）且权限状态为启用（status=0）
+// 关联 user_roles -> roles -> role_permissions -> permissions
+// 过滤条件：角色未过期、角色已启用、权限已启用
 func (r *permissionRepo) GetPermissionIDsByUserID(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
 	var permIDs []uuid.UUID
 	err := r.db.WithContext(ctx).
 		Table("user_roles AS ur").
+		Joins("JOIN roles r ON ur.role_id = r.id").
 		Joins("JOIN role_permissions rp ON ur.role_id = rp.role_id").
 		Joins("JOIN permissions p ON rp.permission_id = p.id").
 		Where("ur.user_id = ?", userID).
 		Where("ur.expired_at IS NULL OR ur.expired_at > NOW()").
-		Where("p.status = ?", 0).
+		Where("r.status = ?", 0). // 角色需启用
+		Where("p.status = ?", 0). // 权限需启用
 		Group("rp.permission_id").
 		Pluck("rp.permission_id", &permIDs).Error
 	return permIDs, err

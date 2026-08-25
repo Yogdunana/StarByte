@@ -141,7 +141,8 @@ func (s *roleService) Update(ctx context.Context, id uuid.UUID, req *dto.UpdateR
 	return s.toRoleResponse(role), nil
 }
 
-// Delete 删除角色（系统内置角色不可删除，已被用户关联的角色不可删除）
+// Delete 删除角色
+// 系统内置角色不可删除，已被用户关联的角色不可删除
 func (s *roleService) Delete(ctx context.Context, id uuid.UUID) error {
 	role, err := s.roleRepo.GetByID(ctx, id)
 	if err != nil {
@@ -156,7 +157,7 @@ func (s *roleService) Delete(ctx context.Context, id uuid.UUID) error {
 		return rbac.NewSystemRoleNoDeleteError()
 	}
 
-	// 角色已关联用户则不可删除
+	// 检查角色是否已关联用户
 	count, err := s.roleRepo.CountUsersByRoleID(ctx, id)
 	if err != nil {
 		return fmt.Errorf("count role users: %w", err)

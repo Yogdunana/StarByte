@@ -103,6 +103,9 @@ func main() {
 	deptHandler := rbacHandler.NewDepartmentHandler(deptService)
 	posHandler := rbacHandler.NewPositionHandler(posService)
 
+	// 数据权限中间件实例
+	dataScopeMiddleware := middleware.DataScopeMiddleware(database.DB(), deptRepo)
+
 	// 10. API 路由组
 	api := r.Group("/api/v1")
 	{
@@ -125,9 +128,10 @@ func main() {
 			// 用户模块
 			handler.RegisterUserRoutes(auth, userHandler)
 
-			// RBAC 系统管理模块（需要权限校验）
+			// RBAC 系统管理模块（需要权限校验 + 数据权限）
 			system := auth.Group("")
 			system.Use(middleware.PermissionRequired(cacheService))
+			system.Use(dataScopeMiddleware)
 			{
 				rbacHandler.RegisterRoutes(system, roleHandler, permHandler, deptHandler, posHandler)
 			}

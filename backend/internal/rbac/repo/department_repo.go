@@ -24,6 +24,9 @@ type departmentRepo struct {
 	db *gorm.DB
 }
 
+// maxDeptDepth 部门递归查询最大深度，防止脏数据形成环导致死循环
+const maxDeptDepth = 20
+
 // NewDepartmentRepo 创建部门 Repo
 func NewDepartmentRepo(db *gorm.DB) DepartmentRepo {
 	return &departmentRepo{db: db}
@@ -83,13 +86,15 @@ func (r *departmentRepo) CountChildren(ctx context.Context, parentID uuid.UUID) 
 	return count, err
 }
 
-// GetDepartmentAndSubIDs 递归获取部门及其所有子部门ID
-// 采用迭代方式逐层查询子部门，避免递归 CTE 在部分 PostgreSQL 场景下的兼容性问题
+// GetDepartmentAndSubIDs 获取部门及其所有子部门ID
+// 采用迭代方式逐层查询，使用 visited 集合去重并限制最大深度，防止脏数据形成环导致死循环
 func (r *departmentRepo) GetDepartmentAndSubIDs(ctx context.Context, parentID uuid.UUID) ([]uuid.UUID, error) {
 	result := []uuid.UUID{parentID}
+	visited := map[uuid.UUID]bool{parentID: true}
 	currentLevel := []uuid.UUID{parentID}
+	depth := 0
 
-	for len(currentLevel) > 0 {
+	for len(currentLevel) > 0 && depth < maxDeptDepth {
 		var nextLevel []uuid.UUID
 		err := r.db.WithContext(ctx).
 			Model(&model.Department{}).
@@ -98,8 +103,23 @@ func (r *departmentRepo) GetDepartmentAndSubIDs(ctx context.Context, parentID uu
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, nextLevel...)
-		currentLevel = nextLevel
+
+		// 过滤已访问节点，防止环路导致死循环
+		filtered := make([]uuid.UUID, 0, len(nextLevel))
+		for _, id := range nextLevel {
+			if !visited[id] {
+				visited[id] = true
+				filtered = append(filtered, id)
+			}
+		}
+
+		if len(filtered) == 0 {
+			break
+		}
+
+		result = append(result, filtered...)
+		currentLevel = filtered
+		depth++
 	}
 
 	return result, nil

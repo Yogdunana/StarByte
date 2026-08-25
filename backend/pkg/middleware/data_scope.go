@@ -14,35 +14,99 @@ import (
 	"gorm.io/gorm"
 )
 
-// DataScopeCondition represents a SQL fragment and its arguments used to apply
-// data-scope filtering to a repository query. When Query is empty the caller
-// should apply no filtering, i.e. the user is permitted to access all records
-// (super administrator or "all" data scope).
-//
-// For conditions that deny access to any record (for example a "custom" scope
-// without any granted department) Query is set to "1 = 0".
+// DataScopeCondition 表示数据权限过滤的 SQL 条件
+// 当 Query 为空时表示不附加任何过滤（用户可访问全部数据，如超级管理员或 all 范围）
+// 当 Query 为 "1 = 0" 时表示不允许访问任何记录
+// 所有条件均通过 Args 参数化传递，避免 SQL 注入风险
 type DataScopeCondition struct {
 	Query string
 	Args  []interface{}
 }
 
-// GetDataScopeCondition builds the data-scope filter for the given user and
-// resource. Super administrators (flagged via the "is_super_admin" context
-// value set by PermissionRequired) and users whose effective scope is "all"
-// receive an empty condition, meaning no filtering is applied.
-//
-// The data scope is resolved directly from role_permissions (joined with
-// user_roles and permissions) via the provided *gorm.DB. For the
-// "department_and_sub" scope the department subtree is resolved through
-// deptRepo.GetDepartmentAndSubIDs.
-//
-// Note: a *gorm.DB is accepted in addition to deptRepo because resolving the
-// user's effective data scope requires cross-table joins that the
-// DepartmentRepo interface does not expose. This keeps the data access explicit
-// and testable rather than relying on a global database handle.
-func GetDataScopeCondition(c *gin.Context, db *gorm.DB, deptRepo rbacRepo.DepartmentRepo, userID uuid.UUID, resource string) (*DataScopeCondition, error) {
-	ctx := c.Request.Context()
+// dataScopeContextKey 数据权限条件在 Gin context 中的存储键名
+const dataScopeContextKey = "data_scope_condition"
 
+// DataScopeMiddleware 创建数据权限中间件
+// 该中间件在请求处理前计算用户的数据权限范围，并将过滤条件存入 context
+// 下游 handler 和 service 可通过 GetDataScopeFromContext 获取过滤条件
+// 这样可以确保数据权限统一生效，避免因遗漏调用而产生越权漏洞
+//
+// db 和 deptRepo 通过闭包注入，便于单元测试时替换为 mock 实现
+func DataScopeMiddleware(db *gorm.DB, deptRepo rbacRepo.DepartmentRepo) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// 从 context 获取用户 ID（由 JWTAuth 中间件设置）
+		userIDStr, exists := c.Get("user_id")
+		if !exists {
+			// 没有用户身份，跳过（由鉴权中间件处理未登录情况）
+			c.Next()
+			return
+		}
+
+		userID, err := uuid.Parse(fmt.Sprintf("%v", userIDStr))
+		if err != nil {
+			logger.Warn("data scope: invalid user id in context", zap.Error(err))
+			c.Next()
+			return
+		}
+
+		// 从路由参数中获取资源名（通过 RequireDataScope 设置）
+		resource, _ := c.Get("data_scope_resource")
+		resourceStr, _ := resource.(string)
+		if resourceStr == "" {
+			// 未声明数据权限资源，默认不限制（由权限码控制访问即可）
+			c.Next()
+			return
+		}
+
+		// 构建数据权限条件
+		condition, err := buildDataScopeCondition(c.Request.Context(), db, deptRepo, userID, resourceStr, c)
+		if err != nil {
+			logger.Error("build data scope condition failed",
+				zap.Stringer("user_id", userID),
+				zap.String("resource", resourceStr),
+				zap.Error(err))
+			// 构建失败时默认只允许查看自己的数据（fail closed 策略）
+			c.Set(dataScopeContextKey, &DataScopeCondition{
+				Query: "created_by = ?",
+				Args:  []interface{}{userID},
+			})
+			c.Next()
+			return
+		}
+
+		c.Set(dataScopeContextKey, condition)
+		c.Next()
+	}
+}
+
+// RequireDataScope 声明路由需要的数据权限资源
+// 应在路由注册时使用，类似于 RequirePermission
+func RequireDataScope(resource string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set("data_scope_resource", resource)
+		c.Next()
+	}
+}
+
+// GetDataScopeFromContext 从 context 中获取数据权限条件
+// 供下游 handler 和 service 层使用
+// 如果 context 中没有数据权限条件（如未启用数据权限中间件），返回 nil
+func GetDataScopeFromContext(c *gin.Context) *DataScopeCondition {
+	val, exists := c.Get(dataScopeContextKey)
+	if !exists {
+		return nil
+	}
+	cond, ok := val.(*DataScopeCondition)
+	if !ok {
+		return nil
+	}
+	return cond
+}
+
+// buildDataScopeCondition 构建用户在指定资源上的数据权限过滤条件
+// 超级管理员或数据范围为 all 时返回空条件（不限制）
+// 其他情况根据数据范围返回对应的过滤条件
+func buildDataScopeCondition(ctx context.Context, db *gorm.DB, deptRepo rbacRepo.DepartmentRepo, userID uuid.UUID, resource string, c *gin.Context) (*DataScopeCondition, error) {
 	if db == nil {
 		return nil, fmt.Errorf("data scope: database handle is nil")
 	}
@@ -54,22 +118,21 @@ func GetDataScopeCondition(c *gin.Context, db *gorm.DB, deptRepo rbacRepo.Depart
 		}
 	}
 
-	// 解析用户在指定资源上的数据权限范围
+	// 获取用户在指定资源上的数据权限范围集合
 	scopes, err := fetchUserDataScopes(ctx, db, userID, resource)
 	if err != nil {
-		logger.Error("fetch user data scopes failed",
-			zap.Stringer("user_id", userID),
-			zap.String("resource", resource),
-			zap.Error(err),
-		)
 		return nil, fmt.Errorf("fetch user data scopes: %w", err)
 	}
 
 	// 用户在该资源上没有任何数据权限，退化为仅本人数据（最安全的非空默认）
 	if len(scopes) == 0 {
-		return &DataScopeCondition{Query: "created_by = ?", Args: []interface{}{userID}}, nil
+		return &DataScopeCondition{
+			Query: "created_by = ?",
+			Args:  []interface{}{userID},
+		}, nil
 	}
 
+	// 取最宽松的数据权限范围
 	scopeType := mostPermissiveScope(scopes)
 
 	switch scopeType {
@@ -78,57 +141,70 @@ func GetDataScopeCondition(c *gin.Context, db *gorm.DB, deptRepo rbacRepo.Depart
 		return &DataScopeCondition{}, nil
 
 	case rbacModel.DataScopeSelf:
-		return &DataScopeCondition{Query: "created_by = ?", Args: []interface{}{userID}}, nil
+		return &DataScopeCondition{
+			Query: "created_by = ?",
+			Args:  []interface{}{userID},
+		}, nil
 
 	case rbacModel.DataScopeDepartment:
 		deptID, err := fetchUserDepartmentID(ctx, db, userID)
 		if err != nil {
-			logger.Error("fetch user department failed", zap.Stringer("user_id", userID), zap.Error(err))
 			return nil, fmt.Errorf("fetch user department: %w", err)
 		}
 		if deptID == nil {
 			// 缺少部门信息时退化为仅本人数据
-			return &DataScopeCondition{Query: "created_by = ?", Args: []interface{}{userID}}, nil
+			return &DataScopeCondition{
+				Query: "created_by = ?",
+				Args:  []interface{}{userID},
+			}, nil
 		}
-		return &DataScopeCondition{Query: "department_id = ?", Args: []interface{}{*deptID}}, nil
+		return &DataScopeCondition{
+			Query: "department_id = ?",
+			Args:  []interface{}{*deptID},
+		}, nil
 
 	case rbacModel.DataScopeDepartmentAndSub:
 		deptID, err := fetchUserDepartmentID(ctx, db, userID)
 		if err != nil {
-			logger.Error("fetch user department failed", zap.Stringer("user_id", userID), zap.Error(err))
 			return nil, fmt.Errorf("fetch user department: %w", err)
 		}
 		if deptID == nil {
-			return &DataScopeCondition{Query: "created_by = ?", Args: []interface{}{userID}}, nil
+			return &DataScopeCondition{
+				Query: "created_by = ?",
+				Args:  []interface{}{userID},
+			}, nil
 		}
 		deptIDs, err := deptRepo.GetDepartmentAndSubIDs(ctx, *deptID)
 		if err != nil {
-			logger.Error("get department and sub ids failed", zap.Stringer("department_id", *deptID), zap.Error(err))
 			return nil, fmt.Errorf("get department and sub ids: %w", err)
 		}
 		if len(deptIDs) == 0 {
 			return &DataScopeCondition{Query: "1 = 0"}, nil
 		}
-		return &DataScopeCondition{Query: "department_id IN ?", Args: []interface{}{deptIDs}}, nil
+		return &DataScopeCondition{
+			Query: "department_id IN ?",
+			Args:  []interface{}{deptIDs},
+		}, nil
 
 	case rbacModel.DataScopeCustom:
 		customDeptIDs, err := fetchCustomDepartmentIDs(ctx, db, userID, resource)
 		if err != nil {
-			logger.Error("fetch custom department ids failed", zap.Stringer("user_id", userID), zap.Error(err))
 			return nil, fmt.Errorf("fetch custom department ids: %w", err)
 		}
 		if len(customDeptIDs) == 0 {
 			return &DataScopeCondition{Query: "1 = 0"}, nil
 		}
-		return &DataScopeCondition{Query: "department_id IN ?", Args: []interface{}{customDeptIDs}}, nil
+		return &DataScopeCondition{
+			Query: "department_id IN ?",
+			Args:  []interface{}{customDeptIDs},
+		}, nil
 
 	default:
 		return nil, rbac.NewInvalidDataScopeError(scopeType)
 	}
 }
 
-// fetchUserDataScopes returns the distinct data_scope values granted to the
-// user for the given resource across all of the user's active roles.
+// fetchUserDataScopes 返回用户在指定资源上各角色授予的不同 data_scope 值（去重）
 func fetchUserDataScopes(ctx context.Context, db *gorm.DB, userID uuid.UUID, resource string) ([]string, error) {
 	type scopeRow struct {
 		DataScope string
@@ -154,8 +230,7 @@ func fetchUserDataScopes(ctx context.Context, db *gorm.DB, userID uuid.UUID, res
 	return scopes, nil
 }
 
-// fetchUserDepartmentID returns the department id of the given user, or nil if
-// the user is not assigned to any department.
+// fetchUserDepartmentID 返回用户所属部门 ID，未分配部门时返回 nil
 func fetchUserDepartmentID(ctx context.Context, db *gorm.DB, userID uuid.UUID) (*uuid.UUID, error) {
 	var row struct {
 		DepartmentID *uuid.UUID
@@ -166,8 +241,7 @@ func fetchUserDepartmentID(ctx context.Context, db *gorm.DB, userID uuid.UUID) (
 	return row.DepartmentID, nil
 }
 
-// fetchCustomDepartmentIDs returns the distinct department ids granted to the
-// user via "custom" data scopes for the given resource.
+// fetchCustomDepartmentIDs 返回用户通过 custom 数据权限授予的自定义部门 ID 列表
 func fetchCustomDepartmentIDs(ctx context.Context, db *gorm.DB, userID uuid.UUID, resource string) ([]uuid.UUID, error) {
 	type deptRow struct {
 		DepartmentID uuid.UUID
@@ -195,8 +269,7 @@ func fetchCustomDepartmentIDs(ctx context.Context, db *gorm.DB, userID uuid.UUID
 	return ids, nil
 }
 
-// scopeRank assigns a permissiveness rank to a data scope value; higher means
-// more permissive.
+// scopeRank 为数据权限范围分配宽松度等级，数值越大越宽松
 func scopeRank(scope string) int {
 	switch scope {
 	case rbacModel.DataScopeAll:
@@ -214,8 +287,8 @@ func scopeRank(scope string) int {
 	}
 }
 
-// mostPermissiveScope returns the most permissive scope from the given list,
-// defaulting to "self" when none of the provided scopes are recognized.
+// mostPermissiveScope 返回给定范围列表中最宽松的那个
+// 若列表为空或所有值均不识别，返回 "self"（最严格的非空默认）
 func mostPermissiveScope(scopes []string) string {
 	best := rbacModel.DataScopeSelf
 	bestRank := 0
