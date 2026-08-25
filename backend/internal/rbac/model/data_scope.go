@@ -1,20 +1,24 @@
 package model
 
+// DataScopeCondition 表示数据权限过滤的 SQL 条件
+// 当 Query 为空时表示不附加任何过滤（用户可访问全部数据，如超级管理员或 all 范围）
+// 当 Query 为 "1 = 0" 时表示不允许访问任何记录
+// 所有条件均通过 Args 参数化传递，避免 SQL 注入风险
+type DataScopeCondition struct {
+	Query string
+	Args  []interface{}
+}
+
+// IsEmpty 返回是否为空条件（不限制数据范围）
+func (c *DataScopeCondition) IsEmpty() bool {
+	return c == nil || c.Query == ""
+}
+
 // 数据权限范围常量
 const (
-	DataScopeAll              = "all"                // 全部数据
-	DataScopeDepartment       = "department"         // 本部门数据
-	DataScopeDepartmentAndSub = "department_and_sub" // 本部门及下级部门
-	DataScopeSelf             = "self"               // 仅自己的数据
-	DataScopeCustom           = "custom"             // 自定义（指定部门）
+	DataScopeAll              = "all"
+	DataScopeDepartment       = "department"
+	DataScopeDepartmentAndSub = "department_and_sub"
+	DataScopeSelf             = "self"
+	DataScopeCustom           = "custom"
 )
-
-// IsValidDataScope 检查数据权限范围是否有效
-func IsValidDataScope(scope string) bool {
-	switch scope {
-	case DataScopeAll, DataScopeDepartment, DataScopeDepartmentAndSub, DataScopeSelf, DataScopeCustom:
-		return true
-	default:
-		return false
-	}
-}

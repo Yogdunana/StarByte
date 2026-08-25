@@ -16,11 +16,11 @@ type CreateDepartmentRequest struct {
 
 // UpdateDepartmentRequest 更新部门请求
 type UpdateDepartmentRequest struct {
-	Name        string `json:"name" binding:"omitempty,max=100"`
-	LeaderID    string `json:"leader_id" binding:"omitempty"`
-	Description string `json:"description" binding:"omitempty,max=255"`
-	SortOrder   *int   `json:"sort_order"`
-	Status      *int   `json:"status" binding:"omitempty,oneof=0 1"`
+	Name        string  `json:"name" binding:"omitempty,max=100"`
+	LeaderID    *string `json:"leader_id" binding:"omitempty"`
+	Description string  `json:"description" binding:"omitempty,max=255"`
+	SortOrder   *int    `json:"sort_order"`
+	Status      *int    `json:"status" binding:"omitempty,oneof=0 1"`
 }
 
 // DepartmentResponse 部门响应

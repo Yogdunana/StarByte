@@ -18,7 +18,7 @@ type RoleRepo interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	AssignPermissions(ctx context.Context, tx *gorm.DB, roleID uuid.UUID, permissionIDs []uuid.UUID, dataScope string) error
 	GetPermissionIDsByRoleID(ctx context.Context, roleID uuid.UUID) ([]uuid.UUID, error)
-	GetUsersByRoleID(ctx context.Context, roleID uuid.UUID, page, pageSize int) ([]RoleUserListItem, int64, error)
+	GetUsersByRoleID(ctx context.Context, roleID uuid.UUID, page, pageSize int, dataScope *model.DataScopeCondition) ([]RoleUserListItem, int64, error)
 	CountUsersByRoleID(ctx context.Context, roleID uuid.UUID) (int64, error)
 	GetRoleIDsByUserID(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
 }
@@ -80,7 +80,7 @@ func (r *roleRepo) List(ctx context.Context, page, pageSize int, keyword string)
 	query := r.db.WithContext(ctx).Model(&model.Role{})
 
 	if keyword != "" {
-		query = query.Where("name LIKE ? OR code LIKE ?",
+		query = query.Where("(name LIKE ? OR code LIKE ?)",
 			"%"+keyword+"%", "%"+keyword+"%")
 	}
 
@@ -155,7 +155,8 @@ func (r *roleRepo) GetPermissionIDsByRoleID(ctx context.Context, roleID uuid.UUI
 }
 
 // GetUsersByRoleID 分页查询角色关联的用户列表（join user_roles 与 users）
-func (r *roleRepo) GetUsersByRoleID(ctx context.Context, roleID uuid.UUID, page, pageSize int) ([]RoleUserListItem, int64, error) {
+// dataScope 为数据权限过滤条件，为空时不过滤
+func (r *roleRepo) GetUsersByRoleID(ctx context.Context, roleID uuid.UUID, page, pageSize int, dataScope *model.DataScopeCondition) ([]RoleUserListItem, int64, error) {
 	var total int64
 
 	// 统计角色下有效用户数
@@ -163,6 +164,11 @@ func (r *roleRepo) GetUsersByRoleID(ctx context.Context, roleID uuid.UUID, page,
 		Table("user_roles AS ur").
 		Joins("JOIN users u ON ur.user_id = u.id").
 		Where("ur.role_id = ? AND u.deleted_at IS NULL AND (ur.expired_at IS NULL OR ur.expired_at > NOW())", roleID)
+
+	// 应用数据权限过滤
+	if dataScope != nil && dataScope.Query != "" {
+		countQuery = countQuery.Where(dataScope.Query, dataScope.Args...)
+	}
 
 	if err := countQuery.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -175,15 +181,21 @@ func (r *roleRepo) GetUsersByRoleID(ctx context.Context, roleID uuid.UUID, page,
 	// 分页查询用户信息，id 使用 ::text 避免驱动返回值类型不一致
 	var results []RoleUserListItem
 	offset := (page - 1) * pageSize
-	err := r.db.WithContext(ctx).
+	listQuery := r.db.WithContext(ctx).
 		Table("user_roles AS ur").
 		Select("u.id::text AS id, u.username, u.real_name, u.status").
 		Joins("JOIN users u ON ur.user_id = u.id").
 		Where("ur.role_id = ? AND u.deleted_at IS NULL AND (ur.expired_at IS NULL OR ur.expired_at > NOW())", roleID).
 		Order("ur.created_at DESC").
 		Offset(offset).
-		Limit(pageSize).
-		Scan(&results).Error
+		Limit(pageSize)
+
+	// 应用数据权限过滤
+	if dataScope != nil && dataScope.Query != "" {
+		listQuery = listQuery.Where(dataScope.Query, dataScope.Args...)
+	}
+
+	err := listQuery.Scan(&results).Error
 
 	return results, total, err
 }

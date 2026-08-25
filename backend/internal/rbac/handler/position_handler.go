@@ -43,7 +43,7 @@ func (h *PositionHandler) List(c *gin.Context) {
 		req.PageSize = 10
 	}
 
-	list, total, err := h.positionService.List(c.Request.Context(), req.Page, req.PageSize, req.Keyword)
+	list, total, err := h.positionService.List(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, err)
 		return

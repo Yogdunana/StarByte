@@ -145,12 +145,16 @@ func (s *departmentService) Update(ctx context.Context, id uuid.UUID, req *dto.U
 	if req.Status != nil {
 		dept.Status = *req.Status
 	}
-	if req.LeaderID != "" {
-		leaderID, err := uuid.Parse(req.LeaderID)
-		if err != nil {
-			return nil, fmt.Errorf("parse leader_id: %w", err)
+	if req.LeaderID != nil {
+		if *req.LeaderID == "" {
+			dept.LeaderID = nil
+		} else {
+			leaderID, err := uuid.Parse(*req.LeaderID)
+			if err != nil {
+				return nil, fmt.Errorf("parse leader_id: %w", err)
+			}
+			dept.LeaderID = &leaderID
 		}
-		dept.LeaderID = &leaderID
 	}
 
 	err = s.deptRepo.Update(ctx, nil, dept)

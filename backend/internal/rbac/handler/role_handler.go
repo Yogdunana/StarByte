@@ -3,6 +3,7 @@ package handler
 import (
 	"github.com/Yogdunana/StarByte/backend/internal/rbac/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/rbac/service"
+	"github.com/Yogdunana/StarByte/backend/pkg/middleware"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -93,6 +94,13 @@ func (h *RoleHandler) Create(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "参数错误")
 		return
+	}
+
+	if req.ParentID != "" {
+		if _, err := uuid.Parse(req.ParentID); err != nil {
+			response.BadRequest(c, "无效的父角色ID")
+			return
+		}
 	}
 
 	result, err := h.roleService.Create(c.Request.Context(), &req)
@@ -234,7 +242,7 @@ func (h *RoleHandler) GetRoleUsers(c *gin.Context) {
 		req.PageSize = 10
 	}
 
-	list, total, err := h.roleService.GetRoleUsers(c.Request.Context(), id, req.Page, req.PageSize)
+	list, total, err := h.roleService.GetRoleUsers(c.Request.Context(), id, req.Page, req.PageSize, middleware.GetDataScopeFromContext(c))
 	if err != nil {
 		response.Error(c, err)
 		return

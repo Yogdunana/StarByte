@@ -79,6 +79,19 @@ func (h *DepartmentHandler) Create(c *gin.Context) {
 		return
 	}
 
+	if req.ParentID != "" {
+		if _, err := uuid.Parse(req.ParentID); err != nil {
+			response.BadRequest(c, "无效的父部门ID")
+			return
+		}
+	}
+	if req.LeaderID != "" {
+		if _, err := uuid.Parse(req.LeaderID); err != nil {
+			response.BadRequest(c, "无效的负责人ID")
+			return
+		}
+	}
+
 	result, err := h.deptService.Create(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, err)
@@ -111,6 +124,13 @@ func (h *DepartmentHandler) Update(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "参数错误")
 		return
+	}
+
+	if req.LeaderID != nil && *req.LeaderID != "" {
+		if _, err := uuid.Parse(*req.LeaderID); err != nil {
+			response.BadRequest(c, "无效的负责人ID")
+			return
+		}
 	}
 
 	result, err := h.deptService.Update(c.Request.Context(), id, &req)

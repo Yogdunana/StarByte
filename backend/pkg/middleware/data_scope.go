@@ -15,15 +15,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// DataScopeCondition 表示数据权限过滤的 SQL 条件
-// 当 Query 为空时表示不附加任何过滤（用户可访问全部数据，如超级管理员或 all 范围）
-// 当 Query 为 "1 = 0" 时表示不允许访问任何记录
-// 所有条件均通过 Args 参数化传递，避免 SQL 注入风险
-type DataScopeCondition struct {
-	Query string
-	Args  []interface{}
-}
-
 // dataScopeContextKey 数据权限条件在 Gin context 中的存储键名
 const dataScopeContextKey = "data_scope_condition"
 
@@ -72,7 +63,7 @@ func DataScopeMiddleware(db *gorm.DB, deptRepo rbacRepo.DepartmentRepo, cacheSer
 				zap.String("resource", resourceStr),
 				zap.Error(err))
 			// 构建失败时默认只允许查看自己的数据（fail closed 策略）
-			c.Set(dataScopeContextKey, &DataScopeCondition{
+			c.Set(dataScopeContextKey, &rbacModel.DataScopeCondition{
 				Query: "created_by = ?",
 				Args:  []interface{}{userID},
 			})
@@ -97,12 +88,12 @@ func RequireDataScope(resource string) gin.HandlerFunc {
 // GetDataScopeFromContext 从 context 中获取数据权限条件
 // 供下游 handler 和 service 层使用
 // 如果 context 中没有数据权限条件（如未启用数据权限中间件），返回 nil
-func GetDataScopeFromContext(c *gin.Context) *DataScopeCondition {
+func GetDataScopeFromContext(c *gin.Context) *rbacModel.DataScopeCondition {
 	val, exists := c.Get(dataScopeContextKey)
 	if !exists {
 		return nil
 	}
-	cond, ok := val.(*DataScopeCondition)
+	cond, ok := val.(*rbacModel.DataScopeCondition)
 	if !ok {
 		return nil
 	}
@@ -116,7 +107,7 @@ func GetDataScopeFromContext(c *gin.Context) *DataScopeCondition {
 // cacheService 用于独立判断超级管理员身份：
 // 1. 优先读取 context 中的 is_super_admin 标志（PermissionRequired 中间件已设置时零成本）
 // 2. 标志不存在时通过 cacheService.IsSuperAdmin 自行查询（确保中间件独立可用）
-func buildDataScopeCondition(ctx context.Context, db *gorm.DB, deptRepo rbacRepo.DepartmentRepo, cacheService rbacService.PermissionCacheService, userID uuid.UUID, resource string, c *gin.Context) (*DataScopeCondition, error) {
+func buildDataScopeCondition(ctx context.Context, db *gorm.DB, deptRepo rbacRepo.DepartmentRepo, cacheService rbacService.PermissionCacheService, userID uuid.UUID, resource string, c *gin.Context) (*rbacModel.DataScopeCondition, error) {
 	if db == nil {
 		return nil, fmt.Errorf("data scope: database handle is nil")
 	}
@@ -125,7 +116,7 @@ func buildDataScopeCondition(ctx context.Context, db *gorm.DB, deptRepo rbacRepo
 	// 优先复用 PermissionRequired 中间件设置的标志，避免重复查询
 	if isSuper, exists := c.Get("is_super_admin"); exists {
 		if b, ok := isSuper.(bool); ok && b {
-			return &DataScopeCondition{}, nil
+			return &rbacModel.DataScopeCondition{}, nil
 		}
 	} else if cacheService != nil {
 		// 上下文无标志时自行判断，确保中间件独立使用时超级管理员仍能豁免
@@ -135,7 +126,7 @@ func buildDataScopeCondition(ctx context.Context, db *gorm.DB, deptRepo rbacRepo
 				zap.Error(err))
 		} else if isSuper {
 			c.Set("is_super_admin", true)
-			return &DataScopeCondition{}, nil
+			return &rbacModel.DataScopeCondition{}, nil
 		}
 	}
 
@@ -147,7 +138,7 @@ func buildDataScopeCondition(ctx context.Context, db *gorm.DB, deptRepo rbacRepo
 
 	// 用户在该资源上没有任何数据权限，退化为仅本人数据（最安全的非空默认）
 	if len(scopes) == 0 {
-		return &DataScopeCondition{
+		return &rbacModel.DataScopeCondition{
 			Query: "created_by = ?",
 			Args:  []interface{}{userID},
 		}, nil
@@ -159,10 +150,10 @@ func buildDataScopeCondition(ctx context.Context, db *gorm.DB, deptRepo rbacRepo
 	switch scopeType {
 	case rbacModel.DataScopeAll:
 		// 全部数据：不附加过滤条件
-		return &DataScopeCondition{}, nil
+		return &rbacModel.DataScopeCondition{}, nil
 
 	case rbacModel.DataScopeSelf:
-		return &DataScopeCondition{
+		return &rbacModel.DataScopeCondition{
 			Query: "created_by = ?",
 			Args:  []interface{}{userID},
 		}, nil
@@ -174,12 +165,12 @@ func buildDataScopeCondition(ctx context.Context, db *gorm.DB, deptRepo rbacRepo
 		}
 		if deptID == nil {
 			// 缺少部门信息时退化为仅本人数据
-			return &DataScopeCondition{
+			return &rbacModel.DataScopeCondition{
 				Query: "created_by = ?",
 				Args:  []interface{}{userID},
 			}, nil
 		}
-		return &DataScopeCondition{
+		return &rbacModel.DataScopeCondition{
 			Query: "department_id = ?",
 			Args:  []interface{}{*deptID},
 		}, nil
@@ -190,7 +181,7 @@ func buildDataScopeCondition(ctx context.Context, db *gorm.DB, deptRepo rbacRepo
 			return nil, fmt.Errorf("fetch user department: %w", err)
 		}
 		if deptID == nil {
-			return &DataScopeCondition{
+			return &rbacModel.DataScopeCondition{
 				Query: "created_by = ?",
 				Args:  []interface{}{userID},
 			}, nil
@@ -200,9 +191,9 @@ func buildDataScopeCondition(ctx context.Context, db *gorm.DB, deptRepo rbacRepo
 			return nil, fmt.Errorf("get department and sub ids: %w", err)
 		}
 		if len(deptIDs) == 0 {
-			return &DataScopeCondition{Query: "1 = 0"}, nil
+			return &rbacModel.DataScopeCondition{Query: "1 = 0"}, nil
 		}
-		return &DataScopeCondition{
+		return &rbacModel.DataScopeCondition{
 			Query: "department_id IN ?",
 			Args:  []interface{}{deptIDs},
 		}, nil
@@ -213,9 +204,9 @@ func buildDataScopeCondition(ctx context.Context, db *gorm.DB, deptRepo rbacRepo
 			return nil, fmt.Errorf("fetch custom department ids: %w", err)
 		}
 		if len(customDeptIDs) == 0 {
-			return &DataScopeCondition{Query: "1 = 0"}, nil
+			return &rbacModel.DataScopeCondition{Query: "1 = 0"}, nil
 		}
-		return &DataScopeCondition{
+		return &rbacModel.DataScopeCondition{
 			Query: "department_id IN ?",
 			Args:  []interface{}{customDeptIDs},
 		}, nil

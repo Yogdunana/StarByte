@@ -16,14 +16,16 @@ type CreateRoleRequest struct {
 // UpdateRoleRequest 更新角色请求
 type UpdateRoleRequest struct {
 	Name        string `json:"name" binding:"omitempty,max=50"`
+	Code        string `json:"code" binding:"omitempty,max=50"`
+	ParentID    string `json:"parent_id" binding:"omitempty"`
 	Description string `json:"description" binding:"omitempty,max=255"`
 	Status      *int   `json:"status" binding:"omitempty,oneof=0 1"`
 }
 
 // ListRoleRequest 角色列表请求
 type ListRoleRequest struct {
-	Page     int    `form:"page" binding:"min=1"`
-	PageSize int    `form:"page_size" binding:"min=1,max=100"`
+	Page     int    `form:"page"`
+	PageSize int    `form:"page_size" binding:"max=100"`
 	Keyword  string `form:"keyword"`
 }
 
@@ -35,8 +37,8 @@ type AssignPermissionsRequest struct {
 
 // RoleUserListRequest 角色用户列表请求
 type RoleUserListRequest struct {
-	Page     int `form:"page" binding:"min=1"`
-	PageSize int `form:"page_size" binding:"min=1,max=100"`
+	Page     int `form:"page"`
+	PageSize int `form:"page_size" binding:"max=100"`
 }
 
 // RoleResponse 角色响应

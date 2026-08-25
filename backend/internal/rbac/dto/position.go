@@ -26,8 +26,8 @@ type UpdatePositionRequest struct {
 
 // ListPositionRequest 职位列表请求
 type ListPositionRequest struct {
-	Page     int    `form:"page" binding:"min=1"`
-	PageSize int    `form:"page_size" binding:"min=1,max=100"`
+	Page     int    `form:"page"`
+	PageSize int    `form:"page_size" binding:"max=100"`
 	Keyword  string `form:"keyword"`
 }
 

@@ -16,7 +16,7 @@ import (
 type PositionService interface {
 	Create(ctx context.Context, req *dto.CreatePositionRequest) (*dto.PositionResponse, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*dto.PositionResponse, error)
-	List(ctx context.Context, page, pageSize int, keyword string) ([]dto.PositionResponse, int64, error)
+	List(ctx context.Context, req *dto.ListPositionRequest) ([]dto.PositionResponse, int64, error)
 	Update(ctx context.Context, id uuid.UUID, req *dto.UpdatePositionRequest) (*dto.PositionResponse, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 }
@@ -84,8 +84,8 @@ func (s *positionService) GetByID(ctx context.Context, id uuid.UUID) (*dto.Posit
 }
 
 // List 获取职位列表
-func (s *positionService) List(ctx context.Context, page, pageSize int, keyword string) ([]dto.PositionResponse, int64, error) {
-	positions, total, err := s.positionRepo.List(ctx, page, pageSize, keyword)
+func (s *positionService) List(ctx context.Context, req *dto.ListPositionRequest) ([]dto.PositionResponse, int64, error) {
+	positions, total, err := s.positionRepo.List(ctx, req.Page, req.PageSize, req.Keyword)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list positions: %w", err)
 	}

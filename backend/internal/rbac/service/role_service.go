@@ -23,7 +23,7 @@ type RoleService interface {
 	Update(ctx context.Context, id uuid.UUID, req *dto.UpdateRoleRequest) (*dto.RoleResponse, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	AssignPermissions(ctx context.Context, id uuid.UUID, req *dto.AssignPermissionsRequest) error
-	GetRoleUsers(ctx context.Context, id uuid.UUID, page, pageSize int) ([]dto.RoleUserResponse, int64, error)
+	GetRoleUsers(ctx context.Context, id uuid.UUID, page, pageSize int, dataScope *model.DataScopeCondition) ([]dto.RoleUserResponse, int64, error)
 }
 
 type roleService struct {
@@ -142,6 +142,24 @@ func (s *roleService) Update(ctx context.Context, id uuid.UUID, req *dto.UpdateR
 	if req.Name != "" {
 		role.Name = req.Name
 	}
+	if req.Code != "" {
+		// 检查编码是否已存在（排除自身）
+		existing, err := s.roleRepo.GetByCode(ctx, req.Code)
+		if err != nil {
+			return nil, fmt.Errorf("check role code: %w", err)
+		}
+		if existing != nil && existing.ID != id {
+			return nil, rbac.NewRoleCodeExistsError(req.Code)
+		}
+		role.Code = req.Code
+	}
+	if req.ParentID != "" {
+		parentID, err := uuid.Parse(req.ParentID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid parent_id: %w", err)
+		}
+		role.ParentID = &parentID
+	}
 	if req.Description != "" {
 		role.Description = req.Description
 	}
@@ -252,7 +270,8 @@ func (s *roleService) AssignPermissions(ctx context.Context, id uuid.UUID, req *
 }
 
 // GetRoleUsers 分页查询角色下用户列表
-func (s *roleService) GetRoleUsers(ctx context.Context, id uuid.UUID, page, pageSize int) ([]dto.RoleUserResponse, int64, error) {
+// dataScope 为数据权限过滤条件，由中间件计算后传入，nil 表示不过滤
+func (s *roleService) GetRoleUsers(ctx context.Context, id uuid.UUID, page, pageSize int, dataScope *model.DataScopeCondition) ([]dto.RoleUserResponse, int64, error) {
 	// 校验角色是否存在
 	role, err := s.roleRepo.GetByID(ctx, id)
 	if err != nil {
@@ -262,7 +281,7 @@ func (s *roleService) GetRoleUsers(ctx context.Context, id uuid.UUID, page, page
 		return nil, 0, rbac.NewRoleNotFoundError()
 	}
 
-	results, total, err := s.roleRepo.GetUsersByRoleID(ctx, id, page, pageSize)
+	results, total, err := s.roleRepo.GetUsersByRoleID(ctx, id, page, pageSize, dataScope)
 	if err != nil {
 		return nil, 0, fmt.Errorf("get role users: %w", err)
 	}
