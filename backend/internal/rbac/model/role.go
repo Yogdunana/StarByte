@@ -55,8 +55,8 @@ func (UserRole) TableName() string {
 // RoleDataScope 角色数据权限-自定义部门关联模型
 type RoleDataScope struct {
 	ID               uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
-	RolePermissionID uuid.UUID `gorm:"type:uuid;index;not null" json:"role_permission_id"`
-	DepartmentID     uuid.UUID `gorm:"type:uuid;index;not null" json:"department_id"`
+	RolePermissionID uuid.UUID `gorm:"type:uuid;uniqueIndex:idx_role_data_scope,priority:1;index;not null" json:"role_permission_id"`
+	DepartmentID     uuid.UUID `gorm:"type:uuid;uniqueIndex:idx_role_data_scope,priority:2;index;not null" json:"department_id"`
 	CreatedAt        time.Time `json:"created_at"`
 }
 

@@ -64,13 +64,15 @@ func PermissionRequired(cacheService rbacService.PermissionCacheService) gin.Han
 			return
 		}
 
-		// 校验用户是否拥有所需权限
+		// 校验用户是否拥有所需权限（O(1) map 查找）
+		permMap := make(map[string]struct{}, len(perms))
 		for _, p := range perms {
-			if p == permCode {
-				c.Set("user_permissions", perms)
-				c.Next()
-				return
-			}
+			permMap[p] = struct{}{}
+		}
+		if _, ok := permMap[permCode]; ok {
+			c.Set("user_permissions", perms)
+			c.Next()
+			return
 		}
 
 		response.Error(c, response.NewForbiddenError("权限不足"))

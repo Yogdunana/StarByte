@@ -18,9 +18,17 @@ type RoleRepo interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	AssignPermissions(ctx context.Context, tx *gorm.DB, roleID uuid.UUID, permissionIDs []uuid.UUID) error
 	GetPermissionIDsByRoleID(ctx context.Context, roleID uuid.UUID) ([]uuid.UUID, error)
-	GetUsersByRoleID(ctx context.Context, roleID uuid.UUID, page, pageSize int) ([]map[string]interface{}, int64, error)
+	GetUsersByRoleID(ctx context.Context, roleID uuid.UUID, page, pageSize int) ([]RoleUserListItem, int64, error)
 	CountUsersByRoleID(ctx context.Context, roleID uuid.UUID) (int64, error)
 	GetRoleIDsByUserID(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
+}
+
+// RoleUserListItem 角色下用户列表项
+type RoleUserListItem struct {
+	ID       string `gorm:"column:id"`
+	Username string `gorm:"column:username"`
+	RealName string `gorm:"column:real_name"`
+	Status   int    `gorm:"column:status"`
 }
 
 type roleRepo struct {
@@ -141,7 +149,7 @@ func (r *roleRepo) GetPermissionIDsByRoleID(ctx context.Context, roleID uuid.UUI
 }
 
 // GetUsersByRoleID 分页查询角色关联的用户列表（join user_roles 与 users）
-func (r *roleRepo) GetUsersByRoleID(ctx context.Context, roleID uuid.UUID, page, pageSize int) ([]map[string]interface{}, int64, error) {
+func (r *roleRepo) GetUsersByRoleID(ctx context.Context, roleID uuid.UUID, page, pageSize int) ([]RoleUserListItem, int64, error) {
 	var total int64
 
 	// 统计角色下有效用户数
@@ -155,11 +163,11 @@ func (r *roleRepo) GetUsersByRoleID(ctx context.Context, roleID uuid.UUID, page,
 	}
 
 	if total == 0 {
-		return []map[string]interface{}{}, 0, nil
+		return []RoleUserListItem{}, 0, nil
 	}
 
 	// 分页查询用户信息，id 使用 ::text 避免驱动返回值类型不一致
-	var results []map[string]interface{}
+	var results []RoleUserListItem
 	offset := (page - 1) * pageSize
 	err := r.db.WithContext(ctx).
 		Table("user_roles AS ur").
@@ -185,12 +193,14 @@ func (r *roleRepo) CountUsersByRoleID(ctx context.Context, roleID uuid.UUID) (in
 	return count, err
 }
 
-// GetRoleIDsByUserID 查询用户拥有的角色 ID 列表（过滤已过期关联）
+// GetRoleIDsByUserID 查询用户拥有的角色 ID 列表（过滤已过期关联和已禁用角色）
 func (r *roleRepo) GetRoleIDsByUserID(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
 	var roleIDs []uuid.UUID
 	err := r.db.WithContext(ctx).
 		Model(&model.UserRole{}).
-		Where("user_id = ? AND (expired_at IS NULL OR expired_at > NOW())", userID).
-		Pluck("role_id", &roleIDs).Error
+		Joins("JOIN roles r ON user_roles.role_id = r.id").
+		Where("user_roles.user_id = ? AND (user_roles.expired_at IS NULL OR user_roles.expired_at > NOW())", userID).
+		Where("r.status = ?", 0).
+		Pluck("user_roles.role_id", &roleIDs).Error
 	return roleIDs, err
 }

@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	"github.com/Yogdunana/StarByte/backend/internal/rbac"
 	"github.com/Yogdunana/StarByte/backend/internal/rbac/dto"
@@ -14,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // RoleService 角色服务接口
@@ -207,6 +207,15 @@ func (s *roleService) AssignPermissions(ctx context.Context, id uuid.UUID, req *
 
 	// 事务执行权限分配
 	err = s.db.Transaction(func(tx *gorm.DB) error {
+		// 对角色记录加排他锁，防止并发分配权限时出现唯一键冲突
+		var role model.Role
+		if err := tx.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).First(&role, id).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return rbac.NewRoleNotFoundError()
+			}
+			return fmt.Errorf("lock role: %w", err)
+		}
+
 		if err := s.roleRepo.AssignPermissions(ctx, tx, id, permIDs); err != nil {
 			return fmt.Errorf("assign permissions: %w", err)
 		}
@@ -243,19 +252,17 @@ func (s *roleService) GetRoleUsers(ctx context.Context, id uuid.UUID, page, page
 	}
 
 	users := make([]dto.RoleUserResponse, 0, len(results))
-	for _, m := range results {
+	for _, item := range results {
 		users = append(users, dto.RoleUserResponse{
-			ID:       mapGetString(m, "id"),
-			Username: mapGetString(m, "username"),
-			RealName: mapGetString(m, "real_name"),
-			Status:   mapGetInt(m, "status"),
+			ID:       item.ID,
+			Username: item.Username,
+			RealName: item.RealName,
+			Status:   item.Status,
 		})
 	}
 
 	return users, total, nil
 }
-
-// ========== 工具函数 ==========
 
 // toRoleResponse 将角色模型转换为响应 DTO
 func (s *roleService) toRoleResponse(role *model.Role) *dto.RoleResponse {
@@ -274,45 +281,4 @@ func (s *roleService) toRoleResponse(role *model.Role) *dto.RoleResponse {
 		resp.ParentID = role.ParentID.String()
 	}
 	return resp
-}
-
-// mapGetString 从 map[string]interface{} 中安全提取字符串
-func mapGetString(m map[string]interface{}, key string) string {
-	v, ok := m[key]
-	if !ok || v == nil {
-		return ""
-	}
-	switch val := v.(type) {
-	case string:
-		return val
-	case []byte:
-		return string(val)
-	default:
-		return fmt.Sprintf("%v", v)
-	}
-}
-
-// mapGetInt 从 map[string]interface{} 中安全提取整型
-func mapGetInt(m map[string]interface{}, key string) int {
-	v, ok := m[key]
-	if !ok || v == nil {
-		return 0
-	}
-	switch val := v.(type) {
-	case int:
-		return val
-	case int16:
-		return int(val)
-	case int32:
-		return int(val)
-	case int64:
-		return int(val)
-	case float64:
-		return int(val)
-	case string:
-		i, _ := strconv.Atoi(val)
-		return i
-	default:
-		return 0
-	}
 }

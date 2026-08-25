@@ -18,6 +18,7 @@ type PermissionRepo interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	CountChildren(ctx context.Context, parentID uuid.UUID) (int64, error)
 	GetPermissionIDsByUserID(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
+	GetPermissionCodesByUserID(ctx context.Context, userID uuid.UUID) ([]string, error)
 }
 
 type permissionRepo struct {
@@ -107,4 +108,24 @@ func (r *permissionRepo) GetPermissionIDsByUserID(ctx context.Context, userID uu
 		Group("rp.permission_id").
 		Pluck("rp.permission_id", &permIDs).Error
 	return permIDs, err
+}
+
+// GetPermissionCodesByUserID 查询用户拥有的权限编码列表
+// 关联 user_roles -> roles -> role_permissions -> permissions
+// 过滤条件：角色未过期、角色已启用、权限已启用
+// 通过一次 JOIN 查询直接返回权限编码，减少一次 DB 往返
+func (r *permissionRepo) GetPermissionCodesByUserID(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	var codes []string
+	err := r.db.WithContext(ctx).
+		Table("user_roles AS ur").
+		Joins("JOIN roles r ON ur.role_id = r.id").
+		Joins("JOIN role_permissions rp ON ur.role_id = rp.role_id").
+		Joins("JOIN permissions p ON rp.permission_id = p.id").
+		Where("ur.user_id = ?", userID).
+		Where("ur.expired_at IS NULL OR ur.expired_at > NOW()").
+		Where("r.status = ?", 0). // 角色需启用
+		Where("p.status = ?", 0). // 权限需启用
+		Distinct("p.code").
+		Pluck("p.code", &codes).Error
+	return codes, err
 }

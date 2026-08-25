@@ -91,7 +91,7 @@ func main() {
 	deptRepo := rbacRepo.NewDepartmentRepo(database.DB())
 	posRepo := rbacRepo.NewPositionRepo(database.DB())
 
-	cacheService := rbacService.NewPermissionCacheService(database.DB(), permRepo, roleRepo)
+	cacheService := rbacService.NewPermissionCacheService(database.DB(), redis.Client(), permRepo, roleRepo)
 
 	roleService := rbacService.NewRoleService(database.DB(), roleRepo, permRepo, cacheService)
 	permService := rbacService.NewPermissionService(database.DB(), permRepo)

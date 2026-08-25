@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/rbac/repo"
 	"github.com/Yogdunana/StarByte/backend/pkg/logger"
-	"github.com/Yogdunana/StarByte/backend/pkg/redis"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -19,8 +20,23 @@ import (
 const (
 	permCacheKeyPrefix = "rbac:perms:"
 	permCacheTTL       = 10 * time.Minute
+	permCacheJitter    = 1 * time.Minute
 	superAdminRoleCode = "super_admin"
 )
+
+// jitteredTTL 返回在 base TTL 基础上叠加 ±jitter 随机偏移的 TTL，
+// 用于避免大量缓存同时失效引发缓存雪崩
+func jitteredTTL(base, jitter time.Duration) time.Duration {
+	if jitter <= 0 {
+		return base
+	}
+	offset := time.Duration(rand.Int63n(int64(jitter*2))) - jitter
+	result := base + offset
+	if result < 0 {
+		return 0
+	}
+	return result
+}
 
 // PermissionCacheService 权限缓存服务接口
 type PermissionCacheService interface {
@@ -32,14 +48,16 @@ type PermissionCacheService interface {
 
 type permissionCacheService struct {
 	db             *gorm.DB
+	redisClient    *redis.Client
 	permissionRepo repo.PermissionRepo
 	roleRepo       repo.RoleRepo
 }
 
 // NewPermissionCacheService 创建权限缓存服务
-func NewPermissionCacheService(db *gorm.DB, permissionRepo repo.PermissionRepo, roleRepo repo.RoleRepo) PermissionCacheService {
+func NewPermissionCacheService(db *gorm.DB, redisClient *redis.Client, permissionRepo repo.PermissionRepo, roleRepo repo.RoleRepo) PermissionCacheService {
 	return &permissionCacheService{
 		db:             db,
+		redisClient:    redisClient,
 		permissionRepo: permissionRepo,
 		roleRepo:       roleRepo,
 	}
@@ -56,7 +74,7 @@ func (s *permissionCacheService) GetUserPermissions(ctx context.Context, userID 
 	key := s.permCacheKey(userID)
 
 	// 1. 优先从 Redis 缓存读取
-	cached, err := redis.Get().Get(ctx, key).Result()
+	cached, err := s.redisClient.Get(ctx, key).Result()
 	if err == nil && cached != "" {
 		var codes []string
 		if jsonErr := json.Unmarshal([]byte(cached), &codes); jsonErr == nil {
@@ -67,23 +85,13 @@ func (s *permissionCacheService) GetUserPermissions(ctx context.Context, userID 
 		// 反序列化失败则继续回源查询
 	}
 
-	// 2. 缓存未命中，查询数据库
+	// 2. 缓存未命中，查询数据库（一次 JOIN 查询直接返回权限编码）
 	logger.Info("rbac permission cache miss, querying DB",
 		zap.String("user_id", userID.String()))
 
-	permIDs, err := s.permissionRepo.GetPermissionIDsByUserID(ctx, userID)
+	codes, err := s.permissionRepo.GetPermissionCodesByUserID(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("get user permission ids: %w", err)
-	}
-
-	var codes []string
-	if len(permIDs) > 0 {
-		if err := s.db.WithContext(ctx).
-			Model(&model.Permission{}).
-			Where("id IN ? AND status = ?", permIDs, model.PermissionStatusEnabled).
-			Pluck("code", &codes).Error; err != nil {
-			return nil, fmt.Errorf("get permission codes: %w", err)
-		}
+		return nil, fmt.Errorf("get user permission codes: %w", err)
 	}
 
 	// 3. 回填缓存（即使为空也缓存，防止缓存穿透）
@@ -91,7 +99,7 @@ func (s *permissionCacheService) GetUserPermissions(ctx context.Context, userID 
 	if err != nil {
 		logger.Error("marshal permission codes failed",
 			zap.String("user_id", userID.String()), zap.Error(err))
-	} else if setErr := redis.Get().Set(ctx, key, string(data), permCacheTTL).Err(); setErr != nil {
+	} else if setErr := s.redisClient.Set(ctx, key, string(data), jitteredTTL(permCacheTTL, permCacheJitter)).Err(); setErr != nil {
 		logger.Warn("set permission cache failed",
 			zap.String("user_id", userID.String()), zap.Error(setErr))
 	}
@@ -102,7 +110,7 @@ func (s *permissionCacheService) GetUserPermissions(ctx context.Context, userID 
 // InvalidateUserPermissions 失效指定用户的权限缓存
 func (s *permissionCacheService) InvalidateUserPermissions(ctx context.Context, userID uuid.UUID) error {
 	key := s.permCacheKey(userID)
-	if err := redis.Get().Del(ctx, key).Err(); err != nil {
+	if err := s.redisClient.Del(ctx, key).Err(); err != nil {
 		return fmt.Errorf("delete permission cache: %w", err)
 	}
 	return nil
@@ -123,7 +131,7 @@ func (s *permissionCacheService) InvalidateRolePermissions(ctx context.Context, 
 	// 逐个失效用户缓存，单条失败仅记录日志不中断流程
 	for _, uid := range userIDs {
 		key := s.permCacheKey(uid)
-		if delErr := redis.Get().Del(ctx, key).Err(); delErr != nil {
+		if delErr := s.redisClient.Del(ctx, key).Err(); delErr != nil {
 			logger.Warn("invalidate user permission cache failed",
 				zap.String("user_id", uid.String()),
 				zap.String("role_id", roleID.String()),

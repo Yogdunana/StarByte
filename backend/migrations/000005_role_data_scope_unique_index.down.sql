@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS idx_role_data_scope_role_perm_dept_unique;
