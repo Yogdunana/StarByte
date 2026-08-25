@@ -147,7 +147,7 @@ func main() {
 	// 12. 优雅关闭
 	go func() {
 		logger.Info("server started", zap.Int("port", cfg.Server.Port), zap.String("mode", cfg.Server.Mode))
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrClosed {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Fatal("server listen failed", zap.Error(err))
 		}
 	}()

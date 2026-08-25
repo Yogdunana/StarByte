@@ -174,7 +174,7 @@ func Page(c *gin.Context, list interface{}, total int64, page, pageSize int) {
 			List:     list,
 			Total:    total,
 			Page:     page,
-			PageSize: page_size,
+			PageSize: pageSize,
 		},
 		RequestID: c.GetString("request_id"),
 		Timestamp: time.Now().Unix(),
