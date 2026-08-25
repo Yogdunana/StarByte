@@ -205,6 +205,8 @@ func buildDataScopeCondition(ctx context.Context, db *gorm.DB, deptRepo rbacRepo
 }
 
 // fetchUserDataScopes 返回用户在指定资源上各角色授予的不同 data_scope 值（去重）
+// 关联 user_roles -> roles -> role_permissions -> permissions
+// 过滤条件：角色未过期、角色已启用、权限已启用
 func fetchUserDataScopes(ctx context.Context, db *gorm.DB, userID uuid.UUID, resource string) ([]string, error) {
 	type scopeRow struct {
 		DataScope string
@@ -214,10 +216,13 @@ func fetchUserDataScopes(ctx context.Context, db *gorm.DB, userID uuid.UUID, res
 		SELECT DISTINCT rp.data_scope
 		FROM role_permissions rp
 		JOIN user_roles ur ON ur.role_id = rp.role_id
+		JOIN roles r ON ur.role_id = r.id
 		JOIN permissions p ON p.id = rp.permission_id
 		WHERE ur.user_id = ?
 		  AND p.resource = ?
 		  AND (ur.expired_at IS NULL OR ur.expired_at > NOW())
+		  AND r.status = 0
+		  AND p.status = 0
 	`, userID, resource).Scan(&rows).Error
 	if err != nil {
 		return nil, err
@@ -242,6 +247,8 @@ func fetchUserDepartmentID(ctx context.Context, db *gorm.DB, userID uuid.UUID) (
 }
 
 // fetchCustomDepartmentIDs 返回用户通过 custom 数据权限授予的自定义部门 ID 列表
+// 关联 role_data_scopes -> role_permissions -> user_roles -> roles -> permissions
+// 过滤条件：角色未过期、角色已启用、权限已启用
 func fetchCustomDepartmentIDs(ctx context.Context, db *gorm.DB, userID uuid.UUID, resource string) ([]uuid.UUID, error) {
 	type deptRow struct {
 		DepartmentID uuid.UUID
@@ -252,11 +259,14 @@ func fetchCustomDepartmentIDs(ctx context.Context, db *gorm.DB, userID uuid.UUID
 		FROM role_data_scopes rds
 		JOIN role_permissions rp ON rp.id = rds.role_permission_id
 		JOIN user_roles ur ON ur.role_id = rp.role_id
+		JOIN roles r ON ur.role_id = r.id
 		JOIN permissions p ON p.id = rp.permission_id
 		WHERE ur.user_id = ?
 		  AND p.resource = ?
 		  AND rp.data_scope = 'custom'
 		  AND (ur.expired_at IS NULL OR ur.expired_at > NOW())
+		  AND r.status = 0
+		  AND p.status = 0
 	`, userID, resource).Scan(&rows).Error
 	if err != nil {
 		return nil, err

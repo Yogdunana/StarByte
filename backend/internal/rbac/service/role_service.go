@@ -174,6 +174,7 @@ func (s *roleService) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 // AssignPermissions 为角色分配权限（事务执行，并失效相关用户权限缓存）
+// 系统内置角色不可修改权限，防止 super_admin 等关键角色权限被篡改
 func (s *roleService) AssignPermissions(ctx context.Context, id uuid.UUID, req *dto.AssignPermissionsRequest) error {
 	// 校验角色是否存在
 	role, err := s.roleRepo.GetByID(ctx, id)
@@ -216,7 +217,12 @@ func (s *roleService) AssignPermissions(ctx context.Context, id uuid.UUID, req *
 			return fmt.Errorf("lock role: %w", err)
 		}
 
-		if err := s.roleRepo.AssignPermissions(ctx, tx, id, permIDs); err != nil {
+		// 系统内置角色不可修改权限
+		if role.IsSystem {
+			return rbac.NewSystemRoleNoEditError()
+		}
+
+		if err := s.roleRepo.AssignPermissions(ctx, tx, id, permIDs, req.DataScope); err != nil {
 			return fmt.Errorf("assign permissions: %w", err)
 		}
 		return nil

@@ -16,7 +16,7 @@ type RoleRepo interface {
 	List(ctx context.Context, page, pageSize int, keyword string) ([]model.Role, int64, error)
 	Update(ctx context.Context, tx *gorm.DB, role *model.Role) error
 	Delete(ctx context.Context, id uuid.UUID) error
-	AssignPermissions(ctx context.Context, tx *gorm.DB, roleID uuid.UUID, permissionIDs []uuid.UUID) error
+	AssignPermissions(ctx context.Context, tx *gorm.DB, roleID uuid.UUID, permissionIDs []uuid.UUID, dataScope string) error
 	GetPermissionIDsByRoleID(ctx context.Context, roleID uuid.UUID) ([]uuid.UUID, error)
 	GetUsersByRoleID(ctx context.Context, roleID uuid.UUID, page, pageSize int) ([]RoleUserListItem, int64, error)
 	CountUsersByRoleID(ctx context.Context, roleID uuid.UUID) (int64, error)
@@ -111,7 +111,8 @@ func (r *roleRepo) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 // AssignPermissions 分配角色权限：先删除已有关联，再批量插入新关联
-func (r *roleRepo) AssignPermissions(ctx context.Context, tx *gorm.DB, roleID uuid.UUID, permissionIDs []uuid.UUID) error {
+// dataScope 指定数据权限范围，为空时默认使用 department
+func (r *roleRepo) AssignPermissions(ctx context.Context, tx *gorm.DB, roleID uuid.UUID, permissionIDs []uuid.UUID, dataScope string) error {
 	db := r.getDB(tx).WithContext(ctx)
 
 	// 删除现有角色-权限关联
@@ -124,6 +125,11 @@ func (r *roleRepo) AssignPermissions(ctx context.Context, tx *gorm.DB, roleID uu
 		return nil
 	}
 
+	// 默认使用 department 数据范围
+	if dataScope == "" {
+		dataScope = model.DataScopeDepartment
+	}
+
 	// 批量插入新的关联
 	rolePerms := make([]model.RolePermission, 0, len(permissionIDs))
 	for _, permID := range permissionIDs {
@@ -131,7 +137,7 @@ func (r *roleRepo) AssignPermissions(ctx context.Context, tx *gorm.DB, roleID uu
 			ID:           uuid.New(),
 			RoleID:       roleID,
 			PermissionID: permID,
-			DataScope:    model.DataScopeDepartment,
+			DataScope:    dataScope,
 		})
 	}
 

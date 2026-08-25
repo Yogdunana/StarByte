@@ -9,6 +9,7 @@ const (
 	ErrCodeRoleCodeExists     = 3002 // 角色编码已存在
 	ErrCodeRoleInUse          = 3003 // 角色已被用户关联，不能删除
 	ErrCodeSystemRoleNoDelete = 3004 // 系统内置角色不可删除
+	ErrCodeSystemRoleNoEdit   = 3016 // 系统内置角色不可编辑权限
 
 	// 权限相关
 	ErrCodePermissionNotFound       = 3005 // 权限不存在
@@ -50,6 +51,11 @@ func NewRoleInUseError() *response.AppError {
 // NewSystemRoleNoDeleteError 系统内置角色不可删除错误
 func NewSystemRoleNoDeleteError() *response.AppError {
 	return response.NewError(ErrCodeSystemRoleNoDelete, "系统内置角色不可删除")
+}
+
+// NewSystemRoleNoEditError 系统内置角色不可编辑权限错误
+func NewSystemRoleNoEditError() *response.AppError {
+	return response.NewError(ErrCodeSystemRoleNoEdit, "系统内置角色不可编辑权限")
 }
 
 // NewPermissionNotFoundError 权限不存在错误
