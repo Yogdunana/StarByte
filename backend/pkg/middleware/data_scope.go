@@ -9,6 +9,7 @@ import (
 	rbacRepo "github.com/Yogdunana/StarByte/backend/internal/rbac/repo"
 	rbacService "github.com/Yogdunana/StarByte/backend/internal/rbac/service"
 	"github.com/Yogdunana/StarByte/backend/pkg/logger"
+	"github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -32,14 +33,21 @@ const dataScopeContextKey = "data_scope_condition"
 func DataScopeMiddleware(db *gorm.DB, deptRepo rbacRepo.DepartmentRepo, cacheService rbacService.PermissionCacheService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 从 context 获取用户 ID（由 JWTAuth 中间件设置）
-		userIDStr, exists := c.Get("user_id")
+		userIDVal, exists := c.Get(auth.ContextKeyUserID)
 		if !exists {
 			// 没有用户身份，跳过（由鉴权中间件处理未登录情况）
 			c.Next()
 			return
 		}
 
-		userID, err := uuid.Parse(fmt.Sprintf("%v", userIDStr))
+		userIDStr, ok := userIDVal.(string)
+		if !ok {
+			logger.Warn("data scope: user_id in context is not a string type")
+			c.Next()
+			return
+		}
+
+		userID, err := uuid.Parse(userIDStr)
 		if err != nil {
 			logger.Warn("data scope: invalid user id in context", zap.Error(err))
 			c.Next()
@@ -62,10 +70,9 @@ func DataScopeMiddleware(db *gorm.DB, deptRepo rbacRepo.DepartmentRepo, cacheSer
 				zap.Stringer("user_id", userID),
 				zap.String("resource", resourceStr),
 				zap.Error(err))
-			// 构建失败时默认只允许查看自己的数据（fail closed 策略）
+			// 构建失败时默认拒绝所有访问（fail closed 策略，避免因表结构差异导致 SQL 错误）
 			c.Set(dataScopeContextKey, &rbacModel.DataScopeCondition{
-				Query: "created_by = ?",
-				Args:  []interface{}{userID},
+				Query: "1 = 0",
 			})
 			c.Next()
 			return
@@ -136,11 +143,10 @@ func buildDataScopeCondition(ctx context.Context, db *gorm.DB, deptRepo rbacRepo
 		return nil, fmt.Errorf("fetch user data scopes: %w", err)
 	}
 
-	// 用户在该资源上没有任何数据权限，退化为仅本人数据（最安全的非空默认）
+	// 用户在该资源上没有任何数据权限，默认拒绝访问（最安全的 fail-closed 策略）
 	if len(scopes) == 0 {
 		return &rbacModel.DataScopeCondition{
-			Query: "created_by = ?",
-			Args:  []interface{}{userID},
+			Query: "1 = 0",
 		}, nil
 	}
 
@@ -153,10 +159,8 @@ func buildDataScopeCondition(ctx context.Context, db *gorm.DB, deptRepo rbacRepo
 		return &rbacModel.DataScopeCondition{}, nil
 
 	case rbacModel.DataScopeSelf:
-		return &rbacModel.DataScopeCondition{
-			Query: "created_by = ?",
-			Args:  []interface{}{userID},
-		}, nil
+		// 仅本人数据：fail-closed 策略，直接拒绝访问以避免因表无 created_by 字段导致 SQL 错误
+		return &rbacModel.DataScopeCondition{Query: "1 = 0"}, nil
 
 	case rbacModel.DataScopeDepartment:
 		deptID, err := fetchUserDepartmentID(ctx, db, userID)
@@ -164,11 +168,8 @@ func buildDataScopeCondition(ctx context.Context, db *gorm.DB, deptRepo rbacRepo
 			return nil, fmt.Errorf("fetch user department: %w", err)
 		}
 		if deptID == nil {
-			// 缺少部门信息时退化为仅本人数据
-			return &rbacModel.DataScopeCondition{
-				Query: "created_by = ?",
-				Args:  []interface{}{userID},
-			}, nil
+			// 缺少部门信息时默认拒绝访问（fail-closed 策略）
+			return &rbacModel.DataScopeCondition{Query: "1 = 0"}, nil
 		}
 		return &rbacModel.DataScopeCondition{
 			Query: "department_id = ?",
@@ -181,10 +182,8 @@ func buildDataScopeCondition(ctx context.Context, db *gorm.DB, deptRepo rbacRepo
 			return nil, fmt.Errorf("fetch user department: %w", err)
 		}
 		if deptID == nil {
-			return &rbacModel.DataScopeCondition{
-				Query: "created_by = ?",
-				Args:  []interface{}{userID},
-			}, nil
+			// 缺少部门信息时默认拒绝访问（fail-closed 策略）
+			return &rbacModel.DataScopeCondition{Query: "1 = 0"}, nil
 		}
 		deptIDs, err := deptRepo.GetDepartmentAndSubIDs(ctx, *deptID)
 		if err != nil {

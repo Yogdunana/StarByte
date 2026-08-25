@@ -18,6 +18,9 @@ import (
 // the middleware fetches the cached permission list and verifies that it
 // contains the required permission code. On success the user's permission list
 // is stored in the context under "user_permissions" for downstream use.
+//
+// 使用 GetUserPermissionsAndSuperAdmin 通过 Redis Pipeline 合并两次查询，
+// 将超级管理员身份判断和权限列表获取合并为一次 Redis 往返
 func PermissionRequired(cacheService rbacService.PermissionCacheService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userIDStr := auth.GetUserID(c)
@@ -28,38 +31,41 @@ func PermissionRequired(cacheService rbacService.PermissionCacheService) gin.Han
 			return
 		}
 
-		// 超级管理员跳过权限校验
-		isSuper, err := cacheService.IsSuperAdmin(c.Request.Context(), userID)
+		// 通过 Pipeline 同时获取用户权限列表和超级管理员身份，减少一次 Redis 往返
+		perms, isSuper, err := cacheService.GetUserPermissionsAndSuperAdmin(c.Request.Context(), userID)
 		if err != nil {
-			logger.Error("check super admin failed", zap.Error(err))
+			logger.Error("get user permissions and super admin failed", zap.Error(err))
 			response.Error(c, err)
 			c.Abort()
 			return
 		}
+
+		// 超级管理员跳过权限校验
 		if isSuper {
 			c.Set("is_super_admin", true)
+			c.Set("user_permissions", []string{"*"})
 			c.Next()
 			return
 		}
 
 		// 获取路由注册时设置的所需权限码
+		// 默认拒绝（fail closed）：未声明权限码的路由视为配置错误，拒绝访问
 		requiredPerm, exists := c.Get("required_permission")
 		if !exists {
-			c.Next()
+			logger.Error("required_permission not set in context, permission check bypassed",
+				zap.String("path", c.Request.URL.Path),
+				zap.String("method", c.Request.Method))
+			response.Error(c, response.NewError(response.CodeInternalError, "权限配置错误"))
+			c.Abort()
 			return
 		}
 
 		permCode, ok := requiredPerm.(string)
 		if !ok {
-			c.Next()
-			return
-		}
-
-		// 从缓存获取用户权限列表
-		perms, err := cacheService.GetUserPermissions(c.Request.Context(), userID)
-		if err != nil {
-			logger.Error("get user permissions failed", zap.Error(err))
-			response.Error(c, err)
+			logger.Error("required_permission is not a string type",
+				zap.String("path", c.Request.URL.Path),
+				zap.String("method", c.Request.Method))
+			response.Error(c, response.NewError(response.CodeInternalError, "权限配置错误"))
 			c.Abort()
 			return
 		}
@@ -75,7 +81,7 @@ func PermissionRequired(cacheService rbacService.PermissionCacheService) gin.Han
 			return
 		}
 
-		response.Error(c, response.NewForbiddenError("权限不足"))
+		response.Error(c, response.NewForbiddenError("权限不足: "+permCode))
 		c.Abort()
 	}
 }

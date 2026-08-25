@@ -24,8 +24,8 @@ func (Position) TableName() string {
 	return "positions"
 }
 
-// 职位状态常量
+// 职位状态常量（使用 iota 自动递增，0=启用，1=禁用）
 const (
-	PositionStatusEnabled  = 0 // 启用
-	PositionStatusDisabled = 1 // 禁用
+	PositionStatusEnabled  = iota // 启用
+	PositionStatusDisabled        // 禁用
 )

@@ -13,11 +13,17 @@ import (
 )
 
 // PositionService 职位服务接口
+// 提供职位的增删改查等业务逻辑。
 type PositionService interface {
+	// Create 创建新职位，校验编码唯一性
 	Create(ctx context.Context, req *dto.CreatePositionRequest) (*dto.PositionResponse, error)
+	// GetByID 根据 ID 查询职位详情
 	GetByID(ctx context.Context, id uuid.UUID) (*dto.PositionResponse, error)
+	// List 分页查询职位列表，支持关键字模糊搜索
 	List(ctx context.Context, req *dto.ListPositionRequest) ([]dto.PositionResponse, int64, error)
+	// Update 更新职位信息，支持部分字段更新
 	Update(ctx context.Context, id uuid.UUID, req *dto.UpdatePositionRequest) (*dto.PositionResponse, error)
+	// Delete 删除职位，已关联用户的职位不可删除
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
@@ -62,12 +68,11 @@ func (s *positionService) Create(ctx context.Context, req *dto.CreatePositionReq
 		pos.SortOrder = *req.SortOrder
 	}
 
-	err = s.positionRepo.Create(ctx, nil, pos)
-	if err != nil {
+	if err := s.positionRepo.Create(ctx, nil, pos); err != nil {
 		return nil, fmt.Errorf("create position: %w", err)
 	}
 
-	return s.GetByID(ctx, pos.ID)
+	return toPositionResponse(pos), nil
 }
 
 // GetByID 获取职位详情
@@ -80,7 +85,7 @@ func (s *positionService) GetByID(ctx context.Context, id uuid.UUID) (*dto.Posit
 		return nil, rbac.NewPositionNotFoundError()
 	}
 
-	return s.toPositionResponse(pos), nil
+	return toPositionResponse(pos), nil
 }
 
 // List 获取职位列表
@@ -92,7 +97,7 @@ func (s *positionService) List(ctx context.Context, req *dto.ListPositionRequest
 
 	result := make([]dto.PositionResponse, 0, len(positions))
 	for i := range positions {
-		result = append(result, *s.toPositionResponse(&positions[i]))
+		result = append(result, *toPositionResponse(&positions[i]))
 	}
 
 	return result, total, nil
@@ -111,8 +116,8 @@ func (s *positionService) Update(ctx context.Context, id uuid.UUID, req *dto.Upd
 	if req.Name != "" {
 		pos.Name = req.Name
 	}
-	if req.Description != "" {
-		pos.Description = req.Description
+	if req.Description != nil {
+		pos.Description = *req.Description
 	}
 	if req.Level != nil {
 		pos.Level = *req.Level
@@ -127,15 +132,16 @@ func (s *positionService) Update(ctx context.Context, id uuid.UUID, req *dto.Upd
 		pos.Status = *req.Status
 	}
 
-	err = s.positionRepo.Update(ctx, nil, pos)
-	if err != nil {
+	if err := s.positionRepo.Update(ctx, nil, pos); err != nil {
 		return nil, fmt.Errorf("update position: %w", err)
 	}
 
-	return s.GetByID(ctx, id)
+	return toPositionResponse(pos), nil
 }
 
 // Delete 删除职位
+// 已关联用户的职位不可删除
+// 使用事务确保检查和删除的原子性，避免 TOCTOU 竞态条件
 func (s *positionService) Delete(ctx context.Context, id uuid.UUID) error {
 	pos, err := s.positionRepo.GetByID(ctx, id)
 	if err != nil {
@@ -145,13 +151,35 @@ func (s *positionService) Delete(ctx context.Context, id uuid.UUID) error {
 		return rbac.NewPositionNotFoundError()
 	}
 
-	return s.positionRepo.Delete(ctx, id)
+	// 在事务内执行检查和删除，确保原子性
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		// 检查是否有用户使用该职位
+		userCount, err := s.positionRepo.CountUsersByPositionID(ctx, tx, id)
+		if err != nil {
+			return fmt.Errorf("count position users: %w", err)
+		}
+		if userCount > 0 {
+			return rbac.NewPositionInUseError()
+		}
+
+		// 执行删除
+		if err := s.positionRepo.Delete(ctx, tx, id); err != nil {
+			return fmt.Errorf("delete position: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // ========== 工具函数 ==========
 
 // toPositionResponse 将职位模型转换为响应 DTO
-func (s *positionService) toPositionResponse(pos *model.Position) *dto.PositionResponse {
+func toPositionResponse(pos *model.Position) *dto.PositionResponse {
 	return &dto.PositionResponse{
 		ID:          pos.ID.String(),
 		Name:        pos.Name,

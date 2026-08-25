@@ -9,17 +9,31 @@ import (
 )
 
 // RoleRepo 角色数据访问接口
+// 定义角色相关的数据库操作，支持事务传入以保证复杂操作的原子性。
 type RoleRepo interface {
+	// Create 创建角色记录
 	Create(ctx context.Context, tx *gorm.DB, role *model.Role) error
+	// GetByID 根据 ID 查询角色，未找到返回 nil, nil
 	GetByID(ctx context.Context, id uuid.UUID) (*model.Role, error)
+	// GetByCode 根据编码查询角色，未找到返回 nil, nil
 	GetByCode(ctx context.Context, code string) (*model.Role, error)
+	// List 分页查询角色列表，支持关键字模糊搜索（名称和编码）
 	List(ctx context.Context, page, pageSize int, keyword string) ([]model.Role, int64, error)
+	// Update 更新角色记录（全量保存）
 	Update(ctx context.Context, tx *gorm.DB, role *model.Role) error
+	// Delete 根据 ID 删除角色
 	Delete(ctx context.Context, id uuid.UUID) error
+	// AssignPermissions 为角色分配权限：先删除已有，再批量插入新关联
+	// dataScope 指定数据权限范围，为空时默认使用 department
 	AssignPermissions(ctx context.Context, tx *gorm.DB, roleID uuid.UUID, permissionIDs []uuid.UUID, dataScope string) error
+	// GetPermissionIDsByRoleID 查询角色拥有的权限 ID 列表
 	GetPermissionIDsByRoleID(ctx context.Context, roleID uuid.UUID) ([]uuid.UUID, error)
+	// GetUsersByRoleID 分页查询角色关联的用户列表
+	// dataScope 为数据权限过滤条件，nil 时不过滤
 	GetUsersByRoleID(ctx context.Context, roleID uuid.UUID, page, pageSize int, dataScope *model.DataScopeCondition) ([]RoleUserListItem, int64, error)
+	// CountUsersByRoleID 统计角色下的有效用户数（排除已删除和已过期用户）
 	CountUsersByRoleID(ctx context.Context, roleID uuid.UUID) (int64, error)
+	// GetRoleIDsByUserID 查询用户拥有的角色 ID 列表（过滤已过期关联和已禁用角色）
 	GetRoleIDsByUserID(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
 }
 
@@ -73,9 +87,15 @@ func (r *roleRepo) GetByCode(ctx context.Context, code string) (*model.Role, err
 }
 
 // List 分页查询角色列表
+// pageSize 最大限制为 100，防止超大分页导致性能问题
 func (r *roleRepo) List(ctx context.Context, page, pageSize int, keyword string) ([]model.Role, int64, error) {
 	var roles []model.Role
 	var total int64
+
+	// 防御性校验：限制 pageSize 最大值（调用方应已处理默认值）
+	if pageSize > 100 {
+		pageSize = 100
+	}
 
 	query := r.db.WithContext(ctx).Model(&model.Role{})
 
@@ -156,7 +176,13 @@ func (r *roleRepo) GetPermissionIDsByRoleID(ctx context.Context, roleID uuid.UUI
 
 // GetUsersByRoleID 分页查询角色关联的用户列表（join user_roles 与 users）
 // dataScope 为数据权限过滤条件，为空时不过滤
+// pageSize 最大限制为 100，防止超大分页导致性能问题
 func (r *roleRepo) GetUsersByRoleID(ctx context.Context, roleID uuid.UUID, page, pageSize int, dataScope *model.DataScopeCondition) ([]RoleUserListItem, int64, error) {
+	// 防御性校验：限制 pageSize 最大值（调用方应已处理默认值）
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
 	var total int64
 
 	// 统计角色下有效用户数

@@ -24,8 +24,8 @@ func (Department) TableName() string {
 	return "departments"
 }
 
-// 部门状态常量
+// 部门状态常量（使用 iota 自动递增，0=启用，1=禁用）
 const (
-	DepartmentStatusEnabled  = 0 // 启用
-	DepartmentStatusDisabled = 1 // 禁用
+	DepartmentStatusEnabled  = iota // 启用
+	DepartmentStatusDisabled        // 禁用
 )

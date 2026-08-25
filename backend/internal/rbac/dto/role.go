@@ -14,12 +14,14 @@ type CreateRoleRequest struct {
 }
 
 // UpdateRoleRequest 更新角色请求
+// ParentID 使用 *string：nil 表示不修改，空字符串表示设为 null（提升为根节点）
+// Description 使用 *string：nil 表示不修改，空字符串表示清空
 type UpdateRoleRequest struct {
-	Name        string `json:"name" binding:"omitempty,max=50"`
-	Code        string `json:"code" binding:"omitempty,max=50"`
-	ParentID    string `json:"parent_id" binding:"omitempty"`
-	Description string `json:"description" binding:"omitempty,max=255"`
-	Status      *int   `json:"status" binding:"omitempty,oneof=0 1"`
+	Name        string  `json:"name" binding:"omitempty,max=50"`
+	Code        string  `json:"code" binding:"omitempty,max=50"`
+	ParentID    *string `json:"parent_id" binding:"omitempty"`
+	Description *string `json:"description" binding:"omitempty,max=255"`
+	Status      *int    `json:"status" binding:"omitempty,oneof=0 1"`
 }
 
 // ListRoleRequest 角色列表请求
@@ -47,7 +49,7 @@ type RoleResponse struct {
 	Name        string    `json:"name"`
 	Code        string    `json:"code"`
 	Description string    `json:"description"`
-	ParentID    string    `json:"parent_id"`
+	ParentID    *string   `json:"parent_id"`
 	SortOrder   int       `json:"sort_order"`
 	Status      int       `json:"status"`
 	IsSystem    bool      `json:"is_system"`

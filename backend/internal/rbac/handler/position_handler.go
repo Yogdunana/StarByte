@@ -33,7 +33,7 @@ func NewPositionHandler(positionService service.PositionService) *PositionHandle
 func (h *PositionHandler) List(c *gin.Context) {
 	var req dto.ListPositionRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		response.BadRequest(c, "参数错误")
+		response.BadRequest(c, parseBindingError(err))
 		return
 	}
 	if req.Page <= 0 {
@@ -91,7 +91,7 @@ func (h *PositionHandler) GetByID(c *gin.Context) {
 func (h *PositionHandler) Create(c *gin.Context) {
 	var req dto.CreatePositionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "参数错误")
+		response.BadRequest(c, parseBindingError(err))
 		return
 	}
 
@@ -125,7 +125,7 @@ func (h *PositionHandler) Update(c *gin.Context) {
 
 	var req dto.UpdatePositionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "参数错误")
+		response.BadRequest(c, parseBindingError(err))
 		return
 	}
 

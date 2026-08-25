@@ -34,7 +34,7 @@ func NewRoleHandler(roleService service.RoleService) *RoleHandler {
 func (h *RoleHandler) List(c *gin.Context) {
 	var req dto.ListRoleRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		response.BadRequest(c, "参数错误")
+		response.BadRequest(c, parseBindingError(err))
 		return
 	}
 	if req.Page <= 0 {
@@ -92,7 +92,7 @@ func (h *RoleHandler) GetByID(c *gin.Context) {
 func (h *RoleHandler) Create(c *gin.Context) {
 	var req dto.CreateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "参数错误")
+		response.BadRequest(c, parseBindingError(err))
 		return
 	}
 
@@ -133,7 +133,7 @@ func (h *RoleHandler) Update(c *gin.Context) {
 
 	var req dto.UpdateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "参数错误")
+		response.BadRequest(c, parseBindingError(err))
 		return
 	}
 
@@ -192,7 +192,7 @@ func (h *RoleHandler) AssignPermissions(c *gin.Context) {
 
 	var req dto.AssignPermissionsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "参数错误")
+		response.BadRequest(c, parseBindingError(err))
 		return
 	}
 
@@ -232,7 +232,7 @@ func (h *RoleHandler) GetRoleUsers(c *gin.Context) {
 
 	var req dto.RoleUserListRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		response.BadRequest(c, "参数错误")
+		response.BadRequest(c, parseBindingError(err))
 		return
 	}
 	if req.Page <= 0 {

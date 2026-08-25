@@ -75,7 +75,7 @@ func (h *PermissionHandler) GetByID(c *gin.Context) {
 func (h *PermissionHandler) Create(c *gin.Context) {
 	var req dto.CreatePermissionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "参数错误")
+		response.BadRequest(c, parseBindingError(err))
 		return
 	}
 
@@ -109,7 +109,7 @@ func (h *PermissionHandler) Update(c *gin.Context) {
 
 	var req dto.UpdatePermissionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "参数错误")
+		response.BadRequest(c, parseBindingError(err))
 		return
 	}
 

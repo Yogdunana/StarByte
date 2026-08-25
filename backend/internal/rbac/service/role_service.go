@@ -8,21 +8,27 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/rbac/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/rbac/repo"
-	"github.com/Yogdunana/StarByte/backend/pkg/logger"
 	"github.com/google/uuid"
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 // RoleService 角色服务接口
+// 提供角色的增删改查、权限分配、用户查询等业务逻辑，含缓存失效处理。
 type RoleService interface {
+	// Create 创建新角色，校验编码唯一性和父角色存在性
 	Create(ctx context.Context, req *dto.CreateRoleRequest) (*dto.RoleResponse, error)
+	// GetByID 根据 ID 查询角色详情（含权限 ID 列表）
 	GetByID(ctx context.Context, id uuid.UUID) (*dto.RoleDetailResponse, error)
+	// List 分页查询角色列表，支持关键字模糊搜索
 	List(ctx context.Context, req *dto.ListRoleRequest) ([]dto.RoleListResponse, int64, error)
+	// Update 更新角色信息，系统内置角色不可修改状态、编码和父级
 	Update(ctx context.Context, id uuid.UUID, req *dto.UpdateRoleRequest) (*dto.RoleResponse, error)
+	// Delete 删除角色，系统内置角色和已关联用户的角色不可删除
 	Delete(ctx context.Context, id uuid.UUID) error
+	// AssignPermissions 为角色分配权限（全量替换），系统内置角色不可修改权限
 	AssignPermissions(ctx context.Context, id uuid.UUID, req *dto.AssignPermissionsRequest) error
+	// GetRoleUsers 分页查询角色下的用户列表，支持数据权限过滤
 	GetRoleUsers(ctx context.Context, id uuid.UUID, page, pageSize int, dataScope *model.DataScopeCondition) ([]dto.RoleUserResponse, int64, error)
 }
 
@@ -67,6 +73,14 @@ func (s *roleService) Create(ctx context.Context, req *dto.CreateRoleRequest) (*
 		if err != nil {
 			return nil, fmt.Errorf("invalid parent_id: %w", err)
 		}
+		// 验证父角色是否存在
+		parent, err := s.roleRepo.GetByID(ctx, parentID)
+		if err != nil {
+			return nil, fmt.Errorf("get parent role: %w", err)
+		}
+		if parent == nil {
+			return nil, rbac.NewRoleNotFoundError()
+		}
 		role.ParentID = &parentID
 	}
 
@@ -78,7 +92,7 @@ func (s *roleService) Create(ctx context.Context, req *dto.CreateRoleRequest) (*
 		return nil, fmt.Errorf("create role: %w", err)
 	}
 
-	return s.toRoleResponse(role), nil
+	return toRoleResponse(role), nil
 }
 
 // GetByID 获取角色详情（含权限 ID 列表）
@@ -102,7 +116,7 @@ func (s *roleService) GetByID(ctx context.Context, id uuid.UUID) (*dto.RoleDetai
 	}
 
 	return &dto.RoleDetailResponse{
-		RoleResponse:  *s.toRoleResponse(role),
+		RoleResponse:  *toRoleResponse(role),
 		PermissionIDs: permIDStrs,
 	}, nil
 }
@@ -130,6 +144,7 @@ func (s *roleService) List(ctx context.Context, req *dto.ListRoleRequest) ([]dto
 }
 
 // Update 更新角色
+// 系统内置角色不可修改状态和编码，防止 super_admin 等关键角色被禁用
 func (s *roleService) Update(ctx context.Context, id uuid.UUID, req *dto.UpdateRoleRequest) (*dto.RoleResponse, error) {
 	role, err := s.roleRepo.GetByID(ctx, id)
 	if err != nil {
@@ -137,6 +152,26 @@ func (s *roleService) Update(ctx context.Context, id uuid.UUID, req *dto.UpdateR
 	}
 	if role == nil {
 		return nil, rbac.NewRoleNotFoundError()
+	}
+
+	// 系统内置角色保护：不可修改状态、编码和父级
+	if role.IsSystem {
+		if req.Status != nil && *req.Status != 0 {
+			return nil, rbac.NewSystemRoleNoEditError()
+		}
+		if req.Code != "" {
+			return nil, rbac.NewSystemRoleNoEditError()
+		}
+		if req.ParentID != nil {
+			// 转成字符串比较，处理 nil 情况（空字符串表示设为根节点）
+			var currentParent string
+			if role.ParentID != nil {
+				currentParent = role.ParentID.String()
+			}
+			if *req.ParentID != currentParent {
+				return nil, rbac.NewSystemRoleNoEditError()
+			}
+		}
 	}
 
 	if req.Name != "" {
@@ -153,15 +188,24 @@ func (s *roleService) Update(ctx context.Context, id uuid.UUID, req *dto.UpdateR
 		}
 		role.Code = req.Code
 	}
-	if req.ParentID != "" {
-		parentID, err := uuid.Parse(req.ParentID)
-		if err != nil {
-			return nil, fmt.Errorf("invalid parent_id: %w", err)
+	// ParentID 使用 *string：nil 表示不修改，空字符串表示设为 null（提升为根节点）
+	if req.ParentID != nil {
+		if *req.ParentID == "" {
+			role.ParentID = nil
+		} else {
+			parentID, err := uuid.Parse(*req.ParentID)
+			if err != nil {
+				return nil, fmt.Errorf("invalid parent_id: %w", err)
+			}
+			// 禁止设置自身为父节点
+			if parentID == id {
+				return nil, fmt.Errorf("parent_id cannot be self")
+			}
+			role.ParentID = &parentID
 		}
-		role.ParentID = &parentID
 	}
-	if req.Description != "" {
-		role.Description = req.Description
+	if req.Description != nil {
+		role.Description = *req.Description
 	}
 	if req.Status != nil {
 		role.Status = *req.Status
@@ -171,11 +215,19 @@ func (s *roleService) Update(ctx context.Context, id uuid.UUID, req *dto.UpdateR
 		return nil, fmt.Errorf("update role: %w", err)
 	}
 
-	return s.toRoleResponse(role), nil
+	// 角色状态变更后，失效相关用户权限缓存
+	if req.Status != nil {
+		if err := s.cacheService.InvalidateRolePermissions(ctx, id); err != nil {
+			return nil, fmt.Errorf("invalidate cache: %w", err)
+		}
+	}
+
+	return toRoleResponse(role), nil
 }
 
 // Delete 删除角色
 // 系统内置角色不可删除，已被用户关联的角色不可删除
+// 删除时在事务中清理角色-权限关联和用户-角色关联，避免产生孤儿数据
 func (s *roleService) Delete(ctx context.Context, id uuid.UUID) error {
 	role, err := s.roleRepo.GetByID(ctx, id)
 	if err != nil {
@@ -199,8 +251,29 @@ func (s *roleService) Delete(ctx context.Context, id uuid.UUID) error {
 		return rbac.NewRoleInUseError()
 	}
 
-	if err := s.roleRepo.Delete(ctx, id); err != nil {
-		return fmt.Errorf("delete role: %w", err)
+	// 在事务中删除角色及其关联数据
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		// 删除角色-权限关联
+		if err := tx.WithContext(ctx).Where("role_id = ?", id).Delete(&model.RolePermission{}).Error; err != nil {
+			return fmt.Errorf("delete role permissions: %w", err)
+		}
+		// 删除用户-角色关联
+		if err := tx.WithContext(ctx).Where("role_id = ?", id).Delete(&model.UserRole{}).Error; err != nil {
+			return fmt.Errorf("delete user roles: %w", err)
+		}
+		// 删除角色
+		if err := tx.WithContext(ctx).Delete(&model.Role{}, id).Error; err != nil {
+			return fmt.Errorf("delete role: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	// 失效该角色下所有用户的权限缓存
+	if err := s.cacheService.InvalidateRolePermissions(ctx, id); err != nil {
+		return fmt.Errorf("invalidate cache: %w", err)
 	}
 
 	return nil
@@ -222,13 +295,14 @@ func (s *roleService) AssignPermissions(ctx context.Context, id uuid.UUID, req *
 		permIDs = append(permIDs, pid)
 	}
 
-	// 校验权限是否存在（在事务外执行，减少锁持有时间）
-	for _, pid := range permIDs {
-		perm, err := s.permissionRepo.GetByID(ctx, pid)
+	// 批量校验权限是否存在（在事务外执行，减少锁持有时间）
+	// 注意：仅做存在性预校验，状态校验放在事务内（加锁后重新查询），避免 TOCTOU 竞态
+	if len(permIDs) > 0 {
+		perms, err := s.permissionRepo.GetByIDs(ctx, nil, permIDs)
 		if err != nil {
-			return fmt.Errorf("get permission: %w", err)
+			return fmt.Errorf("get permissions by ids: %w", err)
 		}
-		if perm == nil {
+		if len(perms) != len(permIDs) {
 			return rbac.NewPermissionNotFoundError()
 		}
 	}
@@ -250,6 +324,19 @@ func (s *roleService) AssignPermissions(ctx context.Context, id uuid.UUID, req *
 			return rbac.NewSystemRoleNoEditError()
 		}
 
+		// 事务内重新查询权限并校验状态，避免 TOCTOU 竞态
+		if len(permIDs) > 0 {
+			perms, err := s.permissionRepo.GetByIDs(ctx, tx, permIDs)
+			if err != nil {
+				return fmt.Errorf("get permissions by ids in tx: %w", err)
+			}
+			for _, p := range perms {
+				if p.Status != 0 {
+					return fmt.Errorf("permission %s is disabled", p.Code)
+				}
+			}
+		}
+
 		if err := s.roleRepo.AssignPermissions(ctx, tx, id, permIDs, req.DataScope); err != nil {
 			return fmt.Errorf("assign permissions: %w", err)
 		}
@@ -259,11 +346,9 @@ func (s *roleService) AssignPermissions(ctx context.Context, id uuid.UUID, req *
 		return err
 	}
 
-	// 失效该角色下所有用户的权限缓存（失败不影响主流程，仅记录日志）
+	// 失效该角色下所有用户的权限缓存
 	if err := s.cacheService.InvalidateRolePermissions(ctx, id); err != nil {
-		logger.Warn("invalidate role permissions cache failed",
-			zap.String("role_id", id.String()),
-			zap.Error(err))
+		return fmt.Errorf("invalidate cache: %w", err)
 	}
 
 	return nil
@@ -300,7 +385,7 @@ func (s *roleService) GetRoleUsers(ctx context.Context, id uuid.UUID, page, page
 }
 
 // toRoleResponse 将角色模型转换为响应 DTO
-func (s *roleService) toRoleResponse(role *model.Role) *dto.RoleResponse {
+func toRoleResponse(role *model.Role) *dto.RoleResponse {
 	resp := &dto.RoleResponse{
 		ID:          role.ID.String(),
 		Name:        role.Name,
@@ -313,7 +398,8 @@ func (s *roleService) toRoleResponse(role *model.Role) *dto.RoleResponse {
 		UpdatedAt:   role.UpdatedAt,
 	}
 	if role.ParentID != nil {
-		resp.ParentID = role.ParentID.String()
+		parentID := role.ParentID.String()
+		resp.ParentID = &parentID
 	}
 	return resp
 }

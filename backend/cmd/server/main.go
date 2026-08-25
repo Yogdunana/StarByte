@@ -94,7 +94,7 @@ func main() {
 	cacheService := rbacService.NewPermissionCacheService(database.DB(), redis.Client(), permRepo, roleRepo)
 
 	roleService := rbacService.NewRoleService(database.DB(), roleRepo, permRepo, cacheService)
-	permService := rbacService.NewPermissionService(database.DB(), permRepo)
+	permService := rbacService.NewPermissionService(database.DB(), permRepo, cacheService)
 	deptService := rbacService.NewDepartmentService(database.DB(), deptRepo)
 	posService := rbacService.NewPositionService(database.DB(), posRepo)
 

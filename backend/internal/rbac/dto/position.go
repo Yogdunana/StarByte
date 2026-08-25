@@ -15,11 +15,12 @@ type CreatePositionRequest struct {
 }
 
 // UpdatePositionRequest 更新职位请求
+// Description 使用 *string：nil 表示不修改，空字符串表示清空
 type UpdatePositionRequest struct {
 	Name        string   `json:"name" binding:"omitempty,max=50"`
 	Level       *int     `json:"level"`
 	VoteWeight  *float64 `json:"vote_weight"`
-	Description string   `json:"description" binding:"omitempty,max=255"`
+	Description *string  `json:"description" binding:"omitempty,max=255"`
 	SortOrder   *int     `json:"sort_order"`
 	Status      *int     `json:"status" binding:"omitempty,oneof=0 1"`
 }

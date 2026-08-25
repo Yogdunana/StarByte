@@ -63,3 +63,9 @@ type RoleDataScope struct {
 func (RoleDataScope) TableName() string {
 	return "role_data_scopes"
 }
+
+// 角色状态常量（使用 iota 自动递增，0=启用，1=禁用）
+const (
+	RoleStatusEnabled  = iota // 启用
+	RoleStatusDisabled        // 禁用
+)

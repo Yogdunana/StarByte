@@ -24,6 +24,7 @@ const (
 const (
 	ContextKeyUserID   = "user_id"
 	ContextKeyUsername = "username"
+	ContextKeyTokenID  = "token_id"
 )
 
 // Claims is the custom JWT claims object. It embeds jwt.RegisteredClaims so
@@ -100,6 +101,7 @@ func signToken(claims *Claims, secret string) (string, error) {
 }
 
 // ParseToken validates and parses a token string, returning the claims.
+// It verifies the signature, expiration time, and issuer.
 func ParseToken(tokenString string, cfg *config.JWTConfig) (*Claims, error) {
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
@@ -114,6 +116,12 @@ func ParseToken(tokenString string, cfg *config.JWTConfig) (*Claims, error) {
 	if !token.Valid {
 		return nil, errors.New("invalid token")
 	}
+
+	// 验证 Issuer
+	if claims.Issuer != cfg.Issuer {
+		return nil, fmt.Errorf("invalid token issuer: %s", claims.Issuer)
+	}
+
 	return claims, nil
 }
 
@@ -146,6 +154,7 @@ func JWTAuth(cfg *config.JWTConfig) gin.HandlerFunc {
 
 		c.Set(ContextKeyUserID, claims.UserID)
 		c.Set(ContextKeyUsername, claims.Username)
+		c.Set(ContextKeyTokenID, claims.ID)
 		c.Next()
 	}
 }
@@ -167,5 +176,5 @@ func GetUsername(c *gin.Context) string {
 
 // GetTokenID retrieves the token id (jti) stored in the context, if any.
 func GetTokenID(c *gin.Context) string {
-	return c.GetString("token_id")
+	return c.GetString(ContextKeyTokenID)
 }

@@ -20,13 +20,14 @@ type CreatePermissionRequest struct {
 }
 
 // UpdatePermissionRequest 更新权限请求
+// Description 使用 *string：nil 表示不修改，空字符串表示清空
 type UpdatePermissionRequest struct {
-	Name        string `json:"name" binding:"omitempty,max=100"`
-	Description string `json:"description" binding:"omitempty,max=255"`
-	Path        string `json:"path" binding:"omitempty,max=255"`
-	Icon        string `json:"icon" binding:"omitempty,max=50"`
-	SortOrder   *int   `json:"sort_order"`
-	Status      *int   `json:"status" binding:"omitempty,oneof=0 1"`
+	Name        string  `json:"name" binding:"omitempty,max=100"`
+	Description *string `json:"description" binding:"omitempty,max=255"`
+	Path        string  `json:"path" binding:"omitempty,max=255"`
+	Icon        string  `json:"icon" binding:"omitempty,max=50"`
+	SortOrder   *int    `json:"sort_order"`
+	Status      *int    `json:"status" binding:"omitempty,oneof=0 1"`
 }
 
 // PermissionResponse 权限响应
@@ -37,7 +38,7 @@ type PermissionResponse struct {
 	Resource    string                   `json:"resource"`
 	Action      string                   `json:"action"`
 	Description string                   `json:"description"`
-	ParentID    string                   `json:"parent_id"`
+	ParentID    *string                  `json:"parent_id"`
 	SortOrder   int                      `json:"sort_order"`
 	Type        string                   `json:"type"`
 	Path        string                   `json:"path"`
