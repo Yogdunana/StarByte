@@ -27,7 +27,7 @@ type ListRoleRequest struct {
 // AssignPermissionsRequest 分配权限请求
 type AssignPermissionsRequest struct {
 	PermissionIDs []string `json:"permission_ids" binding:"required"`
-	DataScope    string   `json:"data_scope" binding:"omitempty,oneof=all department department_and_sub self custom"`
+	DataScope     string   `json:"data_scope" binding:"omitempty,oneof=all department department_and_sub self custom"`
 }
 
 // RoleResponse 角色响应

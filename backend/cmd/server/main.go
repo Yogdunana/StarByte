@@ -104,7 +104,7 @@ func main() {
 	posHandler := rbacHandler.NewPositionHandler(posService)
 
 	// 数据权限中间件实例
-	dataScopeMiddleware := middleware.DataScopeMiddleware(database.DB(), deptRepo)
+	dataScopeMiddleware := middleware.DataScopeMiddleware(database.DB(), deptRepo, cacheService)
 
 	// 10. API 路由组
 	api := r.Group("/api/v1")
