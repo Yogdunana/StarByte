@@ -68,7 +68,7 @@ func main() {
 	// 7. 注册全局中间件
 	r.Use(middleware.RequestID())
 	r.Use(middleware.Logger())
-	r.Use(middleware.Recovery())
+	r.Use(middleware.ErrorHandler())
 	r.Use(middleware.CORS())
 
 	// 8. 健康检查

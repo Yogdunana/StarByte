@@ -1,0 +1,97 @@
+package response
+
+// Error code ranges for each module, as defined in TEAM_DEV_GUIDE.md §3.4.
+//
+// Ranges:
+//
+//	0          Success
+//	1000-1999  General errors (validation, auth, not found, conflict, etc.)
+//	2000-2999  User module
+//	3000-3999  RBAC (role / permission / department / position)
+//	4000-4999  Workflow engine
+//	5000-5999  Audit log
+//	6000-6999  Member module
+//	7000-7999  Interview module
+//	8000-8999  Meeting module
+//	9000-9999  Task module
+//	10000-10999 Internship module
+//	11000-11999 Statistics module
+//	12000-12999 Notification module
+
+const (
+	// ===== Success =====
+	CodeSuccess = 0
+
+	// ===== General errors (1000-1999) =====
+	CodeBadRequest    = 1001 // 参数错误 / 校验失败
+	CodeUnauthorized  = 1002 // 未授权 / 未登录
+	CodeForbidden     = 1003 // 禁止访问 / 权限不足
+	CodeNotFound      = 1004 // 通用资源不存在
+	CodeConflict      = 1005 // 通用冲突（资源已存在、状态冲突）
+	CodeTooManyReq    = 1006 // 请求过于频繁
+	CodeInternalError = 5000 // 内部服务器错误
+
+	// ===== User module (2000-2999) =====
+	CodeUserNotFound       = 2001 // 用户不存在
+	CodeUserExists         = 2002 // 用户名或邮箱已存在
+	CodeInvalidCredentials = 2003 // 用户名或密码错误
+	CodeUserDisabled       = 2004 // 用户已禁用
+
+	// ===== RBAC module (3000-3999) =====
+	// (defined in internal/rbac/errors.go, range 3001-3020)
+
+	// ===== Workflow engine (4000-4999) =====
+	CodeWorkflowNotFound    = 4001 // 流程定义不存在
+	CodeWorkflowInstanceEnd = 4002 // 流程已结束
+	CodeWorkflowTaskNotFnd  = 4003 // 流程任务不存在
+	CodeWorkflowInvalidNode = 4004 // 无效的节点配置
+
+	// ===== Audit log (5000-5999) =====
+	CodeAuditNotFound  = 5001 // 审计日志不存在
+	CodeAuditExportErr = 5002 // 导出格式不支持
+
+	// ===== Member module (6000-6999) =====
+	CodeMemberAppNotFound = 6001 // 申请不存在
+	CodeMemberAppInvalid  = 6002 // 状态不允许操作
+
+	// ===== Interview module (7000-7999) =====
+	CodeInterviewNotFound = 7001 // 面试场次不存在
+	CodeInterviewConflict = 7002 // 面试时间冲突
+
+	// ===== Meeting module (8000-8999) =====
+	CodeMeetingNotFound = 8001 // 会议不存在
+	CodeVoteClosed      = 8002 // 投票已结束
+
+	// ===== Task module (9000-9999) =====
+	CodeTaskNotFound = 9001 // 任务不存在
+	CodeTaskNoAccess = 9002 // 无权操作任务
+
+	// ===== Internship module (10000-10999) =====
+	CodeInternshipNotFound = 10001 // 实习记录不存在
+	CodeInternshipNoAccess = 10002 // 无权操作实习记录
+
+	// ===== Statistics module (11000-11999) =====
+	CodeStatsProviderNotFound = 11001 // 数据提供者不存在
+	CodeStatsInvalidParam     = 11002 // 统计参数无效
+
+	// ===== Notification module (12000-12999) =====
+	CodeNotificationNotFound  = 12001 // 通知不存在
+	CodeNotificationTplExists = 12002 // 通知模板已存在
+)
+
+// ModuleRanges maps each module name to its error-code range [min, max].
+// Used for documentation and validation purposes.
+var ModuleRanges = map[string][2]int{
+	"general":      {1000, 1999},
+	"user":         {2000, 2999},
+	"rbac":         {3000, 3999},
+	"workflow":     {4000, 4999},
+	"audit":        {5000, 5999},
+	"member":       {6000, 6999},
+	"interview":    {7000, 7999},
+	"meeting":      {8000, 8999},
+	"task":         {9000, 9999},
+	"internship":   {10000, 10999},
+	"statistics":   {11000, 11999},
+	"notification": {12000, 12999},
+}
