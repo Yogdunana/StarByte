@@ -1,0 +1,44 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# 构建产物
+starbyte-server
+*.exe
+*.dll
+*.so
+
+# 日志
+logs/
+*.log
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+*.swp
+*.swo
+*~
+
+# 编辑器/IDE
+.idea/
+.vscode/
+*.iml
+.project
+.classpath
+.settings/
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# 测试覆盖率
+coverage.out
+coverage.html
+
+# 本地配置（生产镜像用环境变量覆盖）
+configs/config.dev.yaml
+configs/config.test.yaml
+.env
+.env.local

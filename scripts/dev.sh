@@ -68,33 +68,54 @@ if [ ! -f "$ENV_FILE" ]; then
     success "已创建 deploy/.env（如需自定义请编辑该文件）"
 fi
 
+# 从 .env 加载变量（只读取我们需要的，不污染全局）
+load_env_var() {
+    local key="$1"
+    local default="$2"
+    local value
+    value=$(grep -E "^${key}=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d'=' -f2- | tr -d '\r' || true)
+    if [ -z "$value" ]; then
+        echo "$default"
+    else
+        echo "$value"
+    fi
+}
+
+POSTGRES_USER=$(load_env_var "POSTGRES_USER" "starbyte")
+POSTGRES_PASSWORD=$(load_env_var "POSTGRES_PASSWORD" "starbyte")
+POSTGRES_DB=$(load_env_var "POSTGRES_DB" "starbyte_dev")
+
 # ── 启动基础设施 ──────────────────────────────────────────
 echo ""
 info "启动基础设施（PostgreSQL + Redis + MinIO）..."
 $COMPOSE_CMD -f "$PROJECT_ROOT/deploy/docker-compose.dev.yml" --env-file "$ENV_FILE" up -d
 
-# 等待健康检查
+# 等待健康检查 —— 不依赖 Python，直接用 docker inspect
 info "等待基础设施就绪..."
 MAX_WAIT=60
 WAIT_COUNT=0
+ALL_HEALTHY=false
+
+check_all_healthy() {
+    local containers
+    containers=$($COMPOSE_CMD -f "$PROJECT_ROOT/deploy/docker-compose.dev.yml" ps -q 2>/dev/null)
+    if [ -z "$containers" ]; then
+        return 1
+    fi
+    for cid in $containers; do
+        local health
+        health=$(docker inspect --format='{{.State.Health.Status}}' "$cid" 2>/dev/null || echo "none")
+        # 没有 healthcheck 的服务视为 healthy
+        if [ "$health" != "none" ] && [ "$health" != "healthy" ]; then
+            return 1
+        fi
+    done
+    return 0
+}
+
 while [ $WAIT_COUNT -lt $MAX_WAIT ]; do
-    if $COMPOSE_CMD -f "$PROJECT_ROOT/deploy/docker-compose.dev.yml" ps --format json 2>/dev/null | python3 -c "
-import sys, json
-all_healthy = True
-for line in sys.stdin:
-    line = line.strip()
-    if not line:
-        continue
-    try:
-        data = json.loads(line)
-        if data.get('Health') and data['Health'] != 'healthy':
-            all_healthy = False
-            break
-    except:
-        pass
-print('healthy' if all_healthy else 'waiting')
-" 2>/dev/null | grep -q "healthy"; then
-        success "基础设施全部就绪"
+    if check_all_healthy; then
+        ALL_HEALTHY=true
         break
     fi
     sleep 2
@@ -103,17 +124,23 @@ print('healthy' if all_healthy else 'waiting')
 done
 echo ""
 
+if [ "$ALL_HEALTHY" = true ]; then
+    success "基础设施全部就绪"
+else
+    warn "等待超时，部分服务可能未就绪（继续执行）"
+fi
+
 # ── 运行数据库迁移 ────────────────────────────────────────
 info "运行数据库迁移..."
 
 if command -v migrate &> /dev/null; then
     migrate -path "$PROJECT_ROOT/backend/migrations" \
-        -database "postgres://starbyte:starbyte@localhost:5432/starbyte_dev?sslmode=disable" up
+        -database "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}?sslmode=disable" up
     success "数据库迁移完成"
 else
     warn "未找到 migrate 命令，跳过自动迁移"
     echo "  安装命令: go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest"
-    echo "  或手动运行: migrate -path backend/migrations -database 'postgres://starbyte:starbyte@localhost:5432/starbyte_dev?sslmode=disable' up"
+    echo "  或手动运行: migrate -path backend/migrations -database 'postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}?sslmode=disable' up"
 fi
 
 # ── 启动后端（可选） ──────────────────────────────────────

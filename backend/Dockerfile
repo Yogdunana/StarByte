@@ -29,7 +29,7 @@ RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o starbyte-server ./cmd/
 # ─────────────────────────────────────────────────────────
 FROM alpine:3.19 AS production
 
-RUN apk add --no-cache ca-certificates tzdata bash
+RUN apk add --no-cache ca-certificates tzdata bash curl
 
 ENV TZ=Asia/Shanghai
 
