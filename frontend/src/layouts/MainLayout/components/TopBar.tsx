@@ -13,26 +13,30 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 import { toggleCollapsed } from '@/store/slices/appSlice';
-import { selectCurrentUser } from '@/store/slices/userSlice';
-import { logout as logoutApi } from '@/api/auth';
+import { selectCurrentUser, clearUser } from '@/store/slices/userSlice';
 import { logout as logoutAction } from '@/store/slices/authSlice';
-import { clearUser } from '@/store/slices/userSlice';
+import { logout as logoutApi } from '@/api/auth';
 import { removeToken } from '@/utils/storage';
+import type { AppDispatch } from '@/store';
 
 const { Header: AntHeader } = Layout;
 
-const Header: React.FC = () => {
-  const dispatch = useDispatch();
+export interface TopBarProps {
+  onToggleTheme?: () => void;
+}
+
+const TopBar: React.FC<TopBarProps> = () => {
+  const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const location = useLocation();
-  const collapsed = useSelector((state: any) => state.app.collapsed);
+  const collapsed = useSelector((state: { app: { collapsed: boolean } }) => state.app.collapsed);
   const currentUser = useSelector(selectCurrentUser);
 
   const handleLogout = async () => {
     try {
       await logoutApi();
-    } catch (e) {
-      // 忽略登出错误
+    } catch {
+      // 忽略登出 API 错误
     }
     dispatch(logoutAction());
     dispatch(clearUser());
@@ -62,7 +66,6 @@ const Header: React.FC = () => {
     },
   ];
 
-  // 面包屑
   const getBreadcrumbItems = () => {
     const paths = location.pathname.split('/').filter(Boolean);
     return paths.map((path) => ({
@@ -114,4 +117,4 @@ const Header: React.FC = () => {
   );
 };
 
-export default Header;
+export default TopBar;
