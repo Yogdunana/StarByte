@@ -179,7 +179,7 @@ func TestExclusiveGatewayNode_Validate_TooFewBranches(t *testing.T) {
 	node := &engine.FlowNode{ID: "gw", Type: "exclusive_gateway", Config: config}
 	err := n.Validate(node)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "at least 2 branches")
+	assert.Contains(t, err.Error(), "至少需要 2 个分支")
 }
 
 // --- ParallelGatewayNode Tests ---
@@ -309,7 +309,7 @@ func TestServiceTaskNode_Execute_NoServiceName(t *testing.T) {
 
 	_, err := n.Execute(context.Background(), &model.FlowInstance{}, graph.GetNode("task"), graph, nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "missing 'service'")
+	assert.Contains(t, err.Error(), "缺少 service")
 }
 
 func TestServiceTaskNode_Execute_NoCallback(t *testing.T) {
@@ -326,13 +326,14 @@ func TestServiceTaskNode_Execute_NoCallback(t *testing.T) {
 
 	_, err := n.Execute(context.Background(), &model.FlowInstance{}, graph.GetNode("task"), graph, nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no callback")
+	assert.Contains(t, err.Error(), "没有注册回调")
 }
 
 // --- NotificationTaskNode Tests ---
 
 func TestNotificationTaskNode_Execute(t *testing.T) {
-	n := &NotificationTaskNode{EventBus: events.NewEventBus()}
+	bus := events.NewEventBus()
+	n := &NotificationTaskNode{EventBus: bus}
 
 	config := map[string]interface{}{"notificationType": "email"}
 	graph := &engine.FlowGraph{
@@ -345,15 +346,23 @@ func TestNotificationTaskNode_Execute(t *testing.T) {
 		},
 	}
 
+	var receivedEvent events.NotificationTaskTriggeredEvent
+	bus.Subscribe("notification.triggered", func(ctx context.Context, e events.Event) error {
+		receivedEvent = e.(events.NotificationTaskTriggeredEvent)
+		return nil
+	})
+
 	vars := map[string]interface{}{}
 	next, err := n.Execute(context.Background(), &model.FlowInstance{}, graph.GetNode("notif"), graph, vars)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"end"}, next)
-	assert.Equal(t, "email", vars["_notification_type"])
+	assert.Equal(t, "email", receivedEvent.NotificationType)
+	assert.Equal(t, "notif", receivedEvent.NodeID)
 }
 
 func TestNotificationTaskNode_Execute_DefaultType(t *testing.T) {
-	n := &NotificationTaskNode{EventBus: events.NewEventBus()}
+	bus := events.NewEventBus()
+	n := &NotificationTaskNode{EventBus: bus}
 
 	config := map[string]interface{}{}
 	graph := &engine.FlowGraph{
@@ -363,10 +372,16 @@ func TestNotificationTaskNode_Execute_DefaultType(t *testing.T) {
 		Edges: []*engine.FlowEdge{},
 	}
 
+	var receivedEvent events.NotificationTaskTriggeredEvent
+	bus.Subscribe("notification.triggered", func(ctx context.Context, e events.Event) error {
+		receivedEvent = e.(events.NotificationTaskTriggeredEvent)
+		return nil
+	})
+
 	vars := map[string]interface{}{}
 	_, err := n.Execute(context.Background(), &model.FlowInstance{}, graph.GetNode("notif"), graph, vars)
 	require.NoError(t, err)
-	assert.Equal(t, "default", vars["_notification_type"])
+	assert.Equal(t, "default", receivedEvent.NotificationType)
 }
 
 // --- Mocks ---

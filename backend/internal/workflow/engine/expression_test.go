@@ -63,7 +63,7 @@ func TestExpressionEngine_Evaluate_EmptyExpression(t *testing.T) {
 
 	_, err := engine.Evaluate("", vars)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "expression is empty")
+	assert.Contains(t, err.Error(), "表达式不能为空")
 }
 
 func TestExpressionEngine_Evaluate_InvalidExpression(t *testing.T) {
@@ -82,7 +82,7 @@ func TestExpressionEngine_EvaluateBool_NonBoolResult(t *testing.T) {
 
 	_, err := engine.EvaluateBool("amount", vars)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "non-boolean")
+	assert.Contains(t, err.Error(), "非布尔")
 }
 
 func TestEvaluateBranch_FirstMatch(t *testing.T) {
@@ -132,7 +132,7 @@ func TestEvaluateBranch_NoMatchNoDefault(t *testing.T) {
 
 	_, err := engine.EvaluateBranch(branches, vars)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no branch matched")
+	assert.Contains(t, err.Error(), "没有匹配的分支")
 }
 
 func TestParseBranches_Valid(t *testing.T) {
@@ -165,7 +165,7 @@ func TestParseBranches_MissingBranches(t *testing.T) {
 
 	_, err := ParseBranches(config)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "missing 'branches'")
+	assert.Contains(t, err.Error(), "缺少 'branches'")
 }
 
 func TestParseBranches_MultipleDefaults(t *testing.T) {
@@ -184,7 +184,7 @@ func TestParseBranches_MultipleDefaults(t *testing.T) {
 
 	_, err := ParseBranches(config)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "at most one default")
+	assert.Contains(t, err.Error(), "最多只能有一个默认分支")
 }
 
 func TestParseBranches_BranchWithoutExpressionOrDefault(t *testing.T) {
@@ -198,7 +198,7 @@ func TestParseBranches_BranchWithoutExpressionOrDefault(t *testing.T) {
 
 	_, err := ParseBranches(config)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no expression and is not default")
+	assert.Contains(t, err.Error(), "没有表达式且不是默认分支")
 }
 
 func TestConvertDotNotation_SimpleAccess(t *testing.T) {

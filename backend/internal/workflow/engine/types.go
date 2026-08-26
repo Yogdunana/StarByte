@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
-	"github.com/google/uuid"
 )
 
 // TaskAction represents the action taken on a flow task.
@@ -121,6 +120,18 @@ func (g *FlowGraph) FindStartNode() *FlowNode {
 	return nil
 }
 
+// GetCurrentNodeIDs extracts the current node IDs from the instance's CurrentNodeIDs JSONB field.
+func GetCurrentNodeIDs(currentNodeIDsJSON []byte) []string {
+	if len(currentNodeIDsJSON) == 0 {
+		return nil
+	}
+	var nodeIDs []string
+	if err := json.Unmarshal(currentNodeIDsJSON, &nodeIDs); err != nil {
+		return nil
+	}
+	return nodeIDs
+}
+
 // NodeHandler is the interface that all node type handlers must implement.
 type NodeHandler interface {
 	// Type returns the node type identifier (e.g., "start", "approval").
@@ -139,27 +150,4 @@ type NodeHandler interface {
 
 	// Validate checks that the node's configuration is valid.
 	Validate(node *FlowNode) error
-}
-
-// EngineDeps holds the dependencies required by the flow engine.
-type EngineDeps struct {
-	DefinitionRepo interface {
-		GetByKey(ctx context.Context, key string) (*model.FlowDefinition, error)
-		GetCurrentVersion(ctx context.Context, definitionID uuid.UUID) (*model.FlowDefinitionVersion, error)
-	}
-	InstanceRepo interface {
-		Create(ctx context.Context, tx interface{}, inst *model.FlowInstance) error
-		GetByID(ctx context.Context, id uuid.UUID) (*model.FlowInstance, error)
-		Update(ctx context.Context, tx interface{}, inst *model.FlowInstance) error
-	}
-	TaskRepo interface {
-		CreateTask(ctx context.Context, tx interface{}, task *model.FlowTask) error
-		GetTaskByID(ctx context.Context, id uuid.UUID) (*model.FlowTask, error)
-		UpdateTask(ctx context.Context, tx interface{}, task *model.FlowTask) error
-		CreateHistory(ctx context.Context, tx interface{}, hist *model.FlowHistory) error
-	}
-	VariableRepo interface {
-		GetMap(ctx context.Context, instanceID uuid.UUID) (map[string]interface{}, error)
-		SetMap(ctx context.Context, tx interface{}, instanceID uuid.UUID, vars map[string]interface{}) error
-	}
 }

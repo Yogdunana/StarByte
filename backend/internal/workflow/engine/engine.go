@@ -126,7 +126,16 @@ func (e *FlowEngine) Start(ctx context.Context, definitionKey string, businessKe
 		return nil, txErr
 	}
 
-	// 5. Publish FlowStartedEvent.
+	// 5. Execute from the start node.
+	currentNodeIDs := []string{startNode.ID}
+	if err := e.executeFromNodes(ctx, inst, graph, currentNodeIDs, variables); err != nil {
+		// If execution fails, terminate the instance and publish a terminated event
+		// to keep external systems in sync.
+		_ = e.terminateInstance(ctx, inst, uuid.Nil, "启动失败: "+err.Error())
+		return nil, err
+	}
+
+	// 6. Publish FlowStartedEvent after successful execution start.
 	e.eventBus.Publish(ctx, events.FlowStartedEvent{
 		InstanceID:   inst.ID,
 		DefinitionID: def.ID,
@@ -135,12 +144,6 @@ func (e *FlowEngine) Start(ctx context.Context, definitionKey string, businessKe
 		BusinessType: businessType,
 		StartedAt:    inst.StartedAt,
 	})
-
-	// 6. Execute from the start node.
-	currentNodeIDs := []string{startNode.ID}
-	if err := e.executeFromNodes(ctx, inst, graph, currentNodeIDs, variables); err != nil {
-		return nil, err
-	}
 
 	return inst, nil
 }
@@ -354,7 +357,9 @@ func (e *FlowEngine) Resume(ctx context.Context, instanceID uuid.UUID, operatorI
 // node (approval) or an end node.
 func (e *FlowEngine) executeFromNodes(ctx context.Context, inst *model.FlowInstance, graph *FlowGraph, nodeIDs []string, vars map[string]interface{}) error {
 	// Update instance's current node IDs.
-	e.updateCurrentNodes(ctx, inst, nodeIDs)
+	if err := e.updateCurrentNodes(ctx, inst, nodeIDs); err != nil {
+		return err
+	}
 
 	for _, nodeID := range nodeIDs {
 		node := graph.GetNode(nodeID)
@@ -419,8 +424,21 @@ func (e *FlowEngine) executeFromNodes(ctx context.Context, inst *model.FlowInsta
 
 // executeNode runs a single node and returns the next node IDs.
 // Used by CompleteTask to continue after task approval.
+// OnEnter is skipped because it was already called when the task was created.
+// Lifecycle order: OnLeave → Execute → NodeLeftEvent
 func (e *FlowEngine) executeNode(ctx context.Context, inst *model.FlowInstance, graph *FlowGraph, node *FlowNode, vars map[string]interface{}) ([]string, error) {
 	handler, err := e.registry.Get(node.Type)
+	if err != nil {
+		return nil, err
+	}
+
+	// OnLeave.
+	if err := handler.OnLeave(ctx, inst, node, vars); err != nil {
+		return nil, err
+	}
+
+	// Execute to get next nodes.
+	nextNodeIDs, err := handler.Execute(ctx, inst, node, graph, vars)
 	if err != nil {
 		return nil, err
 	}
@@ -431,17 +449,6 @@ func (e *FlowEngine) executeNode(ctx context.Context, inst *model.FlowInstance, 
 		NodeID:     node.ID,
 		NodeType:   node.Type,
 	})
-
-	// Execute to get next nodes.
-	nextNodeIDs, err := handler.Execute(ctx, inst, node, graph, vars)
-	if err != nil {
-		return nil, err
-	}
-
-	// OnLeave.
-	if err := handler.OnLeave(ctx, inst, node, vars); err != nil {
-		return nil, err
-	}
 
 	return nextNodeIDs, nil
 }
@@ -490,10 +497,20 @@ func (e *FlowEngine) terminateInstance(ctx context.Context, inst *model.FlowInst
 }
 
 // updateCurrentNodes persists the current node IDs to the instance.
-func (e *FlowEngine) updateCurrentNodes(ctx context.Context, inst *model.FlowInstance, nodeIDs []string) {
-	nodeBytes, _ := json.Marshal(nodeIDs)
+func (e *FlowEngine) updateCurrentNodes(ctx context.Context, inst *model.FlowInstance, nodeIDs []string) error {
+	nodeBytes, err := json.Marshal(nodeIDs)
+	if err != nil {
+		e.logger.Error("failed to marshal current node IDs", zap.Error(err))
+		return err
+	}
 	inst.CurrentNodeIDs = nodeBytes
-	_ = e.instRepo.Update(ctx, nil, inst)
+	if err := e.instRepo.Update(ctx, nil, inst); err != nil {
+		e.logger.Error("failed to update instance current nodes",
+			zap.String("instance_id", inst.ID.String()),
+			zap.Error(err))
+		return err
+	}
+	return nil
 }
 
 // withTransaction runs a function within a database transaction.

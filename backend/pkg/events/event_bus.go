@@ -83,6 +83,17 @@ type TaskAssignedEvent struct {
 func (e TaskAssignedEvent) EventName() string        { return "task.assigned" }
 func (e TaskAssignedEvent) GetInstanceID() uuid.UUID { return e.InstanceID }
 
+// NotificationTaskTriggeredEvent is published when a notification task node is executed.
+type NotificationTaskTriggeredEvent struct {
+	InstanceID       uuid.UUID
+	NodeID           string
+	NodeName         string
+	NotificationType string
+}
+
+func (e NotificationTaskTriggeredEvent) EventName() string        { return "notification.triggered" }
+func (e NotificationTaskTriggeredEvent) GetInstanceID() uuid.UUID { return e.InstanceID }
+
 // NodeEnteredEvent is published when the flow enters a node.
 type NodeEnteredEvent struct {
 	InstanceID uuid.UUID

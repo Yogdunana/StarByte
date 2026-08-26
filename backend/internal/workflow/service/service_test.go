@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/engine"
@@ -14,8 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
-
-// --- Mock DefinitionRepo ---
 
 type mockDefRepoSvc struct {
 	defs     map[uuid.UUID]*model.FlowDefinition
@@ -281,8 +278,9 @@ func TestDefinitionService_Delete_Published(t *testing.T) {
 func TestInstanceService_Start_DefNotFound(t *testing.T) {
 	defRepo := newMockDefRepoSvc()
 	instRepo := newMockInstRepoSvc()
+	taskRepo := newMockTaskRepoSvc()
 
-	svc := NewInstanceService(instRepo, defRepo, nil, nil)
+	svc := NewInstanceService(instRepo, defRepo, taskRepo, nil, nil)
 
 	_, err := svc.Start(context.Background(), uuid.New(), "", "", uuid.New(), nil)
 	require.Error(t, err)
@@ -295,7 +293,8 @@ func TestInstanceService_Start_DefNotPublished(t *testing.T) {
 	defRepo.defs[defID] = &model.FlowDefinition{ID: defID, Key: "test", Status: 0}
 
 	instRepo := newMockInstRepoSvc()
-	svc := NewInstanceService(instRepo, defRepo, nil, nil)
+	taskRepo := newMockTaskRepoSvc()
+	svc := NewInstanceService(instRepo, defRepo, taskRepo, nil, nil)
 
 	_, err := svc.Start(context.Background(), defID, "", "", uuid.New(), nil)
 	require.Error(t, err)
@@ -304,7 +303,7 @@ func TestInstanceService_Start_DefNotPublished(t *testing.T) {
 
 func TestInstanceService_GetByID_NotFound(t *testing.T) {
 	instRepo := newMockInstRepoSvc()
-	svc := NewInstanceService(instRepo, newMockDefRepoSvc(), nil, nil)
+	svc := NewInstanceService(instRepo, newMockDefRepoSvc(), newMockTaskRepoSvc(), nil, nil)
 
 	_, err := svc.GetByID(context.Background(), uuid.New())
 	require.Error(t, err)
@@ -313,24 +312,17 @@ func TestInstanceService_GetByID_NotFound(t *testing.T) {
 
 func TestGetCurrentNodeIDs(t *testing.T) {
 	t.Run("ValidJSONB", func(t *testing.T) {
-		inst := &model.FlowInstance{
-			CurrentNodeIDs: []byte(`["node1", "node2"]`),
-		}
-		ids := GetCurrentNodeIDs(inst)
+		ids := engine.GetCurrentNodeIDs([]byte(`["node1", "node2"]`))
 		assert.Equal(t, []string{"node1", "node2"}, ids)
 	})
 
 	t.Run("EmptyJSONB", func(t *testing.T) {
-		inst := &model.FlowInstance{}
-		ids := GetCurrentNodeIDs(inst)
+		ids := engine.GetCurrentNodeIDs([]byte{})
 		assert.Nil(t, ids)
 	})
 
 	t.Run("InvalidJSONB", func(t *testing.T) {
-		inst := &model.FlowInstance{
-			CurrentNodeIDs: []byte(`invalid`),
-		}
-		ids := GetCurrentNodeIDs(inst)
+		ids := engine.GetCurrentNodeIDs([]byte(`invalid`))
 		assert.Nil(t, ids)
 	})
 }
@@ -461,6 +453,3 @@ func TestTaskService_RollbackTask_NoAccess(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "无权操作")
 }
-
-// Ensure imports are used.
-var _ = time.Now

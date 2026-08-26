@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
-	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/engine"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
@@ -17,15 +15,17 @@ import (
 type InstanceService struct {
 	instRepo   repo.InstanceRepo
 	defRepo    repo.DefinitionRepo
+	taskRepo   repo.TaskRepo
 	flowEngine *engine.FlowEngine
 	db         *gorm.DB
 }
 
 // NewInstanceService creates an InstanceService.
-func NewInstanceService(instRepo repo.InstanceRepo, defRepo repo.DefinitionRepo, flowEngine *engine.FlowEngine, db *gorm.DB) *InstanceService {
+func NewInstanceService(instRepo repo.InstanceRepo, defRepo repo.DefinitionRepo, taskRepo repo.TaskRepo, flowEngine *engine.FlowEngine, db *gorm.DB) *InstanceService {
 	return &InstanceService{
 		instRepo:   instRepo,
 		defRepo:    defRepo,
+		taskRepo:   taskRepo,
 		flowEngine: flowEngine,
 		db:         db,
 	}
@@ -90,7 +90,7 @@ func (s *InstanceService) Terminate(ctx context.Context, instanceID uuid.UUID, o
 	return s.flowEngine.Terminate(ctx, instanceID, operatorID, reason)
 }
 
-// Suspend suspends a flow instance.
+// Suspend suspends a running flow instance.
 func (s *InstanceService) Suspend(ctx context.Context, instanceID uuid.UUID, operatorID uuid.UUID, reason string) error {
 	return s.flowEngine.Suspend(ctx, instanceID, operatorID, reason)
 }
@@ -100,28 +100,12 @@ func (s *InstanceService) Resume(ctx context.Context, instanceID uuid.UUID, oper
 	return s.flowEngine.Resume(ctx, instanceID, operatorID)
 }
 
-// GetCurrentNodeIDs extracts the current node IDs from the instance's JSONB field.
-func GetCurrentNodeIDs(inst *model.FlowInstance) []string {
-	if len(inst.CurrentNodeIDs) == 0 {
-		return nil
-	}
-	var nodeIDs []string
-	if err := json.Unmarshal(inst.CurrentNodeIDs, &nodeIDs); err != nil {
-		return nil
-	}
-	return nodeIDs
-}
-
 // ListHistory returns the history for a flow instance.
 func (s *InstanceService) ListHistory(ctx context.Context, instanceID uuid.UUID) ([]model.FlowHistory, error) {
-	// Use the task repo to list history — it's the same repo.
-	taskRepo := repo.NewTaskRepo(s.db)
-	histories, err := taskRepo.ListHistory(ctx, instanceID)
+	histories, err := s.taskRepo.ListHistory(ctx, instanceID)
 	if err != nil {
 		return nil, response.NewAppErrorf(response.CodeInternalError,
 			"failed to list history: %v", err)
 	}
 	return histories, nil
 }
-
-var _ = time.Now // keep import for future use

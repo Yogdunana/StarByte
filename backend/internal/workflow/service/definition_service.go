@@ -201,7 +201,10 @@ func (s *DefinitionService) Publish(ctx context.Context, id uuid.UUID, req *dto.
 	def.Status = 1
 	def.UpdatedBy = &userID
 	def.UpdatedAt = now
-	_ = s.defRepo.Update(ctx, nil, def)
+	if err := s.defRepo.Update(ctx, nil, def); err != nil {
+		return nil, response.NewAppErrorf(response.CodeInternalError,
+			"failed to update definition status: %v", err)
+	}
 
 	return ver, nil
 }

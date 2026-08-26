@@ -35,7 +35,7 @@ func NewExpressionEngine() *ExpressionEngine {
 // using the same convention.
 func (e *ExpressionEngine) Evaluate(expr string, vars map[string]interface{}) (interface{}, error) {
 	if expr == "" {
-		return nil, response.NewAppError(response.CodeWorkflowExprError, "expression is empty")
+		return nil, response.NewAppError(response.CodeWorkflowExprError, "表达式不能为空")
 	}
 
 	// Convert dot notation to underscore notation for govaluate compatibility.
@@ -47,13 +47,13 @@ func (e *ExpressionEngine) Evaluate(expr string, vars map[string]interface{}) (i
 	parsed, err := govaluate.NewEvaluableExpression(convertedExpr)
 	if err != nil {
 		return nil, response.NewAppErrorf(response.CodeWorkflowExprError,
-			"failed to parse expression '%s': %v", expr, err)
+			"表达式解析失败 '%s': %v", expr, err)
 	}
 
 	result, err := parsed.Evaluate(params)
 	if err != nil {
 		return nil, response.NewAppErrorf(response.CodeWorkflowExprError,
-			"failed to evaluate expression '%s': %v", expr, err)
+			"表达式求值失败 '%s': %v", expr, err)
 	}
 
 	return result, nil
@@ -70,7 +70,7 @@ func (e *ExpressionEngine) EvaluateBool(expr string, vars map[string]interface{}
 	b, ok := result.(bool)
 	if !ok {
 		return false, response.NewAppErrorf(response.CodeWorkflowExprError,
-			"expression '%s' returned non-boolean result: %v", expr, result)
+			"表达式 '%s' 返回了非布尔结果: %v", expr, result)
 	}
 	return b, nil
 }
@@ -134,7 +134,7 @@ func (e *ExpressionEngine) EvaluateBranch(branches []BranchConfig, vars map[stri
 	}
 
 	return "", response.NewAppError(response.CodeWorkflowExprError,
-		"no branch matched and no default branch configured")
+		"没有匹配的分支且未配置默认分支")
 }
 
 // BranchConfig represents a single branch in an exclusive gateway.
@@ -150,24 +150,24 @@ func ParseBranches(config map[string]interface{}) ([]BranchConfig, error) {
 	rawBranches, ok := config["branches"]
 	if !ok {
 		return nil, response.NewAppError(response.CodeWorkflowInvalidNode,
-			"exclusive gateway missing 'branches' in config")
+			"排他网关配置中缺少 'branches' 字段")
 	}
 
 	branchesJSON, err := json.Marshal(rawBranches)
 	if err != nil {
 		return nil, response.NewAppErrorf(response.CodeWorkflowInvalidNode,
-			"failed to marshal branches: %v", err)
+			"解析分支配置失败: %v", err)
 	}
 
 	var branches []BranchConfig
 	if err := json.Unmarshal(branchesJSON, &branches); err != nil {
 		return nil, response.NewAppErrorf(response.CodeWorkflowInvalidNode,
-			"failed to unmarshal branches: %v", err)
+			"解析分支配置失败: %v", err)
 	}
 
 	if len(branches) == 0 {
 		return nil, response.NewAppError(response.CodeWorkflowInvalidNode,
-			"exclusive gateway must have at least one branch")
+			"排他网关至少需要一个分支")
 	}
 
 	// Validate that at most one default branch exists.
@@ -175,7 +175,7 @@ func ParseBranches(config map[string]interface{}) ([]BranchConfig, error) {
 	for _, b := range branches {
 		if b.Expression == "" && !b.IsDefault {
 			return nil, response.NewAppErrorf(response.CodeWorkflowInvalidNode,
-				"branch '%s' has no expression and is not default", b.ID)
+				"分支 '%s' 没有表达式且不是默认分支", b.ID)
 		}
 		if b.IsDefault {
 			defaultCount++
@@ -183,7 +183,7 @@ func ParseBranches(config map[string]interface{}) ([]BranchConfig, error) {
 	}
 	if defaultCount > 1 {
 		return nil, response.NewAppError(response.CodeWorkflowInvalidNode,
-			"exclusive gateway can have at most one default branch")
+			"排他网关最多只能有一个默认分支")
 	}
 
 	return branches, nil

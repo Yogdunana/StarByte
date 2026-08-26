@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/engine"
@@ -37,7 +38,7 @@ func (n *ApprovalNode) OnEnter(ctx context.Context, inst *model.FlowInstance, no
 	assignees := n.resolveAssignees(config, inst, vars)
 	if len(assignees) == 0 {
 		return response.NewAppError(response.CodeWorkflowInvalidNode,
-			"approval node has no assignees")
+			"审批节点没有处理人")
 	}
 
 	// In v1, we support single approval only. Multi-assignee (all/any/ratio) is v2.
@@ -85,13 +86,13 @@ func (n *ApprovalNode) Validate(node *engine.FlowNode) error {
 	config := n.parseConfig(node)
 	if config == nil {
 		return response.NewAppError(response.CodeWorkflowInvalidNode,
-			"approval node missing config")
+			"审批节点缺少配置")
 	}
 
 	strategy, ok := config["assigneeStrategy"].(string)
 	if !ok || strategy == "" {
 		return response.NewAppError(response.CodeWorkflowInvalidNode,
-			"approval node missing assigneeStrategy")
+			"审批节点缺少 assigneeStrategy 配置")
 	}
 
 	// Validate strategy-specific fields.
@@ -100,18 +101,18 @@ func (n *ApprovalNode) Validate(node *engine.FlowNode) error {
 		assignees, ok := config["assignees"].([]interface{})
 		if !ok || len(assignees) == 0 {
 			return response.NewAppError(response.CodeWorkflowInvalidNode,
-				"static assignee strategy requires non-empty assignees list")
+				"静态处理人策略需要非空的 assignees 列表")
 		}
 	case "role":
 		if _, ok := config["roleId"].(string); !ok {
 			return response.NewAppError(response.CodeWorkflowInvalidNode,
-				"role assignee strategy requires roleId")
+				"角色处理人策略需要 roleId 配置")
 		}
 	case "dept_leader", "initiator":
 		// No additional fields required.
 	default:
 		return response.NewAppErrorf(response.CodeWorkflowNodeType,
-			"unsupported assigneeStrategy: %s", strategy)
+			"不支持的处理人策略: %s", strategy)
 	}
 
 	return nil
@@ -186,7 +187,7 @@ func (n *ExclusiveGatewayNode) Execute(ctx context.Context, inst *model.FlowInst
 
 	if len(result) == 0 {
 		return nil, response.NewAppErrorf(response.CodeWorkflowNodeNotFound,
-			"exclusive gateway '%s' has no outgoing edge for branch '%s'", node.ID, branchID)
+			"排他网关 '%s' 没有分支 '%s' 的出线", node.ID, branchID)
 	}
 
 	return result, nil
@@ -203,7 +204,7 @@ func (n *ExclusiveGatewayNode) OnLeave(ctx context.Context, inst *model.FlowInst
 func (n *ExclusiveGatewayNode) Validate(node *engine.FlowNode) error {
 	if node.Config == nil {
 		return response.NewAppError(response.CodeWorkflowInvalidNode,
-			"exclusive gateway missing config")
+			"排他网关缺少配置")
 	}
 
 	branches, err := engine.ParseBranches(node.Config)
@@ -213,7 +214,7 @@ func (n *ExclusiveGatewayNode) Validate(node *engine.FlowNode) error {
 
 	if len(branches) < 2 {
 		return response.NewAppError(response.CodeWorkflowInvalidNode,
-			"exclusive gateway must have at least 2 branches")
+			"排他网关至少需要 2 个分支")
 	}
 
 	return nil
@@ -237,7 +238,7 @@ func (ParallelGatewayNode) Execute(ctx context.Context, inst *model.FlowInstance
 
 	if len(result) == 0 {
 		return nil, response.NewAppErrorf(response.CodeWorkflowNodeNotFound,
-			"parallel gateway '%s' has no outgoing edges", node.ID)
+			"并行网关 '%s' 没有出线", node.ID)
 	}
 
 	return result, nil
@@ -262,13 +263,20 @@ func (ParallelGatewayNode) Validate(node *engine.FlowNode) error {
 // It calls an external API or executes business logic automatically.
 // In v1, the actual service call is delegated to a callback registered by the business module.
 type ServiceTaskNode struct {
-	// Callbacks maps node config "service" to a handler function.
-	// Business modules register callbacks via RegisterService.
+	mu        sync.RWMutex
 	Callbacks map[string]ServiceCallback
 }
 
 // ServiceCallback is a function that executes a service task.
 type ServiceCallback func(ctx context.Context, inst *model.FlowInstance, node *engine.FlowNode, vars map[string]interface{}) (map[string]interface{}, error)
+
+// RegisterService registers a callback for a service task.
+// Safe for concurrent use.
+func (n *ServiceTaskNode) RegisterService(name string, cb ServiceCallback) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.Callbacks[name] = cb
+}
 
 func (n *ServiceTaskNode) Type() string { return "service_task" }
 
@@ -276,13 +284,16 @@ func (n *ServiceTaskNode) Execute(ctx context.Context, inst *model.FlowInstance,
 	serviceName, _ := node.Config["service"].(string)
 	if serviceName == "" {
 		return nil, response.NewAppError(response.CodeWorkflowInvalidNode,
-			"service_task missing 'service' in config")
+			"服务任务缺少 service 配置")
 	}
 
+	n.mu.RLock()
 	cb, ok := n.Callbacks[serviceName]
+	n.mu.RUnlock()
+
 	if !ok {
 		return nil, response.NewAppErrorf(response.CodeWorkflowNodeType,
-			"no callback registered for service '%s'", serviceName)
+			"服务任务 '%s' 没有注册回调函数", serviceName)
 	}
 
 	// Execute the service callback.
@@ -316,11 +327,11 @@ func (n *ServiceTaskNode) OnLeave(ctx context.Context, inst *model.FlowInstance,
 func (n *ServiceTaskNode) Validate(node *engine.FlowNode) error {
 	if node.Config == nil {
 		return response.NewAppError(response.CodeWorkflowInvalidNode,
-			"service_task missing config")
+			"服务任务缺少配置")
 	}
 	if _, ok := node.Config["service"].(string); !ok {
 		return response.NewAppError(response.CodeWorkflowInvalidNode,
-			"service_task missing 'service' field in config")
+			"服务任务缺少 'service' 字段配置")
 	}
 	return nil
 }
@@ -336,19 +347,18 @@ type NotificationTaskNode struct {
 func (n *NotificationTaskNode) Type() string { return "notification_task" }
 
 func (n *NotificationTaskNode) Execute(ctx context.Context, inst *model.FlowInstance, node *engine.FlowNode, graph *engine.FlowGraph, vars map[string]interface{}) ([]string, error) {
-	// The notification logic is handled by the notification service
-	// subscribing to NodeEnteredEvent. Here we just proceed.
-	// Alternatively, we could publish a dedicated notification event here.
-
-	// Extract notification config.
+	// Extract notification config and publish a dedicated event.
 	notifType, _ := node.Config["notificationType"].(string)
 	if notifType == "" {
 		notifType = "default"
 	}
 
-	// Store the notification type in variables for the notification service.
-	vars["_notification_type"] = notifType
-	vars["_notification_node_id"] = node.ID
+	n.EventBus.Publish(ctx, events.NotificationTaskTriggeredEvent{
+		InstanceID:       inst.ID,
+		NodeID:           node.ID,
+		NodeName:         node.Label,
+		NotificationType: notifType,
+	})
 
 	// Proceed to next node.
 	edges := graph.GetNextNodes(node.ID, "")
