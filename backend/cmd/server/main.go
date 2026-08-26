@@ -15,8 +15,11 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/user/handler"
 	"github.com/Yogdunana/StarByte/backend/internal/user/repo"
 	"github.com/Yogdunana/StarByte/backend/internal/user/service"
+	"github.com/Yogdunana/StarByte/backend/internal/workflow"
+	wfHandler "github.com/Yogdunana/StarByte/backend/internal/workflow/handler"
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
 	"github.com/Yogdunana/StarByte/backend/pkg/database"
+	"github.com/Yogdunana/StarByte/backend/pkg/events"
 	"github.com/Yogdunana/StarByte/backend/pkg/logger"
 	"github.com/Yogdunana/StarByte/backend/pkg/middleware"
 	authmiddleware "github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
@@ -56,6 +59,11 @@ func main() {
 	// 3a. 自动迁移审计日志表
 	if err := database.DB().AutoMigrate(&middleware.AuditLogEntry{}); err != nil {
 		logger.Fatal("auto migrate audit_logs failed", zap.Error(err))
+	}
+
+	// 3b. 自动迁移工作流引擎表
+	if err := workflow.AutoMigrate(database.DB()); err != nil {
+		logger.Fatal("auto migrate workflow tables failed", zap.Error(err))
 	}
 
 	// 4. 初始化 Redis
@@ -106,6 +114,10 @@ func main() {
 	deptHandler := rbacHandler.NewDepartmentHandler(deptService)
 	posHandler := rbacHandler.NewPositionHandler(posService)
 
+	// 工作流引擎模块
+	eventBus := events.NewEventBus()
+	wfHandlers := workflow.Init(database.DB(), eventBus, logger.GetLogger())
+
 	// 10. API 路由组
 	api := r.Group("/api/v1")
 	// API 组限流：全局 1000 req/s
@@ -152,6 +164,9 @@ func main() {
 		// RBAC 系统管理模块
 		// 权限校验和数据权限中间件在 RegisterRoutes 内部按正确顺序注册
 		rbacHandler.RegisterRoutes(protected, database.DB(), roleHandler, permHandler, deptHandler, posHandler, cacheService, deptRepo)
+
+		// 工作流引擎模块
+		wfHandler.RegisterRoutes(protected, wfHandlers.Definition, wfHandlers.Instance, wfHandlers.Task)
 	}
 
 	// 11. 404 处理
