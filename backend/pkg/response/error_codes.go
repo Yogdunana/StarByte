@@ -41,11 +41,11 @@ const (
 	// (defined in internal/rbac/errors.go, range 3001-3020)
 
 	// ===== Workflow engine (4000-4999) =====
-	CodeWorkflowNotFound    = 4001 // 流程定义不存在
-	CodeWorkflowInstanceEnd = 4002 // 流程已结束
-	CodeWorkflowTaskNotFnd  = 4003 // 流程任务不存在
-	CodeWorkflowInvalidNode = 4004 // 无效的节点配置
-	CodeWorkflowKeyExists   = 4005 // 流程定义 key 已存在
+	CodeWorkflowNotFound     = 4001 // 流程定义不存在
+	CodeWorkflowInstanceEnd  = 4002 // 流程已结束
+	CodeWorkflowTaskNotFnd   = 4003 // 流程任务不存在
+	CodeWorkflowInvalidNode  = 4004 // 无效的节点配置
+	CodeWorkflowKeyExists    = 4005 // 流程定义 key 已存在
 	CodeWorkflowDefPublished = 4006 // 流程定义已发布，不可修改
 	CodeWorkflowVerNotFound  = 4007 // 流程版本不存在
 	CodeWorkflowInstNotFound = 4008 // 流程实例不存在
