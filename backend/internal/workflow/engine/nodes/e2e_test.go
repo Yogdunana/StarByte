@@ -202,8 +202,6 @@ func TestEndToEnd_ExclusiveGatewayFlow(t *testing.T) {
 // TestEndToEnd_LowAmountPath tests the low-amount branch of the exclusive gateway.
 
 func TestEndToEnd_LowAmountPath(t *testing.T) {
-	bus := events.NewEventBus()
-	taskRepo := &mockTaskRepo{}
 	registry := NewNodeRegistry()
 
 	exprEngine := engine.NewExpressionEngine()
