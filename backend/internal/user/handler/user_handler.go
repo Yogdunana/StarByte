@@ -352,17 +352,6 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 
 // ========== 路由注册 ==========
 
-// RegisterAuthRoutes 注册认证路由（公开）
-func RegisterAuthRoutes(r *gin.RouterGroup, handler *UserHandler) {
-	auth := r.Group("/auth")
-	{
-		auth.POST("/register", handler.Register)
-		auth.POST("/login", handler.Login)
-		auth.POST("/refresh", handler.RefreshToken)
-		auth.POST("/logout", handler.Logout) // 注意：实际需要鉴权，这里只是分组
-	}
-}
-
 // RegisterUserRoutes 注册用户路由（需要鉴权）
 func RegisterUserRoutes(r *gin.RouterGroup, handler *UserHandler) {
 	// 当前用户相关

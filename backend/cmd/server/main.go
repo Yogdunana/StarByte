@@ -71,12 +71,12 @@ func main() {
 	r := gin.New()
 
 	// 7. 注册全局中间件
-	// 顺序: RequestID → Logger → ErrorHandler → CORS → GlobalRateLimit
+	// 顺序: RequestID → Logger → ErrorHandler → CORS
+	// 注意: 全局限流不放在全局中间件中，以避免影响健康检查端点
 	r.Use(middleware.RequestID())
 	r.Use(middleware.Logger())
 	r.Use(middleware.ErrorHandler())
 	r.Use(middleware.CORSWithConfig(cfg.CORS))
-	r.Use(middleware.RateLimit(redis.Client(), middleware.GlobalRateLimit))
 
 	// 8. 健康检查端点（不受限流影响，供 K8s/负载均衡探活使用）
 	r.GET("/health", middleware.HealthCheck())
@@ -108,6 +108,8 @@ func main() {
 
 	// 10. API 路由组
 	api := r.Group("/api/v1")
+	// API 组限流：全局 1000 req/s
+	api.Use(middleware.RateLimit(redis.Client(), middleware.GlobalRateLimit))
 
 	// 10a. 公开路由（不需要鉴权）
 	// 中间件: PerIPRateLimit (100 req/min per IP)
@@ -134,11 +136,12 @@ func main() {
 	}
 
 	// 10b. 需要鉴权的路由
-	// 中间件链: JWTAuth → PerIPRateLimit → AuditLog
+	// 中间件链: AuditLog → JWTAuth → PerIPRateLimit
+	// AuditLog 在 JWTAuth 之前以捕获失败认证尝试
 	protected := api.Group("")
+	protected.Use(middleware.AuditLog(database.DB()))
 	protected.Use(authmiddleware.JWTAuth(&cfg.JWT))
 	protected.Use(middleware.RateLimit(redis.Client(), middleware.PerIPRateLimit))
-	protected.Use(middleware.AuditLog(database.DB()))
 	{
 		// 登出（需要鉴权）
 		protected.POST("/auth/logout", userHandler.Logout)

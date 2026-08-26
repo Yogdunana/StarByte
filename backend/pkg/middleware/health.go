@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
@@ -14,9 +13,12 @@ import (
 // HealthCheck returns a liveness probe handler.
 // It responds with 200 and {"status": "ok"} as long as the process
 // is running. No external dependencies are checked.
+//
+// The response uses a plain JSON body (not the standard response envelope)
+// to match the health check spec required by K8s probes.
 func HealthCheck() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		response.OK(c, gin.H{
+		c.JSON(http.StatusOK, gin.H{
 			"status": "ok",
 		})
 	}
@@ -36,6 +38,9 @@ func HealthCheck() gin.HandlerFunc {
 //	    "redis": "ok"              // or "fail"
 //	  }
 //	}
+//
+// The response uses a plain JSON body (not the standard response envelope)
+// to match the health check spec required by K8s probes.
 func ReadinessCheck(db *gorm.DB, rdb *redis.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
@@ -73,20 +78,14 @@ func ReadinessCheck(db *gorm.DB, rdb *redis.Client) gin.HandlerFunc {
 		checks["redis"] = redisStatus
 
 		if !allOK {
-			c.JSON(http.StatusServiceUnavailable, response.Response{
-				Code:    response.CodeInternalError,
-				Message: "not ready",
-				Data: gin.H{
-					"status": "not ready",
-					"checks": checks,
-				},
-				RequestID: c.GetString("request_id"),
-				Timestamp: time.Now().Unix(),
+			c.JSON(http.StatusServiceUnavailable, gin.H{
+				"status": "not ready",
+				"checks": checks,
 			})
 			return
 		}
 
-		response.OK(c, gin.H{
+		c.JSON(http.StatusOK, gin.H{
 			"status": "ready",
 			"checks": checks,
 		})

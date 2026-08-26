@@ -11,6 +11,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// setupTestRouter creates a minimal gin engine for unit testing middleware.
+// It sets gin to TestMode and injects a request_id into the context.
+//
+// Integration testing note:
+// Middleware that depends on Redis (RateLimit) or GORM (AuditLog) is tested
+// with nil dependencies to verify fail-open behavior. For full integration
+// tests with real Redis/DB instances, set up a docker-compose environment
+// with the following services and run `go test -tags=integration ./...`:
+//   - Redis on :6379
+//   - PostgreSQL on :5432
+//
+// Integration tests are skipped in CI by default to avoid flakiness.
 func setupTestRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
@@ -37,35 +49,35 @@ func TestRateLimit_NilRedis_FailsOpen(t *testing.T) {
 
 func TestRateLimitConfig_PredefinedConfigs(t *testing.T) {
 	tests := []struct {
-		name      string
-		cfg       RateLimitConfig
-		wantRate  int
-		wantBurst int
+		name       string
+		cfg        RateLimitConfig
+		wantRate   int
+		wantWindow int
 	}{
 		{
-			name:      "GlobalRateLimit",
-			cfg:       GlobalRateLimit,
-			wantRate:  1000,
-			wantBurst: 1200,
+			name:       "GlobalRateLimit",
+			cfg:        GlobalRateLimit,
+			wantRate:   1000,
+			wantWindow: 1,
 		},
 		{
-			name:      "PerIPRateLimit",
-			cfg:       PerIPRateLimit,
-			wantRate:  100,
-			wantBurst: 120,
+			name:       "PerIPRateLimit",
+			cfg:        PerIPRateLimit,
+			wantRate:   100,
+			wantWindow: 60,
 		},
 		{
-			name:      "LoginRateLimit",
-			cfg:       LoginRateLimit,
-			wantRate:  5,
-			wantBurst: 8,
+			name:       "LoginRateLimit",
+			cfg:        LoginRateLimit,
+			wantRate:   5,
+			wantWindow: 60,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.wantRate, tt.cfg.Rate)
-			assert.Equal(t, tt.wantBurst, tt.cfg.Burst)
+			assert.Equal(t, tt.wantWindow, tt.cfg.Window)
 			assert.NotNil(t, tt.cfg.KeyFunc)
 		})
 	}
@@ -99,7 +111,6 @@ func TestRateLimitWithFallback_PanicRecovery(t *testing.T) {
 
 	panicCfg := RateLimitConfig{
 		Rate:    1,
-		Burst:   1,
 		Window:  1,
 		KeyFunc: func(c *gin.Context) string { return "test" },
 	}

@@ -14,16 +14,13 @@ import (
 	"go.uber.org/zap"
 )
 
-// RateLimitConfig defines the parameters for a token-bucket rate limiter.
+// RateLimitConfig defines the parameters for a fixed-window rate limiter.
 //
-//   - Rate:    maximum number of requests allowed per second
-//   - Burst:   bucket capacity (maximum burst of requests at once)
-//   - Window:  time window in seconds for the sliding window
-//   - KeyFunc: function that generates the Redis key for rate limiting;
-//     if nil, the client IP is used
+//   - Rate:    maximum number of requests allowed within the window
+//   - Window:  time window in seconds
+//   - KeyFunc: function that generates the Redis key for rate limiting
 type RateLimitConfig struct {
 	Rate    int
-	Burst   int
 	Window  int
 	KeyFunc func(c *gin.Context) string
 }
@@ -33,7 +30,6 @@ var (
 	// GlobalRateLimit: 1000 req/s across the entire application.
 	GlobalRateLimit = RateLimitConfig{
 		Rate:   1000,
-		Burst:  1200,
 		Window: 1,
 		KeyFunc: func(c *gin.Context) string {
 			return "ratelimit:global"
@@ -43,7 +39,6 @@ var (
 	// PerIPRateLimit: 100 req/min per client IP.
 	PerIPRateLimit = RateLimitConfig{
 		Rate:   100,
-		Burst:  120,
 		Window: 60,
 		KeyFunc: func(c *gin.Context) string {
 			return "ratelimit:ip:" + c.ClientIP()
@@ -53,7 +48,6 @@ var (
 	// LoginRateLimit: 5 req/min for login endpoint (brute-force protection).
 	LoginRateLimit = RateLimitConfig{
 		Rate:   5,
-		Burst:  8,
 		Window: 60,
 		KeyFunc: func(c *gin.Context) string {
 			return "ratelimit:login:" + c.ClientIP()
@@ -61,7 +55,7 @@ var (
 	}
 )
 
-// tokenBucketScript is a Redis Lua script that implements a fixed-window
+// fixedWindowScript is a Redis Lua script that implements a fixed-window
 // counter rate limiter. It atomically increments a counter and returns the
 // current count. If the counter exceeds the limit, it returns 0 (denied).
 //
@@ -73,17 +67,15 @@ var (
 //
 //	ARGV[1] = window in seconds
 //	ARGV[2] = max requests in the window
-//	ARGV[3] = current timestamp in seconds
 //
 // Returns:
 //
 //	{1, remaining}  if allowed (remaining = max - count)
-//	{0, 0}           if denied
-var tokenBucketScript = redis.NewScript(`
+//	{0, 0}          if denied
+var fixedWindowScript = redis.NewScript(`
 	local key = KEYS[1]
 	local window = tonumber(ARGV[1])
 	local max_req = tonumber(ARGV[2])
-	local now = tonumber(ARGV[3])
 
 	local count = redis.call('INCR', key)
 	if count == 1 then
@@ -116,11 +108,10 @@ func RateLimit(rdb *redis.Client, cfg RateLimitConfig) gin.HandlerFunc {
 		}
 
 		key := cfg.KeyFunc(c)
-		now := time.Now().Unix()
 
-		result, err := tokenBucketScript.Run(context.Background(), rdb,
+		result, err := fixedWindowScript.Run(context.Background(), rdb,
 			[]string{key},
-			cfg.Window, cfg.Rate, now,
+			cfg.Window, cfg.Rate,
 		).Result()
 
 		if err != nil {

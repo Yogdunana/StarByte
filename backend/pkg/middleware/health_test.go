@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -18,7 +19,16 @@ func TestHealthCheck_ReturnsOK(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Contains(t, w.Body.String(), "ok")
+
+	var resp map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	require.NoError(t, err)
+	assert.Equal(t, "ok", resp["status"])
+	// Verify no response envelope fields are present.
+	_, hasCode := resp["code"]
+	assert.False(t, hasCode, "health check should not include envelope 'code' field")
+	_, hasMessage := resp["message"]
+	assert.False(t, hasMessage, "health check should not include envelope 'message' field")
 }
 
 func TestReadinessCheck_NilDB_NilRedis_Returns503(t *testing.T) {
@@ -47,8 +57,13 @@ func TestReadinessCheck_ResponseFormat(t *testing.T) {
 
 	require.Equal(t, http.StatusServiceUnavailable, w.Code)
 
-	// Verify the response contains the checks structure.
-	body := w.Body.String()
-	assert.Contains(t, body, "checks")
-	assert.Contains(t, body, "fail")
+	// Verify the response is plain JSON without envelope.
+	var resp map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	require.NoError(t, err)
+	assert.Equal(t, "not ready", resp["status"])
+	assert.NotNil(t, resp["checks"])
+	// Verify no response envelope fields are present.
+	_, hasCode := resp["code"]
+	assert.False(t, hasCode, "readiness check should not include envelope 'code' field")
 }

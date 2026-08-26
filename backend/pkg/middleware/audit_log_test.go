@@ -170,3 +170,32 @@ func TestWriteMethods(t *testing.T) {
 	assert.False(t, writeMethods["OPTIONS"])
 	assert.False(t, writeMethods["HEAD"])
 }
+
+func TestSanitizeRequestBody_SensitivePath(t *testing.T) {
+	body := `{"username":"admin","password":"secret123"}`
+	result := sanitizeRequestBody("/api/v1/auth/login", body)
+	assert.Equal(t, "[redacted: sensitive endpoint]", result)
+}
+
+func TestSanitizeRequestBody_SensitiveFieldRedacted(t *testing.T) {
+	body := `{"name":"test","password":"secret123","email":"test@example.com"}`
+	result := sanitizeRequestBody("/api/v1/user/profile", body)
+	assert.Contains(t, result, `"[redacted]"`)
+	assert.NotContains(t, result, "secret123")
+	assert.Contains(t, result, "test@example.com")
+}
+
+func TestSanitizeRequestBody_NoSensitiveData(t *testing.T) {
+	body := `{"name":"test","email":"test@example.com"}`
+	result := sanitizeRequestBody("/api/v1/user/profile", body)
+	assert.Equal(t, body, result)
+}
+
+func TestSanitizeRequestBody_MultipleSensitiveFields(t *testing.T) {
+	body := `{"old_password":"old123","new_password":"new456","secret":"abc"}`
+	result := sanitizeRequestBody("/api/v1/user/profile", body)
+	assert.Contains(t, result, `"[redacted]"`)
+	assert.NotContains(t, result, "old123")
+	assert.NotContains(t, result, "new456")
+	assert.NotContains(t, result, "abc")
+}
