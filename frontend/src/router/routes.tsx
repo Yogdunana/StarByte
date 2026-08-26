@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import type { RouteObject } from 'react-router-dom';
 
 // 布局组件
-import MainLayout from '@/layouts/MainLayout';
+import MainLayout from '@/layouts/MainLayout/MainLayout';
 
 // 页面组件
 const Login = lazy(() => import('@/pages/login/Login'));
