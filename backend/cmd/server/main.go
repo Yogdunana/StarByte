@@ -53,6 +53,11 @@ func main() {
 	}
 	defer database.Close()
 
+	// 3a. 自动迁移审计日志表
+	if err := database.DB().AutoMigrate(&middleware.AuditLogEntry{}); err != nil {
+		logger.Fatal("auto migrate audit_logs failed", zap.Error(err))
+	}
+
 	// 4. 初始化 Redis
 	if err := redis.Init(&cfg.Redis); err != nil {
 		logger.Fatal("init redis failed", zap.Error(err))
@@ -66,18 +71,16 @@ func main() {
 	r := gin.New()
 
 	// 7. 注册全局中间件
+	// 顺序: RequestID → Logger → ErrorHandler → CORS → GlobalRateLimit
 	r.Use(middleware.RequestID())
 	r.Use(middleware.Logger())
 	r.Use(middleware.ErrorHandler())
 	r.Use(middleware.CORSWithConfig(cfg.CORS))
+	r.Use(middleware.RateLimit(redis.Client(), middleware.GlobalRateLimit))
 
-	// 8. 健康检查
-	r.GET("/health", func(c *gin.Context) {
-		response.OK(c, gin.H{
-			"status": "ok",
-			"time":   time.Now().Unix(),
-		})
-	})
+	// 8. 健康检查端点（不受限流影响，供 K8s/负载均衡探活使用）
+	r.GET("/health", middleware.HealthCheck())
+	r.GET("/health/ready", middleware.ReadinessCheck(database.DB(), redis.Client()))
 
 	// 9. 初始化业务模块
 	// 用户模块
@@ -105,38 +108,55 @@ func main() {
 
 	// 10. API 路由组
 	api := r.Group("/api/v1")
+
+	// 10a. 公开路由（不需要鉴权）
+	// 中间件: PerIPRateLimit (100 req/min per IP)
+	public := api.Group("")
+	public.Use(middleware.RateLimit(redis.Client(), middleware.PerIPRateLimit))
 	{
-		// 公开路由（不需要鉴权）
-		public := api.Group("")
+		public.GET("/ping", func(c *gin.Context) {
+			response.OK(c, "pong")
+		})
+
+		// 认证相关路由
+		authGroup := public.Group("/auth")
 		{
-			// 健康检查
-			public.GET("/ping", func(c *gin.Context) {
-				response.OK(c, "pong")
-			})
+			// 注册：PerIPRateLimit 已在 group 级别生效
+			authGroup.POST("/register", userHandler.Register)
+			authGroup.POST("/refresh", userHandler.RefreshToken)
 
-			// 认证相关
-			handler.RegisterAuthRoutes(public, userHandler)
-		}
-
-		// 需要鉴权的路由
-		auth := api.Group("")
-		auth.Use(authmiddleware.JWTAuth(&cfg.JWT))
-		{
-			// 用户模块
-			handler.RegisterUserRoutes(auth, userHandler)
-
-			// RBAC 系统管理模块
-			// 权限校验和数据权限中间件在 RegisterRoutes 内部按正确顺序注册
-			rbacHandler.RegisterRoutes(auth, database.DB(), roleHandler, permHandler, deptHandler, posHandler, cacheService, deptRepo)
+			// 登录端点：额外限流（5 req/min，防暴力破解）
+			authGroup.POST("/login",
+				middleware.RateLimitWithFallback(redis.Client(), middleware.LoginRateLimit),
+				userHandler.Login,
+			)
 		}
 	}
 
-	// 10. 404 处理
+	// 10b. 需要鉴权的路由
+	// 中间件链: JWTAuth → PerIPRateLimit → AuditLog
+	protected := api.Group("")
+	protected.Use(authmiddleware.JWTAuth(&cfg.JWT))
+	protected.Use(middleware.RateLimit(redis.Client(), middleware.PerIPRateLimit))
+	protected.Use(middleware.AuditLog(database.DB()))
+	{
+		// 登出（需要鉴权）
+		protected.POST("/auth/logout", userHandler.Logout)
+
+		// 用户模块
+		handler.RegisterUserRoutes(protected, userHandler)
+
+		// RBAC 系统管理模块
+		// 权限校验和数据权限中间件在 RegisterRoutes 内部按正确顺序注册
+		rbacHandler.RegisterRoutes(protected, database.DB(), roleHandler, permHandler, deptHandler, posHandler, cacheService, deptRepo)
+	}
+
+	// 11. 404 处理
 	r.NoRoute(func(c *gin.Context) {
 		response.NotFound(c, "接口不存在")
 	})
 
-	// 11. 启动服务器
+	// 12. 启动服务器
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Server.Port),
 		Handler:      r,
@@ -144,7 +164,7 @@ func main() {
 		WriteTimeout: time.Duration(cfg.Server.WriteTimeout) * time.Second,
 	}
 
-	// 12. 优雅关闭
+	// 13. 优雅关闭
 	go func() {
 		logger.Info("server started", zap.Int("port", cfg.Server.Port), zap.String("mode", cfg.Server.Mode))
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
