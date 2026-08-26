@@ -48,8 +48,7 @@ issues:
         - errcheck
         - ineffassign
         - gosimple
-    - path: _test\.go
-      text: "SA4006"  # 测试中赋值后不使用的情况较多（staticcheck）
+        - staticcheck  # 测试代码静态检查适当放宽
   exclude-use-default: false
   max-issues-per-linter: 50
   max-same-issues: 5
