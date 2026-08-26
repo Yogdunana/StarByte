@@ -12,8 +12,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// TaskService handles flow task business logic.
-type TaskService struct {
+// taskServiceImpl handles flow task business logic.
+type taskServiceImpl struct {
 	taskRepo   repo.TaskRepo
 	instRepo   repo.InstanceRepo
 	flowEngine *engine.FlowEngine
@@ -21,8 +21,8 @@ type TaskService struct {
 }
 
 // NewTaskService creates a TaskService.
-func NewTaskService(taskRepo repo.TaskRepo, instRepo repo.InstanceRepo, flowEngine *engine.FlowEngine, db *gorm.DB) *TaskService {
-	return &TaskService{
+func NewTaskService(taskRepo repo.TaskRepo, instRepo repo.InstanceRepo, flowEngine *engine.FlowEngine, db *gorm.DB) TaskService {
+	return &taskServiceImpl{
 		taskRepo:   taskRepo,
 		instRepo:   instRepo,
 		flowEngine: flowEngine,
@@ -31,7 +31,7 @@ func NewTaskService(taskRepo repo.TaskRepo, instRepo repo.InstanceRepo, flowEngi
 }
 
 // ListTodoTasks returns pending tasks for a user.
-func (s *TaskService) ListTodoTasks(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]model.FlowTask, int64, error) {
+func (s *taskServiceImpl) ListTodoTasks(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]model.FlowTask, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -48,7 +48,7 @@ func (s *TaskService) ListTodoTasks(ctx context.Context, userID uuid.UUID, page,
 }
 
 // ListDoneTasks returns completed tasks for a user.
-func (s *TaskService) ListDoneTasks(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]model.FlowTask, int64, error) {
+func (s *taskServiceImpl) ListDoneTasks(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]model.FlowTask, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -65,7 +65,7 @@ func (s *TaskService) ListDoneTasks(ctx context.Context, userID uuid.UUID, page,
 }
 
 // GetTaskByID retrieves a task by ID.
-func (s *TaskService) GetTaskByID(ctx context.Context, id uuid.UUID) (*model.FlowTask, error) {
+func (s *taskServiceImpl) GetTaskByID(ctx context.Context, id uuid.UUID) (*model.FlowTask, error) {
 	task, err := s.taskRepo.GetTaskByID(ctx, id)
 	if err != nil {
 		return nil, response.NewAppErrorf(response.CodeInternalError,
@@ -79,7 +79,7 @@ func (s *TaskService) GetTaskByID(ctx context.Context, id uuid.UUID) (*model.Flo
 }
 
 // CompleteTask completes a flow task with the given action.
-func (s *TaskService) CompleteTask(ctx context.Context, taskID uuid.UUID, userID uuid.UUID, action string, comment string, formData map[string]interface{}) error {
+func (s *taskServiceImpl) CompleteTask(ctx context.Context, taskID uuid.UUID, userID uuid.UUID, action string, comment string, formData map[string]interface{}) error {
 	taskAction := engine.TaskAction(action)
 	if taskAction != engine.ActionApprove &&
 		taskAction != engine.ActionReject &&
@@ -93,7 +93,7 @@ func (s *TaskService) CompleteTask(ctx context.Context, taskID uuid.UUID, userID
 }
 
 // TransferTask transfers a task to another user.
-func (s *TaskService) TransferTask(ctx context.Context, taskID uuid.UUID, fromUserID uuid.UUID, toUserID uuid.UUID, comment string) error {
+func (s *taskServiceImpl) TransferTask(ctx context.Context, taskID uuid.UUID, fromUserID uuid.UUID, toUserID uuid.UUID, comment string) error {
 	task, err := s.taskRepo.GetTaskByID(ctx, taskID)
 	if err != nil || task == nil {
 		return response.NewAppError(response.CodeWorkflowTaskNotFnd,
@@ -143,7 +143,7 @@ func (s *TaskService) TransferTask(ctx context.Context, taskID uuid.UUID, fromUs
 }
 
 // RollbackTask rolls back a task to a previous node.
-func (s *TaskService) RollbackTask(ctx context.Context, taskID uuid.UUID, userID uuid.UUID, targetNodeID string, comment string) error {
+func (s *taskServiceImpl) RollbackTask(ctx context.Context, taskID uuid.UUID, userID uuid.UUID, targetNodeID string, comment string) error {
 	task, err := s.taskRepo.GetTaskByID(ctx, taskID)
 	if err != nil || task == nil {
 		return response.NewAppError(response.CodeWorkflowTaskNotFnd,
