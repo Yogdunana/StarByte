@@ -29,9 +29,8 @@ import (
 //	r.Use(middleware.ErrorHandler())
 //	r.Use(middleware.CORS())
 //
-// ErrorHandler replaces the older Recovery() middleware. Recovery() is
-// kept for backwards compatibility but should not be used together with
-// ErrorHandler to avoid double-recovery.
+// ErrorHandler is the unified global error-recovery middleware. It
+// supersedes the removed Recovery() middleware.
 func ErrorHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		defer func() {

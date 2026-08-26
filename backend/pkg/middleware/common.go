@@ -7,7 +7,7 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
 	"github.com/Yogdunana/StarByte/backend/pkg/logger"
-	"github.com/Yogdunana/StarByte/backend/pkg/response"
+	"github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -27,7 +27,8 @@ func RequestID() gin.HandlerFunc {
 	}
 }
 
-// Logger logs each request's method, path, status, latency and request id.
+// Logger logs each request's method, path, status, latency, request id,
+// client IP, and user id (if authenticated).
 func Logger() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
@@ -39,6 +40,8 @@ func Logger() gin.HandlerFunc {
 		latency := time.Since(start)
 		status := c.Writer.Status()
 		requestID := c.GetString("request_id")
+		clientIP := c.ClientIP()
+		userID := auth.GetUserID(c)
 
 		logger.Info("request",
 			zap.String("method", method),
@@ -46,30 +49,9 @@ func Logger() gin.HandlerFunc {
 			zap.Int("status", status),
 			zap.Duration("latency", latency),
 			zap.String("request_id", requestID),
+			zap.String("client_ip", clientIP),
+			zap.String("user_id", userID),
 		)
-	}
-}
-
-// Recovery recovers from panics in subsequent handlers, logs the error and
-// returns a 500 response.
-func Recovery() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		defer func() {
-			if r := recover(); r != nil {
-				logger.Error("panic recovered",
-					zap.Any("error", r),
-					zap.String("request_id", c.GetString("request_id")),
-				)
-				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-					"code":       response.CodeInternalError,
-					"message":    "Internal Server Error",
-					"data":       nil,
-					"request_id": c.GetString("request_id"),
-					"timestamp":  time.Now().Unix(),
-				})
-			}
-		}()
-		c.Next()
 	}
 }
 
