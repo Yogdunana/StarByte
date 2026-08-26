@@ -61,6 +61,11 @@ func main() {
 		logger.Fatal("auto migrate audit_logs failed", zap.Error(err))
 	}
 
+	// 3b. 自动迁移工作流引擎表
+	if err := workflow.AutoMigrate(database.DB()); err != nil {
+		logger.Fatal("auto migrate workflow tables failed", zap.Error(err))
+	}
+
 	// 4. 初始化 Redis
 	if err := redis.Init(&cfg.Redis); err != nil {
 		logger.Fatal("init redis failed", zap.Error(err))

@@ -12,7 +12,7 @@ import (
 
 var (
 	log *zap.Logger
-	mu  sync.Mutex
+	mu  sync.RWMutex
 )
 
 func init() {
@@ -75,7 +75,10 @@ func Sync() {
 
 // GetLogger returns the underlying *zap.Logger instance.
 // Useful for components that need direct access to the zap logger.
+// Safe for concurrent use.
 func GetLogger() *zap.Logger {
+	mu.RLock()
+	defer mu.RUnlock()
 	return log
 }
 

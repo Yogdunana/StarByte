@@ -1,9 +1,12 @@
 package workflow
 
 import (
+	"context"
+
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/engine"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/engine/nodes"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/handler"
+	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/repo"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/service"
 	"github.com/Yogdunana/StarByte/backend/pkg/events"
@@ -11,11 +14,19 @@ import (
 	"gorm.io/gorm"
 )
 
-// Handlers 封装所有 workflow handler，便于在 main.go 中注册路由。
+// Handlers 封装所有 workflow handler 和扩展能力，便于在 main.go 中使用。
 type Handlers struct {
-	Definition *handler.DefinitionHandler
-	Instance   *handler.InstanceHandler
-	Task       *handler.TaskHandler
+	Definition      *handler.DefinitionHandler
+	Instance        *handler.InstanceHandler
+	Task            *handler.TaskHandler
+	serviceTaskNode *nodes.ServiceTaskNode
+}
+
+// RegisterServiceCallback 注册一个服务任务回调函数，供 service_task 节点调用。
+// 业务模块可以通过此方法将自定义业务逻辑接入工作流引擎。
+// 线程安全。
+func (h *Handlers) RegisterServiceCallback(name string, cb func(ctx context.Context, inst *model.FlowInstance, node *engine.FlowNode, vars map[string]interface{}) (map[string]interface{}, error)) {
+	h.serviceTaskNode.RegisterService(name, nodes.ServiceCallback(cb))
 }
 
 // Init 初始化工作流引擎的所有依赖（repo → engine → service → handler）。
@@ -44,7 +55,10 @@ func Init(db *gorm.DB, eventBus *events.EventBus, logger *zap.Logger) *Handlers 
 	registry.Register(&nodes.ApprovalNode{TaskRepo: taskRepo, EventBus: eventBus})
 	registry.Register(&nodes.ExclusiveGatewayNode{ExprEngine: exprEngine})
 	registry.Register(&nodes.ParallelGatewayNode{})
-	registry.Register(&nodes.ServiceTaskNode{Callbacks: make(map[string]nodes.ServiceCallback)})
+
+	serviceTaskNode := &nodes.ServiceTaskNode{Callbacks: make(map[string]nodes.ServiceCallback)}
+	registry.Register(serviceTaskNode)
+
 	registry.Register(&nodes.NotificationTaskNode{EventBus: eventBus})
 
 	// 4. 流程引擎核心
@@ -71,8 +85,9 @@ func Init(db *gorm.DB, eventBus *events.EventBus, logger *zap.Logger) *Handlers 
 	taskHandler := handler.NewTaskHandler(taskService)
 
 	return &Handlers{
-		Definition: defHandler,
-		Instance:   instHandler,
-		Task:       taskHandler,
+		Definition:      defHandler,
+		Instance:        instHandler,
+		Task:            taskHandler,
+		serviceTaskNode: serviceTaskNode,
 	}
 }
