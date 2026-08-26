@@ -199,3 +199,43 @@ func TestSanitizeRequestBody_MultipleSensitiveFields(t *testing.T) {
 	assert.NotContains(t, result, "new456")
 	assert.NotContains(t, result, "abc")
 }
+
+func TestCloseAuditWriter_NoWriterExists_NoOp(t *testing.T) {
+	// Ensure no writer is initialized.
+	CloseAuditWriter()
+	// Should not panic.
+}
+
+func TestCloseAuditWriter_AfterUse_DrainsAndResets(t *testing.T) {
+	// Initialize the writer with nil db (no-op writes).
+	r := setupTestRouter()
+	r.Use(AuditLog(nil))
+	r.POST("/test", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/test", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	// Close the writer — should drain and reset.
+	CloseAuditWriter()
+
+	// After closing, AuditLog should still work (creates a new writer).
+	r2 := setupTestRouter()
+	r2.Use(AuditLog(nil))
+	r2.POST("/test", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
+	w2 := httptest.NewRecorder()
+	req2 := httptest.NewRequest("POST", "/test", strings.NewReader(`{}`))
+	req2.Header.Set("Content-Type", "application/json")
+	r2.ServeHTTP(w2, req2)
+	assert.Equal(t, http.StatusOK, w2.Code)
+
+	// Clean up.
+	CloseAuditWriter()
+}

@@ -189,5 +189,8 @@ func main() {
 		logger.Error("server shutdown error", zap.Error(err))
 	}
 
+	// 优雅关闭审计日志 worker，刷新缓冲通道中的待写入条目
+	middleware.CloseAuditWriter()
+
 	logger.Info("server exited")
 }

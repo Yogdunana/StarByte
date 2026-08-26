@@ -8,7 +8,6 @@ import (
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
 	"github.com/Yogdunana/StarByte/backend/pkg/logger"
 	"github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
-	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -53,29 +52,6 @@ func Logger() gin.HandlerFunc {
 			zap.String("client_ip", clientIP),
 			zap.String("user_id", userID),
 		)
-	}
-}
-
-// Recovery recovers from panics in subsequent handlers, logs the error and
-// returns a 500 response.
-func Recovery() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		defer func() {
-			if r := recover(); r != nil {
-				logger.Error("panic recovered",
-					zap.Any("error", r),
-					zap.String("request_id", c.GetString("request_id")),
-				)
-				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-					"code":       response.CodeInternalError,
-					"message":    "Internal Server Error",
-					"data":       nil,
-					"request_id": c.GetString("request_id"),
-					"timestamp":  time.Now().Unix(),
-				})
-			}
-		}()
-		c.Next()
 	}
 }
 

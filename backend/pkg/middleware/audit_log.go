@@ -86,6 +86,12 @@ func sanitizeRequestBody(path, body string) string {
 	return sensitiveFieldPattern.ReplaceAllString(body, `"$1":"[redacted]"`)
 }
 
+// maxBodyReadSize limits how much of the request body is read into memory.
+// This prevents memory exhaustion from very large request bodies (e.g., file
+// uploads). Bodies larger than this are truncated; the audit log only stores
+// up to maxRequestBodySize bytes anyway.
+const maxBodyReadSize = 32 * 1024 * 1024 // 32 MB
+
 // auditLogWorkerBufferSize is the buffer size for the audit log worker channel.
 // When the channel is full, new entries are dropped to avoid blocking the
 // response and to provide backpressure.
@@ -101,21 +107,39 @@ type auditLogWriter struct {
 }
 
 var (
-	auditWriterOnce sync.Once
-	auditWriter     *auditLogWriter
+	auditWriterMu sync.Mutex
+	auditWriter   *auditLogWriter
 )
 
+// CloseAuditWriter gracefully shuts down the audit log worker. It closes the
+// channel, which causes the background goroutine to drain remaining entries
+// and exit. This should be called during server graceful shutdown to avoid
+// losing pending audit log entries.
+//
+// It is safe to call multiple times; subsequent calls are no-ops.
+func CloseAuditWriter() {
+	auditWriterMu.Lock()
+	defer auditWriterMu.Unlock()
+	if auditWriter != nil {
+		close(auditWriter.ch)
+		<-auditWriter.done
+		auditWriter = nil
+	}
+}
+
 // getAuditWriter returns a shared auditLogWriter instance. The writer is
-// initialized once on first use and starts a background worker goroutine.
+// initialized on first use and starts a background worker goroutine.
 func getAuditWriter(db *gorm.DB) *auditLogWriter {
-	auditWriterOnce.Do(func() {
+	auditWriterMu.Lock()
+	defer auditWriterMu.Unlock()
+	if auditWriter == nil {
 		auditWriter = &auditLogWriter{
 			db:   db,
 			ch:   make(chan AuditLogEntry, auditLogWorkerBufferSize),
 			done: make(chan struct{}),
 		}
 		go auditWriter.run()
-	})
+	}
 	return auditWriter
 }
 
@@ -136,11 +160,18 @@ func (w *auditLogWriter) run() {
 
 // write sends the audit entry to the worker channel. If the channel is
 // full (buffer exhausted), the entry is dropped with a warning log to
-// prevent blocking the HTTP response.
+// prevent blocking the HTTP response. A recover guards against the
+// edge case where the channel is closed during graceful shutdown while
+// a request is still in flight.
 func (w *auditLogWriter) write(entry AuditLogEntry) {
 	if w.db == nil {
 		return
 	}
+	defer func() {
+		if r := recover(); r != nil {
+			// Channel was closed during shutdown — entry is lost.
+		}
+	}()
 	select {
 	case w.ch <- entry:
 	default:
@@ -220,19 +251,21 @@ func AuditLog(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		// Wrap the response writer to capture the body.
-		auditWriter := &auditResponseWriter{
+		auditRW := &auditResponseWriter{
 			ResponseWriter: c.Writer,
 		}
-		c.Writer = auditWriter
+		c.Writer = auditRW
 
 		// Capture start time.
 		start := time.Now()
 
 		// Capture request body (truncated). We read the body if it exists,
 		// regardless of ContentLength, to support chunked transfer encoding.
+		// A size limit is applied to prevent memory exhaustion from very
+		// large bodies.
 		var reqBody string
 		if c.Request.Body != nil {
-			bodyBytes, err := io.ReadAll(c.Request.Body)
+			bodyBytes, err := io.ReadAll(io.LimitReader(c.Request.Body, maxBodyReadSize))
 			if err != nil {
 				logger.Warn("audit log: failed to read request body",
 					zap.Error(err),
@@ -273,7 +306,7 @@ func AuditLog(db *gorm.DB) gin.HandlerFunc {
 		operation := method + " " + c.Request.URL.Path
 
 		// Determine the response body.
-		respBody := string(auditWriter.body)
+		respBody := string(auditRW.body)
 		if len(respBody) > maxResponseBodySize {
 			respBody = respBody[:maxResponseBodySize] + "...[truncated]"
 		}
