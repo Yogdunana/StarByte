@@ -45,6 +45,17 @@ const (
 	CodeWorkflowInstanceEnd = 4002 // 流程已结束
 	CodeWorkflowTaskNotFnd  = 4003 // 流程任务不存在
 	CodeWorkflowInvalidNode = 4004 // 无效的节点配置
+	CodeWorkflowKeyExists   = 4005 // 流程定义 key 已存在
+	CodeWorkflowDefPublished = 4006 // 流程定义已发布，不可修改
+	CodeWorkflowVerNotFound  = 4007 // 流程版本不存在
+	CodeWorkflowInstNotFound = 4008 // 流程实例不存在
+	CodeWorkflowInstStatus   = 4009 // 流程实例状态不允许操作
+	CodeWorkflowTaskStatus   = 4010 // 流程任务状态不允许操作
+	CodeWorkflowTaskNoAccess = 4011 // 无权操作流程任务
+	CodeWorkflowNodeNotFound = 4012 // 流程节点不存在
+	CodeWorkflowExprError    = 4013 // 表达式解析错误
+	CodeWorkflowNodeType     = 4014 // 节点类型不支持
+	CodeWorkflowDefNotPub    = 4015 // 流程定义未发布
 
 	// ===== Audit log (5000-5999) =====
 	CodeAuditNotFound  = 5001 // 审计日志不存在
