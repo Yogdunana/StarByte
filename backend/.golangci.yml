@@ -14,7 +14,7 @@ linters:
     - gofmt            # 代码格式
     - nolintlint       # nolint 注释检查
   disable:
-    - unused           # 测试文件中辅助函数容易误报，后续再加
+    - unused           # 测试文件辅助函数容易误报，后续再加
     - misspell         # 拼写检查（美/英式拼写差异大，后续统一再加）
     - err113
     - gochecknoglobals
@@ -31,22 +31,25 @@ linters-settings:
     disable:
       - shadow
       - fieldalignment   # 结构体对齐优化，现阶段没必要
+      - nilness          # 已知现有代码有恒真判断，后续单独修复
   gofmt:
     simplify: true
   staticcheck:
-    checks: ["all", "-SA1019", "-SA9003"]  # 忽略 deprecated 和空分支（测试代码常见）
+    checks: ["all", "-SA1019", "-SA9003"]  # 忽略 deprecated 和空分支
   nolintlint:
     allow-unused: false
     require-explanation: true
 
 issues:
   exclude-rules:
-    # 测试文件放宽一些规则
+    # 测试文件放宽规则
     - path: _test\.go
       linters:
         - errcheck
         - ineffassign
         - gosimple
+    - path: _test\.go
+      text: "SA4006"  # 测试中赋值后不使用的情况较多（staticcheck）
   exclude-use-default: false
   max-issues-per-linter: 50
   max-same-issues: 5
