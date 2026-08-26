@@ -5,7 +5,6 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/service"
-	"github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -38,7 +37,11 @@ func (h *InstanceHandler) Start(c *gin.Context) {
 		return
 	}
 
-	initiatorID := uuid.MustParse(auth.GetUserID(c))
+	initiatorID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 
 	inst, err := h.instService.Start(c.Request.Context(), req.DefinitionID, req.BusinessKey, req.BusinessType, initiatorID, req.Variables)
 	if err != nil {
@@ -64,14 +67,7 @@ func (h *InstanceHandler) Start(c *gin.Context) {
 // @Success 200 {object} response.Response{data=response.PageResponse{list=[]dto.InstanceResponse}}
 // @Router /workflow/instances [get]
 func (h *InstanceHandler) List(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
-	if page <= 0 {
-		page = 1
-	}
-	if pageSize <= 0 {
-		pageSize = 10
-	}
+	page, pageSize := parsePagination(c)
 
 	var status *int
 	if statusStr := c.Query("status"); statusStr != "" {
@@ -118,10 +114,9 @@ func (h *InstanceHandler) List(c *gin.Context) {
 // @Success 200 {object} response.Response{data=dto.InstanceResponse}
 // @Router /workflow/instances/{id} [get]
 func (h *InstanceHandler) GetByID(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
+	id, err := parseUUIDParam(c, "id", "无效的流程实例ID")
 	if err != nil {
-		response.BadRequest(c, "无效的流程实例ID")
+		response.BadRequest(c, err.Error())
 		return
 	}
 
@@ -146,10 +141,9 @@ func (h *InstanceHandler) GetByID(c *gin.Context) {
 // @Success 200 {object} response.Response
 // @Router /workflow/instances/{id}/terminate [post]
 func (h *InstanceHandler) Terminate(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
+	id, err := parseUUIDParam(c, "id", "无效的流程实例ID")
 	if err != nil {
-		response.BadRequest(c, "无效的流程实例ID")
+		response.BadRequest(c, err.Error())
 		return
 	}
 
@@ -159,7 +153,11 @@ func (h *InstanceHandler) Terminate(c *gin.Context) {
 		return
 	}
 
-	operatorID := uuid.MustParse(auth.GetUserID(c))
+	operatorID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 
 	if err := h.instService.Terminate(c.Request.Context(), id, operatorID, req.Reason); err != nil {
 		response.Error(c, err)
@@ -177,19 +175,29 @@ func (h *InstanceHandler) Terminate(c *gin.Context) {
 // @Produce json
 // @Security Bearer
 // @Param id path string true "流程实例ID"
+// @Param request body dto.SuspendInstanceRequest true "挂起原因"
 // @Success 200 {object} response.Response
 // @Router /workflow/instances/{id}/suspend [post]
 func (h *InstanceHandler) Suspend(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
+	id, err := parseUUIDParam(c, "id", "无效的流程实例ID")
 	if err != nil {
-		response.BadRequest(c, "无效的流程实例ID")
+		response.BadRequest(c, err.Error())
 		return
 	}
 
-	operatorID := uuid.MustParse(auth.GetUserID(c))
+	var req dto.SuspendInstanceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, parseBindingError(err))
+		return
+	}
 
-	if err := h.instService.Suspend(c.Request.Context(), id, operatorID, "手动挂起"); err != nil {
+	operatorID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	if err := h.instService.Suspend(c.Request.Context(), id, operatorID, req.Reason); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -208,14 +216,17 @@ func (h *InstanceHandler) Suspend(c *gin.Context) {
 // @Success 200 {object} response.Response
 // @Router /workflow/instances/{id}/resume [post]
 func (h *InstanceHandler) Resume(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
+	id, err := parseUUIDParam(c, "id", "无效的流程实例ID")
 	if err != nil {
-		response.BadRequest(c, "无效的流程实例ID")
+		response.BadRequest(c, err.Error())
 		return
 	}
 
-	operatorID := uuid.MustParse(auth.GetUserID(c))
+	operatorID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 
 	if err := h.instService.Resume(c.Request.Context(), id, operatorID); err != nil {
 		response.Error(c, err)
@@ -235,10 +246,9 @@ func (h *InstanceHandler) Resume(c *gin.Context) {
 // @Success 200 {object} response.Response{data=[]dto.HistoryResponse}
 // @Router /workflow/instances/{id}/history [get]
 func (h *InstanceHandler) ListHistory(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
+	id, err := parseUUIDParam(c, "id", "无效的流程实例ID")
 	if err != nil {
-		response.BadRequest(c, "无效的流程实例ID")
+		response.BadRequest(c, err.Error())
 		return
 	}
 
@@ -249,8 +259,8 @@ func (h *InstanceHandler) ListHistory(c *gin.Context) {
 	}
 
 	result := make([]dto.HistoryResponse, 0, len(histories))
-	for _, h := range histories {
-		result = append(result, dto.ToHistoryResponse(&h))
+	for _, hist := range histories {
+		result = append(result, dto.ToHistoryResponse(&hist))
 	}
 
 	response.OK(c, result)

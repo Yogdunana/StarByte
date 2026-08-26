@@ -114,6 +114,11 @@ type TerminateInstanceRequest struct {
 	Reason string `json:"reason" binding:"required,max=500"`
 }
 
+// SuspendInstanceRequest is the body for POST /api/v1/workflow/instances/:id/suspend.
+type SuspendInstanceRequest struct {
+	Reason string `json:"reason" binding:"required,max=500"`
+}
+
 // ========== Flow Task DTOs ==========
 
 // CompleteTaskRequest is the body for POST /api/v1/workflow/tasks/:id/complete.

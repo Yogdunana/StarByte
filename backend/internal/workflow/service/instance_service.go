@@ -11,8 +11,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// InstanceService handles flow instance business logic.
-type InstanceService struct {
+// instanceServiceImpl handles flow instance business logic.
+type instanceServiceImpl struct {
 	instRepo   repo.InstanceRepo
 	defRepo    repo.DefinitionRepo
 	taskRepo   repo.TaskRepo
@@ -21,8 +21,8 @@ type InstanceService struct {
 }
 
 // NewInstanceService creates an InstanceService.
-func NewInstanceService(instRepo repo.InstanceRepo, defRepo repo.DefinitionRepo, taskRepo repo.TaskRepo, flowEngine *engine.FlowEngine, db *gorm.DB) *InstanceService {
-	return &InstanceService{
+func NewInstanceService(instRepo repo.InstanceRepo, defRepo repo.DefinitionRepo, taskRepo repo.TaskRepo, flowEngine *engine.FlowEngine, db *gorm.DB) InstanceService {
+	return &instanceServiceImpl{
 		instRepo:   instRepo,
 		defRepo:    defRepo,
 		taskRepo:   taskRepo,
@@ -32,7 +32,7 @@ func NewInstanceService(instRepo repo.InstanceRepo, defRepo repo.DefinitionRepo,
 }
 
 // Start creates and starts a new flow instance.
-func (s *InstanceService) Start(ctx context.Context, defID uuid.UUID, businessKey, businessType string, initiatorID uuid.UUID, variables map[string]interface{}) (*model.FlowInstance, error) {
+func (s *instanceServiceImpl) Start(ctx context.Context, defID uuid.UUID, businessKey, businessType string, initiatorID uuid.UUID, variables map[string]interface{}) (*model.FlowInstance, error) {
 	// Find the definition to get the key.
 	def, err := s.defRepo.GetByID(ctx, defID)
 	if err != nil || def == nil {
@@ -54,7 +54,7 @@ func (s *InstanceService) Start(ctx context.Context, defID uuid.UUID, businessKe
 }
 
 // GetByID retrieves a flow instance by ID.
-func (s *InstanceService) GetByID(ctx context.Context, id uuid.UUID) (*model.FlowInstance, error) {
+func (s *instanceServiceImpl) GetByID(ctx context.Context, id uuid.UUID) (*model.FlowInstance, error) {
 	inst, err := s.instRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, response.NewAppErrorf(response.CodeInternalError,
@@ -68,7 +68,7 @@ func (s *InstanceService) GetByID(ctx context.Context, id uuid.UUID) (*model.Flo
 }
 
 // List returns a paginated list of flow instances.
-func (s *InstanceService) List(ctx context.Context, page, pageSize int, status *int, definitionID, initiatorID *uuid.UUID) ([]model.FlowInstance, int64, error) {
+func (s *instanceServiceImpl) List(ctx context.Context, page, pageSize int, status *int, definitionID, initiatorID *uuid.UUID) ([]model.FlowInstance, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -86,22 +86,22 @@ func (s *InstanceService) List(ctx context.Context, page, pageSize int, status *
 }
 
 // Terminate terminates a flow instance.
-func (s *InstanceService) Terminate(ctx context.Context, instanceID uuid.UUID, operatorID uuid.UUID, reason string) error {
+func (s *instanceServiceImpl) Terminate(ctx context.Context, instanceID uuid.UUID, operatorID uuid.UUID, reason string) error {
 	return s.flowEngine.Terminate(ctx, instanceID, operatorID, reason)
 }
 
 // Suspend suspends a running flow instance.
-func (s *InstanceService) Suspend(ctx context.Context, instanceID uuid.UUID, operatorID uuid.UUID, reason string) error {
+func (s *instanceServiceImpl) Suspend(ctx context.Context, instanceID uuid.UUID, operatorID uuid.UUID, reason string) error {
 	return s.flowEngine.Suspend(ctx, instanceID, operatorID, reason)
 }
 
 // Resume resumes a suspended flow instance.
-func (s *InstanceService) Resume(ctx context.Context, instanceID uuid.UUID, operatorID uuid.UUID) error {
+func (s *instanceServiceImpl) Resume(ctx context.Context, instanceID uuid.UUID, operatorID uuid.UUID) error {
 	return s.flowEngine.Resume(ctx, instanceID, operatorID)
 }
 
 // ListHistory returns the history for a flow instance.
-func (s *InstanceService) ListHistory(ctx context.Context, instanceID uuid.UUID) ([]model.FlowHistory, error) {
+func (s *instanceServiceImpl) ListHistory(ctx context.Context, instanceID uuid.UUID) ([]model.FlowHistory, error) {
 	histories, err := s.taskRepo.ListHistory(ctx, instanceID)
 	if err != nil {
 		return nil, response.NewAppErrorf(response.CodeInternalError,

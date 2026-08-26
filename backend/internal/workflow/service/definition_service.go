@@ -13,19 +13,19 @@ import (
 	"gorm.io/gorm"
 )
 
-// DefinitionService handles flow definition business logic.
-type DefinitionService struct {
+// definitionServiceImpl handles flow definition business logic.
+type definitionServiceImpl struct {
 	defRepo repo.DefinitionRepo
 	db      *gorm.DB
 }
 
 // NewDefinitionService creates a DefinitionService.
-func NewDefinitionService(defRepo repo.DefinitionRepo, db *gorm.DB) *DefinitionService {
-	return &DefinitionService{defRepo: defRepo, db: db}
+func NewDefinitionService(defRepo repo.DefinitionRepo, db *gorm.DB) DefinitionService {
+	return &definitionServiceImpl{defRepo: defRepo, db: db}
 }
 
 // Create creates a new flow definition (draft status).
-func (s *DefinitionService) Create(ctx context.Context, req *dto.CreateDefinitionRequest, userID uuid.UUID) (*model.FlowDefinition, error) {
+func (s *definitionServiceImpl) Create(ctx context.Context, req *dto.CreateDefinitionRequest, userID uuid.UUID) (*model.FlowDefinition, error) {
 	// Check for duplicate key.
 	existing, err := s.defRepo.GetByKey(ctx, req.Key)
 	if err != nil {
@@ -65,7 +65,7 @@ func (s *DefinitionService) Create(ctx context.Context, req *dto.CreateDefinitio
 }
 
 // GetByID retrieves a flow definition by ID.
-func (s *DefinitionService) GetByID(ctx context.Context, id uuid.UUID) (*model.FlowDefinition, error) {
+func (s *definitionServiceImpl) GetByID(ctx context.Context, id uuid.UUID) (*model.FlowDefinition, error) {
 	def, err := s.defRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, response.NewAppErrorf(response.CodeInternalError,
@@ -79,7 +79,7 @@ func (s *DefinitionService) GetByID(ctx context.Context, id uuid.UUID) (*model.F
 }
 
 // Update updates a flow definition (only in draft status).
-func (s *DefinitionService) Update(ctx context.Context, id uuid.UUID, req *dto.UpdateDefinitionRequest, userID uuid.UUID) (*model.FlowDefinition, error) {
+func (s *definitionServiceImpl) Update(ctx context.Context, id uuid.UUID, req *dto.UpdateDefinitionRequest, userID uuid.UUID) (*model.FlowDefinition, error) {
 	def, err := s.defRepo.GetByID(ctx, id)
 	if err != nil || def == nil {
 		return nil, response.NewAppError(response.CodeWorkflowNotFound,
@@ -104,7 +104,7 @@ func (s *DefinitionService) Update(ctx context.Context, id uuid.UUID, req *dto.U
 }
 
 // Delete deletes a flow definition (only in draft status).
-func (s *DefinitionService) Delete(ctx context.Context, id uuid.UUID) error {
+func (s *definitionServiceImpl) Delete(ctx context.Context, id uuid.UUID) error {
 	def, err := s.defRepo.GetByID(ctx, id)
 	if err != nil || def == nil {
 		return response.NewAppError(response.CodeWorkflowNotFound,
@@ -124,7 +124,7 @@ func (s *DefinitionService) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 // List returns a paginated list of flow definitions.
-func (s *DefinitionService) List(ctx context.Context, page, pageSize int, keyword, category string, status *int) ([]model.FlowDefinition, int64, error) {
+func (s *definitionServiceImpl) List(ctx context.Context, page, pageSize int, keyword, category string, status *int) ([]model.FlowDefinition, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -142,7 +142,7 @@ func (s *DefinitionService) List(ctx context.Context, page, pageSize int, keywor
 }
 
 // Publish publishes a new version of a flow definition.
-func (s *DefinitionService) Publish(ctx context.Context, id uuid.UUID, req *dto.PublishDefinitionRequest, userID uuid.UUID) (*model.FlowDefinitionVersion, error) {
+func (s *definitionServiceImpl) Publish(ctx context.Context, id uuid.UUID, req *dto.PublishDefinitionRequest, userID uuid.UUID) (*model.FlowDefinitionVersion, error) {
 	def, err := s.defRepo.GetByID(ctx, id)
 	if err != nil || def == nil {
 		return nil, response.NewAppError(response.CodeWorkflowNotFound,
@@ -210,7 +210,7 @@ func (s *DefinitionService) Publish(ctx context.Context, id uuid.UUID, req *dto.
 }
 
 // ListVersions returns all versions of a definition.
-func (s *DefinitionService) ListVersions(ctx context.Context, definitionID uuid.UUID) ([]model.FlowDefinitionVersion, error) {
+func (s *definitionServiceImpl) ListVersions(ctx context.Context, definitionID uuid.UUID) ([]model.FlowDefinitionVersion, error) {
 	versions, err := s.defRepo.ListVersions(ctx, definitionID)
 	if err != nil {
 		return nil, response.NewAppErrorf(response.CodeInternalError,
@@ -220,7 +220,7 @@ func (s *DefinitionService) ListVersions(ctx context.Context, definitionID uuid.
 }
 
 // GetVersionByID retrieves a specific version.
-func (s *DefinitionService) GetVersionByID(ctx context.Context, id uuid.UUID) (*model.FlowDefinitionVersion, error) {
+func (s *definitionServiceImpl) GetVersionByID(ctx context.Context, id uuid.UUID) (*model.FlowDefinitionVersion, error) {
 	ver, err := s.defRepo.GetVersionByID(ctx, id)
 	if err != nil {
 		return nil, response.NewAppErrorf(response.CodeInternalError,

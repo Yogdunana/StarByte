@@ -5,10 +5,8 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/service"
-	"github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 // DefinitionHandler 流程定义处理器
@@ -36,14 +34,7 @@ func NewDefinitionHandler(defService service.DefinitionService) *DefinitionHandl
 // @Success 200 {object} response.Response{data=response.PageResponse{list=[]dto.DefinitionResponse}}
 // @Router /workflow/definitions [get]
 func (h *DefinitionHandler) List(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
-	if page <= 0 {
-		page = 1
-	}
-	if pageSize <= 0 {
-		pageSize = 10
-	}
+	page, pageSize := parsePagination(c)
 
 	keyword := c.Query("keyword")
 	category := c.Query("category")
@@ -79,10 +70,9 @@ func (h *DefinitionHandler) List(c *gin.Context) {
 // @Success 200 {object} response.Response{data=dto.DefinitionResponse}
 // @Router /workflow/definitions/{id} [get]
 func (h *DefinitionHandler) GetByID(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
+	id, err := parseUUIDParam(c, "id", "无效的流程定义ID")
 	if err != nil {
-		response.BadRequest(c, "无效的流程定义ID")
+		response.BadRequest(c, err.Error())
 		return
 	}
 
@@ -112,7 +102,11 @@ func (h *DefinitionHandler) Create(c *gin.Context) {
 		return
 	}
 
-	userID := uuid.MustParse(auth.GetUserID(c))
+	userID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 
 	def, err := h.defService.Create(c.Request.Context(), &req, userID)
 	if err != nil {
@@ -135,10 +129,9 @@ func (h *DefinitionHandler) Create(c *gin.Context) {
 // @Success 200 {object} response.Response{data=dto.DefinitionResponse}
 // @Router /workflow/definitions/{id} [put]
 func (h *DefinitionHandler) Update(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
+	id, err := parseUUIDParam(c, "id", "无效的流程定义ID")
 	if err != nil {
-		response.BadRequest(c, "无效的流程定义ID")
+		response.BadRequest(c, err.Error())
 		return
 	}
 
@@ -148,7 +141,11 @@ func (h *DefinitionHandler) Update(c *gin.Context) {
 		return
 	}
 
-	userID := uuid.MustParse(auth.GetUserID(c))
+	userID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 
 	def, err := h.defService.Update(c.Request.Context(), id, &req, userID)
 	if err != nil {
@@ -169,10 +166,9 @@ func (h *DefinitionHandler) Update(c *gin.Context) {
 // @Success 200 {object} response.Response
 // @Router /workflow/definitions/{id} [delete]
 func (h *DefinitionHandler) Delete(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
+	id, err := parseUUIDParam(c, "id", "无效的流程定义ID")
 	if err != nil {
-		response.BadRequest(c, "无效的流程定义ID")
+		response.BadRequest(c, err.Error())
 		return
 	}
 
@@ -196,10 +192,9 @@ func (h *DefinitionHandler) Delete(c *gin.Context) {
 // @Success 200 {object} response.Response{data=dto.VersionResponse}
 // @Router /workflow/definitions/{id}/publish [post]
 func (h *DefinitionHandler) Publish(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
+	id, err := parseUUIDParam(c, "id", "无效的流程定义ID")
 	if err != nil {
-		response.BadRequest(c, "无效的流程定义ID")
+		response.BadRequest(c, err.Error())
 		return
 	}
 
@@ -209,7 +204,11 @@ func (h *DefinitionHandler) Publish(c *gin.Context) {
 		return
 	}
 
-	userID := uuid.MustParse(auth.GetUserID(c))
+	userID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 
 	version, err := h.defService.Publish(c.Request.Context(), id, &req, userID)
 	if err != nil {
@@ -230,10 +229,9 @@ func (h *DefinitionHandler) Publish(c *gin.Context) {
 // @Success 200 {object} response.Response{data=[]dto.VersionResponse}
 // @Router /workflow/definitions/{id}/versions [get]
 func (h *DefinitionHandler) ListVersions(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
+	id, err := parseUUIDParam(c, "id", "无效的流程定义ID")
 	if err != nil {
-		response.BadRequest(c, "无效的流程定义ID")
+		response.BadRequest(c, err.Error())
 		return
 	}
 
@@ -253,7 +251,7 @@ func (h *DefinitionHandler) ListVersions(c *gin.Context) {
 
 // GetVersionByID 获取指定版本详情
 // @Summary 获取指定版本详情
-// @Description 根据版本ID获取流程定义版本详情
+// @Description 根据版本ID获取流程定义版本详情，并校验版本归属
 // @Tags 流程定义
 // @Produce json
 // @Security Bearer
@@ -262,16 +260,27 @@ func (h *DefinitionHandler) ListVersions(c *gin.Context) {
 // @Success 200 {object} response.Response{data=dto.VersionResponse}
 // @Router /workflow/definitions/{id}/versions/{versionId} [get]
 func (h *DefinitionHandler) GetVersionByID(c *gin.Context) {
-	versionIDStr := c.Param("versionId")
-	versionID, err := uuid.Parse(versionIDStr)
+	defID, err := parseUUIDParam(c, "id", "无效的流程定义ID")
 	if err != nil {
-		response.BadRequest(c, "无效的版本ID")
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	versionID, err := parseUUIDParam(c, "versionId", "无效的版本ID")
+	if err != nil {
+		response.BadRequest(c, err.Error())
 		return
 	}
 
 	version, err := h.defService.GetVersionByID(c.Request.Context(), versionID)
 	if err != nil {
 		response.Error(c, err)
+		return
+	}
+
+	// 校验版本归属关系
+	if version.DefinitionID != defID {
+		response.BadRequest(c, "版本不属于该流程定义")
 		return
 	}
 

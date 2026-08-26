@@ -1,14 +1,10 @@
 package handler
 
 import (
-	"strconv"
-
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/service"
-	"github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 // TaskHandler 流程任务处理器
@@ -33,16 +29,13 @@ func NewTaskHandler(taskService service.TaskService) *TaskHandler {
 // @Success 200 {object} response.Response{data=response.PageResponse{list=[]dto.TaskResponse}}
 // @Router /workflow/tasks/todo [get]
 func (h *TaskHandler) ListTodoTasks(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
-	if page <= 0 {
-		page = 1
-	}
-	if pageSize <= 0 {
-		pageSize = 10
-	}
+	page, pageSize := parsePagination(c)
 
-	userID := uuid.MustParse(auth.GetUserID(c))
+	userID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 
 	tasks, total, err := h.taskService.ListTodoTasks(c.Request.Context(), userID, page, pageSize)
 	if err != nil {
@@ -70,16 +63,13 @@ func (h *TaskHandler) ListTodoTasks(c *gin.Context) {
 // @Success 200 {object} response.Response{data=response.PageResponse{list=[]dto.TaskResponse}}
 // @Router /workflow/tasks/done [get]
 func (h *TaskHandler) ListDoneTasks(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
-	if page <= 0 {
-		page = 1
-	}
-	if pageSize <= 0 {
-		pageSize = 10
-	}
+	page, pageSize := parsePagination(c)
 
-	userID := uuid.MustParse(auth.GetUserID(c))
+	userID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 
 	tasks, total, err := h.taskService.ListDoneTasks(c.Request.Context(), userID, page, pageSize)
 	if err != nil {
@@ -105,10 +95,9 @@ func (h *TaskHandler) ListDoneTasks(c *gin.Context) {
 // @Success 200 {object} response.Response{data=dto.TaskResponse}
 // @Router /workflow/tasks/{id} [get]
 func (h *TaskHandler) GetByID(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
+	id, err := parseUUIDParam(c, "id", "无效的任务ID")
 	if err != nil {
-		response.BadRequest(c, "无效的任务ID")
+		response.BadRequest(c, err.Error())
 		return
 	}
 
@@ -133,10 +122,9 @@ func (h *TaskHandler) GetByID(c *gin.Context) {
 // @Success 200 {object} response.Response
 // @Router /workflow/tasks/{id}/approve [post]
 func (h *TaskHandler) Approve(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
+	id, err := parseUUIDParam(c, "id", "无效的任务ID")
 	if err != nil {
-		response.BadRequest(c, "无效的任务ID")
+		response.BadRequest(c, err.Error())
 		return
 	}
 
@@ -146,7 +134,11 @@ func (h *TaskHandler) Approve(c *gin.Context) {
 		return
 	}
 
-	userID := uuid.MustParse(auth.GetUserID(c))
+	userID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 
 	if err := h.taskService.CompleteTask(c.Request.Context(), id, userID, "approve", req.Comment, req.Variables); err != nil {
 		response.Error(c, err)
@@ -168,10 +160,9 @@ func (h *TaskHandler) Approve(c *gin.Context) {
 // @Success 200 {object} response.Response
 // @Router /workflow/tasks/{id}/reject [post]
 func (h *TaskHandler) Reject(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
+	id, err := parseUUIDParam(c, "id", "无效的任务ID")
 	if err != nil {
-		response.BadRequest(c, "无效的任务ID")
+		response.BadRequest(c, err.Error())
 		return
 	}
 
@@ -181,7 +172,11 @@ func (h *TaskHandler) Reject(c *gin.Context) {
 		return
 	}
 
-	userID := uuid.MustParse(auth.GetUserID(c))
+	userID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 
 	if err := h.taskService.CompleteTask(c.Request.Context(), id, userID, "reject", req.Comment, req.Variables); err != nil {
 		response.Error(c, err)
@@ -203,10 +198,9 @@ func (h *TaskHandler) Reject(c *gin.Context) {
 // @Success 200 {object} response.Response
 // @Router /workflow/tasks/{id}/transfer [post]
 func (h *TaskHandler) Transfer(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
+	id, err := parseUUIDParam(c, "id", "无效的任务ID")
 	if err != nil {
-		response.BadRequest(c, "无效的任务ID")
+		response.BadRequest(c, err.Error())
 		return
 	}
 
@@ -216,7 +210,11 @@ func (h *TaskHandler) Transfer(c *gin.Context) {
 		return
 	}
 
-	fromUserID := uuid.MustParse(auth.GetUserID(c))
+	fromUserID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 
 	if err := h.taskService.TransferTask(c.Request.Context(), id, fromUserID, req.TargetUserID, req.Comment); err != nil {
 		response.Error(c, err)
@@ -238,10 +236,9 @@ func (h *TaskHandler) Transfer(c *gin.Context) {
 // @Success 200 {object} response.Response
 // @Router /workflow/tasks/{id}/rollback [post]
 func (h *TaskHandler) Rollback(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
+	id, err := parseUUIDParam(c, "id", "无效的任务ID")
 	if err != nil {
-		response.BadRequest(c, "无效的任务ID")
+		response.BadRequest(c, err.Error())
 		return
 	}
 
@@ -251,7 +248,11 @@ func (h *TaskHandler) Rollback(c *gin.Context) {
 		return
 	}
 
-	userID := uuid.MustParse(auth.GetUserID(c))
+	userID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 
 	if err := h.taskService.RollbackTask(c.Request.Context(), id, userID, req.TargetNodeID, req.Comment); err != nil {
 		response.Error(c, err)
