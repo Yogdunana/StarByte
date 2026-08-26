@@ -246,10 +246,10 @@ func TestHttpStatusFromCode(t *testing.T) {
 		{CodeConflict, http.StatusConflict},
 		{CodeTooManyReq, http.StatusTooManyRequests},
 		{CodeInternalError, http.StatusInternalServerError},
-		{5999, http.StatusBadRequest},            // audit module code → 400
-		{2001, http.StatusBadRequest},           // module code → default 400
-		{3001, http.StatusBadRequest},          // RBAC code → default 400
-		{9999, http.StatusBadRequest},          // unknown → default 400
+		{5999, http.StatusBadRequest}, // audit module code → 400
+		{2001, http.StatusBadRequest}, // module code → default 400
+		{3001, http.StatusBadRequest}, // RBAC code → default 400
+		{9999, http.StatusBadRequest}, // unknown → default 400
 	}
 
 	for _, tt := range tests {
