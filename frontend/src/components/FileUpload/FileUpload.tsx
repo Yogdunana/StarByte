@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Upload, message, Image } from 'antd';
 import { UploadOutlined, PlusOutlined } from '@ant-design/icons';
 import type { UploadFile, UploadProps } from 'antd/es/upload/interface';
@@ -28,9 +28,19 @@ const FileUpload: React.FC<FileUploadProps> = ({
   listType = 'text',
   multiple = false,
 }) => {
-  const [fileList, setFileList] = useState<UploadFile[]>(value || []);
+  const [internalFileList, setInternalFileList] = useState<UploadFile[]>(value || []);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState('');
+
+  // 受控模式：外部 value 变更时同步内部状态
+  useEffect(() => {
+    if (value !== undefined) {
+      setInternalFileList(value);
+    }
+  }, [value]);
+
+  // 当 value 由外部控制时使用外部值，否则使用内部状态
+  const fileList = value !== undefined ? value : internalFileList;
 
   const handleBeforeUpload: UploadProps['beforeUpload'] = (file) => {
     // 类型检查
@@ -57,7 +67,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
   };
 
   const handleChange: UploadProps['onChange'] = ({ fileList: newFileList }) => {
-    setFileList(newFileList);
+    setInternalFileList(newFileList);
     onChange?.(newFileList);
   };
 

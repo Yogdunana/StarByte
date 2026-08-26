@@ -9,6 +9,10 @@ export interface ConfirmButtonProps {
   danger?: boolean;
   size?: 'small' | 'middle' | 'large';
   disabled?: boolean;
+  /** 成功提示消息，设为空字符串则不提示 */
+  successMessage?: string;
+  /** 失败提示消息，设为空字符串则不提示 */
+  errorMessage?: string;
   children: React.ReactNode;
 }
 
@@ -23,6 +27,8 @@ const ConfirmButton: React.FC<ConfirmButtonProps> = ({
   danger = false,
   size = 'middle',
   disabled = false,
+  successMessage = '操作成功',
+  errorMessage = '操作失败',
   children,
 }) => {
   const [loading, setLoading] = useState(false);
@@ -31,10 +37,12 @@ const ConfirmButton: React.FC<ConfirmButtonProps> = ({
     setLoading(true);
     try {
       await onConfirm();
-      message.success('操作成功');
+      if (successMessage) message.success(successMessage);
     } catch (error) {
-      const msg = error instanceof Error ? error.message : '操作失败';
-      message.error(msg);
+      if (errorMessage) {
+        const msg = error instanceof Error ? error.message : errorMessage;
+        message.error(msg);
+      }
     } finally {
       setLoading(false);
     }

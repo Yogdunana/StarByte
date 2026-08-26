@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Table, Card, Input, Space } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
@@ -14,6 +14,7 @@ export interface DataTableProps<T> {
     placeholder: string;
     onSearch: (value: string) => void;
     value?: string;
+    debounce?: number; // 防抖毫秒数，默认 300；设为 0 则仅回车搜索
   };
   toolbar?: React.ReactNode;
   scroll?: { x?: number; y?: number };
@@ -32,6 +33,49 @@ function DataTable<T extends Record<string, unknown>>({
   toolbar,
   scroll,
 }: DataTableProps<T>) {
+  // 内部搜索值（当外部未提供 value 时使用）
+  const [searchValue, setSearchValue] = useState(search?.value || '');
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 同步外部 search.value 变更
+  useEffect(() => {
+    if (search?.value !== undefined) {
+      setSearchValue(search.value);
+    }
+  }, [search?.value]);
+
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, []);
+
+  const debouncedSearch = useCallback(
+    (value: string) => {
+      if (!search) return;
+      const debounce = search.debounce ?? 300;
+      if (debounce <= 0) return; // debounce=0 时仅回车触发
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+      debounceTimer.current = setTimeout(() => {
+        search.onSearch(value);
+      }, debounce);
+    },
+    [search],
+  );
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSearchValue(val);
+    debouncedSearch(val);
+  };
+
+  const handleSearchEnter = () => {
+    if (!search) return;
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    search.onSearch(searchValue);
+  };
+
   const paginationConfig: TablePaginationConfig | undefined = pagination
     ? {
         current: pagination.page,
@@ -60,9 +104,9 @@ function DataTable<T extends Record<string, unknown>>({
               placeholder={search.placeholder}
               prefix={<SearchOutlined />}
               allowClear
-              value={search.value}
-              onChange={(e) => search.onSearch(e.target.value)}
-              onPressEnter={() => search.onSearch(search.value || '')}
+              value={searchValue}
+              onChange={handleSearchChange}
+              onPressEnter={handleSearchEnter}
               style={{ width: 240 }}
             />
           ) : (

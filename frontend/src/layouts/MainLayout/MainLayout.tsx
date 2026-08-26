@@ -3,7 +3,18 @@ import { Layout, Menu, theme } from 'antd';
 import type { MenuProps } from 'antd';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import * as Icons from '@ant-design/icons';
+import {
+  DashboardOutlined,
+  UserOutlined,
+  TeamOutlined,
+  ScheduleOutlined,
+  CalendarOutlined,
+  CheckCircleOutlined,
+  ApartmentOutlined,
+  ReadOutlined,
+  BarChartOutlined,
+  SettingOutlined,
+} from '@ant-design/icons';
 
 import TopBar from './components/TopBar';
 import routes, { AppRouteObject } from '@/router/routes';
@@ -13,6 +24,20 @@ import { getToken } from '@/utils/storage';
 import type { AppDispatch } from '@/store';
 
 const { Sider, Content } = Layout;
+
+/** 路由 meta.icon 字符串到图标组件的类型安全映射 */
+const iconMap: Record<string, React.FC> = {
+  DashboardOutlined,
+  UserOutlined,
+  TeamOutlined,
+  ScheduleOutlined,
+  CalendarOutlined,
+  CheckCircleOutlined,
+  ApartmentOutlined,
+  ReadOutlined,
+  BarChartOutlined,
+  SettingOutlined,
+};
 
 export interface MainLayoutProps {
   children?: React.ReactNode;
@@ -30,7 +55,7 @@ function getMenuItems(routeList: AppRouteObject[], parentPath = ''): MenuItem[] 
         : `${parentPath}/${route.path}`;
 
       const IconComponent = route.meta?.icon
-        ? (Icons as unknown as Record<string, React.FC>)[route.meta.icon]
+        ? iconMap[route.meta.icon]
         : null;
 
       const item = {
