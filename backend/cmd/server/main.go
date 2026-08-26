@@ -54,7 +54,11 @@ func main() {
 	if err := database.Init(&cfg.Database); err != nil {
 		logger.Fatal("init database failed", zap.Error(err))
 	}
-	defer database.Close()
+	defer func() {
+		if err := database.Close(); err != nil {
+			logger.Error("close database failed", zap.Error(err))
+		}
+	}()
 
 	// 3a. 自动迁移审计日志表
 	if err := database.DB().AutoMigrate(&middleware.AuditLogEntry{}); err != nil {
@@ -70,7 +74,11 @@ func main() {
 	if err := redis.Init(&cfg.Redis); err != nil {
 		logger.Fatal("init redis failed", zap.Error(err))
 	}
-	defer redis.Close()
+	defer func() {
+		if err := redis.Close(); err != nil {
+			logger.Error("close redis failed", zap.Error(err))
+		}
+	}()
 
 	// 5. 设置 Gin 模式
 	gin.SetMode(cfg.Server.Mode)
