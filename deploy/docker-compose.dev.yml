@@ -1,0 +1,72 @@
+version: "3.8"
+
+# ─────────────────────────────────────────────────────────
+# StarByte 开发环境 Docker Compose
+# 用法：docker compose -f deploy/docker-compose.dev.yml up -d
+# 特点：挂载源码、热重载、仅启动基础设施 + 前后端
+# ─────────────────────────────────────────────────────────
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:16-alpine
+    container_name: starbyte-postgres-dev
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-starbyte}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-starbyte}
+      POSTGRES_DB: ${POSTGRES_DB:-starbyte_dev}
+      TZ: Asia/Shanghai
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-starbyte} -d ${POSTGRES_DB:-starbyte_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: starbyte-redis-dev
+    command: redis-server --appendonly yes
+    environment:
+      TZ: Asia/Shanghai
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-dev-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO 对象存储
+  minio:
+    image: minio/minio:latest
+    container_name: starbyte-minio-dev
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      TZ: Asia/Shanghai
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-dev-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+volumes:
+  postgres-dev-data:
+  redis-dev-data:
+  minio-dev-data:
