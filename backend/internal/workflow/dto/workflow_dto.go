@@ -26,7 +26,7 @@ type UpdateDefinitionRequest struct {
 
 // PublishDefinitionRequest is the body for POST /api/v1/workflow/definitions/:id/publish.
 type PublishDefinitionRequest struct {
-	GraphData GraphData `json:"graph_data" binding:"required"`
+	GraphData *GraphData `json:"graph_data" binding:"required"`
 }
 
 // GraphData represents the React Flow graph structure stored in bpmn_data.

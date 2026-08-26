@@ -21,14 +21,14 @@ import (
 // --- Mock DefinitionService ---
 
 type mockDefService struct {
-	createFunc      func(ctx context.Context, req *dto.CreateDefinitionRequest, userID uuid.UUID) (*model.FlowDefinition, error)
-	getByIDFunc     func(ctx context.Context, id uuid.UUID) (*model.FlowDefinition, error)
-	updateFunc      func(ctx context.Context, id uuid.UUID, req *dto.UpdateDefinitionRequest, userID uuid.UUID) (*model.FlowDefinition, error)
-	deleteFunc      func(ctx context.Context, id uuid.UUID) error
-	listFunc        func(ctx context.Context, page, pageSize int, keyword, category string, status *int) ([]model.FlowDefinition, int64, error)
-	publishFunc     func(ctx context.Context, id uuid.UUID, req *dto.PublishDefinitionRequest, userID uuid.UUID) (*model.FlowDefinitionVersion, error)
+	createFunc       func(ctx context.Context, req *dto.CreateDefinitionRequest, userID uuid.UUID) (*model.FlowDefinition, error)
+	getByIDFunc      func(ctx context.Context, id uuid.UUID) (*model.FlowDefinition, error)
+	updateFunc       func(ctx context.Context, id uuid.UUID, req *dto.UpdateDefinitionRequest, userID uuid.UUID) (*model.FlowDefinition, error)
+	deleteFunc       func(ctx context.Context, id uuid.UUID) error
+	listFunc         func(ctx context.Context, page, pageSize int, keyword, category string, status *int) ([]model.FlowDefinition, int64, error)
+	publishFunc      func(ctx context.Context, id uuid.UUID, req *dto.PublishDefinitionRequest, userID uuid.UUID) (*model.FlowDefinitionVersion, error)
 	listVersionsFunc func(ctx context.Context, definitionID uuid.UUID) ([]model.FlowDefinitionVersion, error)
-	getVersionFunc  func(ctx context.Context, id uuid.UUID) (*model.FlowDefinitionVersion, error)
+	getVersionFunc   func(ctx context.Context, id uuid.UUID) (*model.FlowDefinitionVersion, error)
 }
 
 func (m *mockDefService) Create(ctx context.Context, req *dto.CreateDefinitionRequest, userID uuid.UUID) (*model.FlowDefinition, error) {
@@ -125,7 +125,7 @@ func TestDefinitionHandler_List(t *testing.T) {
 
 	var resp map[string]interface{}
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-	assert.Equal(t, 200, int(resp["code"].(float64)))
+	assert.Equal(t, 0, int(resp["code"].(float64))) // CodeSuccess = 0
 }
 
 func TestDefinitionHandler_List_WithFilters(t *testing.T) {
@@ -321,6 +321,8 @@ func TestDefinitionHandler_Publish_Success(t *testing.T) {
 }
 
 func TestDefinitionHandler_Publish_MissingGraphData(t *testing.T) {
+	// With *GraphData (pointer type), binding:"required" correctly rejects
+	// a nil/missing graph_data field. Sending {} without graph_data returns 400.
 	svc := &mockDefService{}
 	h := NewDefinitionHandler(svc)
 

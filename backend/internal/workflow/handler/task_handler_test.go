@@ -10,7 +10,6 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/service"
-	"github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -20,12 +19,12 @@ import (
 // --- Mock TaskService ---
 
 type mockTaskService struct {
-	listTodoFunc   func(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]model.FlowTask, int64, error)
-	listDoneFunc   func(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]model.FlowTask, int64, error)
-	getTaskFunc    func(ctx context.Context, id uuid.UUID) (*model.FlowTask, error)
-	completeFunc   func(ctx context.Context, taskID uuid.UUID, userID uuid.UUID, action string, comment string, formData map[string]interface{}) error
-	transferFunc   func(ctx context.Context, taskID uuid.UUID, fromUserID uuid.UUID, toUserID uuid.UUID, comment string) error
-	rollbackFunc   func(ctx context.Context, taskID uuid.UUID, userID uuid.UUID, targetNodeID string, comment string) error
+	listTodoFunc func(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]model.FlowTask, int64, error)
+	listDoneFunc func(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]model.FlowTask, int64, error)
+	getTaskFunc  func(ctx context.Context, id uuid.UUID) (*model.FlowTask, error)
+	completeFunc func(ctx context.Context, taskID uuid.UUID, userID uuid.UUID, action string, comment string, formData map[string]interface{}) error
+	transferFunc func(ctx context.Context, taskID uuid.UUID, fromUserID uuid.UUID, toUserID uuid.UUID, comment string) error
+	rollbackFunc func(ctx context.Context, taskID uuid.UUID, userID uuid.UUID, targetNodeID string, comment string) error
 }
 
 func (m *mockTaskService) ListTodoTasks(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]model.FlowTask, int64, error) {

@@ -32,10 +32,11 @@ func (h *Handlers) RegisterServiceCallback(name string, cb func(ctx context.Cont
 // Init 初始化工作流引擎的所有依赖（repo → engine → service → handler）。
 //
 // 依赖关系:
-//   Repo 层 ← 数据库
-//   Engine 层 ← Repo + EventBus + NodeRegistry + ExpressionEngine
-//   Service 层 ← Repo + Engine
-//   Handler 层 ← Service
+//
+//	Repo 层 ← 数据库
+//	Engine 层 ← Repo + EventBus + NodeRegistry + ExpressionEngine
+//	Service 层 ← Repo + Engine
+//	Handler 层 ← Service
 //
 // 返回所有 handler 的集合，调用方通过 RegisterRoutes 注册路由。
 func Init(db *gorm.DB, eventBus *events.EventBus, logger *zap.Logger) *Handlers {

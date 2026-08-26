@@ -10,7 +10,6 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/service"
-	"github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"

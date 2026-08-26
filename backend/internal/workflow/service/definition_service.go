@@ -149,7 +149,13 @@ func (s *definitionServiceImpl) Publish(ctx context.Context, id uuid.UUID, req *
 			"流程定义不存在")
 	}
 
-	// Validate the graph has a start node.
+	// Defensive check: binding:"required" should already reject nil,
+	// but guard against direct service calls without handler validation.
+	if req.GraphData == nil {
+		return nil, response.NewAppError(response.CodeBadRequest, "graph_data 不能为空")
+	}
+
+	// Serialize the graph data for storage.
 	graphData, err := json.Marshal(req.GraphData)
 	if err != nil {
 		return nil, response.NewAppErrorf(response.CodeWorkflowInvalidNode,

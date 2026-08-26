@@ -40,7 +40,7 @@ func TestEndToEnd_ApprovalFlow(t *testing.T) {
 	assigneeID := uuid.New()
 	graph := &engine.FlowGraph{
 		Nodes: map[string]*engine.FlowNode{
-			"start":    {ID: "start", Type: "start", Label: "Start"},
+			"start": {ID: "start", Type: "start", Label: "Start"},
 			"approval": {ID: "approval", Type: "approval", Label: "Manager Approval", Config: map[string]interface{}{
 				"assigneeStrategy": "static",
 				"assignees":        []interface{}{assigneeID.String()},
@@ -63,9 +63,9 @@ func TestEndToEnd_ApprovalFlow(t *testing.T) {
 	})
 
 	inst := &model.FlowInstance{
-		ID:         uuid.New(),
+		ID:          uuid.New(),
 		InitiatorID: uuid.New(),
-		Status:     0, // running
+		Status:      0, // running
 	}
 	vars := map[string]interface{}{}
 
@@ -132,8 +132,8 @@ func TestEndToEnd_ExclusiveGatewayFlow(t *testing.T) {
 	// Build the graph.
 	graph := &engine.FlowGraph{
 		Nodes: map[string]*engine.FlowNode{
-			"start":    {ID: "start", Type: "start"},
-			"gw":       {ID: "gw", Type: "exclusive_gateway", Config: map[string]interface{}{
+			"start": {ID: "start", Type: "start"},
+			"gw": {ID: "gw", Type: "exclusive_gateway", Config: map[string]interface{}{
 				"branches": []interface{}{
 					map[string]interface{}{"id": "high", "expression": "amount > 10000"},
 					map[string]interface{}{"id": "low", "expression": "amount <= 10000"},
@@ -211,7 +211,7 @@ func TestEndToEnd_LowAmountPath(t *testing.T) {
 
 	graph := &engine.FlowGraph{
 		Nodes: map[string]*engine.FlowNode{
-			"gw":  {ID: "gw", Type: "exclusive_gateway", Config: map[string]interface{}{
+			"gw": {ID: "gw", Type: "exclusive_gateway", Config: map[string]interface{}{
 				"branches": []interface{}{
 					map[string]interface{}{"id": "high", "expression": "amount > 10000"},
 					map[string]interface{}{"id": "low", "expression": "amount <= 10000"},
