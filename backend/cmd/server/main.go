@@ -69,7 +69,7 @@ func main() {
 	r.Use(middleware.RequestID())
 	r.Use(middleware.Logger())
 	r.Use(middleware.ErrorHandler())
-	r.Use(middleware.CORS())
+	r.Use(middleware.CORSWithConfig(cfg.CORS))
 
 	// 8. 健康检查
 	r.GET("/health", func(c *gin.Context) {

@@ -1,0 +1,36 @@
+# Test environment overrides
+# Loaded on top of config.yaml when APP_ENV=test
+
+server:
+  mode: test
+  read_timeout: 30
+  write_timeout: 30
+
+database:
+  host: localhost
+  port: 5432
+  user: starbyte
+  password: starbyte
+  dbname: starbyte_test
+  max_open: 20
+  max_idle: 2
+
+redis:
+  host: localhost
+  port: 6379
+  password: ""
+  db: 1
+
+jwt:
+  secret: "test-secret-key-for-ci-env-only"
+  access_token_exp: 3600
+  refresh_token_exp: 86400
+
+logger:
+  level: warn
+  format: json
+
+cors:
+  allowed_origins:
+    - "*"
+  allow_credentials: false

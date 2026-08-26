@@ -1,0 +1,50 @@
+# Development environment overrides
+# Loaded on top of config.yaml when APP_ENV=dev
+
+server:
+  mode: debug
+  read_timeout: 60
+  write_timeout: 60
+
+database:
+  host: localhost
+  port: 5432
+  user: starbyte
+  password: starbyte
+  dbname: starbyte_dev
+  max_open: 50
+  max_idle: 5
+
+redis:
+  host: localhost
+  port: 6379
+  password: ""
+  db: 0
+
+jwt:
+  secret: "starbyte-secret-key-change-in-production"
+  access_token_exp: 7200
+  refresh_token_exp: 604800
+
+logger:
+  level: debug
+  format: console
+
+cors:
+  allowed_origins:
+    - "http://localhost:3000"
+    - "http://localhost:5173"
+  allowed_methods:
+    - "GET"
+    - "POST"
+    - "PUT"
+    - "DELETE"
+    - "PATCH"
+    - "OPTIONS"
+  allowed_headers:
+    - "Origin"
+    - "Content-Type"
+    - "Accept"
+    - "Authorization"
+    - "X-Request-Id"
+  allow_credentials: true

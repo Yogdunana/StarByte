@@ -1,13 +1,11 @@
 package config
 
-import (
-	"fmt"
-	"os"
-
-	"gopkg.in/yaml.v3"
-)
-
-// Config is the root configuration object loaded from the YAML file.
+// Config is the root configuration object loaded from YAML files.
+//
+// Loading order (each layer overrides the previous):
+//  1. configs/config.yaml        — base config (shared across all environments)
+//  2. configs/config.{APP_ENV}.yaml — environment-specific overrides (dev/test/prod)
+//  3. Environment variables       — sensitive values injected at runtime
 type Config struct {
 	Server   ServerConfig   `yaml:"server"`
 	Database DatabaseConfig `yaml:"database"`
@@ -15,12 +13,14 @@ type Config struct {
 	JWT      JWTConfig      `yaml:"jwt"`
 	Logger   LoggerConfig   `yaml:"logger"`
 	MinIO    MinIOConfig    `yaml:"minio"`
+	Email    EmailConfig    `yaml:"email"`
+	CORS     CORSConfig     `yaml:"cors"`
 }
 
 // ServerConfig holds the HTTP server settings.
 type ServerConfig struct {
 	Port         int    `yaml:"port"`
-	Mode         string `yaml:"mode"`
+	Mode         string `yaml:"mode"` // debug, release, test
 	ReadTimeout  int    `yaml:"read_timeout"`
 	WriteTimeout int    `yaml:"write_timeout"`
 }
@@ -56,6 +56,7 @@ type JWTConfig struct {
 // LoggerConfig holds the logger and log-rotation settings.
 type LoggerConfig struct {
 	Level      string `yaml:"level"`
+	Format     string `yaml:"format"` // json, console
 	Filename   string `yaml:"filename"`
 	MaxSize    int    `yaml:"max_size"`
 	MaxBackups int    `yaml:"max_backups"`
@@ -72,112 +73,19 @@ type MinIOConfig struct {
 	UseSSL    bool   `yaml:"use_ssl"`
 }
 
-// Load reads the YAML configuration file at the given path, parses it and
-// fills in sensible defaults for any missing values.
-func Load(path string) (*Config, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read config file: %w", err)
-	}
-
-	cfg := &Config{}
-	if err := yaml.Unmarshal(data, cfg); err != nil {
-		return nil, fmt.Errorf("unmarshal config: %w", err)
-	}
-
-	setDefaults(cfg)
-	return cfg, nil
+// EmailConfig holds the SMTP email settings.
+type EmailConfig struct {
+	SMTPHost string `yaml:"smtp_host"`
+	SMTPPort int    `yaml:"smtp_port"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+	From     string `yaml:"from"`
 }
 
-// setDefaults populates zero-valued fields with sensible development defaults.
-func setDefaults(cfg *Config) {
-	// Server
-	if cfg.Server.Port == 0 {
-		cfg.Server.Port = 8080
-	}
-	if cfg.Server.Mode == "" {
-		cfg.Server.Mode = "debug"
-	}
-	if cfg.Server.ReadTimeout == 0 {
-		cfg.Server.ReadTimeout = 30
-	}
-	if cfg.Server.WriteTimeout == 0 {
-		cfg.Server.WriteTimeout = 30
-	}
-
-	// Database
-	if cfg.Database.Host == "" {
-		cfg.Database.Host = "localhost"
-	}
-	if cfg.Database.Port == 0 {
-		cfg.Database.Port = 5432
-	}
-	if cfg.Database.User == "" {
-		cfg.Database.User = "starbyte"
-	}
-	if cfg.Database.DBName == "" {
-		cfg.Database.DBName = "starbyte"
-	}
-	if cfg.Database.SSLMode == "" {
-		cfg.Database.SSLMode = "disable"
-	}
-	if cfg.Database.MaxOpen == 0 {
-		cfg.Database.MaxOpen = 100
-	}
-	if cfg.Database.MaxIdle == 0 {
-		cfg.Database.MaxIdle = 10
-	}
-
-	// Redis
-	if cfg.Redis.Host == "" {
-		cfg.Redis.Host = "localhost"
-	}
-	if cfg.Redis.Port == 0 {
-		cfg.Redis.Port = 6379
-	}
-
-	// JWT
-	if cfg.JWT.Secret == "" {
-		cfg.JWT.Secret = "starbyte-secret-key-change-in-production"
-	}
-	if cfg.JWT.AccessTokenExp == 0 {
-		cfg.JWT.AccessTokenExp = 7200
-	}
-	if cfg.JWT.RefreshTokenExp == 0 {
-		cfg.JWT.RefreshTokenExp = 604800
-	}
-	if cfg.JWT.Issuer == "" {
-		cfg.JWT.Issuer = "starbyte"
-	}
-
-	// Logger
-	if cfg.Logger.Level == "" {
-		cfg.Logger.Level = "info"
-	}
-	if cfg.Logger.Filename == "" {
-		cfg.Logger.Filename = "logs/starbyte.log"
-	}
-	if cfg.Logger.MaxSize == 0 {
-		cfg.Logger.MaxSize = 100
-	}
-	if cfg.Logger.MaxBackups == 0 {
-		cfg.Logger.MaxBackups = 5
-	}
-	if cfg.Logger.MaxAge == 0 {
-		cfg.Logger.MaxAge = 30
-	}
-
-	// MinIO
-	if cfg.MinIO.Endpoint == "" {
-		cfg.MinIO.Endpoint = "localhost:9000"
-	}
-	if cfg.MinIO.AccessKey == "" {
-		cfg.MinIO.AccessKey = "minioadmin"
-	}
-	if cfg.MinIO.SecretKey == "" {
-		cfg.MinIO.SecretKey = "minioadmin"
-	}
-	if cfg.MinIO.Bucket == "" {
-		cfg.MinIO.Bucket = "starbyte"
-	}
+// CORSConfig holds the Cross-Origin Resource Sharing settings.
+type CORSConfig struct {
+	AllowedOrigins   []string `yaml:"allowed_origins"`
+	AllowedMethods   []string `yaml:"allowed_methods"`
+	AllowedHeaders   []string `yaml:"allowed_headers"`
+	AllowCredentials bool     `yaml:"allow_credentials"`
 }

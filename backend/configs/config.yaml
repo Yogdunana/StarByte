@@ -40,3 +40,30 @@ minio:
   secret_key: minioadmin
   bucket: starbyte
   use_ssl: false
+
+# Email / SMTP (optional — leave commented if not used)
+email:
+  smtp_host: ""
+  smtp_port: 587
+  username: ""
+  password: ""
+  from: ""
+
+# CORS
+cors:
+  allowed_origins:
+    - "*"
+  allowed_methods:
+    - "GET"
+    - "POST"
+    - "PUT"
+    - "DELETE"
+    - "PATCH"
+    - "OPTIONS"
+  allowed_headers:
+    - "Origin"
+    - "Content-Type"
+    - "Accept"
+    - "Authorization"
+    - "X-Request-Id"
+  allow_credentials: false
