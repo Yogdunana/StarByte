@@ -197,7 +197,10 @@ func TestApplyEnvOverrides(t *testing.T) {
 	t.Setenv("SMTP_HOST", "smtp.prod.com")
 	t.Setenv("LOG_LEVEL", "debug")
 	t.Setenv("CORS_ALLOWED_ORIGINS", "https://a.com,https://b.com")
+	t.Setenv("CORS_ALLOWED_METHODS", "GET,POST,PUT")
+	t.Setenv("CORS_ALLOWED_HEADERS", "Content-Type,Authorization")
 	t.Setenv("CORS_ALLOW_CREDENTIALS", "true")
+	t.Setenv("CORS_EXPOSE_HEADERS", "X-Request-Id,X-Custom-Header")
 
 	applyEnvOverrides(cfg)
 
@@ -237,6 +240,21 @@ func TestApplyEnvOverrides(t *testing.T) {
 	}
 	if len(cfg.CORS.AllowedOrigins) != 2 {
 		t.Errorf("CORS.AllowedOrigins len = %d, want 2", len(cfg.CORS.AllowedOrigins))
+	}
+	if len(cfg.CORS.AllowedMethods) != 3 {
+		t.Errorf("CORS.AllowedMethods len = %d, want 3", len(cfg.CORS.AllowedMethods))
+	}
+	if cfg.CORS.AllowedMethods[0] != "GET" {
+		t.Errorf("CORS.AllowedMethods[0] = %s, want GET", cfg.CORS.AllowedMethods[0])
+	}
+	if len(cfg.CORS.AllowedHeaders) != 2 {
+		t.Errorf("CORS.AllowedHeaders len = %d, want 2", len(cfg.CORS.AllowedHeaders))
+	}
+	if cfg.CORS.AllowedHeaders[1] != "Authorization" {
+		t.Errorf("CORS.AllowedHeaders[1] = %s, want Authorization", cfg.CORS.AllowedHeaders[1])
+	}
+	if len(cfg.CORS.ExposeHeaders) != 2 {
+		t.Errorf("CORS.ExposeHeaders len = %d, want 2", len(cfg.CORS.ExposeHeaders))
 	}
 	if !cfg.CORS.AllowCredentials {
 		t.Error("CORS.AllowCredentials = false, want true")
@@ -462,6 +480,100 @@ func TestGetEnvInt(t *testing.T) {
 	}
 	if got := getEnvInt("TEST_GETENV_INT_UNSET", 99); got != 99 {
 		t.Errorf("getEnvInt = %d, want 99", got)
+	}
+}
+
+func TestGetEnvInt_InvalidValue(t *testing.T) {
+	t.Setenv("TEST_GETENV_INT_INVALID", "not-a-number")
+	got := getEnvInt("TEST_GETENV_INT_INVALID", 77)
+	if got != 77 {
+		t.Errorf("getEnvInt with invalid value = %d, want fallback 77", got)
+	}
+}
+
+func TestGetEnvBool(t *testing.T) {
+	t.Setenv("TEST_GETENV_BOOL_TRUE", "true")
+	t.Setenv("TEST_GETENV_BOOL_ONE", "1")
+	t.Setenv("TEST_GETENV_BOOL_FALSE", "false")
+
+	if got := getEnvBool("TEST_GETENV_BOOL_TRUE", false); !got {
+		t.Errorf("getEnvBool('true') = false, want true")
+	}
+	if got := getEnvBool("TEST_GETENV_BOOL_ONE", false); !got {
+		t.Errorf("getEnvBool('1') = false, want true")
+	}
+	if got := getEnvBool("TEST_GETENV_BOOL_FALSE", true); got {
+		t.Errorf("getEnvBool('false') = true, want false")
+	}
+	if got := getEnvBool("TEST_GETENV_BOOL_UNSET", true); !got {
+		t.Errorf("getEnvBool(unset) = false, want fallback true")
+	}
+}
+
+func TestGetEnvCSV(t *testing.T) {
+	t.Setenv("TEST_GETENV_CSV", "a, b, c")
+	got := getEnvCSV("TEST_GETENV_CSV", nil)
+	if len(got) != 3 {
+		t.Fatalf("getEnvCSV len = %d, want 3", len(got))
+	}
+	if got[1] != "b" {
+		t.Errorf("getEnvCSV[1] = %q, want 'b'", got[1])
+	}
+
+	// Unset should return fallback.
+	fallback := []string{"default"}
+	got = getEnvCSV("TEST_GETENV_CSV_UNSET", fallback)
+	if len(got) != 1 || got[0] != "default" {
+		t.Errorf("getEnvCSV(unset) = %v, want [default]", got)
+	}
+}
+
+func TestLoad_InvalidAppEnv(t *testing.T) {
+	dir := t.TempDir()
+	path := helperWriteConfig(t, dir, "config.yaml", baseConfigYAML)
+
+	t.Setenv("APP_ENV", "production")
+	_, err := Load(path)
+	if err == nil {
+		t.Fatal("expected error for invalid APP_ENV, got nil")
+	}
+}
+
+func TestValidate_ProductionMissingRedisHost(t *testing.T) {
+	cfg := &Config{
+		Server:   ServerConfig{Port: 8080, Mode: "release"},
+		Database: DatabaseConfig{Host: "db.prod", User: "starbyte", DBName: "starbyte", Password: "pass"},
+		Redis:    RedisConfig{Host: "", Port: 6379, Password: "redis-pass"},
+		JWT:      JWTConfig{Secret: "real-prod-secret"},
+	}
+	err := validate(cfg, "prod")
+	if err == nil {
+		t.Fatal("expected error for missing Redis host in prod, got nil")
+	}
+}
+
+func TestValidate_ProductionEmptyRedisPassword(t *testing.T) {
+	cfg := &Config{
+		Server:   ServerConfig{Port: 8080, Mode: "release"},
+		Database: DatabaseConfig{Host: "db.prod", User: "starbyte", DBName: "starbyte", Password: "pass"},
+		Redis:    RedisConfig{Host: "redis.prod", Port: 6379, Password: ""},
+		JWT:      JWTConfig{Secret: "real-prod-secret"},
+	}
+	err := validate(cfg, "prod")
+	if err == nil {
+		t.Fatal("expected error for empty Redis password in prod, got nil")
+	}
+}
+
+func TestValidate_ProductionRedisValid(t *testing.T) {
+	cfg := &Config{
+		Server:   ServerConfig{Port: 8080, Mode: "release"},
+		Database: DatabaseConfig{Host: "db.prod", User: "starbyte", DBName: "starbyte", Password: "pass"},
+		Redis:    RedisConfig{Host: "redis.prod", Port: 6379, Password: "redis-pass"},
+		JWT:      JWTConfig{Secret: "real-prod-secret"},
+	}
+	if err := validate(cfg, "prod"); err != nil {
+		t.Errorf("validate() in prod with valid Redis = %v, want nil", err)
 	}
 }
 

@@ -89,6 +89,10 @@ func CORSWithConfig(cfg config.CORSConfig) gin.HandlerFunc {
 	if len(headers) == 0 {
 		headers = []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Request-Id"}
 	}
+	exposeHeaders := cfg.ExposeHeaders
+	if len(exposeHeaders) == 0 {
+		exposeHeaders = []string{"X-Request-Id"}
+	}
 	allowCredentials := cfg.AllowCredentials
 
 	return func(c *gin.Context) {
@@ -107,11 +111,6 @@ func CORSWithConfig(cfg config.CORSConfig) gin.HandlerFunc {
 			}
 		}
 
-		// If no match found and wildcard is present, use wildcard.
-		if allowedOrigin == "" && len(origins) > 0 && origins[0] == "*" {
-			allowedOrigin = "*"
-		}
-
 		if allowedOrigin != "" {
 			c.Header("Access-Control-Allow-Origin", allowedOrigin)
 		}
@@ -120,7 +119,7 @@ func CORSWithConfig(cfg config.CORSConfig) gin.HandlerFunc {
 		}
 		c.Header("Access-Control-Allow-Methods", strings.Join(methods, ", "))
 		c.Header("Access-Control-Allow-Headers", strings.Join(headers, ", "))
-		c.Header("Access-Control-Expose-Headers", "X-Request-Id")
+		c.Header("Access-Control-Expose-Headers", strings.Join(exposeHeaders, ", "))
 		c.Header("Access-Control-Max-Age", "86400")
 
 		if c.Request.Method == http.MethodOptions {

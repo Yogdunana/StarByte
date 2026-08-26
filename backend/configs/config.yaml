@@ -66,4 +66,6 @@ cors:
     - "Accept"
     - "Authorization"
     - "X-Request-Id"
+  expose_headers:
+    - "X-Request-Id"
   allow_credentials: false

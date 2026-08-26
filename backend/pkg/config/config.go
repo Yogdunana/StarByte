@@ -87,5 +87,6 @@ type CORSConfig struct {
 	AllowedOrigins   []string `yaml:"allowed_origins"`
 	AllowedMethods   []string `yaml:"allowed_methods"`
 	AllowedHeaders   []string `yaml:"allowed_headers"`
+	ExposeHeaders    []string `yaml:"expose_headers"`
 	AllowCredentials bool     `yaml:"allow_credentials"`
 }

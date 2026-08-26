@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -9,6 +10,13 @@ import (
 
 	"gopkg.in/yaml.v3"
 )
+
+// validEnvs defines the set of accepted APP_ENV values.
+var validEnvs = map[string]bool{
+	"dev":  true,
+	"test": true,
+	"prod": true,
+}
 
 // Load reads the base YAML config, applies environment-specific overrides,
 // injects environment variables for sensitive fields, sets defaults, and
@@ -35,6 +43,9 @@ func Load(path string) (*Config, error) {
 	// 2. Load environment-specific override (if APP_ENV is set).
 	env := os.Getenv("APP_ENV")
 	if env != "" {
+		if !validEnvs[env] {
+			return nil, fmt.Errorf("invalid APP_ENV %q, must be one of: dev, test, prod", env)
+		}
 		overridePath := filepath.Join(filepath.Dir(path), "config."+env+".yaml")
 		if overrideData, err := os.ReadFile(overridePath); err == nil {
 			if err := yaml.Unmarshal(overrideData, cfg); err != nil {
@@ -97,140 +108,58 @@ func Load(path string) (*Config, error) {
 //	CORS_ALLOWED_ORIGINS  — cors.allowed_origins (comma-separated)
 //	CORS_ALLOWED_METHODS  — cors.allowed_methods (comma-separated)
 //	CORS_ALLOWED_HEADERS  — cors.allowed_headers (comma-separated)
+//	CORS_EXPOSE_HEADERS   — cors.expose_headers (comma-separated)
 //	CORS_ALLOW_CREDENTIALS — cors.allow_credentials (true/false)
 func applyEnvOverrides(cfg *Config) {
 	// Server
-	if v := os.Getenv("SERVER_PORT"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cfg.Server.Port = n
-		}
-	}
-	if v := os.Getenv("SERVER_MODE"); v != "" {
-		cfg.Server.Mode = v
-	}
+	cfg.Server.Port = getEnvInt("SERVER_PORT", cfg.Server.Port)
+	cfg.Server.Mode = getEnv("SERVER_MODE", cfg.Server.Mode)
 
 	// Database
-	if v := os.Getenv("DB_HOST"); v != "" {
-		cfg.Database.Host = v
-	}
-	if v := os.Getenv("DB_PORT"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cfg.Database.Port = n
-		}
-	}
-	if v := os.Getenv("DB_USER"); v != "" {
-		cfg.Database.User = v
-	}
-	if v := os.Getenv("DB_PASSWORD"); v != "" {
-		cfg.Database.Password = v
-	}
-	if v := os.Getenv("DB_NAME"); v != "" {
-		cfg.Database.DBName = v
-	}
-	if v := os.Getenv("DB_SSLMODE"); v != "" {
-		cfg.Database.SSLMode = v
-	}
-	if v := os.Getenv("DB_MAX_OPEN"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cfg.Database.MaxOpen = n
-		}
-	}
-	if v := os.Getenv("DB_MAX_IDLE"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cfg.Database.MaxIdle = n
-		}
-	}
+	cfg.Database.Host = getEnv("DB_HOST", cfg.Database.Host)
+	cfg.Database.Port = getEnvInt("DB_PORT", cfg.Database.Port)
+	cfg.Database.User = getEnv("DB_USER", cfg.Database.User)
+	cfg.Database.Password = getEnv("DB_PASSWORD", cfg.Database.Password)
+	cfg.Database.DBName = getEnv("DB_NAME", cfg.Database.DBName)
+	cfg.Database.SSLMode = getEnv("DB_SSLMODE", cfg.Database.SSLMode)
+	cfg.Database.MaxOpen = getEnvInt("DB_MAX_OPEN", cfg.Database.MaxOpen)
+	cfg.Database.MaxIdle = getEnvInt("DB_MAX_IDLE", cfg.Database.MaxIdle)
 
 	// Redis
-	if v := os.Getenv("REDIS_HOST"); v != "" {
-		cfg.Redis.Host = v
-	}
-	if v := os.Getenv("REDIS_PORT"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cfg.Redis.Port = n
-		}
-	}
-	if v := os.Getenv("REDIS_PASSWORD"); v != "" {
-		cfg.Redis.Password = v
-	}
-	if v := os.Getenv("REDIS_DB"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cfg.Redis.DB = n
-		}
-	}
+	cfg.Redis.Host = getEnv("REDIS_HOST", cfg.Redis.Host)
+	cfg.Redis.Port = getEnvInt("REDIS_PORT", cfg.Redis.Port)
+	cfg.Redis.Password = getEnv("REDIS_PASSWORD", cfg.Redis.Password)
+	cfg.Redis.DB = getEnvInt("REDIS_DB", cfg.Redis.DB)
 
 	// JWT
-	if v := os.Getenv("JWT_SECRET"); v != "" {
-		cfg.JWT.Secret = v
-	}
-	if v := os.Getenv("JWT_ACCESS_TOKEN_EXP"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cfg.JWT.AccessTokenExp = n
-		}
-	}
-	if v := os.Getenv("JWT_REFRESH_TOKEN_EXP"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cfg.JWT.RefreshTokenExp = n
-		}
-	}
+	cfg.JWT.Secret = getEnv("JWT_SECRET", cfg.JWT.Secret)
+	cfg.JWT.AccessTokenExp = getEnvInt("JWT_ACCESS_TOKEN_EXP", cfg.JWT.AccessTokenExp)
+	cfg.JWT.RefreshTokenExp = getEnvInt("JWT_REFRESH_TOKEN_EXP", cfg.JWT.RefreshTokenExp)
 
 	// MinIO
-	if v := os.Getenv("MINIO_ENDPOINT"); v != "" {
-		cfg.MinIO.Endpoint = v
-	}
-	if v := os.Getenv("MINIO_ACCESS_KEY"); v != "" {
-		cfg.MinIO.AccessKey = v
-	}
-	if v := os.Getenv("MINIO_SECRET_KEY"); v != "" {
-		cfg.MinIO.SecretKey = v
-	}
-	if v := os.Getenv("MINIO_BUCKET"); v != "" {
-		cfg.MinIO.Bucket = v
-	}
-	if v := os.Getenv("MINIO_USE_SSL"); v != "" {
-		cfg.MinIO.UseSSL = v == "true" || v == "1"
-	}
+	cfg.MinIO.Endpoint = getEnv("MINIO_ENDPOINT", cfg.MinIO.Endpoint)
+	cfg.MinIO.AccessKey = getEnv("MINIO_ACCESS_KEY", cfg.MinIO.AccessKey)
+	cfg.MinIO.SecretKey = getEnv("MINIO_SECRET_KEY", cfg.MinIO.SecretKey)
+	cfg.MinIO.Bucket = getEnv("MINIO_BUCKET", cfg.MinIO.Bucket)
+	cfg.MinIO.UseSSL = getEnvBool("MINIO_USE_SSL", cfg.MinIO.UseSSL)
 
 	// Email
-	if v := os.Getenv("SMTP_HOST"); v != "" {
-		cfg.Email.SMTPHost = v
-	}
-	if v := os.Getenv("SMTP_PORT"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cfg.Email.SMTPPort = n
-		}
-	}
-	if v := os.Getenv("SMTP_USER"); v != "" {
-		cfg.Email.Username = v
-	}
-	if v := os.Getenv("SMTP_PASSWORD"); v != "" {
-		cfg.Email.Password = v
-	}
-	if v := os.Getenv("SMTP_FROM"); v != "" {
-		cfg.Email.From = v
-	}
+	cfg.Email.SMTPHost = getEnv("SMTP_HOST", cfg.Email.SMTPHost)
+	cfg.Email.SMTPPort = getEnvInt("SMTP_PORT", cfg.Email.SMTPPort)
+	cfg.Email.Username = getEnv("SMTP_USER", cfg.Email.Username)
+	cfg.Email.Password = getEnv("SMTP_PASSWORD", cfg.Email.Password)
+	cfg.Email.From = getEnv("SMTP_FROM", cfg.Email.From)
 
 	// Logger
-	if v := os.Getenv("LOG_LEVEL"); v != "" {
-		cfg.Logger.Level = v
-	}
-	if v := os.Getenv("LOG_FORMAT"); v != "" {
-		cfg.Logger.Format = v
-	}
+	cfg.Logger.Level = getEnv("LOG_LEVEL", cfg.Logger.Level)
+	cfg.Logger.Format = getEnv("LOG_FORMAT", cfg.Logger.Format)
 
 	// CORS (comma-separated values)
-	if v := os.Getenv("CORS_ALLOWED_ORIGINS"); v != "" {
-		cfg.CORS.AllowedOrigins = splitCSV(v)
-	}
-	if v := os.Getenv("CORS_ALLOWED_METHODS"); v != "" {
-		cfg.CORS.AllowedMethods = splitCSV(v)
-	}
-	if v := os.Getenv("CORS_ALLOWED_HEADERS"); v != "" {
-		cfg.CORS.AllowedHeaders = splitCSV(v)
-	}
-	if v := os.Getenv("CORS_ALLOW_CREDENTIALS"); v != "" {
-		cfg.CORS.AllowCredentials = v == "true" || v == "1"
-	}
+	cfg.CORS.AllowedOrigins = getEnvCSV("CORS_ALLOWED_ORIGINS", cfg.CORS.AllowedOrigins)
+	cfg.CORS.AllowedMethods = getEnvCSV("CORS_ALLOWED_METHODS", cfg.CORS.AllowedMethods)
+	cfg.CORS.AllowedHeaders = getEnvCSV("CORS_ALLOWED_HEADERS", cfg.CORS.AllowedHeaders)
+	cfg.CORS.ExposeHeaders = getEnvCSV("CORS_EXPOSE_HEADERS", cfg.CORS.ExposeHeaders)
+	cfg.CORS.AllowCredentials = getEnvBool("CORS_ALLOW_CREDENTIALS", cfg.CORS.AllowCredentials)
 }
 
 // getEnv returns the value of an environment variable or a fallback.
@@ -242,13 +171,39 @@ func getEnv(key, fallback string) string {
 }
 
 // getEnvInt returns the integer value of an environment variable or a fallback.
+// If the environment variable is set but cannot be parsed as an integer, a
+// warning is logged and the fallback is returned.
 func getEnvInt(key string, fallback int) int {
-	if v := os.Getenv(key); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			return n
-		}
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
 	}
-	return fallback
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		log.Printf("config: ignoring invalid integer for %s=%q: %v", key, v, err)
+		return fallback
+	}
+	return n
+}
+
+// getEnvBool returns the boolean value of an environment variable or a fallback.
+// The value is considered true if it is "true" or "1" (case-sensitive).
+func getEnvBool(key string, fallback bool) bool {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	return v == "true" || v == "1"
+}
+
+// getEnvCSV returns the comma-separated value of an environment variable as a
+// slice, or a fallback if the variable is not set.
+func getEnvCSV(key string, fallback []string) []string {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	return splitCSV(v)
 }
 
 // splitCSV is a helper to parse comma-separated string values into a slice.
@@ -389,6 +344,15 @@ func validate(cfg *Config, env string) error {
 	// In production, database password must not be empty.
 	if env == "prod" && cfg.Database.Password == "" {
 		return fmt.Errorf("config validation: database.password is required in production")
+	}
+
+	// In production, Redis host must be set.
+	if env == "prod" && cfg.Redis.Host == "" {
+		return fmt.Errorf("config validation: redis.host is required in production")
+	}
+	// In production, Redis password should be set (security best practice).
+	if env == "prod" && cfg.Redis.Password == "" {
+		return fmt.Errorf("config validation: redis.password should be set in production (use environment variable REDIS_PASSWORD)")
 	}
 
 	// Server port range check.
