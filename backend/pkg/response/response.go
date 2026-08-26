@@ -2,6 +2,7 @@ package response
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -43,6 +44,17 @@ func (e *AppError) Error() string {
 // The HTTP status is inferred from the code via httpStatusFromCode().
 func NewError(code int, message string) *AppError {
 	return &AppError{Code: code, Message: message, HTTPStatus: httpStatusFromCode(code)}
+}
+
+// NewAppError is an alias for NewError, provided for ergonomic usage
+// in domain code (e.g., response.NewAppError(response.CodeWorkflowNotFound, "msg")).
+func NewAppError(code int, message string) *AppError {
+	return NewError(code, message)
+}
+
+// NewAppErrorf constructs a new AppError with a formatted message.
+func NewAppErrorf(code int, format string, args ...interface{}) *AppError {
+	return NewError(code, fmt.Sprintf(format, args...))
 }
 
 // NewValidationError constructs a validation error for a specific field.
