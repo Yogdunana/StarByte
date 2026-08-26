@@ -126,6 +126,24 @@ func NotFound(c *gin.Context, msg string) {
 // mapped to their corresponding HTTP status; any other error is treated as an
 // internal server error.
 func Error(c *gin.Context, err error) {
+	// First, check if the error implements the Code/Message interface.
+	// This allows domain-layer errors (e.g. rbac.Error) to be mapped to
+	// HTTP responses without importing the response package.
+	var coder interface {
+		Code() int
+		Message() string
+	}
+	if errors.As(err, &coder) {
+		c.JSON(httpStatusFromCode(coder.Code()), Response{
+			Code:      coder.Code(),
+			Message:   coder.Message(),
+			Data:      nil,
+			RequestID: c.GetString("request_id"),
+			Timestamp: time.Now().Unix(),
+		})
+		return
+	}
+
 	var appErr *AppError
 	if errors.As(err, &appErr) {
 		c.JSON(httpStatusFromCode(appErr.Code), Response{

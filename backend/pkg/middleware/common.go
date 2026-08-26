@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Yogdunana/StarByte/backend/pkg/logger"
+	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -58,7 +59,7 @@ func Recovery() gin.HandlerFunc {
 					zap.String("request_id", c.GetString("request_id")),
 				)
 				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-					"code":       5000,
+					"code":       response.CodeInternalError,
 					"message":    "Internal Server Error",
 					"data":       nil,
 					"request_id": c.GetString("request_id"),
