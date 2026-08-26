@@ -1,0 +1,66 @@
+# Production environment overrides
+# Loaded on top of config.yaml when APP_ENV=prod
+#
+# IMPORTANT: Sensitive values (database password, JWT secret, MinIO keys)
+# should be injected via environment variables, NOT hardcoded here.
+# See backend/.env.example for the full list of supported variables.
+
+server:
+  mode: release
+  read_timeout: 15
+  write_timeout: 15
+
+database:
+  host: ""  # Set via DB_HOST environment variable
+  port: 5432
+  user: ""  # Set via DB_USER environment variable
+  password: ""  # Set via DB_PASSWORD environment variable
+  dbname: starbyte
+  sslmode: require
+  max_open: 100
+  max_idle: 20
+
+redis:
+  host: ""  # Set via REDIS_HOST environment variable
+  port: 6379
+  password: ""  # Set via REDIS_PASSWORD environment variable
+  db: 0
+
+jwt:
+  secret: ""  # Set via JWT_SECRET environment variable
+  access_token_exp: 3600
+  refresh_token_exp: 604800
+
+logger:
+  level: info
+  format: json
+  filename: logs/starbyte.log
+  max_size: 200
+  max_backups: 10
+  max_age: 90
+  compress: true
+
+minio:
+  endpoint: ""  # Set via MINIO_ENDPOINT environment variable
+  access_key: ""  # Set via MINIO_ACCESS_KEY environment variable
+  secret_key: ""  # Set via MINIO_SECRET_KEY environment variable
+  bucket: starbyte
+  use_ssl: true
+
+cors:
+  allowed_origins:
+    - "https://starbyte.com"
+    - "https://www.starbyte.com"
+  allowed_methods:
+    - "GET"
+    - "POST"
+    - "PUT"
+    - "DELETE"
+    - "PATCH"
+  allowed_headers:
+    - "Origin"
+    - "Content-Type"
+    - "Accept"
+    - "Authorization"
+    - "X-Request-Id"
+  allow_credentials: true
