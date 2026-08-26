@@ -73,6 +73,12 @@ func Sync() {
 	}
 }
 
+// GetLogger returns the underlying *zap.Logger instance.
+// Useful for components that need direct access to the zap logger.
+func GetLogger() *zap.Logger {
+	return log
+}
+
 // Info logs a message at the info level.
 func Info(msg string, fields ...zap.Field) {
 	log.Info(msg, fields...)
