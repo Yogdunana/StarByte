@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -135,21 +136,21 @@ type RollbackTaskRequest struct {
 
 // TaskResponse is the response for a single flow task.
 type TaskResponse struct {
-	ID          uuid.UUID  `json:"id"`
-	InstanceID  uuid.UUID  `json:"instance_id"`
-	NodeID      string     `json:"node_id"`
-	NodeName    string     `json:"node_name"`
-	TaskType    string     `json:"task_type"`
-	AssigneeID  *uuid.UUID `json:"assignee_id"`
-	Status      int        `json:"status"`
-	Action      string     `json:"action"`
-	Comment     string     `json:"comment"`
-	FormData    []byte     `json:"form_data"`
-	DueDate     *time.Time `json:"due_date"`
-	ClaimedAt   *time.Time `json:"claimed_at"`
-	CompletedAt *time.Time `json:"completed_at"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
+	ID          uuid.UUID       `json:"id"`
+	InstanceID  uuid.UUID       `json:"instance_id"`
+	NodeID      string          `json:"node_id"`
+	NodeName    string          `json:"node_name"`
+	TaskType    string          `json:"task_type"`
+	AssigneeID  *uuid.UUID      `json:"assignee_id"`
+	Status      int             `json:"status"`
+	Action      string          `json:"action"`
+	Comment     string          `json:"comment"`
+	FormData    json.RawMessage `json:"form_data"`
+	DueDate     *time.Time      `json:"due_date"`
+	ClaimedAt   *time.Time      `json:"claimed_at"`
+	CompletedAt *time.Time      `json:"completed_at"`
+	CreatedAt   time.Time       `json:"created_at"`
+	UpdatedAt   time.Time       `json:"updated_at"`
 }
 
 // HistoryResponse is the response for a flow history entry.

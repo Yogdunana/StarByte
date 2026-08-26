@@ -7,20 +7,25 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // VariableRepo manages flow_variables for runtime process data.
 type VariableRepo interface {
 	// Set upserts a variable (create or update by instance_id + key + scope).
 	Set(ctx context.Context, tx *gorm.DB, v *model.FlowVariable) error
-	// Get retrieves a variable by instance_id and key.
+	// Get retrieves a global-scope variable by instance_id and key.
 	Get(ctx context.Context, instanceID uuid.UUID, key string) (*model.FlowVariable, error)
+	// GetWithScope retrieves a variable by instance_id, key, and scope.
+	GetWithScope(ctx context.Context, instanceID uuid.UUID, key, scope string) (*model.FlowVariable, error)
 	// ListByInstance returns all variables for an instance.
 	ListByInstance(ctx context.Context, instanceID uuid.UUID) ([]model.FlowVariable, error)
-	// GetMap returns all variables for an instance as a map[string]interface{}.
+	// GetMap returns all global-scope variables for an instance as a map[string]interface{}.
 	GetMap(ctx context.Context, instanceID uuid.UUID) (map[string]interface{}, error)
-	// SetMap batch-upserts multiple variables for an instance.
+	// SetMap batch-upserts multiple global-scope variables for an instance.
 	SetMap(ctx context.Context, tx *gorm.DB, instanceID uuid.UUID, vars map[string]interface{}) error
+	// SetMapWithScope batch-upserts multiple variables with a specific scope.
+	SetMapWithScope(ctx context.Context, tx *gorm.DB, instanceID uuid.UUID, scope string, vars map[string]interface{}) error
 	// DeleteByInstance removes all variables for an instance.
 	DeleteByInstance(ctx context.Context, instanceID uuid.UUID) error
 }
@@ -42,27 +47,25 @@ func (r *variableRepo) getDB(tx *gorm.DB) *gorm.DB {
 }
 
 func (r *variableRepo) Set(ctx context.Context, tx *gorm.DB, v *model.FlowVariable) error {
-	// Upsert: try to find existing, update or create.
-	var existing model.FlowVariable
-	err := r.getDB(tx).WithContext(ctx).
-		Where("instance_id = ? AND key = ? AND scope = ?", v.InstanceID, v.Key, v.Scope).
-		First(&existing).Error
-
-	if err == gorm.ErrRecordNotFound {
-		return r.getDB(tx).WithContext(ctx).Create(v).Error
-	}
-	if err != nil {
-		return err
-	}
-
-	existing.Value = v.Value
-	return r.getDB(tx).WithContext(ctx).Save(&existing).Error
+	// Atomic upsert using ON CONFLICT — no race condition.
+	return r.getDB(tx).WithContext(ctx).Clauses(clause.OnConflict{
+		Columns: []clause.Column{
+			{Name: "instance_id"},
+			{Name: "key"},
+			{Name: "scope"},
+		},
+		DoUpdates: clause.AssignmentColumns([]string{"value", "updated_at"}),
+	}).Create(v).Error
 }
 
 func (r *variableRepo) Get(ctx context.Context, instanceID uuid.UUID, key string) (*model.FlowVariable, error) {
+	return r.GetWithScope(ctx, instanceID, key, "global")
+}
+
+func (r *variableRepo) GetWithScope(ctx context.Context, instanceID uuid.UUID, key, scope string) (*model.FlowVariable, error) {
 	var v model.FlowVariable
 	err := r.db.WithContext(ctx).
-		Where("instance_id = ? AND key = ?", instanceID, key).
+		Where("instance_id = ? AND key = ? AND scope = ?", instanceID, key, scope).
 		First(&v).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
@@ -79,7 +82,10 @@ func (r *variableRepo) ListByInstance(ctx context.Context, instanceID uuid.UUID)
 }
 
 func (r *variableRepo) GetMap(ctx context.Context, instanceID uuid.UUID) (map[string]interface{}, error) {
-	vars, err := r.ListByInstance(ctx, instanceID)
+	var vars []model.FlowVariable
+	err := r.db.WithContext(ctx).
+		Where("instance_id = ? AND scope = ?", instanceID, "global").
+		Find(&vars).Error
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +103,10 @@ func (r *variableRepo) GetMap(ctx context.Context, instanceID uuid.UUID) (map[st
 }
 
 func (r *variableRepo) SetMap(ctx context.Context, tx *gorm.DB, instanceID uuid.UUID, vars map[string]interface{}) error {
+	return r.SetMapWithScope(ctx, tx, instanceID, "global", vars)
+}
+
+func (r *variableRepo) SetMapWithScope(ctx context.Context, tx *gorm.DB, instanceID uuid.UUID, scope string, vars map[string]interface{}) error {
 	for key, val := range vars {
 		jsonBytes, err := json.Marshal(val)
 		if err != nil {
@@ -106,7 +116,7 @@ func (r *variableRepo) SetMap(ctx context.Context, tx *gorm.DB, instanceID uuid.
 			InstanceID: instanceID,
 			Key:        key,
 			Value:      jsonBytes,
-			Scope:      "global",
+			Scope:      scope,
 		}
 		if err := r.Set(ctx, tx, v); err != nil {
 			return err

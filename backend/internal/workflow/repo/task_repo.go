@@ -83,7 +83,7 @@ func (r *taskRepo) ListDoneTasks(ctx context.Context, assigneeID uuid.UUID, page
 	var total int64
 
 	query := r.db.WithContext(ctx).Model(&model.FlowTask{}).
-		Where("assignee_id = ? AND status IN (1, 2, 3, 4)", assigneeID)
+		Where("assignee_id = ? AND status > 0", assigneeID)
 
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err

@@ -35,8 +35,8 @@ func (FlowDefinition) TableName() string {
 // Status values: 0=historical, 1=current version.
 type FlowDefinitionVersion struct {
 	ID           uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
-	DefinitionID uuid.UUID  `gorm:"type:uuid;index;not null" json:"definition_id"`
-	Version      int        `gorm:"not null" json:"version"`
+	DefinitionID uuid.UUID  `gorm:"type:uuid;index;not null;uniqueIndex:idx_def_ver_unique" json:"definition_id"`
+	Version      int        `gorm:"not null;uniqueIndex:idx_def_ver_unique" json:"version"`
 	BpmnData     []byte     `gorm:"type:jsonb;not null" json:"bpmn_data"`
 	Status       int        `gorm:"type:smallint;default:0;index" json:"status"`
 	PublishedBy  *uuid.UUID `gorm:"type:uuid" json:"published_by"`
@@ -130,10 +130,10 @@ func (FlowHistory) TableName() string {
 // Scope values: global, local.
 type FlowVariable struct {
 	ID         uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
-	InstanceID uuid.UUID `gorm:"type:uuid;index;not null" json:"instance_id"`
-	Key        string    `gorm:"type:varchar(100);not null" json:"key"`
+	InstanceID uuid.UUID `gorm:"type:uuid;index;not null;uniqueIndex:idx_var_unique" json:"instance_id"`
+	Key        string    `gorm:"type:varchar(100);not null;uniqueIndex:idx_var_unique" json:"key"`
 	Value      []byte    `gorm:"type:jsonb" json:"value"`
-	Scope      string    `gorm:"type:varchar(20);default:global" json:"scope"`
+	Scope      string    `gorm:"type:varchar(20);default:global;uniqueIndex:idx_var_unique" json:"scope"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 }
