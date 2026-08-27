@@ -134,9 +134,13 @@ fi
 info "运行数据库迁移..."
 
 if command -v migrate &> /dev/null; then
-    migrate -path "$PROJECT_ROOT/backend/migrations" \
-        -database "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}?sslmode=disable" up
-    success "数据库迁移完成"
+    if migrate -path "$PROJECT_ROOT/backend/migrations" \
+        -database "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}?sslmode=disable" up; then
+        success "数据库迁移完成"
+    else
+        warn "数据库迁移失败，请检查数据库连接和迁移文件"
+        echo "  手动运行: migrate -path backend/migrations -database 'postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}?sslmode=disable' up"
+    fi
 else
     warn "未找到 migrate 命令，跳过自动迁移"
     echo "  安装命令: go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest"

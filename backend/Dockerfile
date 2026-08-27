@@ -8,7 +8,16 @@ RUN apk add --no-cache curl tar && \
     mv migrate /usr/local/bin/migrate
 
 # ─────────────────────────────────────────────────────────
-# Stage 2: 构建 Go 二进制
+# Stage 2: 安装 MinIO mc 客户端
+# ─────────────────────────────────────────────────────────
+FROM alpine:3.19 AS mc-builder
+
+RUN apk add --no-cache curl && \
+    curl -L https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc && \
+    chmod +x /usr/local/bin/mc
+
+# ─────────────────────────────────────────────────────────
+# Stage 3: 构建 Go 二进制
 # ─────────────────────────────────────────────────────────
 FROM golang:1.22-alpine AS builder
 
@@ -25,7 +34,7 @@ COPY . .
 RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o starbyte-server ./cmd/server
 
 # ─────────────────────────────────────────────────────────
-# Stage 3: 生产运行镜像
+# Stage 4: 生产运行镜像
 # ─────────────────────────────────────────────────────────
 FROM alpine:3.19 AS production
 
@@ -40,8 +49,9 @@ COPY --from=builder /app/starbyte-server .
 COPY --from=builder /app/migrations ./migrations
 COPY --from=builder /app/configs ./configs
 
-# 复制 migrate 工具
+# 复制迁移工具和 MinIO 客户端
 COPY --from=migrate-builder /usr/local/bin/migrate /usr/local/bin/migrate
+COPY --from=mc-builder /usr/local/bin/mc /usr/local/bin/mc
 
 # 入口脚本：自动迁移 + 启动服务
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh

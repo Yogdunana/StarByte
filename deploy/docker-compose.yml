@@ -6,7 +6,7 @@ version: "3.8"
 # ─────────────────────────────────────────────────────────
 
 services:
-  # PostgreSQL 数据库
+  # PostgreSQL 数据库（仅容器网络访问，不对外暴露端口）
   postgres:
     image: postgres:16-alpine
     container_name: starbyte-postgres
@@ -15,9 +15,6 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-starbyte123}
       POSTGRES_DB: ${POSTGRES_DB:-starbyte}
       TZ: Asia/Shanghai
-    # 生产环境不对外暴露数据库端口，仅容器网络访问
-    # ports:
-    #   - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -27,16 +24,13 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis 缓存
+  # Redis 缓存（仅容器网络访问，不对外暴露端口）
   redis:
     image: redis:7-alpine
     container_name: starbyte-redis
     command: redis-server --requirepass ${REDIS_PASSWORD:-starbyte123} --appendonly yes
     environment:
       TZ: Asia/Shanghai
-    # 生产环境不对外暴露 Redis 端口
-    # ports:
-    #   - "6379:6379"
     volumes:
       - redis-data:/data
     restart: unless-stopped
@@ -55,10 +49,9 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
       TZ: Asia/Shanghai
-    # 生产环境仅暴露 MinIO API，控制台可选暴露
+    # 生产环境仅暴露 MinIO API，控制台通过反向代理或内网访问
     ports:
-      - "9000:9000"   # API
-      # - "9001:9001"   # 控制台（生产环境建议关闭或通过反向代理访问）
+      - "9000:9000"
     volumes:
       - minio-data:/data
     restart: unless-stopped
@@ -101,6 +94,7 @@ services:
       # 迁移控制
       SKIP_MIGRATION: ${SKIP_MIGRATION:-false}
       MIGRATION_FAIL_FATAL: ${MIGRATION_FAIL_FATAL:-true}
+      SKIP_BUCKET_CREATE: ${SKIP_BUCKET_CREATE:-false}
       TZ: Asia/Shanghai
     ports:
       - "8080:8080"

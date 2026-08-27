@@ -18,10 +18,10 @@ if [ "${SKIP_MIGRATION:-false}" != "true" ]; then
     echo "[entrypoint] 执行数据库迁移..."
     if ! migrate -path /app/migrations -database "$MIGRATE_DSN" up; then
         if [ "${MIGRATION_FAIL_FATAL:-true}" = "true" ]; then
-            echo "[entrypoint] ❌ 数据库迁移失败，MIGRATION_FAIL_FATAL=true，退出容器"
+            echo "[entrypoint] 数据库迁移失败，MIGRATION_FAIL_FATAL=true，退出容器"
             exit 1
         else
-            echo "[entrypoint] ⚠️  数据库迁移失败，跳过（将继续启动服务）"
+            echo "[entrypoint] 数据库迁移失败，跳过（将继续启动服务）"
         fi
     else
         echo "[entrypoint] 数据库迁移完成"
@@ -43,27 +43,22 @@ if [ "${SKIP_BUCKET_CREATE:-false}" != "true" ]; then
     if [ "$MINIO_USE_SSL" = "true" ]; then
         SCHEME="https"
     fi
-    # 使用 mc 或 curl 检查并创建 bucket
-    if command -v mc &> /dev/null; then
-        mc alias set starbyte "${SCHEME}://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY" > /dev/null 2>&1
-        if ! mc ls "starbyte/${MINIO_BUCKET}" > /dev/null 2>&1; then
-            mc mb "starbyte/${MINIO_BUCKET}" > /dev/null 2>&1 && echo "[entrypoint] MinIO Bucket ${MINIO_BUCKET} 已创建" || echo "[entrypoint] ⚠️  MinIO Bucket 创建失败，将继续启动"
-        else
+
+    # 配置 mc alias
+    if mc alias set starbyte "${SCHEME}://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY" > /dev/null 2>&1; then
+        # 检查 bucket 是否存在
+        if mc ls "starbyte/${MINIO_BUCKET}" > /dev/null 2>&1; then
             echo "[entrypoint] MinIO Bucket ${MINIO_BUCKET} 已存在"
+        else
+            # 创建 bucket
+            if mc mb "starbyte/${MINIO_BUCKET}" > /dev/null 2>&1; then
+                echo "[entrypoint] MinIO Bucket ${MINIO_BUCKET} 已创建"
+            else
+                echo "[entrypoint] MinIO Bucket 创建失败，将继续启动"
+            fi
         fi
     else
-        # 没有 mc 的话用 curl 尝试创建
-        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-            -X PUT \
-            -u "${MINIO_ACCESS_KEY}:${MINIO_SECRET_KEY}" \
-            "${SCHEME}://${MINIO_ENDPOINT}/${MINIO_BUCKET}" 2>/dev/null || echo "000")
-        if [ "$HTTP_CODE" = "200" ]; then
-            echo "[entrypoint] MinIO Bucket ${MINIO_BUCKET} 已创建"
-        elif [ "$HTTP_CODE" = "409" ]; then
-            echo "[entrypoint] MinIO Bucket ${MINIO_BUCKET} 已存在"
-        else
-            echo "[entrypoint] ⚠️  MinIO Bucket 检查失败（HTTP ${HTTP_CODE}），将继续启动"
-        fi
+        echo "[entrypoint] MinIO 连接失败，跳过 Bucket 检查（将继续启动服务）"
     fi
 else
     echo "[entrypoint] 跳过 MinIO Bucket 创建（SKIP_BUCKET_CREATE=true）"
