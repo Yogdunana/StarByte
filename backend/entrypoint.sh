@@ -44,21 +44,17 @@ if [ "${SKIP_BUCKET_CREATE:-false}" != "true" ]; then
         SCHEME="https"
     fi
 
-    # 配置 mc alias
-    if mc alias set starbyte "${SCHEME}://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY" > /dev/null 2>&1; then
-        # 检查 bucket 是否存在
-        if mc ls "starbyte/${MINIO_BUCKET}" > /dev/null 2>&1; then
-            echo "[entrypoint] MinIO Bucket ${MINIO_BUCKET} 已存在"
-        else
-            # 创建 bucket
-            if mc mb "starbyte/${MINIO_BUCKET}" > /dev/null 2>&1; then
-                echo "[entrypoint] MinIO Bucket ${MINIO_BUCKET} 已创建"
-            else
-                echo "[entrypoint] MinIO Bucket 创建失败，将继续启动"
-            fi
-        fi
+    # 配置 mc alias（仅本地写配置，不验证连接）
+    mc alias set starbyte "${SCHEME}://${MINIO_ENDPOINT}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY" > /dev/null 2>&1 || true
+
+    # 直接尝试创建 bucket：已存在也算成功，其他错误打印详情
+    if MB_OUTPUT=$(mc mb "starbyte/${MINIO_BUCKET}" 2>&1); then
+        echo "[entrypoint] MinIO Bucket ${MINIO_BUCKET} 已创建"
+    elif echo "$MB_OUTPUT" | grep -qi "already exists\|bucket.*exist"; then
+        echo "[entrypoint] MinIO Bucket ${MINIO_BUCKET} 已存在"
     else
-        echo "[entrypoint] MinIO 连接失败，跳过 Bucket 检查（将继续启动服务）"
+        echo "[entrypoint] MinIO Bucket 检查/创建失败，将继续启动服务"
+        echo "  详情: $MB_OUTPUT"
     fi
 else
     echo "[entrypoint] 跳过 MinIO Bucket 创建（SKIP_BUCKET_CREATE=true）"
