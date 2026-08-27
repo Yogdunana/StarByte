@@ -50,7 +50,7 @@ if [ "${SKIP_BUCKET_CREATE:-false}" != "true" ]; then
     # 直接尝试创建 bucket：已存在也算成功，其他错误打印详情
     if MB_OUTPUT=$(mc mb "starbyte/${MINIO_BUCKET}" 2>&1); then
         echo "[entrypoint] MinIO Bucket ${MINIO_BUCKET} 已创建"
-    elif echo "$MB_OUTPUT" | grep -qi "already exists\|bucket.*exist"; then
+    elif echo "$MB_OUTPUT" | grep -qi "already exists\|bucket.*exist\|already own\|previous request"; then
         echo "[entrypoint] MinIO Bucket ${MINIO_BUCKET} 已存在"
     else
         echo "[entrypoint] MinIO Bucket 检查/创建失败，将继续启动服务"
