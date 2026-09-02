@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import { getToken } from '@/utils/storage';
 import { logout as logoutAction } from '@/store/slices/authSlice';
-import { fetchCurrentUser, selectCurrentUser, selectUserLoading, selectUserError } from '@/store/slices/userSlice';
+import { fetchCurrentUser, selectCurrentUser, selectUserLoading, selectUserError, clearUser } from '@/store/slices/userSlice';
 import type { AppDispatch } from '@/store';
 
 /**
@@ -53,14 +53,21 @@ const AuthRoute: React.FC<AuthRouteProps> = ({ children }) => {
     }
   }, [dispatch, token, currentUser, userError]);
 
+  // 用户信息获取失败（token 过期等）→ 在 effect 中清除认证状态
+  useEffect(() => {
+    if (token && userError && !currentUser) {
+      dispatch(logoutAction());
+      dispatch(clearUser());
+    }
+  }, [token, userError, currentUser, dispatch]);
+
   // 无 token → 登录页
   if (!token) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  // token 存在但用户信息获取失败 → 清除状态并重定向
+  // token 存在但用户信息获取失败 → 重定向登录页（dispatch 在上方 effect 中执行）
   if (userError && !currentUser) {
-    dispatch(logoutAction());
     return <Navigate to="/login" replace />;
   }
 
