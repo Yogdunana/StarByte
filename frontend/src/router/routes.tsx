@@ -5,23 +5,50 @@ import type { RouteObject } from 'react-router-dom';
 // 布局组件
 import MainLayout from '@/layouts/MainLayout/MainLayout';
 
+// 路由守卫
+import AuthRoute from '@/router/guards/AuthRoute';
+import PermissionRoute from '@/router/guards/PermissionRoute';
+
 // 页面组件
 const Login = lazy(() => import('@/pages/login/Login'));
 const Dashboard = lazy(() => import('@/pages/dashboard/Dashboard'));
 const UserList = lazy(() => import('@/pages/user/UserList'));
+const Forbidden = lazy(() => import('@/pages/error/Forbidden'));
 
-// 懒加载包装器
+// 懒加载 fallback
+const LoadingFallback: React.FC = () => (
+  <div style={{ padding: 24, textAlign: 'center' }}>加载中...</div>
+);
+
+// 懒加载包装器（无权限守卫）
 const lazyWrap = (Component: React.LazyExoticComponent<React.FC>) => (
-  <Suspense fallback={<div style={{ padding: 24, textAlign: 'center' }}>加载中...</div>}>
+  <Suspense fallback={<LoadingFallback />}>
     <Component />
   </Suspense>
 );
+
+// 带权限守卫的懒加载包装器
+const lazyGuarded = (
+  Component: React.LazyExoticComponent<React.FC>,
+  permission?: string,
+) => {
+  const element = lazyWrap(Component);
+  return permission ? (
+    <PermissionRoute permission={permission}>{element}</PermissionRoute>
+  ) : element;
+};
+
+// 带权限守卫的内联元素包装器
+const guarded = (element: React.ReactNode, permission?: string) =>
+  permission ? (
+    <PermissionRoute permission={permission}>{element}</PermissionRoute>
+  ) : element;
 
 // 路由元信息类型
 export interface RouteMeta {
   title?: string;
   icon?: string;
-  permission?: string;
+  permission?: string; // 权限码
   public?: boolean; // 是否公开页面（不需要登录）
   hidden?: boolean; // 是否在菜单中隐藏
 }
@@ -40,12 +67,17 @@ const routes: AppRouteObject[] = [
   },
   {
     path: '/',
-    element: <MainLayout />,
+    element: <AuthRoute><MainLayout /></AuthRoute>,
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
       {
+        path: '403',
+        element: lazyWrap(Forbidden),
+        meta: { title: '无权限', hidden: true },
+      },
+      {
         path: 'dashboard',
-        element: lazyWrap(Dashboard),
+        element: lazyGuarded(Dashboard),
         meta: { title: '工作台', icon: 'DashboardOutlined' },
       },
       {
@@ -55,7 +87,7 @@ const routes: AppRouteObject[] = [
           {
             index: true,
             path: 'list',
-            element: lazyWrap(UserList),
+            element: lazyGuarded(UserList, 'user:read'),
             meta: { title: '用户列表', permission: 'user:read' },
           },
         ],
@@ -178,28 +210,28 @@ const routes: AppRouteObject[] = [
         children: [
           {
             path: 'role',
-            element: <div style={{ padding: 24 }}>角色管理（开发中）</div>,
-            meta: { title: '角色管理' },
+            element: guarded(<div style={{ padding: 24 }}>角色管理（开发中）</div>, 'role:read'),
+            meta: { title: '角色管理', permission: 'role:read' },
           },
           {
             path: 'permission',
-            element: <div style={{ padding: 24 }}>权限管理（开发中）</div>,
-            meta: { title: '权限管理' },
+            element: guarded(<div style={{ padding: 24 }}>权限管理（开发中）</div>, 'permission:read'),
+            meta: { title: '权限管理', permission: 'permission:read' },
           },
           {
             path: 'department',
-            element: <div style={{ padding: 24 }}>部门管理（开发中）</div>,
-            meta: { title: '部门管理' },
+            element: guarded(<div style={{ padding: 24 }}>部门管理（开发中）</div>, 'department:read'),
+            meta: { title: '部门管理', permission: 'department:read' },
           },
           {
             path: 'audit',
-            element: <div style={{ padding: 24 }}>审计日志（开发中）</div>,
-            meta: { title: '审计日志' },
+            element: guarded(<div style={{ padding: 24 }}>审计日志（开发中）</div>, 'audit:read'),
+            meta: { title: '审计日志', permission: 'audit:read' },
           },
           {
             path: 'config',
-            element: <div style={{ padding: 24 }}>系统配置（开发中）</div>,
-            meta: { title: '系统配置' },
+            element: guarded(<div style={{ padding: 24 }}>系统配置（开发中）</div>, 'system:config'),
+            meta: { title: '系统配置', permission: 'system:config' },
           },
         ],
       },
