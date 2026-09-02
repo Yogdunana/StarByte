@@ -23,10 +23,10 @@ export function logout(): Promise<void> {
 
 // 获取当前用户信息
 export function getCurrentUser(): Promise<UserInfo> {
-  return request.get('/auth/me');
+  return request.get('/user/me');
 }
 
 // 修改密码
 export function changePassword(params: { old_password: string; new_password: string }): Promise<void> {
-  return request.put('/auth/password', params);
+  return request.put('/user/password', params);
 }

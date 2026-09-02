@@ -34,9 +34,6 @@ export function uploadFile(
   onUploadProgress?: (progressEvent: { loaded: number; total?: number }) => void,
 ): Promise<UploadResult> {
   return request.post('/files/upload', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
     onUploadProgress,
   });
 }
