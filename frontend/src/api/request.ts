@@ -1,15 +1,19 @@
-import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosError } from 'axios';
 import { message } from 'antd';
 import { getToken, getRefreshToken, setToken, setRefreshToken, removeToken } from '@/utils/storage';
+import { handleApiError } from './error';
 
 const baseURL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 const request: AxiosInstance = axios.create({
   baseURL,
   timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
-// 生成请求ID
+// 生成请求 ID
 const generateRequestId = (): string => {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
@@ -17,6 +21,44 @@ const generateRequestId = (): string => {
     return v.toString(16);
   });
 };
+
+/**
+ * 创建请求取消控制器
+ *
+ * @example
+ * ```ts
+ * const { controller, signal } = createCancelToken();
+ * // 发起请求
+ * getUserList(params, signal);
+ * // 取消请求
+ * controller.abort();
+ * ```
+ */
+export function createCancelToken(): {
+  controller: AbortController;
+  signal: AbortSignal;
+} {
+  const controller = new AbortController();
+  return { controller, signal: controller.signal };
+}
+
+// GET 请求失败自动重试次数
+const GET_RETRY_COUNT = 1;
+// 重试延迟（ms）
+const RETRY_DELAY = 500;
+
+// 判断是否为重试条件：网络错误或 5xx 且是 GET 请求
+function shouldRetry(config: InternalAxiosRequestConfig, status?: number): boolean {
+  if (config.method?.toUpperCase() !== 'GET') return false;
+  const retryCount = (config as { _retryCount?: number })._retryCount ?? 0;
+  if (retryCount >= GET_RETRY_COUNT) return false;
+  // 网络错误（无 status）或 5xx 服务端错误时重试
+  return !status || status >= 500;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 // 请求拦截器
 request.interceptors.request.use(
@@ -53,11 +95,11 @@ request.interceptors.response.use(
     message.error(msg || '请求失败');
     return Promise.reject(new Error(msg || '请求失败'));
   },
-  async (error) => {
-    const originalRequest = error.config;
+  async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig;
 
+    // 处理 401 Token 过期
     if (error.response?.status === 401) {
-      // Token 过期
       if (!isRefreshing) {
         isRefreshing = true;
 
@@ -67,7 +109,7 @@ request.interceptors.response.use(
             throw new Error('无 refresh token');
           }
 
-          // 调用刷新 Token 接口
+          // 调用刷新 Token 接口（用 axios 直接调用，避免走拦截器循环）
           const response = await axios.post(`${baseURL}/auth/refresh`, {
             refresh_token: refreshToken,
           });
@@ -103,8 +145,16 @@ request.interceptors.response.use(
       }
     }
 
-    // 其他错误
-    const errorMsg = error.response?.data?.message || error.message || '网络错误';
+    // GET 请求失败重试
+    if (shouldRetry(originalRequest, error.response?.status)) {
+      const retryCount = (originalRequest as { _retryCount?: number })._retryCount ?? 0;
+      (originalRequest as { _retryCount?: number })._retryCount = retryCount + 1;
+      await delay(RETRY_DELAY);
+      return request(originalRequest);
+    }
+
+    // 其他错误：统一错误处理
+    const errorMsg = handleApiError(error);
     message.error(errorMsg);
     return Promise.reject(error);
   }
