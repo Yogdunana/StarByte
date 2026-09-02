@@ -1,7 +1,7 @@
 import request from './request';
-import type { UserInfo, PageResponse, PageParams } from '@/types/api';
+import type { UserInfo, PageResponse, ListParams } from '@/types/api';
 
-export interface ListUserParams extends PageParams {
+export interface ListUserParams extends ListParams {
   status?: number;
   department_id?: string;
 }
@@ -57,16 +57,21 @@ export function getUserDetail(id: string): Promise<UserInfo> {
 }
 
 // 创建用户
-export function createUser(params: CreateUserParams): Promise<UserInfo> {
-  return request.post('/users', params);
+export function createUser(data: CreateUserParams): Promise<UserInfo> {
+  return request.post('/users', data);
 }
 
 // 更新用户
-export function updateUser(id: string, params: UpdateUserParams): Promise<UserInfo> {
-  return request.put(`/users/${id}`, params);
+export function updateUser(id: string, data: UpdateUserParams): Promise<UserInfo> {
+  return request.put(`/users/${id}`, data);
 }
 
 // 删除用户
 export function deleteUser(id: string): Promise<void> {
   return request.delete(`/users/${id}`);
+}
+
+// 重置密码
+export function resetUserPassword(id: string, newPassword: string): Promise<void> {
+  return request.post(`/users/${id}/reset-password`, { new_password: newPassword });
 }
