@@ -17,14 +17,6 @@ import (
 	"go.uber.org/zap"
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
-
 const (
 	heartbeatInterval = 30 * time.Second
 	writeTimeout      = 10 * time.Second
@@ -48,13 +40,34 @@ type WSResponse struct {
 type WSHandler struct {
 	hub       service.HubManager
 	jwtConfig *config.JWTConfig
+	upgrader  websocket.Upgrader
 }
 
 // NewWSHandler 创建 WebSocket 处理器
-func NewWSHandler(hub service.HubManager, jwtConfig *config.JWTConfig) *WSHandler {
+// allowedOrigins 为空时允许所有来源（开发模式），非空时仅允许列表中的来源
+func NewWSHandler(hub service.HubManager, jwtConfig *config.JWTConfig, allowedOrigins []string) *WSHandler {
+	originSet := make(map[string]bool)
+	for _, origin := range allowedOrigins {
+		originSet[origin] = true
+	}
 	return &WSHandler{
 		hub:       hub,
 		jwtConfig: jwtConfig,
+		upgrader: websocket.Upgrader{
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
+			CheckOrigin: func(r *http.Request) bool {
+				// 未配置允许来源时，允许所有（开发模式）
+				if len(originSet) == 0 {
+					return true
+				}
+				origin := r.Header.Get("Origin")
+				if origin == "" {
+					return true // 非浏览器客户端（如 curl）无 Origin 头
+				}
+				return originSet[origin]
+			},
+		},
 	}
 }
 
@@ -97,7 +110,7 @@ func (h *WSHandler) HandleConnection(c *gin.Context) {
 	}
 
 	// 3. 升级为 WebSocket 连接
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	conn, err := h.upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		logger.Error("websocket upgrade failed",
 			zap.String("user_id", userID.String()),

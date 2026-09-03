@@ -49,31 +49,34 @@ func NewNotificationService(
 
 // Send 发送通知（通过模板渲染 + 多渠道分发）
 func (s *notificationService) Send(ctx context.Context, req *dto.SendNotificationRequest) error {
-	// 1. 渲染模板
-	rendered, err := s.templateEngine.Render(ctx, req.TemplateCode, req.Variables)
+	// 1. 查询模板一次，用于渲染 + 获取渠道和分类
+	tpl, err := s.templateRepo.GetByCode(ctx, req.TemplateCode)
+	if err != nil {
+		return response.NewError(response.CodeNotificationTplNotFound, "通知模板不存在")
+	}
+
+	// 2. 渲染模板
+	rendered, err := s.templateEngine.RenderTemplate(tpl, req.Variables)
 	if err != nil {
 		return err
 	}
 
-	// 2. 获取模板配置（渠道 + 分类），仅在渠道未指定时查询
+	// 3. 确定分类和渠道
 	category := "system"
+	if tpl.Category != "" {
+		category = tpl.Category
+	}
 	channels := req.Channels
 	if len(channels) == 0 {
-		tpl, err := s.templateRepo.GetByCode(ctx, req.TemplateCode)
-		if err == nil {
-			if tpl.Category != "" {
-				category = tpl.Category
-			}
-			if tpl.Channels != "" {
-				channels = tpl.GetChannels()
-			}
+		if tpl.Channels != "" {
+			channels = tpl.GetChannels()
 		}
 		if len(channels) == 0 {
 			channels = []string{"in_app", "websocket"}
 		}
 	}
 
-	// 3. 为每个用户发送通知（收集所有错误，不因单个用户失败而中断）
+	// 4. 为每个用户发送通知（收集所有错误，不因单个用户失败而中断）
 	var sendErrs []error
 	for _, userID := range req.UserIDs {
 		msg := &NotificationMessage{

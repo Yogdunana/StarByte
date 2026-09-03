@@ -30,6 +30,12 @@ func (Notification) TableName() string {
 	return "notifications"
 }
 
+// 模板状态常量
+const (
+	TemplateStatusEnabled  = 0 // 启用
+	TemplateStatusDisabled = 1 // 禁用
+)
+
 // NotificationTemplate 通知模板模型
 type NotificationTemplate struct {
 	ID              uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`

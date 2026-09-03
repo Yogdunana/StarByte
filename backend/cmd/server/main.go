@@ -170,7 +170,7 @@ func main() {
 	// 通知处理器
 	notificationHandler := notifHandler.NewNotificationHandler(notifSvc, hub)
 	templateHandler := notifHandler.NewTemplateHandler(tplSvc)
-	wsHandler := notifHandler.NewWSHandler(hub, &cfg.JWT)
+	wsHandler := notifHandler.NewWSHandler(hub, &cfg.JWT, cfg.CORS.AllowedOrigins)
 
 	// 10. API 路由组
 	api := r.Group("/api/v1")

@@ -16,6 +16,8 @@ import (
 // TemplateEngine 通知模板引擎接口
 type TemplateEngine interface {
 	Render(ctx context.Context, templateCode string, variables map[string]interface{}) (*dto.TestTemplateResponse, error)
+	// RenderTemplate 直接渲染已查出的模板，避免重复查库
+	RenderTemplate(tpl *model.NotificationTemplate, variables map[string]interface{}) (*dto.TestTemplateResponse, error)
 	Validate(ctx context.Context, templateCode string, variables map[string]interface{}) error
 }
 
@@ -34,8 +36,12 @@ func (e *templateEngine) Render(ctx context.Context, templateCode string, variab
 	if err != nil {
 		return nil, response.NewError(response.CodeNotificationTplNotFound, "通知模板不存在")
 	}
+	return e.RenderTemplate(tpl, variables)
+}
 
-	if tpl.Status != 0 {
+// RenderTemplate 直接渲染已查出的模板
+func (e *templateEngine) RenderTemplate(tpl *model.NotificationTemplate, variables map[string]interface{}) (*dto.TestTemplateResponse, error) {
+	if tpl.Status != model.TemplateStatusEnabled {
 		return nil, response.NewError(response.CodeNotificationTplNotFound, "通知模板已禁用")
 	}
 

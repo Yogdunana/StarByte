@@ -51,7 +51,7 @@ func (s *templateService) Create(ctx context.Context, req *dto.CreateTemplateReq
 		TitleTemplate: req.TitleTemplate,
 		BodyTemplate:  req.BodyTemplate,
 		Category:      req.Category,
-		Status:        0,
+		Status:        model.TemplateStatusEnabled,
 	}
 	tpl.SetChannels(req.Channels)
 	tpl.SetVariablesSchema(req.VariablesSchema)

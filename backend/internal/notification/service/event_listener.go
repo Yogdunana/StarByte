@@ -81,23 +81,37 @@ func (l *EventListener) onTaskAssigned(ctx context.Context, event events.Event) 
 
 // sendNotification 渲染模板并通过渠道发送通知
 func (l *EventListener) sendNotification(ctx context.Context, userID uuid.UUID, templateCode string, variables map[string]interface{}, category string) error {
-	// 尝试渲染模板，如果模板不存在则使用默认内容
-	rendered, err := l.templateEngine.Render(ctx, templateCode, variables)
+	// 查询模板一次，同时用于渲染和获取渠道配置
+	tpl, err := l.templateRepo.GetByCode(ctx, templateCode)
+
+	var rendered *dto.TestTemplateResponse
+	channels := []string{"in_app", "websocket"}
+
 	if err != nil {
-		logger.Warn("template render failed, using fallback",
+		// 模板不存在，使用默认内容
+		logger.Warn("template not found, using fallback",
 			zap.String("template_code", templateCode),
 			zap.Error(err))
 		rendered = &dto.TestTemplateResponse{
 			Title:   "新通知",
 			Content: fmt.Sprintf("您有一条新的 %s 通知", category),
 		}
-	}
-
-	// 获取模板配置的渠道
-	channels := []string{"in_app", "websocket"}
-	tpl, err := l.templateRepo.GetByCode(ctx, templateCode)
-	if err == nil && tpl.Channels != "" {
-		channels = tpl.GetChannels()
+	} else {
+		// 从已查出的模板渲染，避免重复查库
+		rendered, err = l.templateEngine.RenderTemplate(tpl, variables)
+		if err != nil {
+			logger.Warn("template render failed, using fallback",
+				zap.String("template_code", templateCode),
+				zap.Error(err))
+			rendered = &dto.TestTemplateResponse{
+				Title:   "新通知",
+				Content: fmt.Sprintf("您有一条新的 %s 通知", category),
+			}
+		}
+		// 使用模板配置的渠道
+		if tpl.Channels != "" {
+			channels = tpl.GetChannels()
+		}
 	}
 
 	// 通过渠道发送通知（in_app 渠道会自动创建站内通知，避免重复创建）
