@@ -31,9 +31,11 @@ const (
 // that standard fields such as ID (jti), Issuer (iss) and ExpiresAt (exp) are
 // available.
 type Claims struct {
-	UserID    string `json:"user_id"`
-	Username  string `json:"username"`
-	TokenType string `json:"token_type"`
+	UserID      string   `json:"user_id"`
+	Username    string   `json:"username"`
+	TokenType   string   `json:"token_type"`
+	Roles       []string `json:"roles,omitempty"`
+	Permissions []string `json:"permissions,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -46,8 +48,34 @@ type TokenPair struct {
 	RefreshTokenExpires time.Time
 }
 
-// GenerateTokenPair creates a signed access token and a signed refresh token for
-// the given user.
+// GenerateAccessToken creates a signed access token for the given user.
+func GenerateAccessToken(userID string, username string, roles, permissions []string, cfg *config.JWTConfig) (string, time.Time, error) {
+	now := time.Now()
+	accessExp := now.Add(time.Duration(cfg.AccessTokenExp) * time.Second)
+
+	accessClaims := &Claims{
+		UserID:      userID,
+		Username:    username,
+		TokenType:   AccessTokenType,
+		Roles:       roles,
+		Permissions: permissions,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        uuid.NewString(),
+			Issuer:    cfg.Issuer,
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(accessExp),
+		},
+	}
+
+	accessToken, err := signToken(accessClaims, cfg.Secret)
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("sign access token: %w", err)
+	}
+	return accessToken, accessExp, nil
+}
+
+// GenerateTokenPair creates a signed access token for the given user.
+// Deprecated: Use GenerateAccessToken + auth repo's StoreRefreshToken instead.
 func GenerateTokenPair(userID string, username string, cfg *config.JWTConfig) (*TokenPair, error) {
 	now := time.Now()
 	accessExp := now.Add(time.Duration(cfg.AccessTokenExp) * time.Second)

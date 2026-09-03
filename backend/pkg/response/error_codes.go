@@ -36,6 +36,16 @@ const (
 	CodeUserExists         = 2002 // 用户名或邮箱已存在
 	CodeInvalidCredentials = 2003 // 用户名或密码错误
 	CodeUserDisabled       = 2004 // 用户已禁用
+	CodeUserLocked         = 2005 // 用户已被锁定
+	CodeTokenInvalid       = 2006 // Token 无效
+	CodeTokenExpired       = 2007 // Token 已过期
+	CodeTokenBlacklisted   = 2008 // Token 已失效
+	CodeRefreshTokenInvalid = 2009 // Refresh Token 无效
+	CodeRefreshTokenExpired = 2010 // Refresh Token 已过期
+	CodeRefreshTokenReused  = 2011 // Refresh Token 已被使用（旋转检测）
+	CodePasswordTooWeak    = 2012 // 密码强度不足
+	CodeOldPasswordWrong   = 2013 // 原密码错误
+	CodeAccountLocked      = 2014 // 登录失败次数过多，账号已被锁定
 
 	// ===== RBAC module (3000-3999) =====
 	// (defined in internal/rbac/errors.go, range 3001-3020)

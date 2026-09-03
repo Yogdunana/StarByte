@@ -12,6 +12,9 @@ import (
 	rbacHandler "github.com/Yogdunana/StarByte/backend/internal/rbac/handler"
 	rbacRepo "github.com/Yogdunana/StarByte/backend/internal/rbac/repo"
 	rbacService "github.com/Yogdunana/StarByte/backend/internal/rbac/service"
+	authHandler "github.com/Yogdunana/StarByte/backend/internal/auth/handler"
+	authRepo "github.com/Yogdunana/StarByte/backend/internal/auth/repo"
+	authService "github.com/Yogdunana/StarByte/backend/internal/auth/service"
 	"github.com/Yogdunana/StarByte/backend/internal/user/handler"
 	"github.com/Yogdunana/StarByte/backend/internal/user/repo"
 	"github.com/Yogdunana/StarByte/backend/internal/user/service"
@@ -99,12 +102,10 @@ func main() {
 	r.GET("/health/ready", middleware.ReadinessCheck(database.DB(), redis.Client()))
 
 	// 9. 初始化业务模块
-	// 用户模块
+	// 用户模块（共享 repo）
 	userRepo := repo.NewUserRepo(database.DB())
-	userService := service.NewUserService(database.DB(), userRepo, &cfg.JWT)
-	userHandler := handler.NewUserHandler(userService)
 
-	// RBAC 权限模块
+	// RBAC 权限模块（repo 层先初始化，cacheService 供 auth 模块使用）
 	roleRepo := rbacRepo.NewRoleRepo(database.DB())
 	permRepo := rbacRepo.NewPermissionRepo(database.DB())
 	deptRepo := rbacRepo.NewDepartmentRepo(database.DB())
@@ -112,6 +113,16 @@ func main() {
 
 	cacheService := rbacService.NewPermissionCacheService(database.DB(), redis.Client(), permRepo, roleRepo)
 
+	// 认证模块（依赖 cacheService 获取角色和权限）
+	authR := authRepo.NewAuthRepo(redis.Client())
+	authSvc := authService.NewAuthService(authR, userRepo, &cfg.JWT, cacheService)
+	authH := authHandler.NewAuthHandler(authSvc)
+
+	// 用户管理模块
+	userService := service.NewUserService(database.DB(), userRepo, &cfg.JWT)
+	userHandler := handler.NewUserHandler(userService)
+
+	// RBAC 权限模块（service 层）
 	roleService := rbacService.NewRoleService(database.DB(), roleRepo, permRepo, cacheService)
 	permService := rbacService.NewPermissionService(database.DB(), permRepo, cacheService)
 	deptService := rbacService.NewDepartmentService(database.DB(), deptRepo)
@@ -140,19 +151,11 @@ func main() {
 			response.OK(c, "pong")
 		})
 
-		// 认证相关路由
-		authGroup := public.Group("/auth")
-		{
-			// 注册：PerIPRateLimit 已在 group 级别生效
-			authGroup.POST("/register", userHandler.Register)
-			authGroup.POST("/refresh", userHandler.RefreshToken)
+		// 认证路由（登录、刷新、第三方登录预留）
+		authHandler.RegisterRoutes(public, nil, authH)
 
-			// 登录端点：额外限流（5 req/min，防暴力破解）
-			authGroup.POST("/login",
-				middleware.RateLimitWithFallback(redis.Client(), middleware.LoginRateLimit),
-				userHandler.Login,
-			)
-		}
+		// 注册仍由 user handler 处理
+		public.POST("/auth/register", userHandler.Register)
 	}
 
 	// 10b. 需要鉴权的路由
@@ -163,8 +166,8 @@ func main() {
 	protected.Use(authmiddleware.JWTAuth(&cfg.JWT))
 	protected.Use(middleware.RateLimit(redis.Client(), middleware.PerIPRateLimit))
 	{
-		// 登出（需要鉴权）
-		protected.POST("/auth/logout", userHandler.Logout)
+		// 认证路由（登出、当前用户、修改密码）
+		authHandler.RegisterRoutes(nil, protected, authH)
 
 		// 用户模块
 		handler.RegisterUserRoutes(protected, userHandler)

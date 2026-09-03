@@ -61,9 +61,15 @@ export interface RegisterRequest {
 export interface LoginResponse {
   access_token: string;
   refresh_token: string;
-  access_token_expires: number;
-  refresh_token_expires: number;
+  expires_in: number;
+  refresh_expires_in: number;
   user: UserInfo;
+}
+
+export interface RefreshResponse {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
 }
 
 export interface UserInfo {
@@ -75,9 +81,9 @@ export interface UserInfo {
   phone: string;
   gender: number;
   status: number;
-  department_id: string;
-  position_id: string;
-  roles: RoleInfo[];
+  department_id?: string;
+  position_id?: string;
+  roles: string[];
   permissions: string[];
   created_at: string;
 }
