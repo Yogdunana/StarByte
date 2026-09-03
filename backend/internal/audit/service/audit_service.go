@@ -180,7 +180,7 @@ func (s *auditService) exportCSV(logs []model.AuditLog) []byte {
 		}
 		// Escape CSV fields
 		for i, field := range row {
-			row[i] = fmt.Sprintf("\"%s\"", strings.ReplaceAll(field, "\"", "\"\""))
+			row[i] = fmt.Sprintf("%s", strings.ReplaceAll(field, "", ""))
 		}
 		buf.WriteString(strings.Join(row, ","))
 		buf.WriteString("\n")
@@ -239,10 +239,10 @@ func (s *auditService) Archive(ctx context.Context, beforeDays int) (*dto.Archiv
 
 	if len(logs) == 0 {
 		return &dto.ArchiveResponse{
-			ArchiveDate:  archiveDate,
-			RecordCount:  0,
-			Status:       1,
-			Message:      "无需归档的日志",
+			ArchiveDate: archiveDate,
+			RecordCount: 0,
+			Status:      1,
+			Message:     "无需归档的日志",
 		}, nil
 	}
 
@@ -327,7 +327,7 @@ func desensitizeJSON(body string) string {
 		if re == nil {
 			continue
 		}
-		replacement := fmt.Sprintf(`"%s":"[redacted]"`, field)
+		replacement := fmt.Sprintf(`%s:"[redacted]"`, field)
 		result = re.ReplaceAllString(result, replacement)
 	}
 	return result
