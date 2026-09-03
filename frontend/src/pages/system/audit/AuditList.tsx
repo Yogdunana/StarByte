@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Table,
   Card,
@@ -81,9 +81,6 @@ const AuditList: React.FC = () => {
   const [exporting, setExporting] = useState(false);
   const [archiving, setArchiving] = useState(false);
 
-  // 使用 ref 保存最新的筛选条件，避免 useCallback 闭包陷阱
-  const filtersRef = useRef<ListAuditLogParams>({});
-
   const buildParams = useCallback(
     (p: number, ps: number): ListAuditLogParams => {
       const params: ListAuditLogParams = {
@@ -129,7 +126,6 @@ const AuditList: React.FC = () => {
   // 页码变化时加载
   useEffect(() => {
     const params = buildParams(page, pageSize);
-    filtersRef.current = params;
     loadList(params);
   }, [page, pageSize, buildParams, loadList]);
 
@@ -138,7 +134,6 @@ const AuditList: React.FC = () => {
     const newPage = 1;
     setPage(newPage);
     const params = buildParams(newPage, pageSize);
-    filtersRef.current = params;
     loadList(params);
   };
 
@@ -156,7 +151,6 @@ const AuditList: React.FC = () => {
     const newPage = 1;
     setPage(newPage);
     const params: ListAuditLogParams = { page: newPage, page_size: pageSize };
-    filtersRef.current = params;
     loadList(params);
   };
 
@@ -185,6 +179,7 @@ const AuditList: React.FC = () => {
         path: path || undefined,
         ip: ip || undefined,
         operation: operation || undefined,
+        request_id: requestId || undefined,
         status_min: statusMin,
         status_max: statusMax,
       };
