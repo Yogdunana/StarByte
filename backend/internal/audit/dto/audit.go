@@ -28,6 +28,7 @@ type ExportAuditLogRequest struct {
 	Method    string     `form:"method"`
 	Path      string     `form:"path"`
 	IP        string     `form:"ip"`
+	RequestID string     `form:"request_id"`
 	StatusMin *int       `form:"status_min"`
 	StatusMax *int       `form:"status_max"`
 	StartTime *time.Time `form:"start_time" time_format:"2006-01-02T15:04:05Z07:00"`
