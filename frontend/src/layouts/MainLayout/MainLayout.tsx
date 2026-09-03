@@ -14,6 +14,7 @@ import {
   ReadOutlined,
   BarChartOutlined,
   SettingOutlined,
+  BellOutlined,
 } from '@ant-design/icons';
 
 import TopBar from './components/TopBar';
@@ -36,6 +37,7 @@ const iconMap: Record<string, React.FC> = {
   ReadOutlined,
   BarChartOutlined,
   SettingOutlined,
+  BellOutlined,
 };
 
 export interface MainLayoutProps {
