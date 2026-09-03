@@ -111,7 +111,7 @@ const AuditList: React.FC = () => {
 
   // 加载审计日志列表
   const loadList = useCallback(
-    async (p: number, ps: number, params: ListAuditLogParams) => {
+    async (params: ListAuditLogParams) => {
       setLoading(true);
       try {
         const res = await getAuditLogList(params);
@@ -130,7 +130,7 @@ const AuditList: React.FC = () => {
   useEffect(() => {
     const params = buildParams(page, pageSize);
     filtersRef.current = params;
-    loadList(page, pageSize, params);
+    loadList(params);
   }, [page, pageSize, buildParams, loadList]);
 
   // 搜索
@@ -139,7 +139,7 @@ const AuditList: React.FC = () => {
     setPage(newPage);
     const params = buildParams(newPage, pageSize);
     filtersRef.current = params;
-    loadList(newPage, pageSize, params);
+    loadList(params);
   };
 
   // 重置
@@ -157,7 +157,7 @@ const AuditList: React.FC = () => {
     setPage(newPage);
     const params: ListAuditLogParams = { page: newPage, page_size: pageSize };
     filtersRef.current = params;
-    loadList(newPage, pageSize, params);
+    loadList(params);
   };
 
   // 查看详情
@@ -213,8 +213,7 @@ const AuditList: React.FC = () => {
         try {
           const res = await triggerArchive(90);
           message.success(res.message || `成功归档 ${res.record_count} 条日志`);
-          const params = buildParams(page, pageSize);
-          loadList(page, pageSize, params);
+          loadList(buildParams(page, pageSize));
         } catch {
           message.error('归档失败');
         } finally {
