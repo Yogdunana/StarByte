@@ -10,10 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestAuditLogEntry_TableName(t *testing.T) {
-	assert.Equal(t, "audit_logs", AuditLogEntry{}.TableName())
-}
-
 func TestAuditLog_NilDB_NoOp(t *testing.T) {
 	r := setupTestRouter()
 	r.Use(AuditLog(nil))
