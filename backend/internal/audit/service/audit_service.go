@@ -322,12 +322,14 @@ func Desensitize(params string) string {
 // 使用预编译的正则表达式，线程安全
 func desensitizeJSON(body string) string {
 	result := body
+	quote := string('"')
 	for _, field := range sensitiveFields {
 		re := getPattern(field)
 		if re == nil {
 			continue
 		}
-		replacement := fmt.Sprintf(`"%s":[redacted]`, field)
+		// Build replacement: field:[redacted]
+		replacement := quote + field + quote + `:` + quote + `[redacted]` + quote
 		result = re.ReplaceAllString(result, replacement)
 	}
 	return result
