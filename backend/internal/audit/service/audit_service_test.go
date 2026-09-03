@@ -62,14 +62,14 @@ func TestExportCSV_BasicFormat(t *testing.T) {
 	s := &auditService{}
 	logs := []model.AuditLog{
 		{
-			Username: "admin",
-			Operation: "POST /api/v1/users",
-			Method: "POST",
-			Path: "/api/v1/users",
-			IP: "192.168.1.1",
+			Username:       "admin",
+			Operation:      "POST /api/v1/users",
+			Method:         "POST",
+			Path:           "/api/v1/users",
+			IP:             "192.168.1.1",
 			ResponseStatus: 200,
-			DurationMs: 45,
-			RequestID: "req-123",
+			DurationMs:     45,
+			RequestID:      "req-123",
 		},
 	}
 
@@ -123,14 +123,14 @@ func TestExportJSON_BasicFormat(t *testing.T) {
 	s := &auditService{}
 	logs := []model.AuditLog{
 		{
-			Username: "admin",
-			Operation: "POST /api/v1/users",
-			Method: "POST",
-			Path: "/api/v1/users",
-			IP: "192.168.1.1",
+			Username:       "admin",
+			Operation:      "POST /api/v1/users",
+			Method:         "POST",
+			Path:           "/api/v1/users",
+			IP:             "192.168.1.1",
 			ResponseStatus: 200,
-			DurationMs: 45,
-			RequestID: "req-123",
+			DurationMs:     45,
+			RequestID:      "req-123",
 		},
 	}
 
