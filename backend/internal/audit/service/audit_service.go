@@ -180,7 +180,7 @@ func (s *auditService) exportCSV(logs []model.AuditLog) []byte {
 		}
 		// Escape CSV fields
 		for i, field := range row {
-			row[i] = fmt.Sprintf("%s", strings.ReplaceAll(field, "", ""))
+			row[i] = `"` + strings.ReplaceAll(field, `"`, `""`) + `"`
 		}
 		buf.WriteString(strings.Join(row, ","))
 		buf.WriteString("\n")
@@ -327,7 +327,7 @@ func desensitizeJSON(body string) string {
 		if re == nil {
 			continue
 		}
-		replacement := fmt.Sprintf(`%s:"[redacted]"`, field)
+		replacement := fmt.Sprintf(`"%s":[redacted]`, field)
 		result = re.ReplaceAllString(result, replacement)
 	}
 	return result
