@@ -138,7 +138,11 @@ func (s *authService) RefreshToken(ctx context.Context, req *dto.RefreshTokenReq
 	}
 
 	// 3. Query user
-	user, err := s.userRepo.GetByID(ctx, uuid.MustParse(userID))
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, response.NewError(response.CodeTokenInvalid, "无效的用户标识")
+	}
+	user, err := s.userRepo.GetByID(ctx, userUUID)
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}
@@ -150,7 +154,6 @@ func (s *authService) RefreshToken(ctx context.Context, req *dto.RefreshTokenReq
 	}
 
 	// 4. Get roles and permissions
-	userUUID, _ := uuid.Parse(user.ID.String())
 	roles, permissions := s.getUserRolesAndPermissions(ctx, userUUID)
 
 	// 5. Generate new access token
@@ -198,7 +201,11 @@ func (s *authService) Logout(ctx context.Context, userID, tokenID, refreshToken 
 
 // GetCurrentUser returns the current user's information including roles and permissions.
 func (s *authService) GetCurrentUser(ctx context.Context, userID string) (*dto.UserInfo, error) {
-	user, err := s.userRepo.GetByID(ctx, uuid.MustParse(userID))
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, response.NewError(response.CodeTokenInvalid, "无效的用户标识")
+	}
+	user, err := s.userRepo.GetByID(ctx, userUUID)
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}
@@ -206,7 +213,6 @@ func (s *authService) GetCurrentUser(ctx context.Context, userID string) (*dto.U
 		return nil, response.NewError(response.CodeUserNotFound, "用户不存在")
 	}
 
-	userUUID, _ := uuid.Parse(user.ID.String())
 	roles, permissions := s.getUserRolesAndPermissions(ctx, userUUID)
 
 	return buildUserInfo(user, roles, permissions), nil
@@ -221,7 +227,11 @@ func (s *authService) ChangePassword(ctx context.Context, userID string, req *dt
 	}
 
 	// 2. Query user
-	user, err := s.userRepo.GetByID(ctx, uuid.MustParse(userID))
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return response.NewError(response.CodeTokenInvalid, "无效的用户标识")
+	}
+	user, err := s.userRepo.GetByID(ctx, userUUID)
 	if err != nil {
 		return fmt.Errorf("get user: %w", err)
 	}
@@ -263,10 +273,12 @@ func (s *authService) getUserRolesAndPermissions(ctx context.Context, userID uui
 	if err != nil || isSuperAdmin {
 		return []string{"super_admin"}, []string{"*"}
 	}
-	// For non-super-admin users, we return role codes as roles.
-	// In a production system, we'd fetch role codes here; for now,
-	// permissions suffice and the frontend handles role-based UI.
-	return nil, permissions
+	// For non-super-admin users, query actual role codes.
+	roles, err := s.permCacheSvc.GetUserRoleCodes(ctx, userID)
+	if err != nil {
+		return nil, permissions
+	}
+	return roles, permissions
 }
 
 // buildUserInfo constructs the UserInfo response from a User model.

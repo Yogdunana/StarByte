@@ -94,6 +94,13 @@ const authSlice = createSlice({
         state.refreshToken = action.payload.refresh_token;
         saveToken(action.payload.access_token);
         setRefreshToken(action.payload.refresh_token);
+      })
+      .addCase(refreshToken.rejected, (state, action) => {
+        state.token = '';
+        state.refreshToken = '';
+        state.isAuthenticated = false;
+        state.error = action.payload as string;
+        removeToken();
       });
   },
 });

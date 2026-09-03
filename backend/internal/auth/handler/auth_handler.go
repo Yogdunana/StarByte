@@ -74,18 +74,20 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 // @Summary 用户登出
 // @Description 退出登录，使当前 Access Token 加入黑名单，Refresh Token 失效
 // @Tags 认证
+// @Accept json
 // @Produce json
 // @Security Bearer
+// @Param request body dto.LogoutRequest false "登出信息（refresh_token 可选）"
 // @Success 200 {object} response.Response
 // @Router /auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
 	userID := authmiddleware.GetUserID(c)
 	tokenID := authmiddleware.GetTokenID(c)
 
-	// Refresh token is optional in logout (client sends it if available)
-	refreshToken := c.GetHeader("X-Refresh-Token")
+	var req dto.LogoutRequest
+	_ = c.ShouldBindJSON(&req) // best-effort: body is optional
 
-	err := h.authService.Logout(c.Request.Context(), userID, tokenID, refreshToken)
+	err := h.authService.Logout(c.Request.Context(), userID, tokenID, req.RefreshToken)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -150,8 +152,8 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 // @Success 200 {object} response.Response
 // @Router /auth/wechat/qrcode [post]
 func (h *AuthHandler) WechatQRCode(c *gin.Context) {
-	response.OK(c, gin.H{
-		"status":  "not_implemented",
+	c.JSON(501, gin.H{
+		"code":    response.CodeNotFound,
 		"message": "微信扫码登录功能暂未开通",
 	})
 }
@@ -166,8 +168,8 @@ func (h *AuthHandler) WechatQRCode(c *gin.Context) {
 // @Success 200 {object} response.Response
 // @Router /auth/wechat/callback [post]
 func (h *AuthHandler) WechatCallback(c *gin.Context) {
-	response.OK(c, gin.H{
-		"status":  "not_implemented",
+	c.JSON(501, gin.H{
+		"code":    response.CodeNotFound,
 		"message": "微信登录回调功能暂未开通",
 	})
 }
@@ -184,8 +186,8 @@ func (h *AuthHandler) WechatCallback(c *gin.Context) {
 // @Router /auth/oauth/{provider} [post]
 func (h *AuthHandler) OAuthLogin(c *gin.Context) {
 	provider := c.Param("provider")
-	response.OK(c, gin.H{
-		"status":   "not_implemented",
+	c.JSON(501, gin.H{
+		"code":     response.CodeNotFound,
 		"message":  "第三方 OAuth 登录功能暂未开通",
 		"provider": provider,
 	})
@@ -194,15 +196,22 @@ func (h *AuthHandler) OAuthLogin(c *gin.Context) {
 // RegisterRoutes registers all authentication routes.
 // public routes (no auth): login, refresh, wechat, oauth
 // protected routes (auth): logout, me, password
+// loginRateLimiter is an optional middleware applied to the login endpoint
+// for brute-force protection (e.g., 5 req/min). Pass nil to skip.
 func RegisterRoutes(
 	public *gin.RouterGroup,
 	protected *gin.RouterGroup,
 	handler *AuthHandler,
+	loginRateLimiter gin.HandlerFunc,
 ) {
 	if public != nil {
 		authGroup := public.Group("/auth")
 		{
-			authGroup.POST("/login", handler.Login)
+			if loginRateLimiter != nil {
+				authGroup.POST("/login", loginRateLimiter, handler.Login)
+			} else {
+				authGroup.POST("/login", handler.Login)
+			}
 			authGroup.POST("/refresh", handler.RefreshToken)
 			authGroup.POST("/wechat/qrcode", handler.WechatQRCode)
 			authGroup.POST("/wechat/callback", handler.WechatCallback)

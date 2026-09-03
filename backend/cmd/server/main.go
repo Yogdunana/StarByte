@@ -152,7 +152,8 @@ func main() {
 		})
 
 		// 认证路由（登录、刷新、第三方登录预留）
-		authHandler.RegisterRoutes(public, nil, authH)
+		// 登录端点额外应用 LoginRateLimit（5 req/min，防暴力破解）
+		authHandler.RegisterRoutes(public, nil, authH, middleware.RateLimitWithFallback(redis.Client(), middleware.LoginRateLimit))
 
 		// 注册仍由 user handler 处理
 		public.POST("/auth/register", userHandler.Register)
@@ -163,11 +164,11 @@ func main() {
 	// AuditLog 在 JWTAuth 之前以捕获失败认证尝试
 	protected := api.Group("")
 	protected.Use(middleware.AuditLog(database.DB()))
-	protected.Use(authmiddleware.JWTAuth(&cfg.JWT))
+	protected.Use(authmiddleware.JWTAuth(&cfg.JWT, redis.Client()))
 	protected.Use(middleware.RateLimit(redis.Client(), middleware.PerIPRateLimit))
 	{
 		// 认证路由（登出、当前用户、修改密码）
-		authHandler.RegisterRoutes(nil, protected, authH)
+		authHandler.RegisterRoutes(nil, protected, authH, nil)
 
 		// 用户模块
 		handler.RegisterUserRoutes(protected, userHandler)

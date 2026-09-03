@@ -56,6 +56,8 @@ type PermissionCacheService interface {
 	IsSuperAdmin(ctx context.Context, userID uuid.UUID) (bool, error)
 	// GetUserPermissionsAndSuperAdmin 同时获取用户权限列表和超级管理员身份（使用 Pipeline 减少 Redis 往返）
 	GetUserPermissionsAndSuperAdmin(ctx context.Context, userID uuid.UUID) ([]string, bool, error)
+	// GetUserRoleCodes 获取用户的角色编码列表（不含已过期和已禁用的角色）
+	GetUserRoleCodes(ctx context.Context, userID uuid.UUID) ([]string, error)
 }
 
 type permissionCacheService struct {
@@ -297,4 +299,22 @@ func (s *permissionCacheService) checkIsSuperAdmin(ctx context.Context, userID u
 		return false, fmt.Errorf("check super admin: %w", err)
 	}
 	return result, nil
+}
+
+// GetUserRoleCodes 查询用户拥有的角色编码列表
+// 过滤已过期关联和已禁用角色，直接查询数据库（无缓存，调用频率低）
+func (s *permissionCacheService) GetUserRoleCodes(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	var codes []string
+	err := s.db.WithContext(ctx).Raw(`
+		SELECT r.code
+		FROM user_roles ur
+		JOIN roles r ON ur.role_id = r.id
+		WHERE ur.user_id = ?
+		  AND r.status = 0
+		  AND (ur.expired_at IS NULL OR ur.expired_at > NOW())
+	`, userID).Scan(&codes).Error
+	if err != nil {
+		return nil, fmt.Errorf("get user role codes: %w", err)
+	}
+	return codes, nil
 }

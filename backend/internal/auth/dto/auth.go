@@ -21,6 +21,11 @@ type ChangePasswordRequest struct {
 	NewPassword string `json:"new_password" binding:"required,min=8,max=50"`
 }
 
+// LogoutRequest 登出请求
+type LogoutRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
 // WechatLoginRequest 微信扫码登录请求（预留）
 type WechatLoginRequest struct {
 	Code string `json:"code" binding:"required"`
@@ -63,14 +68,4 @@ type RefreshResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 	ExpiresIn    int64  `json:"expires_in"`
-}
-
-// SessionInfo 会话信息
-type SessionInfo struct {
-	TokenID   string    `json:"token_id"`
-	IP        string    `json:"ip"`
-	UserAgent string    `json:"user_agent"`
-	LoginAt   time.Time `json:"login_at"`
-	ExpiresAt time.Time `json:"expires_at"`
-	IsCurrent bool      `json:"is_current"`
 }

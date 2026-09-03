@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -39,15 +41,6 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-// TokenPair holds a freshly generated access/refresh token pair together with
-// their expiry times.
-type TokenPair struct {
-	AccessToken         string
-	RefreshToken        string
-	AccessTokenExpires  time.Time
-	RefreshTokenExpires time.Time
-}
-
 // GenerateAccessToken creates a signed access token for the given user.
 func GenerateAccessToken(userID string, username string, roles, permissions []string, cfg *config.JWTConfig) (string, time.Time, error) {
 	now := time.Now()
@@ -72,55 +65,6 @@ func GenerateAccessToken(userID string, username string, roles, permissions []st
 		return "", time.Time{}, fmt.Errorf("sign access token: %w", err)
 	}
 	return accessToken, accessExp, nil
-}
-
-// GenerateTokenPair creates a signed access token for the given user.
-// Deprecated: Use GenerateAccessToken + auth repo's StoreRefreshToken instead.
-func GenerateTokenPair(userID string, username string, cfg *config.JWTConfig) (*TokenPair, error) {
-	now := time.Now()
-	accessExp := now.Add(time.Duration(cfg.AccessTokenExp) * time.Second)
-	refreshExp := now.Add(time.Duration(cfg.RefreshTokenExp) * time.Second)
-
-	accessClaims := &Claims{
-		UserID:    userID,
-		Username:  username,
-		TokenType: AccessTokenType,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ID:        uuid.NewString(),
-			Issuer:    cfg.Issuer,
-			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(accessExp),
-		},
-	}
-
-	refreshClaims := &Claims{
-		UserID:    userID,
-		Username:  username,
-		TokenType: RefreshTokenType,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ID:        uuid.NewString(),
-			Issuer:    cfg.Issuer,
-			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(refreshExp),
-		},
-	}
-
-	accessToken, err := signToken(accessClaims, cfg.Secret)
-	if err != nil {
-		return nil, fmt.Errorf("sign access token: %w", err)
-	}
-
-	refreshToken, err := signToken(refreshClaims, cfg.Secret)
-	if err != nil {
-		return nil, fmt.Errorf("sign refresh token: %w", err)
-	}
-
-	return &TokenPair{
-		AccessToken:         accessToken,
-		RefreshToken:        refreshToken,
-		AccessTokenExpires:  accessExp,
-		RefreshTokenExpires: refreshExp,
-	}, nil
 }
 
 func signToken(claims *Claims, secret string) (string, error) {
@@ -155,7 +99,9 @@ func ParseToken(tokenString string, cfg *config.JWTConfig) (*Claims, error) {
 
 // JWTAuth is a gin middleware that validates a Bearer access token from the
 // Authorization header and stores the user id and username in the context.
-func JWTAuth(cfg *config.JWTConfig) gin.HandlerFunc {
+// If a Redis client is provided, it also checks the token blacklist to ensure
+// logged-out tokens are immediately invalidated.
+func JWTAuth(cfg *config.JWTConfig, rdb *redis.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
@@ -178,6 +124,19 @@ func JWTAuth(cfg *config.JWTConfig) gin.HandlerFunc {
 		if claims.TokenType != AccessTokenType {
 			abortUnauthorized(c, "invalid token type")
 			return
+		}
+
+		// Check token blacklist (if Redis is available)
+		if rdb != nil && claims.ID != "" {
+			blacklistKey := fmt.Sprintf("auth:blacklist:%s", claims.ID)
+			n, err := rdb.Exists(c.Request.Context(), blacklistKey).Result()
+			if err != nil {
+				// Redis error: fail open (allow request through) but log
+				_ = n
+			} else if n > 0 {
+				abortUnauthorized(c, "token has been revoked")
+				return
+			}
 		}
 
 		c.Set(ContextKeyUserID, claims.UserID)

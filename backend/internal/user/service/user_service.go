@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -10,8 +9,6 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/user/model"
 	"github.com/Yogdunana/StarByte/backend/internal/user/repo"
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
-	authmiddleware "github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
-	"github.com/Yogdunana/StarByte/backend/pkg/redis"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/Yogdunana/StarByte/backend/pkg/utils"
 	"github.com/google/uuid"
@@ -22,9 +19,6 @@ import (
 type UserService interface {
 	// 认证相关
 	Register(ctx context.Context, req *dto.RegisterRequest) (*model.User, error)
-	Login(ctx context.Context, req *dto.LoginRequest, ip string) (*dto.LoginResponse, error)
-	RefreshToken(ctx context.Context, refreshToken string) (*dto.LoginResponse, error)
-	Logout(ctx context.Context, userID string, tokenID string) error
 	ChangePassword(ctx context.Context, userID string, req *dto.ChangePasswordRequest) error
 
 	// 用户管理
@@ -93,130 +87,6 @@ func (s *userService) Register(ctx context.Context, req *dto.RegisterRequest) (*
 	}
 
 	return user, nil
-}
-
-func (s *userService) Login(ctx context.Context, req *dto.LoginRequest, ip string) (*dto.LoginResponse, error) {
-	// 查询用户
-	user, err := s.userRepo.GetByUsername(ctx, req.Username)
-	if err != nil {
-		return nil, fmt.Errorf("get user: %w", err)
-	}
-	if user == nil {
-		return nil, response.NewError(2002, "用户名或密码错误")
-	}
-
-	// 检查用户状态
-	if user.Status == 1 {
-		return nil, response.NewError(2003, "账号已被禁用")
-	}
-	if user.Status == 2 {
-		return nil, response.NewError(2004, "账号已被锁定")
-	}
-
-	// 校验密码
-	if !utils.CheckPassword(req.Password, user.PasswordHash) {
-		return nil, response.NewError(2002, "用户名或密码错误")
-	}
-
-	// 生成 Token
-	tokenPair, err := authmiddleware.GenerateTokenPair(user.ID.String(), user.Username, s.jwtConfig)
-	if err != nil {
-		return nil, fmt.Errorf("generate token: %w", err)
-	}
-
-	// 更新最后登录信息
-	_ = s.userRepo.UpdateLastLogin(ctx, user.ID, ip)
-
-	// 构建用户信息
-	userInfo := &dto.UserInfoResponse{
-		ID:        user.ID.String(),
-		Username:  user.Username,
-		RealName:  user.RealName,
-		AvatarURL: user.AvatarURL,
-		Email:     user.Email,
-		Phone:     user.Phone,
-		Gender:    user.Gender,
-		Status:    user.Status,
-		CreatedAt: user.CreatedAt.Format(time.RFC3339),
-	}
-
-	return &dto.LoginResponse{
-		AccessToken:         tokenPair.AccessToken,
-		RefreshToken:        tokenPair.RefreshToken,
-		AccessTokenExpires:  tokenPair.AccessTokenExpires.Unix(),
-		RefreshTokenExpires: tokenPair.RefreshTokenExpires.Unix(),
-		User:                userInfo,
-	}, nil
-}
-
-func (s *userService) RefreshToken(ctx context.Context, refreshToken string) (*dto.LoginResponse, error) {
-	// 解析 Refresh Token
-	claims, err := authmiddleware.ParseToken(refreshToken, s.jwtConfig)
-	if err != nil {
-		return nil, response.NewError(2005, "Refresh Token 无效或已过期")
-	}
-
-	// 检查 Token 类型
-	if claims.TokenType != authmiddleware.RefreshTokenType {
-		return nil, response.NewError(2006, "Token 类型错误")
-	}
-
-	// 检查是否在黑名单中
-	blacklistKey := "jwt:blacklist:" + claims.ID
-	exists, _ := redis.Exists(ctx, blacklistKey)
-	if exists {
-		return nil, response.NewError(2007, "Token 已失效")
-	}
-
-	// 查询用户
-	user, err := s.userRepo.GetByID(ctx, uuid.MustParse(claims.UserID))
-	if err != nil {
-		return nil, fmt.Errorf("get user: %w", err)
-	}
-	if user == nil || user.Status != 0 {
-		return nil, response.NewError(2008, "用户不存在或已被禁用")
-	}
-
-	// 生成新的 Token 对
-	tokenPair, err := authmiddleware.GenerateTokenPair(user.ID.String(), user.Username, s.jwtConfig)
-	if err != nil {
-		return nil, fmt.Errorf("generate token: %w", err)
-	}
-
-	// 将旧的 Refresh Token 加入黑名单
-	ttl := int(time.Until(claims.ExpiresAt.Time).Seconds())
-	if ttl > 0 {
-		_ = redis.Get().Set(ctx, blacklistKey, "1", 0).Err()
-	}
-
-	userInfo := &dto.UserInfoResponse{
-		ID:        user.ID.String(),
-		Username:  user.Username,
-		RealName:  user.RealName,
-		AvatarURL: user.AvatarURL,
-		Email:     user.Email,
-		Phone:     user.Phone,
-		Gender:    user.Gender,
-		Status:    user.Status,
-		CreatedAt: user.CreatedAt.Format(time.RFC3339),
-	}
-
-	return &dto.LoginResponse{
-		AccessToken:         tokenPair.AccessToken,
-		RefreshToken:        tokenPair.RefreshToken,
-		AccessTokenExpires:  tokenPair.AccessTokenExpires.Unix(),
-		RefreshTokenExpires: tokenPair.RefreshTokenExpires.Unix(),
-		User:                userInfo,
-	}, nil
-}
-
-func (s *userService) Logout(ctx context.Context, userID string, tokenID string) error {
-	// 将 Access Token 加入黑名单
-	if tokenID != "" {
-		key := "jwt:blacklist:" + tokenID
-		_ = redis.Get().Set(ctx, key, "1", 0).Err()
-	}
-	return nil
 }
 
 func (s *userService) ChangePassword(ctx context.Context, userID string, req *dto.ChangePasswordRequest) error {
@@ -440,6 +310,3 @@ func formatTimePtr(t *time.Time) string {
 	}
 	return t.Format(time.RFC3339)
 }
-
-// 避免 errors 未使用告警（实际会用）
-var _ = errors.New

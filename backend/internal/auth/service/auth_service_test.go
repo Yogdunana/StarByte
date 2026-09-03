@@ -168,6 +168,11 @@ func (m *mockPermCache) GetUserPermissionsAndSuperAdmin(ctx context.Context, use
 	return args.Get(0).([]string), args.Bool(1), args.Error(2)
 }
 
+func (m *mockPermCache) GetUserRoleCodes(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).([]string), args.Error(1)
+}
+
 // setup creates a test service with mocks
 func setupTestService() (*authService, *mockUserRepo, *mockAuthRepo, *mockPermCache) {
 	jwtConfig := &config.JWTConfig{
@@ -211,6 +216,7 @@ func TestLogin_Success(t *testing.T) {
 	userRepo.On("GetByUsername", ctx, "testuser").Return(user, nil)
 	authRepo.On("ResetLoginAttempts", ctx, "testuser").Return(nil)
 	permCache.On("GetUserPermissionsAndSuperAdmin", ctx, userID).Return([]string{"user:read"}, false, nil)
+	permCache.On("GetUserRoleCodes", ctx, userID).Return([]string{"user"}, nil)
 	authRepo.On("StoreRefreshToken", ctx, mock.Anything, userID.String(), mock.Anything).Return(nil)
 	authRepo.On("StoreSession", ctx, userID.String(), mock.Anything, "127.0.0.1", mock.Anything, mock.Anything).Return(nil)
 	userRepo.On("UpdateLastLogin", ctx, userID, "127.0.0.1").Return(nil)
@@ -228,6 +234,7 @@ func TestLogin_Success(t *testing.T) {
 	assert.NotNil(t, result.User)
 	assert.Equal(t, "testuser", result.User.Username)
 	assert.Equal(t, []string{"user:read"}, result.User.Permissions)
+	assert.Equal(t, []string{"user"}, result.User.Roles)
 }
 
 func TestLogin_UserNotFound(t *testing.T) {
@@ -359,6 +366,7 @@ func TestRefreshToken_Success(t *testing.T) {
 	authRepo.On("DeleteRefreshToken", ctx, "valid-refresh-token").Return(nil)
 	userRepo.On("GetByID", ctx, userID).Return(user, nil)
 	permCache.On("GetUserPermissionsAndSuperAdmin", ctx, userID).Return([]string{"user:read"}, false, nil)
+	permCache.On("GetUserRoleCodes", ctx, userID).Return([]string{"user"}, nil)
 	authRepo.On("StoreRefreshToken", ctx, mock.Anything, userID.String(), mock.Anything).Return(nil)
 
 	result, err := svc.RefreshToken(ctx, &dto.RefreshTokenRequest{
@@ -516,6 +524,7 @@ func TestGetCurrentUser_Success(t *testing.T) {
 
 	userRepo.On("GetByID", ctx, userID).Return(user, nil)
 	permCache.On("GetUserPermissionsAndSuperAdmin", ctx, userID).Return([]string{"user:read", "user:write"}, false, nil)
+	permCache.On("GetUserRoleCodes", ctx, userID).Return([]string{"user"}, nil)
 
 	result, err := svc.GetCurrentUser(ctx, userID.String())
 
@@ -524,6 +533,7 @@ func TestGetCurrentUser_Success(t *testing.T) {
 	assert.Equal(t, "testuser", result.Username)
 	assert.Equal(t, "Test User", result.RealName)
 	assert.Equal(t, []string{"user:read", "user:write"}, result.Permissions)
+	assert.Equal(t, []string{"user"}, result.Roles)
 }
 
 func TestGetCurrentUser_UserNotFound(t *testing.T) {
@@ -564,4 +574,151 @@ func TestGetCurrentUser_SuperAdmin(t *testing.T) {
 	assert.NotNil(t, result)
 	assert.Equal(t, []string{"*"}, result.Permissions)
 	assert.Equal(t, []string{"super_admin"}, result.Roles)
+}
+
+// ========== Edge case tests ==========
+
+func TestChangePassword_UserNotFound(t *testing.T) {
+	svc, userRepo, _, _ := setupTestService()
+	ctx := context.Background()
+	userID := uuid.New()
+
+	userRepo.On("GetByID", ctx, userID).Return((*model.User)(nil), nil)
+
+	err := svc.ChangePassword(ctx, userID.String(), &dto.ChangePasswordRequest{
+		OldPassword: "oldpass123",
+		NewPassword: "newpass456",
+	})
+
+	assert.Error(t, err)
+	var appErr *response.AppError
+	assert.True(t, errors.As(err, &appErr))
+	assert.Equal(t, response.CodeUserNotFound, appErr.Code)
+}
+
+func TestChangePassword_InvalidUUID(t *testing.T) {
+	svc, _, _, _ := setupTestService()
+	ctx := context.Background()
+
+	err := svc.ChangePassword(ctx, "not-a-uuid", &dto.ChangePasswordRequest{
+		OldPassword: "oldpass123",
+		NewPassword: "newpass456",
+	})
+
+	assert.Error(t, err)
+	var appErr *response.AppError
+	assert.True(t, errors.As(err, &appErr))
+	assert.Equal(t, response.CodeTokenInvalid, appErr.Code)
+}
+
+func TestGetCurrentUser_InvalidUUID(t *testing.T) {
+	svc, _, _, _ := setupTestService()
+	ctx := context.Background()
+
+	result, err := svc.GetCurrentUser(ctx, "not-a-uuid")
+
+	assert.Nil(t, result)
+	assert.Error(t, err)
+	var appErr *response.AppError
+	assert.True(t, errors.As(err, &appErr))
+	assert.Equal(t, response.CodeTokenInvalid, appErr.Code)
+}
+
+func TestRefreshToken_UserNotFound(t *testing.T) {
+	svc, userRepo, authRepo, _ := setupTestService()
+	ctx := context.Background()
+	userID := uuid.New()
+
+	authRepo.On("GetRefreshTokenUserID", ctx, "valid-refresh-token").Return(userID.String(), nil)
+	authRepo.On("DeleteRefreshToken", ctx, "valid-refresh-token").Return(nil)
+	userRepo.On("GetByID", ctx, userID).Return((*model.User)(nil), nil)
+
+	result, err := svc.RefreshToken(ctx, &dto.RefreshTokenRequest{
+		RefreshToken: "valid-refresh-token",
+	})
+
+	assert.Nil(t, result)
+	assert.Error(t, err)
+	var appErr *response.AppError
+	assert.True(t, errors.As(err, &appErr))
+	assert.Equal(t, response.CodeUserNotFound, appErr.Code)
+}
+
+func TestRefreshToken_InvalidUserID(t *testing.T) {
+	svc, _, authRepo, _ := setupTestService()
+	ctx := context.Background()
+
+	authRepo.On("GetRefreshTokenUserID", ctx, "valid-refresh-token").Return("not-a-uuid", nil)
+	authRepo.On("DeleteRefreshToken", ctx, "valid-refresh-token").Return(nil)
+
+	result, err := svc.RefreshToken(ctx, &dto.RefreshTokenRequest{
+		RefreshToken: "valid-refresh-token",
+	})
+
+	assert.Nil(t, result)
+	assert.Error(t, err)
+	var appErr *response.AppError
+	assert.True(t, errors.As(err, &appErr))
+	assert.Equal(t, response.CodeTokenInvalid, appErr.Code)
+}
+
+func TestLogout_WithEmptyTokens(t *testing.T) {
+	svc, _, authRepo, _ := setupTestService()
+	ctx := context.Background()
+
+	// Neither tokenID nor refreshToken is provided
+	err := svc.Logout(ctx, "user-123", "", "")
+	assert.NoError(t, err)
+
+	// Verify that no Redis operations were called
+	authRepo.AssertNotCalled(t, "BlacklistToken")
+	authRepo.AssertNotCalled(t, "DeleteRefreshToken")
+	authRepo.AssertNotCalled(t, "DeleteSession")
+}
+
+func TestLogout_OnlyAccessToken(t *testing.T) {
+	svc, _, authRepo, _ := setupTestService()
+	ctx := context.Background()
+
+	authRepo.On("BlacklistToken", ctx, "token-jti-456", mock.Anything).Return(nil)
+	authRepo.On("DeleteSession", ctx, "token-jti-456").Return(nil)
+
+	err := svc.Logout(ctx, "user-123", "token-jti-456", "")
+	assert.NoError(t, err)
+
+	authRepo.AssertCalled(t, "BlacklistToken", ctx, "token-jti-456", mock.Anything)
+	authRepo.AssertCalled(t, "DeleteSession", ctx, "token-jti-456")
+	authRepo.AssertNotCalled(t, "DeleteRefreshToken")
+}
+
+func TestLogin_SuperAdminRoles(t *testing.T) {
+	svc, userRepo, authRepo, permCache := setupTestService()
+	ctx := context.Background()
+	userID := uuid.New()
+
+	user := &model.User{
+		ID:           userID,
+		Username:     "admin",
+		PasswordHash: hashPasswordForTest("password123"),
+		Status:       0,
+	}
+
+	authRepo.On("IsLockedOut", ctx, "admin").Return(false, nil)
+	userRepo.On("GetByUsername", ctx, "admin").Return(user, nil)
+	authRepo.On("ResetLoginAttempts", ctx, "admin").Return(nil)
+	// Super admin: isSuperAdmin=true, so GetUserRoleCodes is NOT called
+	permCache.On("GetUserPermissionsAndSuperAdmin", ctx, userID).Return([]string{}, true, nil)
+	authRepo.On("StoreRefreshToken", ctx, mock.Anything, userID.String(), mock.Anything).Return(nil)
+	authRepo.On("StoreSession", ctx, userID.String(), mock.Anything, "127.0.0.1", mock.Anything, mock.Anything).Return(nil)
+	userRepo.On("UpdateLastLogin", ctx, userID, "127.0.0.1").Return(nil)
+
+	result, err := svc.Login(ctx, &dto.LoginRequest{
+		Username: "admin",
+		Password: "password123",
+	}, "127.0.0.1", "test-agent")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, []string{"super_admin"}, result.User.Roles)
+	assert.Equal(t, []string{"*"}, result.User.Permissions)
 }

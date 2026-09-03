@@ -11,17 +11,6 @@ type RegisterRequest struct {
 	Phone    string `json:"phone" binding:"omitempty,max=20"`
 }
 
-// LoginRequest 登录请求
-type LoginRequest struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
-}
-
-// RefreshTokenRequest 刷新 Token 请求
-type RefreshTokenRequest struct {
-	RefreshToken string `json:"refresh_token" binding:"required"`
-}
-
 // UpdateProfileRequest 更新个人信息请求
 type UpdateProfileRequest struct {
 	RealName  string `json:"real_name" binding:"omitempty,max=50"`
@@ -72,15 +61,6 @@ type UpdateUserRequest struct {
 }
 
 // ========== 响应 DTO ==========
-
-// LoginResponse 登录响应
-type LoginResponse struct {
-	AccessToken         string            `json:"access_token"`
-	RefreshToken        string            `json:"refresh_token"`
-	AccessTokenExpires  int64             `json:"access_token_expires"`
-	RefreshTokenExpires int64             `json:"refresh_token_expires"`
-	User                *UserInfoResponse `json:"user"`
-}
 
 // UserInfoResponse 用户信息响应
 type UserInfoResponse struct {

@@ -2,9 +2,11 @@ package repo
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
+	"github.com/Yogdunana/StarByte/backend/internal/auth/model"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
@@ -166,8 +168,19 @@ func (r *authRepo) GetLockoutTTL(ctx context.Context, username string) (time.Dur
 
 func (r *authRepo) StoreSession(ctx context.Context, userID, tokenID, ip, userAgent string, ttl time.Duration) error {
 	key := fmt.Sprintf(keySession, tokenID)
-	val := fmt.Sprintf("%s|%s|%s", userID, ip, userAgent)
-	return r.rdb.Set(ctx, key, val, ttl).Err()
+	session := model.Session{
+		UserID:    userID,
+		TokenID:   tokenID,
+		IP:        ip,
+		UserAgent: userAgent,
+		LoginAt:   time.Now(),
+		ExpiresAt: time.Now().Add(ttl),
+	}
+	data, err := json.Marshal(session)
+	if err != nil {
+		return fmt.Errorf("marshal session: %w", err)
+	}
+	return r.rdb.Set(ctx, key, string(data), ttl).Err()
 }
 
 func (r *authRepo) DeleteSession(ctx context.Context, tokenID string) error {

@@ -17,8 +17,9 @@ export function refreshToken(refreshToken: string): Promise<RefreshResponse> {
 }
 
 // 登出
-export function logout(): Promise<void> {
-  return request.post('/auth/logout');
+export function logout(refreshToken?: string): Promise<void> {
+  const body = refreshToken ? { refresh_token: refreshToken } : {};
+  return request.post('/auth/logout', body);
 }
 
 // 获取当前用户信息
