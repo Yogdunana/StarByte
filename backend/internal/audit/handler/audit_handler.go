@@ -130,8 +130,13 @@ func (h *AuditHandler) Export(c *gin.Context) {
 // @Router /audit-logs/archive [post]
 func (h *AuditHandler) TriggerArchive(c *gin.Context) {
 	var req dto.ArchiveRequest
-	// 允许空 body，使用默认值
-	_ = c.ShouldBindJSON(&req)
+	// 允许空 body，使用默认值；非空 body 时解析失败返回错误
+	if c.Request.ContentLength > 0 {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			response.BadRequest(c, "参数错误: "+err.Error())
+			return
+		}
+	}
 
 	if req.BeforeDays <= 0 {
 		req.BeforeDays = 90
