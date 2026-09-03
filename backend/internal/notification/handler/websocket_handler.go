@@ -131,14 +131,18 @@ func (h *WSHandler) HandleConnection(c *gin.Context) {
 
 	// 等待读协程退出
 	<-ctx.Done()
-	conn.Close()
+	if err := conn.Close(); err != nil {
+		logger.Error("websocket conn close failed",
+			zap.String("user_id", userID.String()),
+			zap.Error(err))
+	}
 }
 
 // readLoop 读取客户端消息
 func (h *WSHandler) readLoop(ctx context.Context, conn *websocket.Conn, userID uuid.UUID) {
-	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	_ = conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 	conn.SetPongHandler(func(string) error {
-		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		_ = conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 		return nil
 	})
 
@@ -182,7 +186,7 @@ func (h *WSHandler) writeLoop(ctx context.Context, conn *websocket.Conn, userID 
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+			_ = conn.SetWriteDeadline(time.Now().Add(writeTimeout))
 			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}

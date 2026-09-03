@@ -160,8 +160,8 @@ const TemplateList: React.FC = () => {
       }
       setModalVisible(false);
       loadData();
-    } catch (error: any) {
-      if (error.errorFields) return;
+    } catch (error: unknown) {
+      if (error && typeof error === 'object' && 'errorFields' in error) return;
       message.error(editingTemplate ? '更新失败' : '创建失败');
     }
   };
@@ -196,8 +196,8 @@ const TemplateList: React.FC = () => {
         variables,
       });
       setTestResult(result);
-    } catch (error: any) {
-      if (error.errorFields) return;
+    } catch (error: unknown) {
+      if (error && typeof error === 'object' && 'errorFields' in error) return;
       message.error('测试失败');
     } finally {
       setTestLoading(false);

@@ -41,8 +41,8 @@ export const fetchRecentNotifications = createAsyncThunk(
       const params: ListNotificationParams = { page: 1, page_size: 10 };
       const res = await getNotificationList(params);
       return res.list;
-    } catch (error: any) {
-      return rejectWithValue(error.message || '获取通知失败');
+    } catch (error: unknown) {
+      return rejectWithValue(error instanceof Error ? error.message : '获取通知失败');
     }
   },
 );
@@ -54,8 +54,8 @@ export const markNotificationAsRead = createAsyncThunk(
     try {
       await markAsReadApi(id);
       return id;
-    } catch (error: any) {
-      return rejectWithValue(error.message || '标记已读失败');
+    } catch (error: unknown) {
+      return rejectWithValue(error instanceof Error ? error.message : '标记已读失败');
     }
   },
 );

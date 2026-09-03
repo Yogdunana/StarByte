@@ -8,7 +8,7 @@ import {
 } from '@/store/slices/notificationSlice';
 import { selectIsAuthenticated } from '@/store/slices/authSlice';
 import { getToken } from '@/utils/storage';
-import type { WSNotificationMessage } from '@/types/api';
+import type { WSNotificationMessage, NotificationCategory, NotificationPriority } from '@/types/api';
 import type { AppDispatch } from '@/store';
 
 /** 重连最大次数 */
@@ -96,8 +96,8 @@ export function useNotificationWebSocket(): void {
               id: '', // WebSocket 通知可能没有 ID，后续 fetch 会补全
               title: msg.data.title || '',
               content: msg.data.content || '',
-              category: (msg.data.category as any) || 'other',
-              priority: (msg.data.priority as any) || 'normal',
+              category: (msg.data.category as NotificationCategory) || 'other',
+              priority: (msg.data.priority as NotificationPriority) || 'normal',
               is_read: false,
               action_url: msg.data.action_url || '',
               sender: msg.data.sender || { id: '', name: '系统' },
