@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/Yogdunana/StarByte/backend/internal/notification/dto"
-	"github.com/Yogdunana/StarByte/backend/internal/notification/model"
 	"github.com/Yogdunana/StarByte/backend/internal/notification/repo"
 	"github.com/Yogdunana/StarByte/backend/pkg/events"
 	"github.com/Yogdunana/StarByte/backend/pkg/logger"
@@ -107,28 +106,20 @@ func (l *EventListener) sendNotification(ctx context.Context, userID uuid.UUID, 
 		channels = tpl.GetChannels()
 	}
 
-	// 发送站内通知
-	n := &model.Notification{
-		ID:       uuid.New(),
-		UserID:   userID,
-		Title:    rendered.Title,
-		Content:  rendered.Content,
-		Category: category,
-		Priority: "normal",
-		IsRead:   false,
-	}
-	if err := l.notificationRepo.Create(ctx, n); err != nil {
-		return fmt.Errorf("create notification: %w", err)
-	}
-
-	// WebSocket 实时推送
+	// 通过渠道发送通知（in_app 渠道会自动创建站内通知，避免重复创建）
 	msg := &NotificationMessage{
 		UserID:   userID,
 		Title:    rendered.Title,
 		Content:  rendered.Content,
 		Category: category,
+		Priority: "normal",
 	}
-	l.channelRegistry.SendViaChannels(ctx, msg, channels)
+	if errs := l.channelRegistry.SendViaChannels(ctx, msg, channels); len(errs) > 0 {
+		logger.Error("send notification via channels failed",
+			zap.String("template_code", templateCode),
+			zap.String("user_id", userID.String()),
+			zap.Int("error_count", len(errs)))
+	}
 
 	return nil
 }
