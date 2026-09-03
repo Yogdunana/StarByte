@@ -203,7 +203,7 @@ type HubManager interface {
 // Hub WebSocket Hub 实现
 type Hub struct {
 	mu      sync.RWMutex
-	writeMu sync.Mutex // 序列化 WebSocket 写入，防止并发写同一连接
+	writeMu sync.Mutex                             // 序列化 WebSocket 写入，防止并发写同一连接
 	clients map[uuid.UUID]map[*websocket.Conn]bool // 一个用户可能有多个连接
 }
 
