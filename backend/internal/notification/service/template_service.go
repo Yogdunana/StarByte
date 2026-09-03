@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/Yogdunana/StarByte/backend/internal/notification/dto"
@@ -133,16 +132,4 @@ func (s *templateService) Test(ctx context.Context, id uuid.UUID, req *dto.TestT
 		return nil, response.NewError(response.CodeNotificationTplNotFound, "通知模板不存在")
 	}
 	return s.templateEngine.Render(ctx, tpl.Code, req.Variables)
-}
-
-// channelsToJSON 将渠道列表序列化为 JSON 字符串
-func channelsToJSON(channels []string) string {
-	data, _ := json.Marshal(channels)
-	return string(data)
-}
-
-// schemaToJSON 将变量 schema 序列化为 JSON 字符串
-func schemaToJSON(schema map[string]string) string {
-	data, _ := json.Marshal(schema)
-	return string(data)
 }

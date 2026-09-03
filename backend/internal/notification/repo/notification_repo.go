@@ -2,8 +2,6 @@ package repo
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 
 	"github.com/Yogdunana/StarByte/backend/internal/notification/model"
 	"github.com/google/uuid"
@@ -212,22 +210,4 @@ func (r *templateRepo) Delete(ctx context.Context, id uuid.UUID) error {
 		return gorm.ErrRecordNotFound
 	}
 	return nil
-}
-
-// MarshalChannels 序列化渠道列表为 JSON 字符串
-func MarshalChannels(channels []string) string {
-	data, _ := json.Marshal(channels)
-	return string(data)
-}
-
-// UnmarshalChannels 反序列化渠道列表
-func UnmarshalChannels(s string) []string {
-	var channels []string
-	_ = json.Unmarshal([]byte(s), &channels)
-	return channels
-}
-
-// FormatError 格式化 repo 错误信息
-func FormatError(op string, err error) error {
-	return fmt.Errorf("notification repo %s: %w", op, err)
 }

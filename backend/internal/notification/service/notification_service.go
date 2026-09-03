@@ -55,33 +55,42 @@ func (s *notificationService) Send(ctx context.Context, req *dto.SendNotificatio
 		return err
 	}
 
-	// 2. 确定发送渠道
+	// 2. 获取模板配置（渠道 + 分类），仅在渠道未指定时查询
+	category := "system"
 	channels := req.Channels
 	if len(channels) == 0 {
 		tpl, err := s.templateRepo.GetByCode(ctx, req.TemplateCode)
-		if err == nil && tpl.Channels != "" {
-			channels = tpl.GetChannels()
+		if err == nil {
+			if tpl.Category != "" {
+				category = tpl.Category
+			}
+			if tpl.Channels != "" {
+				channels = tpl.GetChannels()
+			}
 		}
 		if len(channels) == 0 {
 			channels = []string{"in_app", "websocket"}
 		}
 	}
 
-	// 3. 为每个用户发送通知
+	// 3. 为每个用户发送通知（收集所有错误，不因单个用户失败而中断）
+	var sendErrs []error
 	for _, userID := range req.UserIDs {
 		msg := &NotificationMessage{
 			UserID:   userID,
 			Title:    rendered.Title,
 			Content:  rendered.Content,
-			Category: "system",
+			Category: category,
 			Priority: "normal",
 		}
-		errs := s.channelRegistry.SendViaChannels(ctx, msg, channels)
-		if len(errs) > 0 {
-			return fmt.Errorf("send notification to user %s: %w", userID, errs[0])
+		if errs := s.channelRegistry.SendViaChannels(ctx, msg, channels); len(errs) > 0 {
+			sendErrs = append(sendErrs, fmt.Errorf("user %s: %w", userID, errs[0]))
 		}
 	}
-
+	if len(sendErrs) > 0 {
+		return fmt.Errorf("send notification failed, %d/%d users failed: %w",
+			len(sendErrs), len(req.UserIDs), sendErrs[0])
+	}
 	return nil
 }
 
@@ -162,6 +171,13 @@ func (s *notificationService) Broadcast(ctx context.Context, req *dto.BroadcastN
 	}
 
 	// 通过 channelRegistry 发送非 in_app 渠道（websocket、email 等）
+	// 过滤掉 in_app，因为已经通过 BatchCreate 批量创建了
+	var otherChannels []string
+	for _, ch := range channels {
+		if ch != "in_app" {
+			otherChannels = append(otherChannels, ch)
+		}
+	}
 	for _, userID := range onlineUserIDs {
 		msg := &NotificationMessage{
 			UserID:   userID,
@@ -169,13 +185,6 @@ func (s *notificationService) Broadcast(ctx context.Context, req *dto.BroadcastN
 			Content:  req.Content,
 			Category: req.Category,
 			Priority: req.Priority,
-		}
-		// 过滤掉 in_app，因为已经通过 BatchCreate 批量创建了
-		var otherChannels []string
-		for _, ch := range channels {
-			if ch != "in_app" {
-				otherChannels = append(otherChannels, ch)
-			}
 		}
 		if len(otherChannels) > 0 {
 			if errs := s.channelRegistry.SendViaChannels(ctx, msg, otherChannels); len(errs) > 0 {

@@ -164,7 +164,7 @@ func main() {
 	tplSvc := notifService.NewTemplateService(tplRepo, tplEngine)
 
 	// 事件总线监听器：监听业务事件并自动发送通知
-	eventListener := notifService.NewEventListener(notifR, tplRepo, tplEngine, channelRegistry, hub)
+	eventListener := notifService.NewEventListener(tplRepo, tplEngine, channelRegistry)
 	eventListener.RegisterAll(eventBus)
 
 	// 通知处理器

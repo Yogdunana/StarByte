@@ -14,27 +14,21 @@ import (
 
 // EventListener 事件总线监听器，监听业务事件并自动发送通知
 type EventListener struct {
-	notificationRepo repo.NotificationRepo
-	templateRepo     repo.NotificationTemplateRepo
-	templateEngine   TemplateEngine
-	channelRegistry  *ChannelRegistry
-	hub              HubManager
+	templateRepo    repo.NotificationTemplateRepo
+	templateEngine  TemplateEngine
+	channelRegistry *ChannelRegistry
 }
 
 // NewEventListener 创建事件监听器
 func NewEventListener(
-	notificationRepo repo.NotificationRepo,
 	templateRepo repo.NotificationTemplateRepo,
 	templateEngine TemplateEngine,
 	channelRegistry *ChannelRegistry,
-	hub HubManager,
 ) *EventListener {
 	return &EventListener{
-		notificationRepo: notificationRepo,
-		templateRepo:     templateRepo,
-		templateEngine:   templateEngine,
-		channelRegistry:  channelRegistry,
-		hub:              hub,
+		templateRepo:    templateRepo,
+		templateEngine:  templateEngine,
+		channelRegistry: channelRegistry,
 	}
 }
 
