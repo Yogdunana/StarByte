@@ -7,8 +7,10 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/notification/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/notification/model"
 	"github.com/Yogdunana/StarByte/backend/internal/notification/repo"
+	"github.com/Yogdunana/StarByte/backend/pkg/logger"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 // NotificationService 通知服务接口
@@ -133,25 +135,33 @@ func (s *notificationService) Broadcast(ctx context.Context, req *dto.BroadcastN
 		channels = []string{"in_app", "websocket"}
 	}
 
-	// 批量创建站内通知
-	var notifications []*model.Notification
-	for _, userID := range onlineUserIDs {
-		notifications = append(notifications, &model.Notification{
-			ID:       uuid.New(),
-			UserID:   userID,
-			Title:    req.Title,
-			Content:  req.Content,
-			Category: req.Category,
-			Priority: req.Priority,
-			IsRead:   false,
-		})
+	// 批量创建站内通知（仅在 channels 包含 in_app 时）
+	hasInApp := false
+	for _, ch := range channels {
+		if ch == "in_app" {
+			hasInApp = true
+			break
+		}
+	}
+	if hasInApp && len(onlineUserIDs) > 0 {
+		var notifications []*model.Notification
+		for _, userID := range onlineUserIDs {
+			notifications = append(notifications, &model.Notification{
+				ID:       uuid.New(),
+				UserID:   userID,
+				Title:    req.Title,
+				Content:  req.Content,
+				Category: req.Category,
+				Priority: req.Priority,
+				IsRead:   false,
+			})
+		}
+		if err := s.notificationRepo.BatchCreate(ctx, notifications); err != nil {
+			return fmt.Errorf("batch create notifications: %w", err)
+		}
 	}
 
-	if err := s.notificationRepo.BatchCreate(ctx, notifications); err != nil {
-		return fmt.Errorf("batch create notifications: %w", err)
-	}
-
-	// WebSocket 实时推送
+	// 通过 channelRegistry 发送非 in_app 渠道（websocket、email 等）
 	for _, userID := range onlineUserIDs {
 		msg := &NotificationMessage{
 			UserID:   userID,
@@ -160,12 +170,19 @@ func (s *notificationService) Broadcast(ctx context.Context, req *dto.BroadcastN
 			Category: req.Category,
 			Priority: req.Priority,
 		}
-		for _, chType := range channels {
-			if chType == "websocket" {
-				ch, ok := s.channelRegistry.Get("websocket")
-				if ok && ch.IsAvailable() {
-					_ = ch.Send(ctx, msg)
-				}
+		// 过滤掉 in_app，因为已经通过 BatchCreate 批量创建了
+		var otherChannels []string
+		for _, ch := range channels {
+			if ch != "in_app" {
+				otherChannels = append(otherChannels, ch)
+			}
+		}
+		if len(otherChannels) > 0 {
+			if errs := s.channelRegistry.SendViaChannels(ctx, msg, otherChannels); len(errs) > 0 {
+				// 广播场景下不因个别渠道失败而中断
+				logger.Error("broadcast notification via channels failed",
+					zap.String("user_id", userID.String()),
+					zap.Int("error_count", len(errs)))
 			}
 		}
 	}

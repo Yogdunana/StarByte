@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/Yogdunana/StarByte/backend/internal/notification/model"
 	"github.com/Yogdunana/StarByte/backend/internal/notification/repo"
@@ -201,6 +202,8 @@ type HubManager interface {
 
 // Hub WebSocket Hub 实现
 type Hub struct {
+	mu      sync.RWMutex
+	writeMu sync.Mutex // 序列化 WebSocket 写入，防止并发写同一连接
 	clients map[uuid.UUID]map[*websocket.Conn]bool // 一个用户可能有多个连接
 }
 
@@ -213,6 +216,8 @@ func NewHub() *Hub {
 
 // RegisterClient 注册客户端连接
 func (h *Hub) RegisterClient(userID uuid.UUID, conn *websocket.Conn) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	if _, ok := h.clients[userID]; !ok {
 		h.clients[userID] = make(map[*websocket.Conn]bool)
 	}
@@ -224,6 +229,8 @@ func (h *Hub) RegisterClient(userID uuid.UUID, conn *websocket.Conn) {
 
 // UnregisterClient 注销客户端连接
 func (h *Hub) UnregisterClient(userID uuid.UUID, conn *websocket.Conn) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	if conns, ok := h.clients[userID]; ok {
 		delete(conns, conn)
 		if len(conns) == 0 {
@@ -236,12 +243,23 @@ func (h *Hub) UnregisterClient(userID uuid.UUID, conn *websocket.Conn) {
 
 // PushToUser 向指定用户推送消息（所有连接）
 func (h *Hub) PushToUser(userID uuid.UUID, message interface{}) error {
+	h.mu.RLock()
 	conns, ok := h.clients[userID]
 	if !ok || len(conns) == 0 {
+		h.mu.RUnlock()
 		return nil // 用户不在线，静默跳过
 	}
-
+	// 复制连接列表，避免在 I/O 期间持有锁
+	connList := make([]*websocket.Conn, 0, len(conns))
 	for conn := range conns {
+		connList = append(connList, conn)
+	}
+	h.mu.RUnlock()
+
+	// 序列化写入：gorilla/websocket 不支持并发写同一连接
+	h.writeMu.Lock()
+	defer h.writeMu.Unlock()
+	for _, conn := range connList {
 		if err := conn.WriteJSON(message); err != nil {
 			logger.Error("websocket push failed",
 				zap.String("user_id", userID.String()),
@@ -259,6 +277,8 @@ func (h *Hub) PushToChannel(channel string, message interface{}) error {
 
 // GetOnlineUsers 获取在线用户列表
 func (h *Hub) GetOnlineUsers() []uuid.UUID {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	users := make([]uuid.UUID, 0, len(h.clients))
 	for userID := range h.clients {
 		users = append(users, userID)
