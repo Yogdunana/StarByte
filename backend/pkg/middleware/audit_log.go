@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	auditModel "github.com/Yogdunana/StarByte/backend/internal/audit/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/logger"
 	"github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/gin-gonic/gin"
@@ -19,31 +20,6 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
-
-// AuditLogEntry represents a row in the audit_logs table. It is written
-// by the AuditLog middleware for every state-changing HTTP request
-// (POST, PUT, PATCH, DELETE).
-type AuditLogEntry struct {
-	ID             uuid.UUID  `gorm:"type:uuid;primaryKey"`
-	UserID         *uuid.UUID `gorm:"type:uuid;index"`
-	Username       string     `gorm:"type:varchar(50)"`
-	Operation      string     `gorm:"type:varchar(100);not null;index"`
-	Method         string     `gorm:"type:varchar(10)"`
-	Path           string     `gorm:"type:varchar(500)"`
-	IP             string     `gorm:"type:varchar(50);index"`
-	UserAgent      string     `gorm:"type:varchar(500)"`
-	RequestParams  string     `gorm:"type:text"`
-	ResponseStatus int        `gorm:"type:int"`
-	ResponseBody   string     `gorm:"type:text"`
-	DurationMs     int        `gorm:"type:int"`
-	RequestID      string     `gorm:"type:varchar(100)"`
-	CreatedAt      time.Time  `gorm:"type:timestamp;default:CURRENT_TIMESTAMP;index"`
-}
-
-// TableName overrides the default GORM table name.
-func (AuditLogEntry) TableName() string {
-	return "audit_logs"
-}
 
 // writeMethods defines the HTTP methods that trigger audit logging.
 // GET and OPTIONS requests are read-only and do not produce audit entries.
@@ -116,7 +92,7 @@ const auditLogWorkerBufferSize = 256
 // prevents unbounded goroutine creation under high load.
 type auditLogWriter struct {
 	db   *gorm.DB
-	ch   chan AuditLogEntry
+	ch   chan auditModel.AuditLog
 	done chan struct{}
 }
 
@@ -149,7 +125,7 @@ func getAuditWriter(db *gorm.DB) *auditLogWriter {
 	if auditWriter == nil {
 		auditWriter = &auditLogWriter{
 			db:   db,
-			ch:   make(chan AuditLogEntry, auditLogWorkerBufferSize),
+			ch:   make(chan auditModel.AuditLog, auditLogWorkerBufferSize),
 			done: make(chan struct{}),
 		}
 		go auditWriter.run()
@@ -177,7 +153,7 @@ func (w *auditLogWriter) run() {
 // prevent blocking the HTTP response. A recover guards against the
 // edge case where the channel is closed during graceful shutdown while
 // a request is still in flight.
-func (w *auditLogWriter) write(entry AuditLogEntry) {
+func (w *auditLogWriter) write(entry auditModel.AuditLog) {
 	if w.db == nil {
 		return
 	}
@@ -326,7 +302,7 @@ func AuditLog(db *gorm.DB) gin.HandlerFunc {
 		}
 
 		// Build audit entry.
-		entry := AuditLogEntry{
+		entry := auditModel.AuditLog{
 			ID:             uuid.New(),
 			UserID:         userID,
 			Username:       username,
