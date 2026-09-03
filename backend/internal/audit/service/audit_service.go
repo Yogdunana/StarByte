@@ -109,7 +109,7 @@ func (s *auditService) GetByID(ctx context.Context, id uuid.UUID) (*dto.AuditLog
 		UserAgent:      log.UserAgent,
 		RequestParams:  Desensitize(log.RequestParams),
 		ResponseStatus: log.ResponseStatus,
-		ResponseBody:   log.ResponseBody,
+		ResponseBody:   Desensitize(log.ResponseBody),
 		DurationMs:     log.DurationMs,
 		RequestID:      log.RequestID,
 		IsArchived:     log.IsArchived,
@@ -129,6 +129,7 @@ func (s *auditService) Export(ctx context.Context, req *dto.ExportAuditLogReques
 		Method:    req.Method,
 		Path:      req.Path,
 		IP:        req.IP,
+		RequestID: req.RequestID,
 		StatusMin: req.StatusMin,
 		StatusMax: req.StatusMax,
 		StartTime: req.StartTime,
@@ -161,21 +162,32 @@ func (s *auditService) exportCSV(logs []model.AuditLog) []byte {
 	buf.Write([]byte{0xEF, 0xBB, 0xBF})
 
 	// Header
-	headers := []string{"ID", "用户名", "操作", "方法", "路径", "IP", "状态码", "耗时(ms)", "请求ID", "时间"}
+	headers := []string{"ID", "用户ID", "用户名", "操作", "方法", "路径", "IP", "UserAgent", "状态码", "耗时(ms)", "请求ID", "已归档", "时间"}
 	buf.WriteString(strings.Join(headers, ","))
 	buf.WriteString("\n")
 
 	for _, log := range logs {
+		userID := ""
+		if log.UserID != nil {
+			userID = log.UserID.String()
+		}
+		isArchived := "否"
+		if log.IsArchived {
+			isArchived = "是"
+		}
 		row := []string{
 			log.ID.String(),
+			userID,
 			log.Username,
 			log.Operation,
 			log.Method,
 			log.Path,
 			log.IP,
+			log.UserAgent,
 			fmt.Sprintf("%d", log.ResponseStatus),
 			fmt.Sprintf("%d", log.DurationMs),
 			log.RequestID,
+			isArchived,
 			log.CreatedAt.Format(time.RFC3339),
 		}
 		// Escape CSV fields
@@ -202,7 +214,7 @@ func (s *auditService) exportJSON(logs []model.AuditLog) ([]byte, error) {
 			UserAgent:      log.UserAgent,
 			RequestParams:  Desensitize(log.RequestParams),
 			ResponseStatus: log.ResponseStatus,
-			ResponseBody:   log.ResponseBody,
+			ResponseBody:   Desensitize(log.ResponseBody),
 			DurationMs:     log.DurationMs,
 			RequestID:      log.RequestID,
 			IsArchived:     log.IsArchived,
@@ -253,10 +265,12 @@ func (s *auditService) Archive(ctx context.Context, beforeDays int) (*dto.Archiv
 	}
 
 	// 3. 上传到 MinIO
+	minioUploadOK := true
 	minioObject := fmt.Sprintf("audit-logs/%s.json", archiveDate)
 	if s.minioCfg != nil && s.minioCfg.Endpoint != "" {
 		err = uploadToMinIO(s.minioCfg, minioObject, archiveData)
 		if err != nil {
+			minioUploadOK = false
 			logger.Error("upload archive to MinIO failed",
 				zap.Error(err),
 				zap.String("archive_date", archiveDate),
@@ -272,12 +286,16 @@ func (s *auditService) Archive(ctx context.Context, beforeDays int) (*dto.Archiv
 	}
 
 	// 5. 创建归档记录
+	archiveStatus := 1 // 成功
+	if !minioUploadOK {
+		archiveStatus = 2 // MinIO 上传失败
+	}
 	archive := &model.AuditLogArchive{
 		ID:          uuid.New(),
 		ArchiveDate: archiveDate,
 		RecordCount: affected,
 		MinIOObject: minioObject,
-		Status:      1, // 成功
+		Status:      archiveStatus,
 	}
 	if err := s.auditRepo.CreateArchive(ctx, archive); err != nil {
 		logger.Error("create archive record failed",
@@ -328,7 +346,7 @@ func desensitizeJSON(body string) string {
 		if re == nil {
 			continue
 		}
-		// Build replacement: field:[redacted]
+		// Build replacement: "field":"[redacted]"
 		replacement := quote + field + quote + `:` + quote + `[redacted]` + quote
 		result = re.ReplaceAllString(result, replacement)
 	}
