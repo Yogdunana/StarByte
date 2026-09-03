@@ -59,6 +59,7 @@ export interface ExportAuditLogParams {
   method?: string;
   path?: string;
   ip?: string;
+  request_id?: string;
   status_min?: number;
   status_max?: number;
   start_time?: string;
