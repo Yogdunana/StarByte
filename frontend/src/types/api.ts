@@ -586,55 +586,125 @@ export interface ListInternshipParams extends ListParams {
 // 通知
 // ============================================================
 
-export type NotificationType = 1 | 2 | 3 | 4;
-// 1=系统通知 2=任务通知 3=会议通知 4=审核通知
+/** 通知优先级 */
+export type NotificationPriority = 'low' | 'normal' | 'high' | 'urgent';
 
+/** 通知分类 */
+export type NotificationCategory =
+  | 'system'
+  | 'task'
+  | 'meeting'
+  | 'approval'
+  | 'interview'
+  | 'other';
+
+/** 通知发送者信息 */
+export interface NotificationSender {
+  id: string;
+  name: string;
+}
+
+/** 通知实体 */
 export interface Notification {
   id: string;
   title: string;
   content: string;
-  type: NotificationType;
+  category: NotificationCategory;
+  priority: NotificationPriority;
   is_read: boolean;
-  sender_id?: string;
-  sender_name?: string;
-  related_type?: string;
-  related_id?: string;
+  action_url: string;
+  sender: NotificationSender;
   created_at: string;
 }
 
+/** 通知模板实体 */
 export interface NotificationTemplate {
   id: string;
-  name: string;
   code: string;
+  name: string;
   title_template: string;
-  content_template: string;
-  type: number;
-  variables: string[];
-  status: number;
+  body_template: string;
+  channels: string[];
+  category: string;
+  variables_schema: Record<string, string>;
+  status: number; // 0=禁用 1=启用
   created_at: string;
   updated_at: string;
 }
 
+/** 通知列表查询参数 */
 export interface ListNotificationParams extends ListParams {
-  type?: NotificationType;
-  is_read?: boolean;
+  category?: NotificationCategory;
+  unread_only?: boolean;
 }
 
+/** 创建通知模板参数 */
 export interface CreateNotificationTemplateParams {
-  name: string;
   code: string;
+  name: string;
   title_template: string;
-  content_template: string;
-  type: number;
-  variables?: string[];
+  body_template: string;
+  channels: string[];
+  category?: string;
+  variables_schema?: Record<string, string>;
 }
 
+/** 更新通知模板参数 */
 export interface UpdateNotificationTemplateParams {
   name?: string;
   title_template?: string;
-  content_template?: string;
+  body_template?: string;
+  channels?: string[];
+  category?: string;
+  variables_schema?: Record<string, string>;
   status?: number;
-  variables?: string[];
+}
+
+/** 测试模板参数 */
+export interface TestTemplateParams {
+  variables: Record<string, unknown>;
+}
+
+/** 测试模板结果 */
+export interface TestTemplateResult {
+  title: string;
+  content: string;
+}
+
+/** 管理员发送通知参数 */
+export interface SendNotificationParams {
+  user_ids: string[];
+  template_code: string;
+  variables?: Record<string, unknown>;
+  channels?: string[];
+}
+
+/** 广播通知参数 */
+export interface BroadcastNotificationParams {
+  title: string;
+  content: string;
+  category?: string;
+  priority?: NotificationPriority;
+  channels?: string[];
+}
+
+/** 模板列表查询参数 */
+export interface ListTemplateParams extends ListParams {
+  keyword?: string;
+}
+
+/** WebSocket 实时通知消息 */
+export interface WSNotificationMessage {
+  type: 'notification' | 'auth_result' | 'pong' | 'connected';
+  data: {
+    title?: string;
+    content?: string;
+    category?: string;
+    priority?: string;
+    action_url?: string;
+    sender?: { id: string; name: string };
+    success?: boolean;
+  };
 }
 
 // ============================================================

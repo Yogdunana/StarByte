@@ -96,8 +96,14 @@ const (
 	CodeStatsInvalidParam     = 11002 // 统计参数无效
 
 	// ===== Notification module (12000-12999) =====
-	CodeNotificationNotFound  = 12001 // 通知不存在
-	CodeNotificationTplExists = 12002 // 通知模板已存在
+	CodeNotificationNotFound    = 12001 // 通知不存在
+	CodeNotificationTplExists   = 12002 // 通知模板已存在
+	CodeNotificationTplNotFound = 12003 // 通知模板不存在
+	CodeNotificationRenderFail  = 12004 // 模板渲染失败（变量缺失）
+	CodeNotificationWSAuthFail  = 12005 // WebSocket 认证失败
+	CodeNotificationEmailFail   = 12006 // 邮件发送失败
+	CodeNotificationBadChannel  = 12007 // 不支持的通知渠道
+	CodeNotificationNoAccess    = 12008 // 无权操作该通知
 )
 
 // ModuleRanges maps each module name to its error-code range [min, max].

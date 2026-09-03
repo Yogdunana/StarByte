@@ -1,0 +1,134 @@
+package service
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/Yogdunana/StarByte/backend/internal/notification/dto"
+	"github.com/Yogdunana/StarByte/backend/internal/notification/model"
+	"github.com/Yogdunana/StarByte/backend/internal/notification/repo"
+	"github.com/Yogdunana/StarByte/backend/pkg/events"
+	"github.com/Yogdunana/StarByte/backend/pkg/logger"
+	"github.com/google/uuid"
+	"go.uber.org/zap"
+)
+
+// EventListener 事件总线监听器，监听业务事件并自动发送通知
+type EventListener struct {
+	notificationRepo repo.NotificationRepo
+	templateRepo     repo.NotificationTemplateRepo
+	templateEngine   TemplateEngine
+	channelRegistry  *ChannelRegistry
+	hub              HubManager
+}
+
+// NewEventListener 创建事件监听器
+func NewEventListener(
+	notificationRepo repo.NotificationRepo,
+	templateRepo repo.NotificationTemplateRepo,
+	templateEngine TemplateEngine,
+	channelRegistry *ChannelRegistry,
+	hub HubManager,
+) *EventListener {
+	return &EventListener{
+		notificationRepo: notificationRepo,
+		templateRepo:     templateRepo,
+		templateEngine:   templateEngine,
+		channelRegistry:  channelRegistry,
+		hub:              hub,
+	}
+}
+
+// RegisterAll 注册所有事件监听
+func (l *EventListener) RegisterAll(eventBus *events.EventBus) {
+	eventBus.Subscribe("task.created", l.onTaskCreated)
+	eventBus.Subscribe("task.assigned", l.onTaskAssigned)
+}
+
+// onTaskCreated 处理流程任务创建事件
+func (l *EventListener) onTaskCreated(ctx context.Context, event events.Event) error {
+	taskEvent, ok := event.(events.TaskCreatedEvent)
+	if !ok {
+		return fmt.Errorf("invalid event type for task.created")
+	}
+
+	if taskEvent.AssigneeID == uuid.Nil {
+		return nil
+	}
+
+	templateCode := "FLOW_TASK_CREATED"
+	variables := map[string]interface{}{
+		"task_name": taskEvent.NodeName,
+		"node_name": taskEvent.NodeName,
+		"task_type": taskEvent.TaskType,
+	}
+
+	return l.sendNotification(ctx, taskEvent.AssigneeID, templateCode, variables, "task")
+}
+
+// onTaskAssigned 处理任务转办事件
+func (l *EventListener) onTaskAssigned(ctx context.Context, event events.Event) error {
+	taskEvent, ok := event.(events.TaskAssignedEvent)
+	if !ok {
+		return fmt.Errorf("invalid event type for task.assigned")
+	}
+
+	if taskEvent.NewAssigneeID == uuid.Nil {
+		return nil
+	}
+
+	templateCode := "TASK_ASSIGNED"
+	variables := map[string]interface{}{
+		"task_id":     taskEvent.TaskID.String(),
+		"instance_id": taskEvent.InstanceID.String(),
+	}
+
+	return l.sendNotification(ctx, taskEvent.NewAssigneeID, templateCode, variables, "task")
+}
+
+// sendNotification 渲染模板并通过渠道发送通知
+func (l *EventListener) sendNotification(ctx context.Context, userID uuid.UUID, templateCode string, variables map[string]interface{}, category string) error {
+	// 尝试渲染模板，如果模板不存在则使用默认内容
+	rendered, err := l.templateEngine.Render(ctx, templateCode, variables)
+	if err != nil {
+		logger.Warn("template render failed, using fallback",
+			zap.String("template_code", templateCode),
+			zap.Error(err))
+		rendered = &dto.TestTemplateResponse{
+			Title:   "新通知",
+			Content: fmt.Sprintf("您有一条新的 %s 通知", category),
+		}
+	}
+
+	// 获取模板配置的渠道
+	channels := []string{"in_app", "websocket"}
+	tpl, err := l.templateRepo.GetByCode(ctx, templateCode)
+	if err == nil && tpl.Channels != "" {
+		channels = tpl.GetChannels()
+	}
+
+	// 发送站内通知
+	n := &model.Notification{
+		ID:       uuid.New(),
+		UserID:   userID,
+		Title:    rendered.Title,
+		Content:  rendered.Content,
+		Category: category,
+		Priority: "normal",
+		IsRead:   false,
+	}
+	if err := l.notificationRepo.Create(ctx, n); err != nil {
+		return fmt.Errorf("create notification: %w", err)
+	}
+
+	// WebSocket 实时推送
+	msg := &NotificationMessage{
+		UserID:   userID,
+		Title:    rendered.Title,
+		Content:  rendered.Content,
+		Category: category,
+	}
+	l.channelRegistry.SendViaChannels(ctx, msg, channels)
+
+	return nil
+}

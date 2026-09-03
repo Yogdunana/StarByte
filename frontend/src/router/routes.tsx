@@ -13,6 +13,8 @@ import PermissionRoute from '@/router/guards/PermissionRoute';
 const Login = lazy(() => import('@/pages/login/Login'));
 const Dashboard = lazy(() => import('@/pages/dashboard/Dashboard'));
 const UserList = lazy(() => import('@/pages/user/UserList'));
+const NotificationList = lazy(() => import('@/pages/notification/NotificationList'));
+const TemplateList = lazy(() => import('@/pages/notification/TemplateList'));
 const Forbidden = lazy(() => import('@/pages/error/Forbidden'));
 
 // 懒加载 fallback
@@ -89,6 +91,22 @@ const routes: AppRouteObject[] = [
             path: 'list',
             element: lazyGuarded(UserList, 'user:read'),
             meta: { title: '用户列表', permission: 'user:read' },
+          },
+        ],
+      },
+      {
+        path: 'notification',
+        meta: { title: '通知管理', icon: 'BellOutlined' },
+        children: [
+          {
+            path: 'list',
+            element: lazyWrap(NotificationList),
+            meta: { title: '通知列表' },
+          },
+          {
+            path: 'templates',
+            element: lazyGuarded(TemplateList, 'notification:template:read'),
+            meta: { title: '模板管理', permission: 'notification:template:read' },
           },
         ],
       },

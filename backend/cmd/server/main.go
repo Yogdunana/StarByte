@@ -12,6 +12,10 @@ import (
 	authHandler "github.com/Yogdunana/StarByte/backend/internal/auth/handler"
 	authRepo "github.com/Yogdunana/StarByte/backend/internal/auth/repo"
 	authService "github.com/Yogdunana/StarByte/backend/internal/auth/service"
+	notifHandler "github.com/Yogdunana/StarByte/backend/internal/notification/handler"
+	notifModel "github.com/Yogdunana/StarByte/backend/internal/notification/model"
+	notifRepo "github.com/Yogdunana/StarByte/backend/internal/notification/repo"
+	notifService "github.com/Yogdunana/StarByte/backend/internal/notification/service"
 	rbacHandler "github.com/Yogdunana/StarByte/backend/internal/rbac/handler"
 	rbacRepo "github.com/Yogdunana/StarByte/backend/internal/rbac/repo"
 	rbacService "github.com/Yogdunana/StarByte/backend/internal/rbac/service"
@@ -71,6 +75,11 @@ func main() {
 	// 3b. 自动迁移工作流引擎表
 	if err := workflow.AutoMigrate(database.DB()); err != nil {
 		logger.Fatal("auto migrate workflow tables failed", zap.Error(err))
+	}
+
+	// 3c. 自动迁移通知模块表
+	if err := database.DB().AutoMigrate(&notifModel.Notification{}, &notifModel.NotificationTemplate{}); err != nil {
+		logger.Fatal("auto migrate notification tables failed", zap.Error(err))
 	}
 
 	// 4. 初始化 Redis
@@ -137,6 +146,32 @@ func main() {
 	eventBus := events.NewEventBus()
 	wfHandlers := workflow.Init(database.DB(), eventBus, logger.GetLogger())
 
+	// 通知模块
+	notifR := notifRepo.NewNotificationRepo(database.DB())
+	tplRepo := notifRepo.NewTemplateRepo(database.DB())
+
+	hub := notifService.NewHub()
+	channelRegistry := notifService.NewChannelRegistry()
+	channelRegistry.Register(notifService.NewInAppChannel(notifR))
+	channelRegistry.Register(notifService.NewEmailChannel(
+		cfg.Email.SMTPHost, cfg.Email.SMTPPort,
+		cfg.Email.Username, cfg.Email.Password, cfg.Email.From,
+	))
+	channelRegistry.Register(notifService.NewWebSocketChannel(hub))
+
+	tplEngine := notifService.NewTemplateEngine(tplRepo)
+	notifSvc := notifService.NewNotificationService(notifR, tplRepo, tplEngine, channelRegistry)
+	tplSvc := notifService.NewTemplateService(tplRepo, tplEngine)
+
+	// 事件总线监听器：监听业务事件并自动发送通知
+	eventListener := notifService.NewEventListener(notifR, tplRepo, tplEngine, channelRegistry, hub)
+	eventListener.RegisterAll(eventBus)
+
+	// 通知处理器
+	notificationHandler := notifHandler.NewNotificationHandler(notifSvc, hub)
+	templateHandler := notifHandler.NewTemplateHandler(tplSvc)
+	wsHandler := notifHandler.NewWSHandler(hub, &cfg.JWT)
+
 	// 10. API 路由组
 	api := r.Group("/api/v1")
 	// API 组限流：全局 1000 req/s
@@ -179,7 +214,13 @@ func main() {
 
 		// 工作流引擎模块
 		wfHandler.RegisterRoutes(protected, wfHandlers.Definition, wfHandlers.Instance, wfHandlers.Task)
+
+		// 通知模块路由
+		notifHandler.RegisterRoutes(protected, protected, notificationHandler, templateHandler, wsHandler)
 	}
+
+	// WebSocket 路由（独立于 API 组，JWT 认证在 handler 内部完成）
+	notifHandler.RegisterWSRoute(r, wsHandler)
 
 	// 11. 404 处理
 	r.NoRoute(func(c *gin.Context) {

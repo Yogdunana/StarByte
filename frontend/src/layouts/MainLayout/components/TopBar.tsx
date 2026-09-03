@@ -1,9 +1,8 @@
 import React from 'react';
-import { Layout, Avatar, Dropdown, Badge, Breadcrumb, Tooltip } from 'antd';
+import { Layout, Avatar, Dropdown, Breadcrumb } from 'antd';
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  BellOutlined,
   UserOutlined,
   LogoutOutlined,
   SettingOutlined,
@@ -15,8 +14,11 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { toggleCollapsed } from '@/store/slices/appSlice';
 import { selectCurrentUser, clearUser } from '@/store/slices/userSlice';
 import { logout as logoutAction } from '@/store/slices/authSlice';
+import { clearNotifications } from '@/store/slices/notificationSlice';
 import { logout as logoutApi } from '@/api/auth';
 import { removeToken } from '@/utils/storage';
+import { useNotificationWebSocket } from '@/hooks/useNotificationWebSocket';
+import NotificationBell from '@/components/NotificationBell';
 import type { AppDispatch } from '@/store';
 
 const { Header: AntHeader } = Layout;
@@ -32,6 +34,9 @@ const TopBar: React.FC<TopBarProps> = () => {
   const collapsed = useSelector((state: { app: { collapsed: boolean } }) => state.app.collapsed);
   const currentUser = useSelector(selectCurrentUser);
 
+  // 初始化通知 WebSocket 连接
+  useNotificationWebSocket();
+
   const handleLogout = async () => {
     try {
       await logoutApi();
@@ -40,6 +45,7 @@ const TopBar: React.FC<TopBarProps> = () => {
     }
     dispatch(logoutAction());
     dispatch(clearUser());
+    dispatch(clearNotifications());
     removeToken();
     navigate('/login', { replace: true });
   };
@@ -94,11 +100,7 @@ const TopBar: React.FC<TopBarProps> = () => {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <Tooltip title="消息通知">
-          <Badge count={0} size="small">
-            <BellOutlined style={{ fontSize: 18, cursor: 'pointer' }} />
-          </Badge>
-        </Tooltip>
+        <NotificationBell />
 
         <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
           <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: 8 }}>
