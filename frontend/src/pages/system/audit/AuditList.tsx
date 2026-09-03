@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Table,
   Card,
@@ -13,6 +13,7 @@ import {
   Tooltip,
   Descriptions,
   Typography,
+  InputNumber,
 } from 'antd';
 import {
   SearchOutlined,
@@ -35,7 +36,7 @@ import {
 } from '@/api/audit';
 
 const { RangePicker } = DatePicker;
-const { Text, Paragraph } = Typography;
+const { Text } = Typography;
 
 // HTTP 方法颜色映射
 const methodColorMap: Record<string, string> = {
@@ -65,6 +66,10 @@ const AuditList: React.FC = () => {
   const [method, setMethod] = useState<string | undefined>();
   const [path, setPath] = useState('');
   const [ip, setIp] = useState('');
+  const [operation, setOperation] = useState('');
+  const [requestId, setRequestId] = useState('');
+  const [statusMin, setStatusMin] = useState<number | undefined>();
+  const [statusMax, setStatusMax] = useState<number | undefined>();
   const [timeRange, setTimeRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
 
   // 详情弹窗
@@ -76,17 +81,22 @@ const AuditList: React.FC = () => {
   const [exporting, setExporting] = useState(false);
   const [archiving, setArchiving] = useState(false);
 
-  // 加载审计日志列表
-  const loadList = useCallback(async () => {
-    setLoading(true);
-    try {
+  // 使用 ref 保存最新的筛选条件，避免 useCallback 闭包陷阱
+  const filtersRef = useRef<ListAuditLogParams>({});
+
+  const buildParams = useCallback(
+    (p: number, ps: number): ListAuditLogParams => {
       const params: ListAuditLogParams = {
-        page,
-        page_size: pageSize,
+        page: p,
+        page_size: ps,
         username: username || undefined,
         method: method || undefined,
         path: path || undefined,
         ip: ip || undefined,
+        operation: operation || undefined,
+        request_id: requestId || undefined,
+        status_min: statusMin,
+        status_max: statusMax,
       };
 
       if (timeRange) {
@@ -94,24 +104,42 @@ const AuditList: React.FC = () => {
         params.end_time = timeRange[1].toISOString();
       }
 
-      const res = await getAuditLogList(params);
-      setData(res.list);
-      setTotal(res.total);
-    } catch {
-      message.error('加载审计日志列表失败');
-    } finally {
-      setLoading(false);
-    }
-  }, [page, pageSize, username, method, path, ip, timeRange]);
+      return params;
+    },
+    [username, method, path, ip, operation, requestId, statusMin, statusMax, timeRange],
+  );
 
+  // 加载审计日志列表
+  const loadList = useCallback(
+    async (p: number, ps: number, params: ListAuditLogParams) => {
+      setLoading(true);
+      try {
+        const res = await getAuditLogList(params);
+        setData(res.list);
+        setTotal(res.total);
+      } catch {
+        message.error('加载审计日志列表失败');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
+  // 页码变化时加载
   useEffect(() => {
-    loadList();
-  }, [page, pageSize]); // eslint-disable-line react-hooks/exhaustive-deps
+    const params = buildParams(page, pageSize);
+    filtersRef.current = params;
+    loadList(page, pageSize, params);
+  }, [page, pageSize, buildParams, loadList]);
 
   // 搜索
   const handleSearch = () => {
-    setPage(1);
-    loadList();
+    const newPage = 1;
+    setPage(newPage);
+    const params = buildParams(newPage, pageSize);
+    filtersRef.current = params;
+    loadList(newPage, pageSize, params);
   };
 
   // 重置
@@ -120,9 +148,16 @@ const AuditList: React.FC = () => {
     setMethod(undefined);
     setPath('');
     setIp('');
+    setOperation('');
+    setRequestId('');
+    setStatusMin(undefined);
+    setStatusMax(undefined);
     setTimeRange(null);
-    setPage(1);
-    setTimeout(loadList, 0);
+    const newPage = 1;
+    setPage(newPage);
+    const params: ListAuditLogParams = { page: newPage, page_size: pageSize };
+    filtersRef.current = params;
+    loadList(newPage, pageSize, params);
   };
 
   // 查看详情
@@ -149,6 +184,9 @@ const AuditList: React.FC = () => {
         method: method || undefined,
         path: path || undefined,
         ip: ip || undefined,
+        operation: operation || undefined,
+        status_min: statusMin,
+        status_max: statusMax,
       };
 
       if (timeRange) {
@@ -157,7 +195,7 @@ const AuditList: React.FC = () => {
       }
 
       await exportAuditLogs(params);
-      message.success(`导出成功`);
+      message.success('导出成功');
     } catch {
       message.error('导出失败');
     } finally {
@@ -175,7 +213,8 @@ const AuditList: React.FC = () => {
         try {
           const res = await triggerArchive(90);
           message.success(res.message || `成功归档 ${res.record_count} 条日志`);
-          loadList();
+          const params = buildParams(page, pageSize);
+          loadList(page, pageSize, params);
         } catch {
           message.error('归档失败');
         } finally {
@@ -310,6 +349,14 @@ const AuditList: React.FC = () => {
           <Select.Option value="DELETE">DELETE</Select.Option>
         </Select>
         <Input
+          placeholder="操作类型"
+          value={operation}
+          onChange={(e) => setOperation(e.target.value)}
+          style={{ width: 180 }}
+          onPressEnter={handleSearch}
+          allowClear
+        />
+        <Input
           placeholder="请求路径"
           value={path}
           onChange={(e) => setPath(e.target.value)}
@@ -325,6 +372,34 @@ const AuditList: React.FC = () => {
           onPressEnter={handleSearch}
           allowClear
         />
+        <Input
+          placeholder="请求 ID"
+          value={requestId}
+          onChange={(e) => setRequestId(e.target.value)}
+          style={{ width: 150 }}
+          onPressEnter={handleSearch}
+          allowClear
+        />
+        <Space direction="vertical" size={0}>
+          <Space>
+            <InputNumber
+              placeholder="状态码最小"
+              min={100}
+              max={599}
+              value={statusMin}
+              onChange={(v) => setStatusMin(v ?? undefined)}
+              style={{ width: 110 }}
+            />
+            <InputNumber
+              placeholder="状态码最大"
+              min={100}
+              max={599}
+              value={statusMax}
+              onChange={(v) => setStatusMax(v ?? undefined)}
+              style={{ width: 110 }}
+            />
+          </Space>
+        </Space>
         <RangePicker
           showTime
           format="YYYY-MM-DD HH:mm"

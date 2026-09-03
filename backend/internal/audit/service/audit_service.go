@@ -3,14 +3,8 @@ package service
 import (
 	"bytes"
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"sort"
 	"strings"
 	"time"
 
@@ -22,7 +16,6 @@ import (
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
-	"gorm.io/gorm"
 )
 
 // AuditService 审计日志服务接口
@@ -41,15 +34,13 @@ type AuditService interface {
 }
 
 type auditService struct {
-	db       *gorm.DB
 	auditRepo repo.AuditRepo
-	minioCfg *config.MinIOConfig
+	minioCfg  *config.MinIOConfig
 }
 
 // NewAuditService 创建审计日志服务
-func NewAuditService(db *gorm.DB, auditRepo repo.AuditRepo, minioCfg *config.MinIOConfig) AuditService {
+func NewAuditService(auditRepo repo.AuditRepo, minioCfg *config.MinIOConfig) AuditService {
 	return &auditService{
-		db:        db,
 		auditRepo: auditRepo,
 		minioCfg:  minioCfg,
 	}
@@ -153,7 +144,11 @@ func (s *auditService) Export(ctx context.Context, req *dto.ExportAuditLogReques
 	case "csv":
 		return s.exportCSV(logs), "audit_logs.csv", nil
 	case "json":
-		return s.exportJSON(logs), "audit_logs.json", nil
+		data, err := s.exportJSON(logs)
+		if err != nil {
+			return nil, "", fmt.Errorf("marshal json export: %w", err)
+		}
+		return data, "audit_logs.json", nil
 	default:
 		return nil, "", response.NewError(response.CodeAuditExportErr, "不支持的导出格式: "+req.Format)
 	}
@@ -194,7 +189,7 @@ func (s *auditService) exportCSV(logs []model.AuditLog) []byte {
 	return buf.Bytes()
 }
 
-func (s *auditService) exportJSON(logs []model.AuditLog) []byte {
+func (s *auditService) exportJSON(logs []model.AuditLog) ([]byte, error) {
 	result := make([]dto.AuditLogResponse, 0, len(logs))
 	for _, log := range logs {
 		item := dto.AuditLogResponse{
@@ -219,8 +214,7 @@ func (s *auditService) exportJSON(logs []model.AuditLog) []byte {
 		result = append(result, item)
 	}
 
-	data, _ := json.MarshalIndent(result, "", "  ")
-	return data
+	return json.MarshalIndent(result, "", "  ")
 }
 
 func (s *auditService) Archive(ctx context.Context, beforeDays int) (*dto.ArchiveResponse, error) {
@@ -231,10 +225,12 @@ func (s *auditService) Archive(ctx context.Context, beforeDays int) (*dto.Archiv
 	before := time.Now().AddDate(0, 0, -beforeDays)
 	archiveDate := before.Format("2006-01-02")
 
-	// 1. 查询需要归档的日志
+	// 1. 查询需要归档的日志（仅未归档的）
+	notArchived := false
 	params := &repo.ListParams{
-		PageSize:  10000,
-		EndTime:   &before,
+		PageSize:   10000,
+		EndTime:    &before,
+		IsArchived: &notArchived,
 	}
 	logs, err := s.auditRepo.Export(ctx, params)
 	if err != nil {
@@ -243,9 +239,9 @@ func (s *auditService) Archive(ctx context.Context, beforeDays int) (*dto.Archiv
 
 	if len(logs) == 0 {
 		return &dto.ArchiveResponse{
-			ArchiveDate: archiveDate,
-			RecordCount: 0,
-			Status:      1,
+			ArchiveDate:  archiveDate,
+			RecordCount:  0,
+			Status:       1,
 			Message:      "无需归档的日志",
 		}, nil
 	}
@@ -309,40 +305,30 @@ func (s *auditService) Archive(ctx context.Context, beforeDays int) (*dto.Archiv
 		ArchiveDate: archiveDate,
 		MinIOObject: minioObject,
 		Status:      1,
-		Message:      fmt.Sprintf("成功归档 %d 条日志", affected),
+		Message:     fmt.Sprintf("成功归档 %d 条日志", affected),
 	}, nil
 }
 
 // Desensitize 对请求参数中的敏感字段进行脱敏
-// 该函数在查询详情时调用，确保返回给前端的敏感数据已被遮蔽
+// 该函数在查询详情和导出时调用，确保返回给前端的敏感数据已被遮蔽
 func Desensitize(params string) string {
 	if params == "" {
 		return params
 	}
-	// 复用 middleware 中的脱敏逻辑
-	// 这里对已存储的日志做二次脱敏，防止遗漏
 	return desensitizeJSON(params)
 }
 
 // desensitizeJSON 对 JSON 字符串中的敏感字段进行脱敏
+// 使用预编译的正则表达式，线程安全
 func desensitizeJSON(body string) string {
-	sensitiveFields := []string{"password", "old_password", "new_password", "secret", "token", "access_token", "refresh_token"}
 	result := body
 	for _, field := range sensitiveFields {
-		// 匹配 "field":"value" 模式（不区分大小写）
-		pattern := fmt.Sprintf(`(?i)"%s"\s*:\s*"[^"]*"`, field)
+		re := getPattern(field)
+		if re == nil {
+			continue
+		}
 		replacement := fmt.Sprintf(`"%s":"[redacted]"`, field)
-		result = replaceRegex(result, pattern, replacement)
+		result = re.ReplaceAllString(result, replacement)
 	}
 	return result
-}
-
-// replaceRegex 简单的字符串替换包装
-// 使用 regexp 包进行正则替换
-func replaceRegex(s, pattern, replacement string) string {
-	re := compiledPatterns.get(pattern)
-	if re == nil {
-		return s
-	}
-	return re.ReplaceAllString(s, replacement)
 }

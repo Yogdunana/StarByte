@@ -35,18 +35,19 @@ type AuditRepo interface {
 
 // ListParams 列表查询参数
 type ListParams struct {
-	Page      int
-	PageSize  int
-	Username  string
-	Operation string
-	Method    string
-	Path      string
-	IP        string
-	RequestID string
-	StatusMin *int
-	StatusMax *int
-	StartTime *time.Time
-	EndTime   *time.Time
+	Page       int
+	PageSize   int
+	Username   string
+	Operation  string
+	Method     string
+	Path       string
+	IP         string
+	RequestID  string
+	StatusMin  *int
+	StatusMax  *int
+	StartTime  *time.Time
+	EndTime    *time.Time
+	IsArchived *bool
 }
 
 type auditRepo struct {
@@ -90,6 +91,9 @@ func (r *auditRepo) buildQuery(ctx context.Context, req *ListParams) *gorm.DB {
 	}
 	if req.EndTime != nil {
 		query = query.Where("created_at <= ?", *req.EndTime)
+	}
+	if req.IsArchived != nil {
+		query = query.Where("is_archived = ?", *req.IsArchived)
 	}
 
 	return query

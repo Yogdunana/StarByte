@@ -134,7 +134,8 @@ func TestExportJSON_BasicFormat(t *testing.T) {
 		},
 	}
 
-	data := s.exportJSON(logs)
+	data, err := s.exportJSON(logs)
+	assert.NoError(t, err)
 	str := string(data)
 
 	assert.Contains(t, str, "admin")
@@ -145,7 +146,8 @@ func TestExportJSON_BasicFormat(t *testing.T) {
 
 func TestExportJSON_EmptyLogs(t *testing.T) {
 	s := &auditService{}
-	data := s.exportJSON([]model.AuditLog{})
+	data, err := s.exportJSON([]model.AuditLog{})
+	assert.NoError(t, err)
 	str := string(data)
 
 	// Should produce a valid JSON array (empty)
@@ -160,7 +162,8 @@ func TestExportJSON_DesensitizesRequestParams(t *testing.T) {
 		},
 	}
 
-	data := s.exportJSON(logs)
+	data, err := s.exportJSON(logs)
+	assert.NoError(t, err)
 	str := string(data)
 
 	assert.Contains(t, str, "[redacted]")

@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -69,10 +70,23 @@ var sensitivePaths = map[string]bool{
 	"/api/v1/user/password": true,
 }
 
+// sensitiveFields defines the JSON field names whose values should be redacted
+// in audit logs. This list is shared with the audit service layer to ensure
+// consistent desensitization.
+var sensitiveFields = []string{
+	"password",
+	"old_password",
+	"new_password",
+	"secret",
+	"token",
+	"access_token",
+	"refresh_token",
+}
+
 // sensitiveFieldPattern matches JSON fields like "password":"value" and
 // replaces the value with "[redacted]".
 var sensitiveFieldPattern = regexp.MustCompile(
-	`(?i)"(password|old_password|new_password|secret|token)"\s*:\s*"[^"]*"`,
+	`(?i)"(` + strings.Join(sensitiveFields, "|") + `)"\s*:\s*"[^"]*"`,
 )
 
 // sanitizeRequestBody redacts sensitive data from the request body.

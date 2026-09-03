@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/Yogdunana/StarByte/backend/internal/audit/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/audit/service"
@@ -145,17 +144,4 @@ func (h *AuditHandler) TriggerArchive(c *gin.Context) {
 	}
 
 	response.OK(c, result)
-}
-
-// ParseQueryInt 安全解析查询参数为 int
-func ParseQueryInt(c *gin.Context, key string, defaultVal int) int {
-	val := c.Query(key)
-	if val == "" {
-		return defaultVal
-	}
-	n, err := strconv.Atoi(val)
-	if err != nil {
-		return defaultVal
-	}
-	return n
 }

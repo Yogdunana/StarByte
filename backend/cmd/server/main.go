@@ -183,7 +183,7 @@ func main() {
 
 	// 审计日志模块
 	auditR := auditRepo.NewAuditRepo(database.DB())
-	auditSvc := auditService.NewAuditService(database.DB(), auditR, &cfg.MinIO)
+	auditSvc := auditService.NewAuditService(auditR, &cfg.MinIO)
 	auditH := auditHandler.NewAuditHandler(auditSvc)
 
 	// 启动审计日志归档定时任务（每天 02:00 归档 90 天前日志）

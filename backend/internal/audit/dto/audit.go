@@ -34,7 +34,7 @@ type ExportAuditLogRequest struct {
 	EndTime    *time.Time `form:"end_time" time_format:"2006-01-02T15:04:05Z07:00"`
 }
 
-// ArchiveRequest 归档请求（内部调用，不暴露为 API）
+// ArchiveRequest 归档请求
 type ArchiveRequest struct {
 	BeforeDays int `json:"before_days"` // 归档多少天前的日志，默认 90
 }

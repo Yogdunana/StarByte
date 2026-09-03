@@ -85,6 +85,11 @@ let pendingRequests: Array<(token: string) => void> = [];
 // 响应拦截器
 request.interceptors.response.use(
   (response) => {
+    // Blob 响应（文件下载）直接返回原始 response
+    if (response.config.responseType === 'blob') {
+      return response;
+    }
+
     const { code, message: msg, data } = response.data;
 
     if (code === 0) {

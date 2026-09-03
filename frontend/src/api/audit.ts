@@ -1,7 +1,7 @@
 import request from './request';
-import { getToken } from '@/utils/storage';
 import { downloadBlob } from '@/utils/download';
 import type { PageResponse } from '@/types/api';
+import type { AxiosResponse } from 'axios';
 
 // ========== 类型定义 ==========
 
@@ -88,32 +88,17 @@ export function getAuditLogDetail(id: string): Promise<AuditLogDetail> {
   return request.get(`/audit-logs/${id}`);
 }
 
-/** 导出审计日志 */
+/** 导出审计日志（通过 axios 实例，享受拦截器：token 刷新、错误处理） */
 export async function exportAuditLogs(
   params: ExportAuditLogParams,
 ): Promise<void> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
-  const queryParams = new URLSearchParams();
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
-      queryParams.append(key, String(value));
-    }
+  const response: AxiosResponse = await request.get('/audit-logs/export', {
+    params,
+    responseType: 'blob',
   });
 
-  const url = `${baseURL}/audit-logs/export?${queryParams.toString()}`;
-  const token = getToken();
-  const headers: Record<string, string> = {};
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  const response = await fetch(url, { headers });
-  if (!response.ok) {
-    throw new Error(`导出失败: ${response.status}`);
-  }
-
-  const blob = await response.blob();
-  const disposition = response.headers.get('Content-Disposition');
+  const blob = response.data as Blob;
+  const disposition = response.headers['content-disposition'];
   let filename = `audit_logs.${params.format}`;
   if (disposition) {
     const match = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';\s]+)["']?/i);
