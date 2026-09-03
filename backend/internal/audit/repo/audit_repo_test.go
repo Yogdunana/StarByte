@@ -25,6 +25,8 @@ func TestListParams_WithFilters(t *testing.T) {
 		IP:        "192.168.1.1",
 		RequestID: "req-123",
 	}
+	assert.Equal(t, 2, params.Page)
+	assert.Equal(t, 50, params.PageSize)
 	assert.Equal(t, "admin", params.Username)
 	assert.Equal(t, "POST", params.Method)
 	assert.Equal(t, "/api/v1/users", params.Path)
