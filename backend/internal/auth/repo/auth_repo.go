@@ -117,7 +117,7 @@ func (r *authRepo) IsBlacklisted(ctx context.Context, tokenID string) (bool, err
 
 func (r *authRepo) IncrLoginAttempts(ctx context.Context, username string) (int64, error) {
 	key := fmt.Sprintf(keyLoginAttempts, username)
- pipe := r.rdb.TxPipeline()
+	pipe := r.rdb.TxPipeline()
 	incr := pipe.Incr(ctx, key)
 	pipe.Expire(ctx, key, lockoutDuration)
 	_, err := pipe.Exec(ctx)

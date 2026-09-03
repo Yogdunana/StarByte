@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { login as loginApi, refreshToken as refreshTokenApi } from '@/api/auth';
-import type { LoginRequest, LoginResponse } from '@/types/api';
+import type { LoginRequest, LoginResponse, RefreshResponse } from '@/types/api';
 import { setToken as saveToken, getRefreshToken, removeToken, setRefreshToken } from '@/utils/storage';
 import type { RootState } from '@/store';
 
@@ -89,7 +89,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = action.payload as string;
       })
-      .addCase(refreshToken.fulfilled, (state, action: PayloadAction<LoginResponse>) => {
+      .addCase(refreshToken.fulfilled, (state, action: PayloadAction<RefreshResponse>) => {
         state.token = action.payload.access_token;
         state.refreshToken = action.payload.refresh_token;
         saveToken(action.payload.access_token);

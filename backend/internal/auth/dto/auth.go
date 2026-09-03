@@ -36,11 +36,11 @@ type OAuthLoginRequest struct {
 
 // LoginResponse 登录响应
 type LoginResponse struct {
-	AccessToken         string        `json:"access_token"`
-	RefreshToken        string        `json:"refresh_token"`
-	ExpiresIn           int64         `json:"expires_in"` // access token expiry in seconds
-	RefreshExpiresIn    int64         `json:"refresh_expires_in"`
-	User                *UserInfo     `json:"user"`
+	AccessToken      string    `json:"access_token"`
+	RefreshToken     string    `json:"refresh_token"`
+	ExpiresIn        int64     `json:"expires_in"` // access token expiry in seconds
+	RefreshExpiresIn int64     `json:"refresh_expires_in"`
+	User             *UserInfo `json:"user"`
 }
 
 // UserInfo 用户信息（登录响应中返回）
@@ -67,10 +67,10 @@ type RefreshResponse struct {
 
 // SessionInfo 会话信息
 type SessionInfo struct {
-	TokenID     string    `json:"token_id"`
-	IP          string    `json:"ip"`
-	UserAgent   string    `json:"user_agent"`
-	LoginAt     time.Time `json:"login_at"`
-	ExpiresAt   time.Time `json:"expires_at"`
-	IsCurrent   bool      `json:"is_current"`
+	TokenID   string    `json:"token_id"`
+	IP        string    `json:"ip"`
+	UserAgent string    `json:"user_agent"`
+	LoginAt   time.Time `json:"login_at"`
+	ExpiresAt time.Time `json:"expires_at"`
+	IsCurrent bool      `json:"is_current"`
 }

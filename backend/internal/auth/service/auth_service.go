@@ -7,9 +7,9 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/auth/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/auth/repo"
+	rbacService "github.com/Yogdunana/StarByte/backend/internal/rbac/service"
 	"github.com/Yogdunana/StarByte/backend/internal/user/model"
 	userRepo "github.com/Yogdunana/StarByte/backend/internal/user/repo"
-	rbacService "github.com/Yogdunana/StarByte/backend/internal/rbac/service"
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
 	authmiddleware "github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"

@@ -310,7 +310,7 @@ func TestLogin_LockedOutUser(t *testing.T) {
 	ctx := context.Background()
 
 	authRepo.On("IsLockedOut", ctx, "lockeduser").Return(true, nil)
-	authRepo.On("GetLockoutTTL", ctx, "lockeduser").Return(10 * time.Minute, nil)
+	authRepo.On("GetLockoutTTL", ctx, "lockeduser").Return(10*time.Minute, nil)
 
 	result, err := svc.Login(ctx, &dto.LoginRequest{
 		Username: "lockeduser",
