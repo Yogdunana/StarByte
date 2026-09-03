@@ -71,11 +71,6 @@ func main() {
 		}
 	}()
 
-	// 3a. 自动迁移审计日志表
-	if err := database.DB().AutoMigrate(&middleware.AuditLogEntry{}); err != nil {
-		logger.Fatal("auto migrate audit_logs failed", zap.Error(err))
-	}
-
 	// 3b. 自动迁移工作流引擎表
 	if err := workflow.AutoMigrate(database.DB()); err != nil {
 		logger.Fatal("auto migrate workflow tables failed", zap.Error(err))
