@@ -9,6 +9,10 @@ import (
 	"syscall"
 	"time"
 
+	auditHandler "github.com/Yogdunana/StarByte/backend/internal/audit/handler"
+	auditModel "github.com/Yogdunana/StarByte/backend/internal/audit/model"
+	auditRepo "github.com/Yogdunana/StarByte/backend/internal/audit/repo"
+	auditService "github.com/Yogdunana/StarByte/backend/internal/audit/service"
 	authHandler "github.com/Yogdunana/StarByte/backend/internal/auth/handler"
 	authRepo "github.com/Yogdunana/StarByte/backend/internal/auth/repo"
 	authService "github.com/Yogdunana/StarByte/backend/internal/auth/service"
@@ -80,6 +84,11 @@ func main() {
 	// 3c. 自动迁移通知模块表
 	if err := database.DB().AutoMigrate(&notifModel.Notification{}, &notifModel.NotificationTemplate{}); err != nil {
 		logger.Fatal("auto migrate notification tables failed", zap.Error(err))
+	}
+
+	// 3d. 自动迁移审计日志模块表（is_archived、archived_at 为新增字段）
+	if err := database.DB().AutoMigrate(&auditModel.AuditLog{}, &auditModel.AuditLogArchive{}); err != nil {
+		logger.Fatal("auto migrate audit tables failed", zap.Error(err))
 	}
 
 	// 4. 初始化 Redis
@@ -172,6 +181,15 @@ func main() {
 	templateHandler := notifHandler.NewTemplateHandler(tplSvc)
 	wsHandler := notifHandler.NewWSHandler(hub, &cfg.JWT, cfg.CORS.AllowedOrigins)
 
+	// 审计日志模块
+	auditR := auditRepo.NewAuditRepo(database.DB())
+	auditSvc := auditService.NewAuditService(database.DB(), auditR, &cfg.MinIO)
+	auditH := auditHandler.NewAuditHandler(auditSvc)
+
+	// 启动审计日志归档定时任务（每天 02:00 归档 90 天前日志）
+	archiveScheduler := auditService.NewArchiveScheduler(auditSvc)
+	archiveScheduler.Start()
+
 	// 10. API 路由组
 	api := r.Group("/api/v1")
 	// API 组限流：全局 1000 req/s
@@ -217,6 +235,9 @@ func main() {
 
 		// 通知模块路由
 		notifHandler.RegisterRoutes(protected, protected, notificationHandler, templateHandler, wsHandler)
+
+		// 审计日志模块路由（需要 audit:read / audit:archive 权限）
+		auditHandler.RegisterRoutes(protected, auditH, cacheService)
 	}
 
 	// WebSocket 路由（独立于 API 组，JWT 认证在 handler 内部完成）
@@ -259,6 +280,9 @@ func main() {
 
 	// 优雅关闭审计日志 worker，刷新缓冲通道中的待写入条目
 	middleware.CloseAuditWriter()
+
+	// 停止审计日志归档定时任务
+	archiveScheduler.Stop()
 
 	logger.Info("server exited")
 }
