@@ -29,6 +29,11 @@ type PublishDefinitionRequest struct {
 	GraphData *GraphData `json:"graph_data" binding:"required"`
 }
 
+// SaveDraftRequest is the body for PUT /api/v1/workflow/definitions/:id/draft.
+type SaveDraftRequest struct {
+	GraphData *GraphData `json:"graph_data" binding:"required"`
+}
+
 // GraphData represents the React Flow graph structure stored in bpmn_data.
 type GraphData struct {
 	Nodes []GraphNode `json:"nodes"`
@@ -51,9 +56,12 @@ type GraphPosition struct {
 
 // GraphEdge represents a connection between two nodes.
 type GraphEdge struct {
-	ID     string `json:"id"`
-	Source string `json:"source"`
-	Target string `json:"target"`
+	ID           string                 `json:"id"`
+	Source       string                 `json:"source"`
+	Target       string                 `json:"target"`
+	SourceHandle string                 `json:"sourceHandle,omitempty"`
+	Label        string                 `json:"label,omitempty"`
+	Data         map[string]interface{} `json:"data,omitempty"`
 }
 
 // DefinitionResponse is the response for a single flow definition.
@@ -64,6 +72,7 @@ type DefinitionResponse struct {
 	Description string     `json:"description"`
 	Category    string     `json:"category"`
 	Status      int        `json:"status"`
+	DraftGraph  *GraphData `json:"draft_graph"`
 	CreatedBy   *uuid.UUID `json:"created_by"`
 	UpdatedBy   *uuid.UUID `json:"updated_by"`
 	CreatedAt   time.Time  `json:"created_at"`
@@ -179,6 +188,13 @@ type HistoryResponse struct {
 
 // ToDefinitionResponse converts FlowDefinition model to DefinitionResponse.
 func ToDefinitionResponse(def *model.FlowDefinition) DefinitionResponse {
+	var draft *GraphData
+	if len(def.DraftGraph) > 0 {
+		var graph GraphData
+		if err := json.Unmarshal(def.DraftGraph, &graph); err == nil {
+			draft = &graph
+		}
+	}
 	return DefinitionResponse{
 		ID:          def.ID,
 		Key:         def.Key,
@@ -186,6 +202,7 @@ func ToDefinitionResponse(def *model.FlowDefinition) DefinitionResponse {
 		Description: def.Description,
 		Category:    def.Category,
 		Status:      def.Status,
+		DraftGraph:  draft,
 		CreatedBy:   def.CreatedBy,
 		UpdatedBy:   def.UpdatedBy,
 		CreatedAt:   def.CreatedAt,

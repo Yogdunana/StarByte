@@ -17,6 +17,7 @@ type FlowDefinition struct {
 	Description string     `gorm:"type:text" json:"description"`
 	Category    string     `gorm:"type:varchar(50);default:custom" json:"category"`
 	Status      int        `gorm:"type:smallint;default:0;index" json:"status"`
+	DraftGraph  []byte     `gorm:"type:jsonb" json:"draft_graph"`
 	CreatedBy   *uuid.UUID `gorm:"type:uuid" json:"created_by"`
 	UpdatedBy   *uuid.UUID `gorm:"type:uuid" json:"updated_by"`
 	CreatedAt   time.Time  `json:"created_at"`

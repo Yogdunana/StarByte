@@ -16,6 +16,7 @@ const UserList = lazy(() => import('@/pages/user/UserList'));
 const NotificationList = lazy(() => import('@/pages/notification/NotificationList'));
 const TemplateList = lazy(() => import('@/pages/notification/TemplateList'));
 const AuditList = lazy(() => import('@/pages/system/audit/AuditList'));
+const WorkflowDesigner = lazy(() => import('@/pages/workflow/designer/DesignerPage'));
 const Forbidden = lazy(() => import('@/pages/error/Forbidden'));
 
 // 懒加载 fallback
@@ -181,8 +182,13 @@ const routes: AppRouteObject[] = [
         children: [
           {
             path: 'designer',
-            element: <div style={{ padding: 24 }}>流程设计器（开发中）</div>,
+            element: lazyWrap(WorkflowDesigner),
             meta: { title: '流程设计' },
+          },
+          {
+            path: 'designer/:id',
+            element: lazyWrap(WorkflowDesigner),
+            meta: { title: '流程设计', hidden: true },
           },
           {
             path: 'instances',

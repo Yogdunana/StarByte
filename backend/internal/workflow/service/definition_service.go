@@ -215,6 +215,37 @@ func (s *definitionServiceImpl) Publish(ctx context.Context, id uuid.UUID, req *
 	return ver, nil
 }
 
+// SaveDraft stores a working-copy graph on the definition.
+// Allowed for both draft and published definitions (next-version WIP).
+func (s *definitionServiceImpl) SaveDraft(ctx context.Context, id uuid.UUID, req *dto.SaveDraftRequest, userID uuid.UUID) (*model.FlowDefinition, error) {
+	def, err := s.defRepo.GetByID(ctx, id)
+	if err != nil || def == nil {
+		return nil, response.NewAppError(response.CodeWorkflowNotFound,
+			"流程定义不存在")
+	}
+
+	if req == nil || req.GraphData == nil {
+		return nil, response.NewAppError(response.CodeBadRequest, "graph_data 不能为空")
+	}
+
+	graphData, err := json.Marshal(req.GraphData)
+	if err != nil {
+		return nil, response.NewAppErrorf(response.CodeWorkflowInvalidNode,
+			"failed to marshal draft graph: %v", err)
+	}
+
+	def.DraftGraph = graphData
+	def.UpdatedBy = &userID
+	def.UpdatedAt = time.Now()
+
+	if err := s.defRepo.Update(ctx, nil, def); err != nil {
+		return nil, response.NewAppErrorf(response.CodeInternalError,
+			"failed to save draft graph: %v", err)
+	}
+
+	return def, nil
+}
+
 // ListVersions returns all versions of a definition.
 func (s *definitionServiceImpl) ListVersions(ctx context.Context, definitionID uuid.UUID) ([]model.FlowDefinitionVersion, error) {
 	versions, err := s.defRepo.ListVersions(ctx, definitionID)

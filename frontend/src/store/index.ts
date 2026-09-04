@@ -3,6 +3,7 @@ import authReducer from './slices/authSlice';
 import userReducer from './slices/userSlice';
 import appReducer from './slices/appSlice';
 import notificationReducer from './slices/notificationSlice';
+import workflowReducer from './slices/workflowSlice';
 
 export const store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ export const store = configureStore({
     user: userReducer,
     app: appReducer,
     notification: notificationReducer,
+    workflow: workflowReducer,
   },
   devTools: process.env.NODE_ENV !== 'production',
 });

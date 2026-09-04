@@ -16,6 +16,7 @@ import (
 //	PUT    /definitions/:id          更新流程定义
 //	DELETE /definitions/:id          删除流程定义
 //	POST   /definitions/:id/publish  发布流程定义
+//	PUT    /definitions/:id/draft    保存流程草稿图
 //	GET    /definitions/:id/versions 版本列表
 //	GET    /definitions/:id/versions/:versionId 版本详情
 //
@@ -55,6 +56,7 @@ func RegisterRoutes(
 			defs.PUT("/:id", defHandler.Update)
 			defs.DELETE("/:id", defHandler.Delete)
 			defs.POST("/:id/publish", defHandler.Publish)
+			defs.PUT("/:id/draft", defHandler.SaveDraft)
 			defs.GET("/:id/versions", defHandler.ListVersions)
 			defs.GET("/:id/versions/:versionId", defHandler.GetVersionByID)
 		}

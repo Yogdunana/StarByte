@@ -29,6 +29,7 @@ type mockDefService struct {
 	publishFunc      func(ctx context.Context, id uuid.UUID, req *dto.PublishDefinitionRequest, userID uuid.UUID) (*model.FlowDefinitionVersion, error)
 	listVersionsFunc func(ctx context.Context, definitionID uuid.UUID) ([]model.FlowDefinitionVersion, error)
 	getVersionFunc   func(ctx context.Context, id uuid.UUID) (*model.FlowDefinitionVersion, error)
+	saveDraftFunc    func(ctx context.Context, id uuid.UUID, req *dto.SaveDraftRequest, userID uuid.UUID) (*model.FlowDefinition, error)
 }
 
 func (m *mockDefService) Create(ctx context.Context, req *dto.CreateDefinitionRequest, userID uuid.UUID) (*model.FlowDefinition, error) {
@@ -85,6 +86,13 @@ func (m *mockDefService) GetVersionByID(ctx context.Context, id uuid.UUID) (*mod
 		return m.getVersionFunc(ctx, id)
 	}
 	return nil, nil
+}
+
+func (m *mockDefService) SaveDraft(ctx context.Context, id uuid.UUID, req *dto.SaveDraftRequest, userID uuid.UUID) (*model.FlowDefinition, error) {
+	if m.saveDraftFunc != nil {
+		return m.saveDraftFunc(ctx, id, req, userID)
+	}
+	return &model.FlowDefinition{ID: id}, nil
 }
 
 // Compile-time check.
@@ -386,6 +394,58 @@ func TestDefinitionHandler_GetVersionByID_Success(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestDefinitionHandler_SaveDraft_Success(t *testing.T) {
+	defID := uuid.New()
+	userID := uuid.New()
+	saved := false
+
+	svc := &mockDefService{
+		saveDraftFunc: func(ctx context.Context, id uuid.UUID, req *dto.SaveDraftRequest, uid uuid.UUID) (*model.FlowDefinition, error) {
+			saved = true
+			assert.Equal(t, defID, id)
+			assert.Equal(t, userID, uid)
+			require.NotNil(t, req.GraphData)
+			assert.Len(t, req.GraphData.Nodes, 1)
+			assert.Equal(t, "branch_1", req.GraphData.Edges[0].SourceHandle)
+			return &model.FlowDefinition{ID: id, Name: "草稿流程"}, nil
+		},
+	}
+	h := NewDefinitionHandler(svc)
+
+	r := setupRouter()
+	r.PUT("/definitions/:id/draft", func(c *gin.Context) {
+		setAuthUser(c, userID.String())
+		h.SaveDraft(c)
+	})
+
+	body := `{"graph_data":{"nodes":[{"id":"n1","type":"start","position":{"x":0,"y":0},"data":{"name":"开始"}}],"edges":[{"id":"e1","source":"n1","target":"n2","sourceHandle":"branch_1","label":"通过"}]}}`
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/definitions/"+defID.String()+"/draft", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.True(t, saved)
+}
+
+func TestDefinitionHandler_SaveDraft_MissingGraphData(t *testing.T) {
+	svc := &mockDefService{}
+	h := NewDefinitionHandler(svc)
+
+	r := setupRouter()
+	r.PUT("/definitions/:id/draft", func(c *gin.Context) {
+		setAuthUser(c, uuid.New().String())
+		h.SaveDraft(c)
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/definitions/"+uuid.New().String()+"/draft", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestDefinitionHandler_GetVersionByID_WrongDefinition(t *testing.T) {

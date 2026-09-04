@@ -1,0 +1,79 @@
+.designer-page {
+  margin: -24px;
+  height: calc(100vh - 96px);
+  min-width: 1280px;
+  display: flex;
+  flex-direction: column;
+  background: #f5f5f5;
+}
+
+.designer-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: #fff;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.designer-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 200px 1fr 280px;
+  min-height: 0;
+}
+
+.designer-side-panel {
+  background: #fff;
+  border-right: 1px solid #f0f0f0;
+  padding: 12px;
+  overflow: auto;
+}
+
+.designer-side-panel:last-child {
+  border-right: 0;
+  border-left: 1px solid #f0f0f0;
+}
+
+.designer-side-panel h4 {
+  margin-bottom: 12px;
+}
+
+.designer-canvas {
+  height: 100%;
+  background: #fafafa;
+  position: relative;
+}
+
+.designer-canvas.is-preview .react-flow__node,
+.designer-canvas.is-preview .react-flow__handle {
+  pointer-events: none;
+}
+
+.node-palette {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.node-palette-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  background: #fff;
+  cursor: grab;
+  user-select: none;
+}
+
+.node-palette-item:active {
+  cursor: grabbing;
+}
+
+.node-palette-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
