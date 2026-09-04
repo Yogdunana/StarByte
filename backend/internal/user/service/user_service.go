@@ -90,7 +90,11 @@ func (s *userService) Register(ctx context.Context, req *dto.RegisterRequest) (*
 }
 
 func (s *userService) ChangePassword(ctx context.Context, userID string, req *dto.ChangePasswordRequest) error {
-	user, err := s.userRepo.GetByID(ctx, uuid.MustParse(userID))
+	uid, err := parseRequiredUUID(userID, "用户ID")
+	if err != nil {
+		return err
+	}
+	user, err := s.userRepo.GetByID(ctx, uid)
 	if err != nil {
 		return fmt.Errorf("get user: %w", err)
 	}
@@ -138,13 +142,21 @@ func (s *userService) GetByID(ctx context.Context, id uuid.UUID) (*dto.UserInfoR
 }
 
 func (s *userService) GetCurrentUser(ctx context.Context, userID string) (*dto.UserInfoResponse, error) {
-	return s.GetByID(ctx, uuid.MustParse(userID))
+	uid, err := parseRequiredUUID(userID, "用户ID")
+	if err != nil {
+		return nil, err
+	}
+	return s.GetByID(ctx, uid)
 }
 
 func (s *userService) List(ctx context.Context, req *dto.ListUserRequest) ([]dto.UserListResponse, int64, error) {
 	var deptID uuid.UUID
 	if req.DepartmentID != "" {
-		deptID = uuid.MustParse(req.DepartmentID)
+		parsed, err := parseRequiredUUID(req.DepartmentID, "部门ID")
+		if err != nil {
+			return nil, 0, err
+		}
+		deptID = parsed
 	}
 
 	users, total, err := s.userRepo.List(ctx, req.Page, req.PageSize, req.Keyword, req.Status, deptID)
@@ -204,14 +216,16 @@ func (s *userService) Create(ctx context.Context, req *dto.CreateUserRequest) (*
 	if req.Gender != nil {
 		user.Gender = *req.Gender
 	}
-	if req.DepartmentID != "" {
-		deptID := uuid.MustParse(req.DepartmentID)
-		user.DepartmentID = &deptID
+	deptID, err := parseOptionalUUID(req.DepartmentID, "部门ID")
+	if err != nil {
+		return nil, err
 	}
-	if req.PositionID != "" {
-		posID := uuid.MustParse(req.PositionID)
-		user.PositionID = &posID
+	user.DepartmentID = deptID
+	posID, err := parseOptionalUUID(req.PositionID, "职位ID")
+	if err != nil {
+		return nil, err
 	}
+	user.PositionID = posID
 
 	err = s.userRepo.Create(ctx, nil, user)
 	if err != nil {
@@ -245,13 +259,19 @@ func (s *userService) Update(ctx context.Context, id uuid.UUID, req *dto.UpdateU
 	if req.Status != nil {
 		user.Status = *req.Status
 	}
-	if req.DepartmentID != "" {
-		deptID := uuid.MustParse(req.DepartmentID)
-		user.DepartmentID = &deptID
+	deptID, parseErr := parseOptionalUUID(req.DepartmentID, "部门ID")
+	if parseErr != nil {
+		return nil, parseErr
 	}
-	if req.PositionID != "" {
-		posID := uuid.MustParse(req.PositionID)
-		user.PositionID = &posID
+	if deptID != nil {
+		user.DepartmentID = deptID
+	}
+	posID, parseErr := parseOptionalUUID(req.PositionID, "职位ID")
+	if parseErr != nil {
+		return nil, parseErr
+	}
+	if posID != nil {
+		user.PositionID = posID
 	}
 
 	err = s.userRepo.Update(ctx, nil, user)
@@ -275,7 +295,11 @@ func (s *userService) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 func (s *userService) UpdateProfile(ctx context.Context, userID string, req *dto.UpdateProfileRequest) error {
-	user, err := s.userRepo.GetByID(ctx, uuid.MustParse(userID))
+	uid, err := parseRequiredUUID(userID, "用户ID")
+	if err != nil {
+		return err
+	}
+	user, err := s.userRepo.GetByID(ctx, uid)
 	if err != nil {
 		return fmt.Errorf("get user: %w", err)
 	}
