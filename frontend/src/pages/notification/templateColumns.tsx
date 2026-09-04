@@ -1,4 +1,3 @@
-import React from 'react';
 import { Button, Space, Tag, Typography, Popconfirm } from 'antd';
 import {
   EditOutlined,

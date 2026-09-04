@@ -1,4 +1,3 @@
-import React from 'react';
 import { Button, Space, Tag, Badge, Typography, Popconfirm } from 'antd';
 import { CheckOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
