@@ -6,7 +6,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// withPermission 创建一个带有权限校验的路由组
 func withPermission(group *gin.RouterGroup, permCode string, cacheService rbacService.PermissionCacheService) *gin.RouterGroup {
 	g := group.Group("")
 	g.Use(middleware.RequirePermission(permCode))
@@ -14,21 +13,18 @@ func withPermission(group *gin.RouterGroup, permCode string, cacheService rbacSe
 	return g
 }
 
-// RegisterRoutes 注册审计日志模块路由
-// 需要鉴权 + audit:read 权限
+// RegisterRoutes 注册 /api/v1/system/audit-logs
 func RegisterRoutes(
 	r *gin.RouterGroup,
 	auditHandler *AuditHandler,
 	cacheService rbacService.PermissionCacheService,
 ) {
-	auditLogs := r.Group("/audit-logs")
-	{
-		// 查询权限：audit:read
-		withPermission(auditLogs, "audit:read", cacheService).GET("", auditHandler.List)
-		withPermission(auditLogs, "audit:read", cacheService).GET("/:id", auditHandler.GetByID)
-		withPermission(auditLogs, "audit:read", cacheService).GET("/export", auditHandler.Export)
+	auditLogs := r.Group("/system/audit-logs")
 
-		// 归档权限：audit:archive
-		withPermission(auditLogs, "audit:archive", cacheService).POST("/archive", auditHandler.TriggerArchive)
-	}
+	withPermission(auditLogs, "audit:export", cacheService).GET("/export", auditHandler.Export)
+	withPermission(auditLogs, "audit:archive", cacheService).POST("/archive", auditHandler.TriggerArchive)
+
+	read := withPermission(auditLogs, "audit:read", cacheService)
+	read.GET("", auditHandler.List)
+	read.GET("/:id", auditHandler.GetByID)
 }

@@ -68,8 +68,10 @@ const (
 	CodeWorkflowDefNotPub    = 4015 // 流程定义未发布
 
 	// ===== Audit log (5000-5999) =====
-	CodeAuditNotFound  = 5001 // 审计日志不存在
-	CodeAuditExportErr = 5002 // 导出格式不支持
+	CodeAuditNotFound    = 5001 // 审计日志不存在
+	CodeAuditExportErr   = 5002 // 导出格式不支持
+	CodeAuditExportLimit = 5003 // 导出数量超限
+	CodeAuditArchiveErr  = 5004 // 归档失败
 
 	// ===== Member module (6000-6999) =====
 	CodeMemberAppNotFound = 6001 // 申请不存在

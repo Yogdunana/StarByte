@@ -160,11 +160,20 @@ func TestAuditLog_LargeResponseBodyTruncated(t *testing.T) {
 func TestWriteMethods(t *testing.T) {
 	assert.True(t, writeMethods["POST"])
 	assert.True(t, writeMethods["PUT"])
-	assert.True(t, writeMethods["PATCH"])
+	assert.False(t, writeMethods["PATCH"])
 	assert.True(t, writeMethods["DELETE"])
 	assert.False(t, writeMethods["GET"])
 	assert.False(t, writeMethods["OPTIONS"])
 	assert.False(t, writeMethods["HEAD"])
+}
+
+func TestParseModuleAndAction(t *testing.T) {
+	assert.Equal(t, "system", ParseModule("/api/v1/system/audit-logs"))
+	assert.Equal(t, "auth", ParseModule("/api/v1/auth/login"))
+	assert.Equal(t, "CREATE", ActionFromMethod("POST"))
+	assert.Equal(t, "UPDATE", ActionFromMethod("PUT"))
+	assert.Equal(t, "DELETE", ActionFromMethod("DELETE"))
+	assert.Equal(t, "audit_logs", AuditLogEntry{}.TableName())
 }
 
 func TestSanitizeRequestBody_SensitivePath(t *testing.T) {
@@ -176,21 +185,22 @@ func TestSanitizeRequestBody_SensitivePath(t *testing.T) {
 func TestSanitizeRequestBody_SensitiveFieldRedacted(t *testing.T) {
 	body := `{"name":"test","password":"secret123","email":"test@example.com"}`
 	result := sanitizeRequestBody("/api/v1/user/profile", body)
-	assert.Contains(t, result, `"[redacted]"`)
+	assert.Contains(t, result, `"***"`)
 	assert.NotContains(t, result, "secret123")
-	assert.Contains(t, result, "test@example.com")
+	assert.Contains(t, result, "t***@example.com")
 }
 
 func TestSanitizeRequestBody_NoSensitiveData(t *testing.T) {
-	body := `{"name":"test","email":"test@example.com"}`
+	body := `{"name":"test","age":1}`
 	result := sanitizeRequestBody("/api/v1/user/profile", body)
-	assert.Equal(t, body, result)
+	assert.Contains(t, result, "test")
+	assert.Contains(t, result, "age")
 }
 
 func TestSanitizeRequestBody_MultipleSensitiveFields(t *testing.T) {
 	body := `{"old_password":"old123","new_password":"new456","secret":"abc"}`
 	result := sanitizeRequestBody("/api/v1/user/profile", body)
-	assert.Contains(t, result, `"[redacted]"`)
+	assert.Contains(t, result, `"***"`)
 	assert.NotContains(t, result, "old123")
 	assert.NotContains(t, result, "new456")
 	assert.NotContains(t, result, "abc")

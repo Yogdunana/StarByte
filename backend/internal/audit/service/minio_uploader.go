@@ -17,7 +17,7 @@ import (
 
 // uploadToMinIO 使用 S3 兼容 API（AWS Signature V4）上传对象到 MinIO
 // 这是一个不依赖第三方 SDK 的极简实现，仅支持 PUT 操作
-func uploadToMinIO(cfg *config.MinIOConfig, objectName string, data []byte) error {
+func uploadToMinIO(cfg *config.MinIOConfig, objectName string, data []byte, contentType string) error {
 	if cfg.Endpoint == "" || cfg.Bucket == "" {
 		return fmt.Errorf("MinIO endpoint or bucket not configured")
 	}
@@ -35,7 +35,10 @@ func uploadToMinIO(cfg *config.MinIOConfig, objectName string, data []byte) erro
 		return fmt.Errorf("create request: %w", err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("Content-Length", fmt.Sprintf("%d", len(data)))
 
 	// 添加 AWS Signature V4 认证

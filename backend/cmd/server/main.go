@@ -10,7 +10,6 @@ import (
 	"time"
 
 	auditHandler "github.com/Yogdunana/StarByte/backend/internal/audit/handler"
-	auditModel "github.com/Yogdunana/StarByte/backend/internal/audit/model"
 	auditRepo "github.com/Yogdunana/StarByte/backend/internal/audit/repo"
 	auditService "github.com/Yogdunana/StarByte/backend/internal/audit/service"
 	authHandler "github.com/Yogdunana/StarByte/backend/internal/auth/handler"
@@ -81,11 +80,6 @@ func main() {
 		logger.Fatal("auto migrate notification tables failed", zap.Error(err))
 	}
 
-	// 3d. 自动迁移审计日志模块表（is_archived、archived_at 为新增字段）
-	if err := database.DB().AutoMigrate(&auditModel.AuditLog{}, &auditModel.AuditLogArchive{}); err != nil {
-		logger.Fatal("auto migrate audit tables failed", zap.Error(err))
-	}
-
 	// 4. 初始化 Redis
 	if err := redis.Init(&cfg.Redis); err != nil {
 		logger.Fatal("init redis failed", zap.Error(err))
@@ -126,9 +120,12 @@ func main() {
 
 	cacheService := rbacService.NewPermissionCacheService(database.DB(), redis.Client(), permRepo, roleRepo)
 
+	// 事件总线（登录/登出审计、工作流、通知共用）
+	eventBus := events.NewEventBus()
+
 	// 认证模块（依赖 cacheService 获取角色和权限）
 	authR := authRepo.NewAuthRepo(redis.Client())
-	authSvc := authService.NewAuthService(authR, userRepo, &cfg.JWT, cacheService)
+	authSvc := authService.NewAuthService(authR, userRepo, &cfg.JWT, cacheService, eventBus)
 	authH := authHandler.NewAuthHandler(authSvc)
 
 	// 用户管理模块
@@ -147,7 +144,6 @@ func main() {
 	posHandler := rbacHandler.NewPositionHandler(posService)
 
 	// 工作流引擎模块
-	eventBus := events.NewEventBus()
 	wfHandlers := workflow.Init(database.DB(), eventBus, logger.GetLogger())
 
 	// 通知模块
@@ -180,6 +176,7 @@ func main() {
 	auditR := auditRepo.NewAuditRepo(database.DB())
 	auditSvc := auditService.NewAuditService(auditR, &cfg.MinIO)
 	auditH := auditHandler.NewAuditHandler(auditSvc)
+	auditService.RegisterAuthEvents(eventBus, auditSvc)
 
 	// 启动审计日志归档定时任务（每天 02:00 归档 90 天前日志）
 	archiveScheduler := auditService.NewArchiveScheduler(auditSvc)
@@ -231,7 +228,7 @@ func main() {
 		// 通知模块路由
 		notifHandler.RegisterRoutes(protected, protected, notificationHandler, templateHandler, wsHandler)
 
-		// 审计日志模块路由（需要 audit:read / audit:archive 权限）
+		// 审计日志模块路由（/system/audit-logs，audit:read / audit:export / audit:archive）
 		auditHandler.RegisterRoutes(protected, auditH, cacheService)
 	}
 
