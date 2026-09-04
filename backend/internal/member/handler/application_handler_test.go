@@ -129,6 +129,9 @@ func (m *mockMemberService) MemberStats(ctx context.Context, q *dto.StatsQuery) 
 	}
 	return args.Get(0).(*dto.StatsResponse), args.Error(1)
 }
+func (m *mockMemberService) SyncFromInterview(ctx context.Context, operator, applicationID uuid.UUID, result int16, comment string) error {
+	return m.Called(ctx, operator, applicationID, result, comment).Error(0)
+}
 
 func withUser(uid uuid.UUID) gin.HandlerFunc {
 	return func(c *gin.Context) {

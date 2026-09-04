@@ -31,6 +31,8 @@ type MemberService interface {
 
 	ApplicationStats(ctx context.Context, q *dto.StatsQuery) (*dto.StatsResponse, error)
 	MemberStats(ctx context.Context, q *dto.StatsQuery) (*dto.StatsResponse, error)
+
+	SyncFromInterview(ctx context.Context, operator, applicationID uuid.UUID, result int16, comment string) error
 }
 
 type memberService struct {

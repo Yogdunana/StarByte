@@ -71,6 +71,29 @@ func (s *memberService) transit(ctx context.Context, reviewer, id uuid.UUID, act
 	return s.GetApplication(ctx, reviewer, app.ID, nil)
 }
 
+// SyncFromInterview 面试结果回写入会申请：通过→批准，不通过→拒绝。
+func (s *memberService) SyncFromInterview(ctx context.Context, operator, applicationID uuid.UUID, result int16, comment string) error {
+	app, err := s.apps.GetByID(ctx, applicationID)
+	if err != nil {
+		return fmt.Errorf("get application: %w", err)
+	}
+	if app == nil {
+		return nil
+	}
+	if app.Status != model.AppInterviewing {
+		return nil
+	}
+	switch result {
+	case 1:
+		_, err = s.transit(ctx, operator, applicationID, actionApprove, comment, nil)
+	case 2:
+		_, err = s.transit(ctx, operator, applicationID, actionReject, comment, nil)
+	default:
+		return nil
+	}
+	return err
+}
+
 func (s *memberService) startInterview(ctx context.Context, app *model.MemberApplication, reviewer uuid.UUID) error {
 	if s.starter == nil {
 		return response.NewError(response.CodeMemberAppInvalid, "面试流程引擎未配置")
