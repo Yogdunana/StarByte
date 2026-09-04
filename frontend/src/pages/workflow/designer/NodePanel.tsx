@@ -4,12 +4,14 @@ import type { DesignerNodeType } from '@/types/workflow';
 
 interface NodePanelProps {
   disabled?: boolean;
+  onAddNode?: (type: DesignerNodeType) => void;
 }
 
-const NodePanel: React.FC<NodePanelProps> = ({ disabled }) => {
+const NodePanel: React.FC<NodePanelProps> = ({ disabled, onAddNode }) => {
   const onDragStart = (event: React.DragEvent, type: DesignerNodeType) => {
     if (disabled) return;
     event.dataTransfer.setData(DND_TYPE, type);
+    event.dataTransfer.setData('text/plain', type);
     event.dataTransfer.effectAllowed = 'move';
   };
 
@@ -23,6 +25,9 @@ const NodePanel: React.FC<NodePanelProps> = ({ disabled }) => {
             className="node-palette-item"
             draggable={!disabled}
             onDragStart={(event) => onDragStart(event, item.type)}
+            onClick={() => {
+              if (!disabled) onAddNode?.(item.type);
+            }}
             style={{ borderColor: item.color, opacity: disabled ? 0.5 : 1 }}
           >
             <span className="node-palette-dot" style={{ background: item.color }} />

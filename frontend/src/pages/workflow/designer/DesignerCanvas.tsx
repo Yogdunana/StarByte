@@ -51,9 +51,17 @@ const DesignerCanvasInner: React.FC<DesignerCanvasProps> = ({
     (event: React.DragEvent) => {
       event.preventDefault();
       if (previewMode) return;
-      const type = event.dataTransfer.getData(DND_TYPE) as DesignerNodeType;
-      if (!type) return;
-      const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      const type = (event.dataTransfer.getData(DND_TYPE) ||
+        event.dataTransfer.getData('text/plain')) as DesignerNodeType;
+      if (!type || !type.trim()) return;
+      const bounds = wrapperRef.current?.getBoundingClientRect();
+      const instance = instanceRef.current;
+      const position = instance && bounds
+        ? instance.project({
+            x: event.clientX - bounds.left,
+            y: event.clientY - bounds.top,
+          })
+        : screenToFlowPosition({ x: event.clientX, y: event.clientY });
       onDropNode({
         id: createNodeId(type),
         type,
@@ -65,15 +73,16 @@ const DesignerCanvasInner: React.FC<DesignerCanvasProps> = ({
   );
 
   return (
-    <div className="designer-canvas" ref={wrapperRef}>
+    <div className={`designer-canvas${previewMode ? ' is-preview' : ''}`} ref={wrapperRef}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={designerNodeTypes}
         onInit={(instance) => {
           instanceRef.current = instance;
+          instance.fitView();
         }}
-        onNodesChange={previewMode ? undefined : onNodesChange}
+        onNodesChange={onNodesChange}
         onEdgesChange={previewMode ? undefined : onEdgesChange}
         onConnect={(connection) => {
           if (!previewMode) onConnect(connection);
@@ -89,7 +98,6 @@ const DesignerCanvasInner: React.FC<DesignerCanvasProps> = ({
         nodesDraggable={!previewMode}
         nodesConnectable={!previewMode}
         elementsSelectable
-        fitView
         minZoom={0.4}
         maxZoom={1.6}
         deleteKeyCode={previewMode ? null : ['Backspace', 'Delete']}

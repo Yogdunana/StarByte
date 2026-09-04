@@ -85,3 +85,18 @@ export function fromFlowGraph(graph: FlowGraphData): {
 export function createNodeId(type: DesignerNodeType): string {
   return `${type}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 }
+
+export function appendNode(
+  current: DesignerRFNode[],
+  node: DesignerRFNode,
+): DesignerRFNode[] {
+  let { x, y } = node.position;
+  const overlaps = current.some(
+    (item) => Math.abs(item.position.x - x) < 16 && Math.abs(item.position.y - y) < 16,
+  );
+  if (overlaps) {
+    x += 48 * current.length;
+    y += 36 * current.length;
+  }
+  return [...current, { ...node, position: { x, y } }];
+}

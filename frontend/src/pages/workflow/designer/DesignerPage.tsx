@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { ReactFlowProvider, addEdge, applyEdgeChanges, applyNodeChanges } from 'reactflow';
 import type { Connection, EdgeChange, NodeChange } from 'reactflow';
-import type { CreateDefinitionPayload } from '@/types/workflow';
+import type { ConditionConfig, CreateDefinitionPayload, DesignerNodeData } from '@/types/workflow';
 import type { AppDispatch } from '@/store';
 import {
   resetDesigner,
@@ -23,9 +23,15 @@ import { CreateDefinitionModal, OpenDefinitionModal } from './DesignerModals';
 import { useUndoRedo } from './hooks/useUndoRedo';
 import { useDesignerHotkeys } from './hooks/useDesignerHotkeys';
 import { loadDefinitionGraph, persistDraft, persistPublish } from './hooks/useDesignerPersistence';
+import { addNodeOfType, applyImportedGraph } from './hooks/useDesignerNodes';
 import { downloadGraphJson, parseImportedGraph } from './utils/graphIO';
-import { toFlowGraph, fromFlowGraph, type DesignerRFEdge, type DesignerRFNode } from './utils/flowConvert';
-import type { ConditionConfig, DesignerNodeData } from '@/types/workflow';
+import {
+  appendNode,
+  toFlowGraph,
+  fromFlowGraph,
+  type DesignerRFEdge,
+  type DesignerRFNode,
+} from './utils/flowConvert';
 import './designer.css';
 
 const DesignerPageInner: React.FC = () => {
@@ -66,9 +72,7 @@ const DesignerPageInner: React.FC = () => {
         }));
       })
       .catch(() => message.error('加载流程失败'));
-    // resetHistory 仅重置栈，不作为加载触发条件
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, dispatch]);
+  }, [id, dispatch, resetHistory]);
 
   useDesignerHotkeys(undo, redo);
 
@@ -76,13 +80,12 @@ const DesignerPageInner: React.FC = () => {
   const graph = useMemo(() => toFlowGraph(nodes, edges), [nodes, edges]);
 
   const applyGraph = (next: { nodes: DesignerRFNode[]; edges: DesignerRFEdge[] }) => {
-    takeSnapshot();
-    setNodes(next.nodes);
-    setEdges(next.edges);
+    applyImportedGraph(setNodes, setEdges, takeSnapshot, next);
     dispatch(setDirty(true));
   };
 
   const handleNodesChange = (changes: NodeChange[]) => {
+    if (previewMode) return;
     setNodes((current) => applyNodeChanges(changes, current) as DesignerRFNode[]);
     dispatch(setDirty(true));
   };
@@ -243,7 +246,10 @@ const DesignerPageInner: React.FC = () => {
         onNew={() => navigate('/workflow/designer')}
       />
       <div className="designer-body">
-        <NodePanel disabled={previewMode} />
+        <NodePanel
+          disabled={previewMode}
+          onAddNode={(type) => { addNodeOfType(setNodes, takeSnapshot, type); dispatch(setDirty(true)); }}
+        />
         <DesignerCanvas
           nodes={nodes}
           edges={edges}
@@ -252,7 +258,7 @@ const DesignerPageInner: React.FC = () => {
           onEdgesChange={handleEdgesChange}
           onConnect={handleConnect}
           onNodeClick={(nodeId) => dispatch(setSelectedNodeId(nodeId))}
-          onDropNode={(node) => applyGraph({ nodes: [...nodes, node], edges })}
+          onDropNode={(node) => { takeSnapshot(); setNodes((c) => appendNode(c, node)); dispatch(setDirty(true)); }}
           onDragStop={() => takeSnapshot()}
         />
         <PropertyPanel
