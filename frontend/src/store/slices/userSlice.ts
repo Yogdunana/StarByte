@@ -65,6 +65,7 @@ export const { clearUser, setPermissions, clearUserError } = userSlice.actions;
 
 export const selectCurrentUser = (state: RootState) => state.user.currentUser;
 export const selectPermissions = (state: RootState) => state.user.permissions;
+export const selectRoles = (state: RootState) => state.user.currentUser?.roles ?? [];
 export const selectUserLoading = (state: RootState) => state.user.loading;
 export const selectUserError = (state: RootState) => state.user.error;
 
