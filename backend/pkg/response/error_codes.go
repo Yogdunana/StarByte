@@ -23,13 +23,14 @@ const (
 	CodeSuccess = 0
 
 	// ===== General errors (1000-1999) =====
-	CodeBadRequest    = 1001 // 参数错误 / 校验失败
-	CodeUnauthorized  = 1002 // 未授权 / 未登录
-	CodeForbidden     = 1003 // 禁止访问 / 权限不足
-	CodeNotFound      = 1004 // 通用资源不存在
-	CodeConflict      = 1005 // 通用冲突（资源已存在、状态冲突）
-	CodeTooManyReq    = 1006 // 请求过于频繁
-	CodeInternalError = 5000 // 内部服务器错误
+	CodeBadRequest     = 1001 // 参数错误 / 校验失败
+	CodeUnauthorized   = 1002 // 未授权 / 未登录
+	CodeForbidden      = 1003 // 禁止访问 / 权限不足
+	CodeNotFound       = 1004 // 通用资源不存在
+	CodeConflict       = 1005 // 通用冲突（资源已存在、状态冲突）
+	CodeTooManyReq     = 1006 // 请求过于频繁
+	CodeInternalError  = 1500 // 内部服务器错误（通用段，不得占用审计 5000-5999）
+	CodeNotImplemented = 1501 // 功能未实现 / 接口预留
 
 	// ===== User module (2000-2999) =====
 	CodeUserNotFound        = 2001 // 用户不存在

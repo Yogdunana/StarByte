@@ -196,6 +196,17 @@ func Conflict(c *gin.Context, msg string) {
 	})
 }
 
+// NotImplemented sends a 501 response with the unified envelope (request_id included).
+func NotImplemented(c *gin.Context, msg string) {
+	c.JSON(http.StatusNotImplemented, Response{
+		Code:      CodeNotImplemented,
+		Message:   msg,
+		Data:      nil,
+		RequestID: c.GetString("request_id"),
+		Timestamp: time.Now().Unix(),
+	})
+}
+
 // Error sends an appropriate response based on the error type.
 //
 // Error resolution order:
@@ -277,7 +288,8 @@ func Page(c *gin.Context, list interface{}, total int64, page, pageSize int) {
 //   - 1004         → 404 Not Found
 //   - 1005         → 409 Conflict
 //   - 1006         → 429 Too Many Requests
-//   - >=5000       → 500 Internal Server Error
+//   - 1500         → 500 Internal Server Error
+//   - 1501         → 501 Not Implemented
 //   - Other codes  → 400 Bad Request (business-level validation/flow errors)
 func httpStatusFromCode(code int) int {
 	switch code {
@@ -297,6 +309,8 @@ func httpStatusFromCode(code int) int {
 		return http.StatusTooManyRequests
 	case CodeInternalError:
 		return http.StatusInternalServerError
+	case CodeNotImplemented:
+		return http.StatusNotImplemented
 	default:
 		// All other codes (2xxx-12xxx) are module-specific business
 		// errors and default to 400 Bad Request.
