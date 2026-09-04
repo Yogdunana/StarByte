@@ -90,27 +90,49 @@ const SessionPage: React.FC = () => {
     },
   ];
 
-  const importApplicant = async () => {
+  const importApplicant = async (mode: 'application' | 'user') => {
     if (!current) return;
-    const apps = await getApplicationList({ page: 1, page_size: 50, status: 2 });
     let selected = '';
+    if (mode === 'application') {
+      const apps = await getApplicationList({ page: 1, page_size: 50 });
+      Modal.confirm({
+        title: '从入会申请导入',
+        content: (
+          <Select
+            style={{ width: '100%', marginTop: 12 }}
+            placeholder="选择申请"
+            options={apps.list.map((a: MemberApplication) => ({
+              label: `${a.real_name}（${a.student_no}）`,
+              value: a.id,
+            }))}
+            onChange={(v) => { selected = v; }}
+          />
+        ),
+        onOk: async () => {
+          if (!selected) return;
+          await createInterview({ session_id: current.id, application_id: selected });
+          message.success('已导入');
+          await loadRecords(current);
+          await load();
+        },
+      });
+      return;
+    }
+    const users = await getUserList({ page: 1, page_size: 50 });
     Modal.confirm({
-      title: '从入会申请导入',
+      title: '手动添加面试者',
       content: (
         <Select
           style={{ width: '100%', marginTop: 12 }}
-          placeholder="选择面试中的申请"
-          options={apps.list.map((a: MemberApplication) => ({
-            label: `${a.real_name}（${a.student_no}）`,
-            value: a.id,
-          }))}
+          placeholder="选择用户"
+          options={users.list.map((u) => ({ label: u.real_name || u.username, value: u.id }))}
           onChange={(v) => { selected = v; }}
         />
       ),
       onOk: async () => {
         if (!selected) return;
-        await createInterview({ session_id: current.id, application_id: selected });
-        message.success('已导入');
+        await createInterview({ session_id: current.id, applicant_id: selected });
+        message.success('已添加');
         await loadRecords(current);
         await load();
       },
@@ -180,7 +202,12 @@ const SessionPage: React.FC = () => {
               <>
                 <Space style={{ marginBottom: 16 }}>
                   <Input disabled value={current ? current.title : '请先在场次中选择'} style={{ width: 240 }} />
-                  {canManage && current && <Button onClick={() => void importApplicant()}>导入申请</Button>}
+                  {canManage && current && (
+                    <>
+                      <Button onClick={() => void importApplicant('application')}>导入申请</Button>
+                      <Button onClick={() => void importApplicant('user')}>手动添加</Button>
+                    </>
+                  )}
                 </Space>
                 <Table
                   rowKey="id"
