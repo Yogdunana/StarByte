@@ -26,9 +26,13 @@ func TestListParams_Filters(t *testing.T) {
 		IP:        "192.168.1.1",
 		StartTime: &now,
 	}
+	assert.Equal(t, "admin", params.Username)
+	assert.Equal(t, uid, *params.UserID)
 	assert.Equal(t, "CREATE", params.Action)
 	assert.Equal(t, "system", params.Module)
 	assert.Equal(t, "roles", params.Keyword)
+	assert.Equal(t, "192.168.1.1", params.IP)
+	assert.Equal(t, now, *params.StartTime)
 	assert.Equal(t, 2, params.Page)
 	assert.Equal(t, 50, params.PageSize)
 }
