@@ -17,11 +17,11 @@ type namedCode struct {
 var seedRolesData = []namedCode{
 	{Name: "超级管理员", Code: "super_admin", Description: "系统内置超管", Sort: 0, IsSystem: true},
 	{Name: "社长", Code: "president", Description: "协会社长", Sort: 1, IsSystem: true},
-	{Name: "副社长", Code: "vice_president", Description: "协会副社长", Sort: 2, IsSystem: true},
-	{Name: "部长", Code: "minister", Description: "部门部长", Sort: 3, IsSystem: true},
-	{Name: "副部长", Code: "vice_minister", Description: "部门副部长", Sort: 4, IsSystem: true},
-	{Name: "干事", Code: "officer", Description: "部门干事", Sort: 5, IsSystem: true},
-	{Name: "会员", Code: "member", Description: "普通会员", Sort: 6, IsSystem: true},
+	{Name: "副社长", Code: "vice_president", Description: "协会副社长", Sort: 2},
+	{Name: "部长", Code: "minister", Description: "部门部长", Sort: 3},
+	{Name: "副部长", Code: "vice_minister", Description: "部门副部长", Sort: 4},
+	{Name: "干事", Code: "officer", Description: "部门干事", Sort: 5},
+	{Name: "会员", Code: "member", Description: "普通会员", Sort: 6},
 }
 
 var seedDepartmentsData = []namedCode{
@@ -82,7 +82,11 @@ func seedRoles(db *gorm.DB) error {
 		if err := db.Exec(`
 			INSERT INTO roles (id, name, code, description, sort_order, status, is_system)
 			VALUES (uuid_generate_v4(), ?, ?, ?, ?, 0, ?)
-			ON CONFLICT (code) DO NOTHING`,
+			ON CONFLICT (code) DO UPDATE SET
+				name = EXCLUDED.name,
+				description = EXCLUDED.description,
+				sort_order = EXCLUDED.sort_order,
+				is_system = EXCLUDED.is_system`,
 			r.Name, r.Code, r.Description, r.Sort, r.IsSystem,
 		).Error; err != nil {
 			return err
@@ -145,20 +149,81 @@ func seedRolePermissions(db *gorm.DB) error {
 		return fmt.Errorf("assign all perms to president: %w", err)
 	}
 
-	basics := []string{
+	// 副社长：除系统配置外的全部权限
+	if err := db.Exec(`
+		INSERT INTO role_permissions (id, role_id, permission_id, data_scope)
+		SELECT uuid_generate_v4(), r.id, p.id, 'all'
+		FROM roles r CROSS JOIN permissions p
+		WHERE r.code = 'vice_president' AND p.code <> 'system:config'
+		ON CONFLICT (role_id, permission_id) DO NOTHING
+	`).Error; err != nil {
+		return fmt.Errorf("assign vice_president perms: %w", err)
+	}
+
+	// 部长：全部 read + 业务 create/update
+	if err := db.Exec(`
+		INSERT INTO role_permissions (id, role_id, permission_id, data_scope)
+		SELECT uuid_generate_v4(), r.id, p.id, 'department'
+		FROM roles r CROSS JOIN permissions p
+		WHERE r.code = 'minister' AND (
+			p.action = 'read'
+			OR (p.resource IN ('member','interview','meeting','task','internship','file','workflow','notification')
+			    AND p.action IN ('create','update'))
+		)
+		ON CONFLICT (role_id, permission_id) DO NOTHING
+	`).Error; err != nil {
+		return fmt.Errorf("assign minister perms: %w", err)
+	}
+
+	// 副部长：全部 read + 业务 create
+	if err := db.Exec(`
+		INSERT INTO role_permissions (id, role_id, permission_id, data_scope)
+		SELECT uuid_generate_v4(), r.id, p.id, 'department'
+		FROM roles r CROSS JOIN permissions p
+		WHERE r.code = 'vice_minister' AND (
+			p.action = 'read'
+			OR (p.resource IN ('member','interview','meeting','task','internship','file')
+			    AND p.action = 'create')
+		)
+		ON CONFLICT (role_id, permission_id) DO NOTHING
+	`).Error; err != nil {
+		return fmt.Errorf("assign vice_minister perms: %w", err)
+	}
+
+	if err := assignPermCodes(db, "officer", "department", officerPermCodes()); err != nil {
+		return err
+	}
+	return assignPermCodes(db, "member", "self", memberPermCodes())
+}
+
+func officerPermCodes() []string {
+	return []string{
+		"user:read", "member:read", "member:create",
+		"interview:read", "meeting:read",
+		"task:read", "task:create",
+		"file:read", "file:create",
+		"internship:read", "internship:create",
+	}
+}
+
+func memberPermCodes() []string {
+	return []string{
 		"user:read", "member:read", "meeting:read", "task:read",
 		"file:read", "file:create", "internship:read",
 	}
-	for _, code := range basics {
+}
+
+func assignPermCodes(db *gorm.DB, roleCode, dataScope string, codes []string) error {
+	for _, code := range codes {
 		if err := db.Exec(`
 			INSERT INTO role_permissions (id, role_id, permission_id, data_scope)
-			SELECT uuid_generate_v4(), r.id, p.id, 'self'
+			SELECT uuid_generate_v4(), r.id, p.id, ?
 			FROM roles r
 			CROSS JOIN permissions p
-			WHERE r.code = 'member' AND p.code = ?
+			WHERE r.code = ? AND p.code = ?
 			ON CONFLICT (role_id, permission_id) DO NOTHING
-		`, code).Error; err != nil {
-			return err
+		`, dataScope, roleCode, code).Error; err != nil {
+			return fmt.Errorf("assign %s perm %s: %w", roleCode, code, err)
 		}
 	}
 	return nil

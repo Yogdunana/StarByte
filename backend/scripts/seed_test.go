@@ -43,3 +43,21 @@ func TestSeedTemplates_AtLeastFive(t *testing.T) {
 func TestSeedDepartments_Four(t *testing.T) {
 	assert.Len(t, seedDepartmentsData, 4)
 }
+
+func TestSeedRoles_OnlyTopRolesAreSystem(t *testing.T) {
+	for _, r := range seedRolesData {
+		switch r.Code {
+		case "super_admin", "president":
+			assert.True(t, r.IsSystem, "%s should be system", r.Code)
+		default:
+			assert.False(t, r.IsSystem, "%s should not be system", r.Code)
+		}
+	}
+}
+
+func TestOfficerAndMemberPerms_NonEmpty(t *testing.T) {
+	assert.GreaterOrEqual(t, len(officerPermCodes()), 8)
+	assert.GreaterOrEqual(t, len(memberPermCodes()), 5)
+	assert.Contains(t, officerPermCodes(), "task:create")
+	assert.Contains(t, memberPermCodes(), "file:read")
+}
