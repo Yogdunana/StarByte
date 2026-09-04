@@ -125,12 +125,24 @@ cp .env.example .env
 # 启动数据库和 Redis（使用 Docker）
 docker-compose -f ../deploy/docker-compose.yml up -d postgres redis minio
 
-# 运行数据库迁移
-go run cmd/server/main.go migrate
+# 运行数据库迁移与种子数据（需已安装 golang-migrate）
+# make migrate-up
+# make seed
 
 # 启动服务
 go run cmd/server/main.go
 ```
+
+仓库根目录 `Makefile` 提供统一命令：
+
+```bash
+make migrate-up              # 执行全部迁移
+make migrate-down            # 回滚最近一次迁移
+make migrate-create name=xx  # 新建迁移文件
+make seed                    # 幂等写入测试角色/用户/模板
+```
+
+默认账号：`admin/admin123`（社长 + 超管）、`test/test123`（会员）。
 
 #### 前端开发
 
