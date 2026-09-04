@@ -114,6 +114,35 @@ type NodeLeftEvent struct {
 func (e NodeLeftEvent) EventName() string        { return "node.left" }
 func (e NodeLeftEvent) GetInstanceID() uuid.UUID { return e.InstanceID }
 
+const (
+	EventUserLogin  = "user.login"
+	EventUserLogout = "user.logout"
+)
+
+// UserLoginEvent is published after a successful password login.
+type UserLoginEvent struct {
+	UserID    uuid.UUID
+	Username  string
+	RealName  string
+	IP        string
+	UserAgent string
+}
+
+func (e UserLoginEvent) EventName() string        { return EventUserLogin }
+func (e UserLoginEvent) GetInstanceID() uuid.UUID { return uuid.Nil }
+
+// UserLogoutEvent is published after a successful logout.
+type UserLogoutEvent struct {
+	UserID    uuid.UUID
+	Username  string
+	RealName  string
+	IP        string
+	UserAgent string
+}
+
+func (e UserLogoutEvent) EventName() string        { return EventUserLogout }
+func (e UserLogoutEvent) GetInstanceID() uuid.UUID { return uuid.Nil }
+
 // Handler is a function that processes an event.
 type Handler func(ctx context.Context, event Event) error
 

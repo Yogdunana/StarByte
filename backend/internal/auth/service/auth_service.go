@@ -11,6 +11,7 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/user/model"
 	userRepo "github.com/Yogdunana/StarByte/backend/internal/user/repo"
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
+	"github.com/Yogdunana/StarByte/backend/pkg/events"
 	authmiddleware "github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/Yogdunana/StarByte/backend/pkg/utils"
@@ -31,6 +32,7 @@ type authService struct {
 	userRepo     userRepo.UserRepo
 	jwtConfig    *config.JWTConfig
 	permCacheSvc rbacService.PermissionCacheService
+	eventBus     *events.EventBus
 }
 
 // NewAuthService creates a new authentication service.
@@ -39,12 +41,14 @@ func NewAuthService(
 	userRepo userRepo.UserRepo,
 	jwtConfig *config.JWTConfig,
 	permCacheSvc rbacService.PermissionCacheService,
+	eventBus *events.EventBus,
 ) AuthService {
 	return &authService{
 		authRepo:     authRepo,
 		userRepo:     userRepo,
 		jwtConfig:    jwtConfig,
 		permCacheSvc: permCacheSvc,
+		eventBus:     eventBus,
 	}
 }
 
@@ -112,7 +116,10 @@ func (s *authService) Login(ctx context.Context, req *dto.LoginRequest, ip, user
 	// 10. Update last login info
 	_ = s.userRepo.UpdateLastLogin(ctx, user.ID, ip)
 
-	// 11. Build response
+	// 11. Publish login audit event
+	s.publishLogin(ctx, user, ip, userAgent)
+
+	// 12. Build response
 	userInfo := buildUserInfo(user, roles, permissions)
 
 	return &dto.LoginResponse{
@@ -196,6 +203,7 @@ func (s *authService) Logout(ctx context.Context, userID, tokenID, refreshToken 
 		_ = s.authRepo.DeleteSession(ctx, tokenID)
 	}
 
+	s.publishLogout(ctx, userID)
 	return nil
 }
 
@@ -301,4 +309,32 @@ func buildUserInfo(user *model.User, roles, permissions []string) *dto.UserInfo 
 // accessTTL returns the access token TTL duration.
 func accessTTL(cfg *config.JWTConfig) time.Duration {
 	return time.Duration(cfg.AccessTokenExp) * time.Second
+}
+
+func (s *authService) publishLogin(ctx context.Context, user *model.User, ip, userAgent string) {
+	if s.eventBus == nil || user == nil {
+		return
+	}
+	s.eventBus.Publish(ctx, events.UserLoginEvent{
+		UserID:    user.ID,
+		Username:  user.Username,
+		RealName:  user.RealName,
+		IP:        ip,
+		UserAgent: userAgent,
+	})
+}
+
+func (s *authService) publishLogout(ctx context.Context, userID string) {
+	if s.eventBus == nil {
+		return
+	}
+	ev := events.UserLogoutEvent{}
+	if uid, err := uuid.Parse(userID); err == nil {
+		ev.UserID = uid
+		if user, err := s.userRepo.GetByID(ctx, uid); err == nil && user != nil {
+			ev.Username = user.Username
+			ev.RealName = user.RealName
+		}
+	}
+	s.eventBus.Publish(ctx, ev)
 }

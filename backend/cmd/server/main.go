@@ -9,6 +9,9 @@ import (
 	"syscall"
 	"time"
 
+	auditHandler "github.com/Yogdunana/StarByte/backend/internal/audit/handler"
+	auditRepo "github.com/Yogdunana/StarByte/backend/internal/audit/repo"
+	auditService "github.com/Yogdunana/StarByte/backend/internal/audit/service"
 	authHandler "github.com/Yogdunana/StarByte/backend/internal/auth/handler"
 	authRepo "github.com/Yogdunana/StarByte/backend/internal/auth/repo"
 	authService "github.com/Yogdunana/StarByte/backend/internal/auth/service"
@@ -67,11 +70,6 @@ func main() {
 		}
 	}()
 
-	// 3a. 自动迁移审计日志表
-	if err := database.DB().AutoMigrate(&middleware.AuditLogEntry{}); err != nil {
-		logger.Fatal("auto migrate audit_logs failed", zap.Error(err))
-	}
-
 	// 3b. 自动迁移工作流引擎表
 	if err := workflow.AutoMigrate(database.DB()); err != nil {
 		logger.Fatal("auto migrate workflow tables failed", zap.Error(err))
@@ -122,9 +120,12 @@ func main() {
 
 	cacheService := rbacService.NewPermissionCacheService(database.DB(), redis.Client(), permRepo, roleRepo)
 
+	// 事件总线（登录/登出审计、工作流、通知共用）
+	eventBus := events.NewEventBus()
+
 	// 认证模块（依赖 cacheService 获取角色和权限）
 	authR := authRepo.NewAuthRepo(redis.Client())
-	authSvc := authService.NewAuthService(authR, userRepo, &cfg.JWT, cacheService)
+	authSvc := authService.NewAuthService(authR, userRepo, &cfg.JWT, cacheService, eventBus)
 	authH := authHandler.NewAuthHandler(authSvc)
 
 	// 用户管理模块
@@ -143,7 +144,6 @@ func main() {
 	posHandler := rbacHandler.NewPositionHandler(posService)
 
 	// 工作流引擎模块
-	eventBus := events.NewEventBus()
 	wfHandlers := workflow.Init(database.DB(), eventBus, logger.GetLogger())
 
 	// 通知模块
@@ -171,6 +171,16 @@ func main() {
 	notificationHandler := notifHandler.NewNotificationHandler(notifSvc, hub)
 	templateHandler := notifHandler.NewTemplateHandler(tplSvc)
 	wsHandler := notifHandler.NewWSHandler(hub, &cfg.JWT, cfg.CORS.AllowedOrigins)
+
+	// 审计日志模块
+	auditR := auditRepo.NewAuditRepo(database.DB())
+	auditSvc := auditService.NewAuditService(auditR, &cfg.MinIO)
+	auditH := auditHandler.NewAuditHandler(auditSvc)
+	auditService.RegisterAuthEvents(eventBus, auditSvc)
+
+	// 启动审计日志归档定时任务（每天 02:00 归档 90 天前日志）
+	archiveScheduler := auditService.NewArchiveScheduler(auditSvc)
+	archiveScheduler.Start()
 
 	// 10. API 路由组
 	api := r.Group("/api/v1")
@@ -217,6 +227,9 @@ func main() {
 
 		// 通知模块路由
 		notifHandler.RegisterRoutes(protected, protected, notificationHandler, templateHandler, wsHandler)
+
+		// 审计日志模块路由（/system/audit-logs，audit:read / audit:export / audit:archive）
+		auditHandler.RegisterRoutes(protected, auditH, cacheService)
 	}
 
 	// WebSocket 路由（独立于 API 组，JWT 认证在 handler 内部完成）
@@ -259,6 +272,9 @@ func main() {
 
 	// 优雅关闭审计日志 worker，刷新缓冲通道中的待写入条目
 	middleware.CloseAuditWriter()
+
+	// 停止审计日志归档定时任务
+	archiveScheduler.Stop()
 
 	logger.Info("server exited")
 }

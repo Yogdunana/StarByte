@@ -15,6 +15,7 @@ const Dashboard = lazy(() => import('@/pages/dashboard/Dashboard'));
 const UserList = lazy(() => import('@/pages/user/UserList'));
 const NotificationList = lazy(() => import('@/pages/notification/NotificationList'));
 const TemplateList = lazy(() => import('@/pages/notification/TemplateList'));
+const AuditList = lazy(() => import('@/pages/system/audit/AuditList'));
 const Forbidden = lazy(() => import('@/pages/error/Forbidden'));
 
 // 懒加载 fallback
@@ -243,7 +244,7 @@ const routes: AppRouteObject[] = [
           },
           {
             path: 'audit',
-            element: guarded(<div style={{ padding: 24 }}>审计日志（开发中）</div>, 'audit:read'),
+            element: lazyGuarded(AuditList, 'audit:read'),
             meta: { title: '审计日志', permission: 'audit:read' },
           },
           {
