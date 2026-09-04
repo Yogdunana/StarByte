@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/Yogdunana/StarByte/backend/internal/member/dto"
@@ -180,6 +179,6 @@ func (h *MemberHandler) ExportProfiles(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="member-profiles.pdf"`))
+	c.Header("Content-Disposition", `attachment; filename="member-profiles.pdf"`)
 	c.Data(http.StatusOK, "application/pdf", pdf)
 }
