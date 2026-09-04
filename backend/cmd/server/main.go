@@ -15,6 +15,9 @@ import (
 	authHandler "github.com/Yogdunana/StarByte/backend/internal/auth/handler"
 	authRepo "github.com/Yogdunana/StarByte/backend/internal/auth/repo"
 	authService "github.com/Yogdunana/StarByte/backend/internal/auth/service"
+	fileHandler "github.com/Yogdunana/StarByte/backend/internal/file/handler"
+	fileRepo "github.com/Yogdunana/StarByte/backend/internal/file/repo"
+	fileService "github.com/Yogdunana/StarByte/backend/internal/file/service"
 	notifHandler "github.com/Yogdunana/StarByte/backend/internal/notification/handler"
 	notifModel "github.com/Yogdunana/StarByte/backend/internal/notification/model"
 	notifRepo "github.com/Yogdunana/StarByte/backend/internal/notification/repo"
@@ -35,6 +38,7 @@ import (
 	authmiddleware "github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/Yogdunana/StarByte/backend/pkg/redis"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
+	"github.com/Yogdunana/StarByte/backend/pkg/storage"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -173,6 +177,23 @@ func main() {
 	templateHandler := notifHandler.NewTemplateHandler(tplSvc)
 	wsHandler := notifHandler.NewWSHandler(hub, &cfg.JWT, cfg.CORS.AllowedOrigins)
 
+	// 对象存储（MinIO）：bucket 不存在则创建；失败只告警，避免拖垮其他模块
+	var objectStore storage.ObjectStorage
+	minioStore, err := storage.NewMinIO(cfg.MinIO)
+	if err != nil {
+		logger.Error("init MinIO client failed", zap.Error(err))
+	} else {
+		objectStore = minioStore
+		if err := objectStore.EnsureBucket(context.Background()); err != nil {
+			logger.Error("ensure MinIO bucket failed", zap.Error(err))
+		}
+	}
+
+	// 文件管理模块
+	fileR := fileRepo.NewFileRepo(database.DB())
+	fileSvc := fileService.NewFileService(fileR, objectStore, cacheService, cfg.MinIO.Bucket)
+	fileH := fileHandler.NewFileHandler(fileSvc)
+
 	// 审计日志模块
 	auditR := auditRepo.NewAuditRepo(database.DB())
 	auditSvc := auditService.NewAuditService(auditR, &cfg.MinIO)
@@ -228,6 +249,9 @@ func main() {
 
 		// 通知模块路由
 		notifHandler.RegisterRoutes(protected, protected, notificationHandler, templateHandler, wsHandler)
+
+		// 文件管理模块（/files，file:read / file:create；删除由服务层校验上传者或 file:delete）
+		fileHandler.RegisterRoutes(protected, fileH, cacheService)
 
 		// 审计日志模块路由（/system/audit-logs，audit:read / audit:export / audit:archive）
 		auditHandler.RegisterRoutes(protected, auditH, cacheService)

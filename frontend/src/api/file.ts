@@ -1,39 +1,43 @@
 import request from './request';
 import type { FileInfo, UploadResult, ListFileParams, PageResponse } from '@/types/api';
 
-// 获取文件列表
+function multipartHeaders(): { 'Content-Type': undefined } {
+  // 去掉默认 application/json，让浏览器写入 multipart boundary
+  return { 'Content-Type': undefined };
+}
+
 export function getFileList(params: ListFileParams): Promise<PageResponse<FileInfo>> {
   return request.get('/files', { params });
 }
 
-// 获取文件详情
 export function getFileDetail(id: string): Promise<FileInfo> {
   return request.get(`/files/${id}`);
 }
 
-// 删除文件
 export function deleteFile(id: string): Promise<void> {
   return request.delete(`/files/${id}`);
 }
 
-/**
- * 获取上传地址（上传文件时使用，支持上传进度）
- *
- * @example
- * ```ts
- * const formData = new FormData();
- * formData.append('file', file);
- * const result = await uploadFile(formData, (progressEvent) => {
- *   const percent = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 0));
- *   console.log(percent);
- * });
- * ```
- */
+export function downloadFile(id: string): Promise<FileInfo> {
+  return getFileDetail(id);
+}
+
 export function uploadFile(
   formData: FormData,
   onUploadProgress?: (progressEvent: { loaded: number; total?: number }) => void,
 ): Promise<UploadResult> {
   return request.post('/files/upload', formData, {
     onUploadProgress,
+    headers: multipartHeaders(),
+  });
+}
+
+export function uploadFileBatch(
+  formData: FormData,
+  onUploadProgress?: (progressEvent: { loaded: number; total?: number }) => void,
+): Promise<UploadResult[]> {
+  return request.post('/files/upload-batch', formData, {
+    onUploadProgress,
+    headers: multipartHeaders(),
   });
 }
