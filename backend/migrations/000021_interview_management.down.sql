@@ -4,8 +4,9 @@ DROP INDEX IF EXISTS uq_interview_eval_dim;
 ALTER TABLE interview_evaluations
     DROP COLUMN IF EXISTS dimension,
     DROP COLUMN IF EXISTS updated_at;
-CREATE UNIQUE INDEX IF NOT EXISTS interview_evaluations_interview_id_interviewer_id_key
-    ON interview_evaluations (interview_id, interviewer_id);
+ALTER TABLE interview_evaluations
+    ADD CONSTRAINT interview_evaluations_interview_id_interviewer_id_key
+    UNIQUE (interview_id, interviewer_id);
 
 DROP INDEX IF EXISTS idx_interviews_applicant_id;
 DROP INDEX IF EXISTS idx_interviews_session_id;

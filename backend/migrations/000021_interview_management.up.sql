@@ -55,6 +55,8 @@ ALTER TABLE interview_evaluations
     ADD COLUMN IF NOT EXISTS dimension VARCHAR(50) NOT NULL DEFAULT '',
     ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
 
+ALTER TABLE interview_evaluations
+    DROP CONSTRAINT IF EXISTS interview_evaluations_interview_id_interviewer_id_key;
 DROP INDEX IF EXISTS interview_evaluations_interview_id_interviewer_id_key;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_interview_eval_dim
     ON interview_evaluations (interview_id, interviewer_id, dimension);
