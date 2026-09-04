@@ -691,6 +691,94 @@ func TestLogout_OnlyAccessToken(t *testing.T) {
 	authRepo.AssertNotCalled(t, "DeleteRefreshToken")
 }
 
+func TestGetUserRolesAndPermissions_CacheErrorFailClosed(t *testing.T) {
+	svc, _, _, permCache := setupTestService()
+	ctx := context.Background()
+	userID := uuid.New()
+
+	// Even if the cache also claims isSuperAdmin=true, an error must not grant "*".
+	permCache.On("GetUserPermissionsAndSuperAdmin", ctx, userID).
+		Return([]string{"user:read"}, true, errors.New("perm cache unavailable"))
+
+	roles, permissions, err := svc.getUserRolesAndPermissions(ctx, userID)
+
+	assert.Error(t, err)
+	assert.NotContains(t, permissions, "*")
+	assert.NotContains(t, roles, "super_admin")
+	assert.Empty(t, permissions)
+	assert.Empty(t, roles)
+}
+
+func TestGetUserRolesAndPermissions_SuperAdminOnlyWhenNoError(t *testing.T) {
+	svc, _, _, permCache := setupTestService()
+	ctx := context.Background()
+	userID := uuid.New()
+
+	permCache.On("GetUserPermissionsAndSuperAdmin", ctx, userID).
+		Return([]string{}, true, nil)
+
+	roles, permissions, err := svc.getUserRolesAndPermissions(ctx, userID)
+
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"super_admin"}, roles)
+	assert.Equal(t, []string{"*"}, permissions)
+}
+
+func TestGetCurrentUser_PermCacheError_FailClosed(t *testing.T) {
+	svc, userRepo, _, permCache := setupTestService()
+	ctx := context.Background()
+	userID := uuid.New()
+
+	user := &model.User{
+		ID:           userID,
+		Username:     "testuser",
+		PasswordHash: hashPasswordForTest("password123"),
+		Status:       0,
+	}
+
+	userRepo.On("GetByID", ctx, userID).Return(user, nil)
+	permCache.On("GetUserPermissionsAndSuperAdmin", ctx, userID).
+		Return([]string{}, false, errors.New("redis down"))
+
+	result, err := svc.GetCurrentUser(ctx, userID.String())
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	if result != nil {
+		assert.NotContains(t, result.Permissions, "*")
+	}
+}
+
+func TestLogin_PermCacheError_FailClosed(t *testing.T) {
+	svc, userRepo, authRepo, permCache := setupTestService()
+	ctx := context.Background()
+	userID := uuid.New()
+
+	user := &model.User{
+		ID:           userID,
+		Username:     "testuser",
+		PasswordHash: hashPasswordForTest("password123"),
+		Status:       0,
+	}
+
+	authRepo.On("IsLockedOut", ctx, "testuser").Return(false, nil)
+	userRepo.On("GetByUsername", ctx, "testuser").Return(user, nil)
+	authRepo.On("ResetLoginAttempts", ctx, "testuser").Return(nil)
+	permCache.On("GetUserPermissionsAndSuperAdmin", ctx, userID).
+		Return([]string{}, true, errors.New("perm cache error"))
+
+	result, err := svc.Login(ctx, &dto.LoginRequest{
+		Username: "testuser",
+		Password: "password123",
+	}, "127.0.0.1", "test-agent")
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	if result != nil {
+		assert.NotContains(t, result.User.Permissions, "*")
+	}
+}
+
 func TestLogin_SuperAdminRoles(t *testing.T) {
 	svc, userRepo, authRepo, permCache := setupTestService()
 	ctx := context.Background()
