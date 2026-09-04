@@ -19,6 +19,8 @@ type Handlers struct {
 	Definition      *handler.DefinitionHandler
 	Instance        *handler.InstanceHandler
 	Task            *handler.TaskHandler
+	InstanceService service.InstanceService
+	DefinitionRepo  repo.DefinitionRepo
 	serviceTaskNode *nodes.ServiceTaskNode
 }
 
@@ -89,6 +91,8 @@ func Init(db *gorm.DB, eventBus *events.EventBus, logger *zap.Logger) *Handlers 
 		Definition:      defHandler,
 		Instance:        instHandler,
 		Task:            taskHandler,
+		InstanceService: instService,
+		DefinitionRepo:  defRepo,
 		serviceTaskNode: serviceTaskNode,
 	}
 }

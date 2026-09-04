@@ -76,8 +76,14 @@ const (
 	CodeAuditArchiveErr  = 5004 // 归档失败
 
 	// ===== Member module (6000-6999) =====
-	CodeMemberAppNotFound = 6001 // 申请不存在
-	CodeMemberAppInvalid  = 6002 // 状态不允许操作
+	CodeMemberAppNotFound   = 6001 // 申请不存在
+	CodeMemberAppInvalid    = 6002 // 状态不允许操作
+	CodeMemberAppDuplicate  = 6003 // 重复申请
+	CodeMemberProfileGone   = 6004 // 档案不存在
+	CodeMemberProfileDenied = 6005 // 无权操作该档案
+	CodeMemberStudentExists = 6006 // 学号已存在
+	CodeMemberExportFail    = 6007 // 导出失败
+	CodeMemberFieldRequired = 6008 // 必填字段缺失
 
 	// ===== Interview module (7000-7999) =====
 	CodeInterviewNotFound = 7001 // 面试场次不存在

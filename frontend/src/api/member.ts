@@ -3,69 +3,114 @@ import type {
   MemberApplication,
   MemberProfile,
   CreateMemberApplicationParams,
+  ResubmitMemberApplicationParams,
   ListMemberApplicationParams,
   ListMemberParams,
+  MemberApplicationHistory,
+  MemberProfileHistory,
+  MemberStatsResponse,
+  MemberDepartmentOption,
   PageResponse,
-  OperationResult,
 } from '@/types/api';
 
-// ============================================================
-// 入会申请
-// ============================================================
-
-// 提交入会申请
 export function submitApplication(data: CreateMemberApplicationParams): Promise<MemberApplication> {
-  return request.post('/members/applications', data);
+  return request.post('/member/applications', data);
 }
 
-// 获取申请列表
+export function resubmitApplication(
+  id: string,
+  data: ResubmitMemberApplicationParams,
+): Promise<MemberApplication> {
+  return request.post(`/member/applications/${id}/resubmit`, data);
+}
+
+export function getMyApplications(): Promise<MemberApplication[]> {
+  return request.get('/member/applications/my');
+}
+
 export function getApplicationList(
   params: ListMemberApplicationParams,
 ): Promise<PageResponse<MemberApplication>> {
-  return request.get('/members/applications', { params });
+  return request.get('/member/applications', { params });
 }
 
-// 获取申请详情
 export function getApplicationDetail(id: string): Promise<MemberApplication> {
-  return request.get(`/members/applications/${id}`);
+  return request.get(`/member/applications/${id}`);
 }
 
-// 审核申请（通过/拒绝）
-export function reviewApplication(
+export function getApplicationHistory(id: string): Promise<MemberApplicationHistory[]> {
+  return request.get(`/member/applications/${id}/history`);
+}
+
+export function approveApplication(id: string, comment: string): Promise<MemberApplication> {
+  return request.post(`/member/applications/${id}/approve`, { comment });
+}
+
+export function rejectApplication(id: string, comment: string): Promise<MemberApplication> {
+  return request.post(`/member/applications/${id}/reject`, { comment });
+}
+
+export function supplementApplication(
   id: string,
-  data: { action: 'approve' | 'reject'; comment?: string },
-): Promise<OperationResult> {
-  return request.post(`/members/applications/${id}/review`, data);
+  comment: string,
+  required_fields: string[],
+): Promise<MemberApplication> {
+  return request.post(`/member/applications/${id}/supplement`, { comment, required_fields });
 }
 
-// 取消申请
-export function cancelApplication(id: string): Promise<void> {
-  return request.post(`/members/applications/${id}/cancel`);
+export function getMemberDepartments(): Promise<MemberDepartmentOption[]> {
+  return request.get('/member/departments');
 }
 
-// ============================================================
-// 会员档案
-// ============================================================
-
-// 获取会员列表
 export function getMemberList(params: ListMemberParams): Promise<PageResponse<MemberProfile>> {
-  return request.get('/members', { params });
+  return request.get('/member/profiles', { params });
 }
 
-// 获取会员详情
 export function getMemberDetail(id: string): Promise<MemberProfile> {
-  return request.get(`/members/${id}`);
+  return request.get(`/member/profiles/${id}`);
 }
 
-// 更新会员信息
 export function updateMember(
   id: string,
   data: Partial<{
-    member_type: number;
-    department_id: string;
-    position_id: string;
-    status: number;
+    real_name: string;
+    gender: number;
+    grade: string;
+    major: string;
+    skills: string[];
+    projects: Array<{ name: string; role: string; period: string }>;
+    bio: string;
+    contact_phone: string;
+    contact_email: string;
   }>,
 ): Promise<MemberProfile> {
-  return request.put(`/members/${id}`, data);
+  return request.put(`/member/profiles/${id}`, data);
+}
+
+export function updateMemberStatus(
+  id: string,
+  status: number,
+  reason: string,
+): Promise<MemberProfile> {
+  return request.put(`/member/profiles/${id}/status`, { status, reason });
+}
+
+export function getMemberHistory(id: string): Promise<MemberProfileHistory[]> {
+  return request.get(`/member/profiles/${id}/history`);
+}
+
+export function exportMemberProfiles(params: ListMemberParams): Promise<{ data: Blob }> {
+  return request.get('/member/profiles/export', { params, responseType: 'blob' });
+}
+
+export function getApplicationStats(params: {
+  start_date?: string;
+  end_date?: string;
+  group_by?: string;
+}): Promise<MemberStatsResponse> {
+  return request.get('/member/stats/applications', { params });
+}
+
+export function getMemberStats(params: { group_by?: string }): Promise<MemberStatsResponse> {
+  return request.get('/member/stats/members', { params });
 }

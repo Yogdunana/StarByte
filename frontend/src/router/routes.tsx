@@ -17,6 +17,8 @@ const NotificationList = lazy(() => import('@/pages/notification/NotificationLis
 const TemplateList = lazy(() => import('@/pages/notification/TemplateList'));
 const AuditList = lazy(() => import('@/pages/system/audit/AuditList'));
 const FileList = lazy(() => import('@/pages/file/FileList'));
+const ApplicationPage = lazy(() => import('@/pages/member/application/ApplicationPage'));
+const ProfilePage = lazy(() => import('@/pages/member/profile/ProfilePage'));
 const WorkflowDesigner = lazy(() => import('@/pages/workflow/designer/DesignerPage'));
 const Forbidden = lazy(() => import('@/pages/error/Forbidden'));
 const NotFound = lazy(() => import('@/pages/error/NotFound'));
@@ -120,13 +122,13 @@ const routes: AppRouteObject[] = [
         children: [
           {
             path: 'application',
-            element: <div style={{ padding: 24 }}>入会申请（开发中）</div>,
+            element: lazyWrap(ApplicationPage),
             meta: { title: '入会申请' },
           },
           {
             path: 'list',
-            element: <div style={{ padding: 24 }}>会员档案（开发中）</div>,
-            meta: { title: '会员档案' },
+            element: lazyGuarded(ProfilePage, 'member:read'),
+            meta: { title: '会员档案', permission: 'member:read' },
           },
         ],
       },

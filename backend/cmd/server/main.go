@@ -18,6 +18,9 @@ import (
 	fileHandler "github.com/Yogdunana/StarByte/backend/internal/file/handler"
 	fileRepo "github.com/Yogdunana/StarByte/backend/internal/file/repo"
 	fileService "github.com/Yogdunana/StarByte/backend/internal/file/service"
+	memberHandler "github.com/Yogdunana/StarByte/backend/internal/member/handler"
+	memberRepo "github.com/Yogdunana/StarByte/backend/internal/member/repo"
+	memberService "github.com/Yogdunana/StarByte/backend/internal/member/service"
 	notifHandler "github.com/Yogdunana/StarByte/backend/internal/notification/handler"
 	notifModel "github.com/Yogdunana/StarByte/backend/internal/notification/model"
 	notifRepo "github.com/Yogdunana/StarByte/backend/internal/notification/repo"
@@ -194,6 +197,13 @@ func main() {
 	fileSvc := fileService.NewFileService(fileR, objectStore, cacheService, cfg.MinIO.Bucket)
 	fileH := fileHandler.NewFileHandler(fileSvc)
 
+	// 入会申请 + 人员档案
+	memberAppRepo := memberRepo.NewApplicationRepo(database.DB())
+	memberProfRepo := memberRepo.NewProfileRepo(database.DB())
+	interviewStarter := memberService.NewInterviewStarter(wfHandlers.DefinitionRepo, wfHandlers.InstanceService)
+	memberSvc := memberService.NewMemberService(memberAppRepo, memberProfRepo, interviewStarter)
+	memberH := memberHandler.NewMemberHandler(memberSvc)
+
 	// 审计日志模块
 	auditR := auditRepo.NewAuditRepo(database.DB())
 	auditSvc := auditService.NewAuditService(auditR, &cfg.MinIO)
@@ -252,6 +262,9 @@ func main() {
 
 		// 文件管理模块（/files，file:read / file:create；删除由服务层校验上传者或 file:delete）
 		fileHandler.RegisterRoutes(protected, fileH, cacheService)
+
+		// 入会申请 + 人员档案（/member）
+		memberHandler.RegisterRoutes(protected, memberH, cacheService, database.DB(), deptRepo)
 
 		// 审计日志模块路由（/system/audit-logs，audit:read / audit:export / audit:archive）
 		auditHandler.RegisterRoutes(protected, auditH, cacheService)
