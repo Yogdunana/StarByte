@@ -219,6 +219,45 @@ func (h *DefinitionHandler) Publish(c *gin.Context) {
 	response.OK(c, dto.ToVersionResponse(version))
 }
 
+// SaveDraft 保存流程定义草稿图
+// @Summary 保存流程定义草稿图
+// @Description 保存未发布的工作稿 graph_data，已发布定义也可保存下一版草稿
+// @Tags 流程定义
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param id path string true "流程定义ID"
+// @Param request body dto.SaveDraftRequest true "草稿流程图数据"
+// @Success 200 {object} response.Response{data=dto.DefinitionResponse}
+// @Router /workflow/definitions/{id}/draft [put]
+func (h *DefinitionHandler) SaveDraft(c *gin.Context) {
+	id, err := parseUUIDParam(c, "id", "无效的流程定义ID")
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+
+	var req dto.SaveDraftRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, parseBindingError(err))
+		return
+	}
+
+	userID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	def, err := h.defService.SaveDraft(c.Request.Context(), id, &req, userID)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	response.OK(c, dto.ToDefinitionResponse(def))
+}
+
 // ListVersions 获取版本列表
 // @Summary 获取流程定义版本列表
 // @Description 获取指定流程定义的所有版本

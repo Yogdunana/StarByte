@@ -16,6 +16,7 @@ type DefinitionService interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	List(ctx context.Context, page, pageSize int, keyword, category string, status *int) ([]model.FlowDefinition, int64, error)
 	Publish(ctx context.Context, id uuid.UUID, req *dto.PublishDefinitionRequest, userID uuid.UUID) (*model.FlowDefinitionVersion, error)
+	SaveDraft(ctx context.Context, id uuid.UUID, req *dto.SaveDraftRequest, userID uuid.UUID) (*model.FlowDefinition, error)
 	ListVersions(ctx context.Context, definitionID uuid.UUID) ([]model.FlowDefinitionVersion, error)
 	GetVersionByID(ctx context.Context, id uuid.UUID) (*model.FlowDefinitionVersion, error)
 }

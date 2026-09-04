@@ -249,6 +249,51 @@ func TestDefinitionService_Update_AlreadyPublished(t *testing.T) {
 	assert.Contains(t, err.Error(), "已发布")
 }
 
+func TestDefinitionService_SaveDraft(t *testing.T) {
+	repo := newMockDefRepoSvc()
+	userID := uuid.New()
+	def := &model.FlowDefinition{ID: uuid.New(), Key: "test", Name: "草稿", Status: 0}
+	repo.defs[def.ID] = def
+
+	svc := NewDefinitionService(repo, nil)
+	req := &dto.SaveDraftRequest{
+		GraphData: &dto.GraphData{
+			Nodes: []dto.GraphNode{{ID: "start", Type: "start", Position: dto.GraphPosition{X: 10, Y: 20}}},
+			Edges: []dto.GraphEdge{},
+		},
+	}
+
+	updated, err := svc.SaveDraft(context.Background(), def.ID, req, userID)
+	require.NoError(t, err)
+	assert.Equal(t, userID, *updated.UpdatedBy)
+	require.NotEmpty(t, updated.DraftGraph)
+	assert.Contains(t, string(updated.DraftGraph), `"start"`)
+}
+
+func TestDefinitionService_SaveDraft_PublishedAllowed(t *testing.T) {
+	repo := newMockDefRepoSvc()
+	def := &model.FlowDefinition{ID: uuid.New(), Key: "test", Name: "已发布", Status: 1}
+	repo.defs[def.ID] = def
+
+	svc := NewDefinitionService(repo, nil)
+	req := &dto.SaveDraftRequest{GraphData: &dto.GraphData{Nodes: []dto.GraphNode{}, Edges: []dto.GraphEdge{}}}
+
+	updated, err := svc.SaveDraft(context.Background(), def.ID, req, uuid.New())
+	require.NoError(t, err)
+	assert.Equal(t, 1, updated.Status)
+	require.NotEmpty(t, updated.DraftGraph)
+}
+
+func TestDefinitionService_SaveDraft_NotFound(t *testing.T) {
+	svc := NewDefinitionService(newMockDefRepoSvc(), nil)
+	req := &dto.SaveDraftRequest{GraphData: &dto.GraphData{}}
+	_, err := svc.SaveDraft(context.Background(), uuid.New(), req, uuid.New())
+	require.Error(t, err)
+	appErr, ok := err.(*response.AppError)
+	require.True(t, ok)
+	assert.Equal(t, response.CodeWorkflowNotFound, appErr.Code)
+}
+
 func TestDefinitionService_Delete(t *testing.T) {
 	repo := newMockDefRepoSvc()
 	defID := uuid.New()
