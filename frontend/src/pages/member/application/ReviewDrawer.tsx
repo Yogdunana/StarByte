@@ -26,11 +26,13 @@ const ReviewDrawer: React.FC<ReviewDrawerProps> = ({ open, record, mode, onClose
 
   useEffect(() => {
     if (!open || !record) return;
-    form.resetFields();
+    if (mode !== 'view') {
+      form.resetFields();
+    }
     getApplicationHistory(record.id)
       .then(setHistory)
       .catch(() => setHistory([]));
-  }, [open, record, form]);
+  }, [open, record, form, mode]);
 
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     setLoading(true);
