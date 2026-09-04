@@ -231,51 +231,102 @@ export interface UpdateDepartmentParams {
 // ============================================================
 
 export type MemberApplicationStatus = 0 | 1 | 2 | 3 | 4 | 5;
-// 0=待审核 1=一面中 2=二面中 3=已通过 4=已拒绝 5=已取消
+// 0=待审核 1=审核中 2=面试中 3=通过 4=拒绝 5=补充材料
+
+export type MemberApplicantType = 1 | 2;
+
+export interface MemberReviewer {
+  id: string;
+  name: string;
+}
 
 export interface MemberApplication {
   id: string;
   user_id: string;
-  username: string;
+  username?: string;
+  applicant_type: MemberApplicantType;
   real_name: string;
-  type: number; // 1=会员 2=干事
+  student_no: string;
   department_id?: string;
   department_name?: string;
   reason: string;
+  skills: string[];
+  experience: string;
+  contact_phone: string;
+  contact_email: string;
   status: MemberApplicationStatus;
   current_stage?: string;
-  submitted_at: string;
+  flow_instance_id?: string;
+  reviewer?: MemberReviewer;
+  review_comment?: string;
+  required_fields?: string[];
   reviewed_at?: string;
-  reviewer_id?: string;
-  reviewer_name?: string;
+  submitted_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MemberProjectItem {
+  name: string;
+  role: string;
+  period: string;
+}
+
+export interface MemberNamedRef {
+  id: string;
+  name: string;
 }
 
 export interface MemberProfile {
   id: string;
   user_id: string;
-  username: string;
+  username?: string;
   real_name: string;
-  avatar_url: string;
-  member_type: number; // 1=会员 2=干事
-  department_id?: string;
-  department_name?: string;
-  position_id?: string;
-  position_name?: string;
-  join_date: string;
-  status: number;
-  points: number;
+  student_no: string;
+  gender: 0 | 1 | 2;
+  grade: string;
+  major: string;
+  department?: MemberNamedRef;
+  position?: MemberNamedRef;
+  member_type: 1 | 2 | 3 | 4;
+  status: 0 | 1 | 2;
+  join_date?: string;
+  leave_date?: string;
+  skills: string[];
+  projects: MemberProjectItem[];
+  bio: string;
+  contact_phone: string;
+  contact_email: string;
   created_at: string;
+  updated_at: string;
 }
 
 export interface CreateMemberApplicationParams {
-  type: number;
+  applicant_type: MemberApplicantType;
+  real_name: string;
+  student_no: string;
   department_id?: string;
   reason: string;
+  skills: string[];
+  experience?: string;
+  contact_phone: string;
+  contact_email: string;
+}
+
+export interface ResubmitMemberApplicationParams {
+  real_name?: string;
+  student_no?: string;
+  department_id?: string;
+  reason?: string;
+  skills?: string[];
+  experience?: string;
+  contact_phone?: string;
+  contact_email?: string;
 }
 
 export interface ListMemberApplicationParams extends ListParams {
   status?: MemberApplicationStatus;
-  type?: number;
+  applicant_type?: MemberApplicantType;
   department_id?: string;
 }
 
@@ -283,6 +334,42 @@ export interface ListMemberParams extends ListParams {
   status?: number;
   member_type?: number;
   department_id?: string;
+  ids?: string;
+}
+
+export interface MemberApplicationHistory {
+  id: string;
+  from_status: MemberApplicationStatus;
+  to_status: MemberApplicationStatus;
+  operator_id?: string;
+  comment: string;
+  created_at: string;
+}
+
+export interface MemberProfileHistory {
+  id: string;
+  field_name: string;
+  old_value: string;
+  new_value: string;
+  operator_id?: string;
+  reason: string;
+  created_at: string;
+}
+
+export interface MemberStatItem {
+  key: string;
+  label: string;
+  count: number;
+}
+
+export interface MemberStatsResponse {
+  group_by: string;
+  items: MemberStatItem[];
+}
+
+export interface MemberDepartmentOption {
+  id: string;
+  name: string;
 }
 
 // ============================================================
