@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AutoComplete, Form, InputNumber, Select } from 'antd';
 import { getUserList } from '@/api/user';
-import request from '@/api/request';
-import type { PageResponse, Role } from '@/types/api';
+import { getWorkflowRoleList } from '@/api/workflow';
 import type { ApprovalConfig, ApprovalType, AssigneeStrategy } from '@/types/workflow';
 
 interface OptionItem {
@@ -21,12 +20,10 @@ const ApprovalConfigForm: React.FC<ApprovalConfigFormProps> = ({ value, disabled
   const [roleOptions, setRoleOptions] = useState<OptionItem[]>([]);
 
   useEffect(() => {
-    request
-      .get('/system/roles', { params: { page: 1, page_size: 100 } })
-      .then((res) => {
-        const page = res as PageResponse<Role>;
-        setRoleOptions((page.list ?? []).map((item) => ({ label: item.name, value: item.id })));
-      })
+    getWorkflowRoleList()
+      .then((res) =>
+        setRoleOptions((res.list ?? []).map((item) => ({ label: item.name, value: item.id }))),
+      )
       .catch(() => setRoleOptions([]));
   }, []);
 

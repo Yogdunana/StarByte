@@ -1,5 +1,5 @@
 import request from './request';
-import type { PageResponse } from '@/types/api';
+import type { PageResponse, Role } from '@/types/api';
 import type {
   CreateDefinitionPayload,
   FlowDefinitionDTO,
@@ -43,4 +43,8 @@ export function listFlowVersions(id: string): Promise<FlowVersionDTO[]> {
 
 export function getFlowVersion(id: string, versionId: string): Promise<FlowVersionDTO> {
   return request.get(`/workflow/definitions/${id}/versions/${versionId}`);
+}
+
+export function getWorkflowRoleList(): Promise<PageResponse<Role>> {
+  return request.get('/system/roles', { params: { page: 1, page_size: 100 } });
 }
