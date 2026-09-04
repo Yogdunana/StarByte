@@ -4,6 +4,16 @@ import type { LoginRequest, LoginResponse, RefreshResponse } from '@/types/api';
 import { setToken as saveToken, getRefreshToken, removeToken, setRefreshToken } from '@/utils/storage';
 import type { RootState } from '@/store';
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === 'string' && error) return error;
+  if (error && typeof error === 'object' && 'message' in error) {
+    const msg = (error as { message?: unknown }).message;
+    if (typeof msg === 'string' && msg) return msg;
+  }
+  return fallback;
+}
+
 interface AuthState {
   token: string;
   refreshToken: string;
@@ -27,8 +37,8 @@ export const login = createAsyncThunk(
     try {
       const response = await loginApi(params);
       return response;
-    } catch (error: any) {
-      return rejectWithValue(error.message || '登录失败');
+    } catch (error: unknown) {
+      return rejectWithValue(getErrorMessage(error, '登录失败'));
     }
   }
 );
@@ -44,8 +54,8 @@ export const refreshToken = createAsyncThunk(
       }
       const response = await refreshTokenApi(token);
       return response;
-    } catch (error: any) {
-      return rejectWithValue(error.message || '刷新 Token 失败');
+    } catch (error: unknown) {
+      return rejectWithValue(getErrorMessage(error, '刷新 Token 失败'));
     }
   }
 );

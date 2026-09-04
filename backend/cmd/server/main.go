@@ -75,8 +75,9 @@ func main() {
 		logger.Fatal("auto migrate workflow tables failed", zap.Error(err))
 	}
 
-	// 3c. 自动迁移通知模块表
-	if err := database.DB().AutoMigrate(&notifModel.Notification{}, &notifModel.NotificationTemplate{}); err != nil {
+	// 3c. notifications 在 000001 之后模型字段有扩展，保留 AutoMigrate 做列对齐。
+	// notification_templates 已有 000008 正式迁移，不再依赖 AutoMigrate 建表。
+	if err := database.DB().AutoMigrate(&notifModel.Notification{}); err != nil {
 		logger.Fatal("auto migrate notification tables failed", zap.Error(err))
 	}
 

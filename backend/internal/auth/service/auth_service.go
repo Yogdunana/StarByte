@@ -88,9 +88,12 @@ func (s *authService) Login(ctx context.Context, req *dto.LoginRequest, ip, user
 	// 5. Reset failed attempts on success
 	_ = s.authRepo.ResetLoginAttempts(ctx, req.Username)
 
-	// 6. Get roles and permissions
+	// 6. Get roles and permissions（缓存/DB 失败必须 fail-closed，不得提权）
 	userUUID, _ := uuid.Parse(user.ID.String())
-	roles, permissions := s.getUserRolesAndPermissions(ctx, userUUID)
+	roles, permissions, err := s.getUserRolesAndPermissions(ctx, userUUID)
+	if err != nil {
+		return nil, fmt.Errorf("get roles and permissions: %w", err)
+	}
 
 	// 7. Generate access token
 	accessToken, _, err := authmiddleware.GenerateAccessToken(
@@ -160,8 +163,11 @@ func (s *authService) RefreshToken(ctx context.Context, req *dto.RefreshTokenReq
 		return nil, response.NewError(response.CodeUserDisabled, "用户已被禁用")
 	}
 
-	// 4. Get roles and permissions
-	roles, permissions := s.getUserRolesAndPermissions(ctx, userUUID)
+	// 4. Get roles and permissions（缓存/DB 失败必须 fail-closed，不得提权）
+	roles, permissions, err := s.getUserRolesAndPermissions(ctx, userUUID)
+	if err != nil {
+		return nil, fmt.Errorf("get roles and permissions: %w", err)
+	}
 
 	// 5. Generate new access token
 	accessToken, _, err := authmiddleware.GenerateAccessToken(
@@ -221,7 +227,10 @@ func (s *authService) GetCurrentUser(ctx context.Context, userID string) (*dto.U
 		return nil, response.NewError(response.CodeUserNotFound, "用户不存在")
 	}
 
-	roles, permissions := s.getUserRolesAndPermissions(ctx, userUUID)
+	roles, permissions, err := s.getUserRolesAndPermissions(ctx, userUUID)
+	if err != nil {
+		return nil, fmt.Errorf("get roles and permissions: %w", err)
+	}
 
 	return buildUserInfo(user, roles, permissions), nil
 }
@@ -276,17 +285,23 @@ func (s *authService) recordFailedAttempt(ctx context.Context, username string) 
 }
 
 // getUserRolesAndPermissions fetches roles and permissions via the permission cache service.
-func (s *authService) getUserRolesAndPermissions(ctx context.Context, userID uuid.UUID) ([]string, []string) {
+// Fail-closed: cache/DB errors must not elevate the caller to super_admin / "*".
+// Only isSuperAdmin==true && err==nil grants wildcard permissions.
+func (s *authService) getUserRolesAndPermissions(ctx context.Context, userID uuid.UUID) ([]string, []string, error) {
 	permissions, isSuperAdmin, err := s.permCacheSvc.GetUserPermissionsAndSuperAdmin(ctx, userID)
-	if err != nil || isSuperAdmin {
-		return []string{"super_admin"}, []string{"*"}
+	if err != nil {
+		return nil, nil, fmt.Errorf("get user permissions: %w", err)
+	}
+	if isSuperAdmin {
+		return []string{"super_admin"}, []string{"*"}, nil
 	}
 	// For non-super-admin users, query actual role codes.
 	roles, err := s.permCacheSvc.GetUserRoleCodes(ctx, userID)
 	if err != nil {
-		return nil, permissions
+		// Role lookup failure must not invent privileges; keep fetched permissions.
+		return nil, permissions, nil
 	}
-	return roles, permissions
+	return roles, permissions, nil
 }
 
 // buildUserInfo constructs the UserInfo response from a User model.

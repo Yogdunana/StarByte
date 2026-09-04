@@ -246,6 +246,7 @@ func TestHttpStatusFromCode(t *testing.T) {
 		{CodeConflict, http.StatusConflict},
 		{CodeTooManyReq, http.StatusTooManyRequests},
 		{CodeInternalError, http.StatusInternalServerError},
+		{CodeNotImplemented, http.StatusNotImplemented},
 		{5999, http.StatusBadRequest}, // audit module code → 400
 		{2001, http.StatusBadRequest}, // module code → default 400
 		{3001, http.StatusBadRequest}, // RBAC code → default 400
@@ -259,6 +260,26 @@ func TestHttpStatusFromCode(t *testing.T) {
 }
 
 // ========== ModuleRanges tests ==========
+
+func TestCodeInternalErrorUsesGeneralRange(t *testing.T) {
+	assert.Equal(t, 1500, CodeInternalError)
+	assert.Equal(t, 1501, CodeNotImplemented)
+	assert.Equal(t, 5001, CodeAuditNotFound)
+	assert.True(t, CodeInternalError >= 1000 && CodeInternalError <= 1999)
+	assert.True(t, CodeAuditNotFound >= 5000 && CodeAuditNotFound <= 5999)
+	assert.NotEqual(t, CodeInternalError, CodeAuditNotFound)
+}
+
+func TestNotImplemented(t *testing.T) {
+	c, w := newContext()
+	NotImplemented(c, "微信扫码登录功能暂未开通")
+	assert.Equal(t, http.StatusNotImplemented, w.Code)
+	resp := parseResponse(t, w)
+	assert.Equal(t, CodeNotImplemented, resp.Code)
+	assert.Equal(t, "微信扫码登录功能暂未开通", resp.Message)
+	assert.Equal(t, "test-request-id", resp.RequestID)
+	assert.Nil(t, resp.Data)
+}
 
 func TestModuleRanges(t *testing.T) {
 	r, ok := ModuleRanges["user"]

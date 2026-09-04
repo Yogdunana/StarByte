@@ -18,6 +18,7 @@ const TemplateList = lazy(() => import('@/pages/notification/TemplateList'));
 const AuditList = lazy(() => import('@/pages/system/audit/AuditList'));
 const WorkflowDesigner = lazy(() => import('@/pages/workflow/designer/DesignerPage'));
 const Forbidden = lazy(() => import('@/pages/error/Forbidden'));
+const NotFound = lazy(() => import('@/pages/error/NotFound'));
 
 // 懒加载 fallback
 const LoadingFallback: React.FC = () => (
@@ -260,12 +261,17 @@ const routes: AppRouteObject[] = [
           },
         ],
       },
+      {
+        path: '*',
+        element: lazyWrap(NotFound),
+        meta: { title: '页面不存在', hidden: true },
+      },
     ],
   },
   {
     path: '*',
-    element: <div style={{ padding: 50, textAlign: 'center' }}>404 - 页面不存在</div>,
-    meta: { hidden: true },
+    element: lazyWrap(NotFound),
+    meta: { title: '页面不存在', hidden: true },
   },
 ];
 

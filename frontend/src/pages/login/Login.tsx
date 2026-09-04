@@ -4,11 +4,37 @@ import { UserOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 
-import { login } from '@/store/slices/authSlice';
+import { login, selectIsAuthenticated } from '@/store/slices/authSlice';
 import { fetchCurrentUser } from '@/store/slices/userSlice';
 import { register } from '@/api/auth';
 import { AppDispatch } from '@/store';
 import styles from './Login.module.css';
+
+interface LocationFromState {
+  from?: { pathname?: string };
+}
+
+interface RegisterFormValues {
+  username: string;
+  password: string;
+  confirm_password: string;
+  real_name: string;
+  email: string;
+}
+
+function getRedirectPath(state: unknown): string {
+  if (state && typeof state === 'object' && 'from' in state) {
+    const from = (state as LocationFromState).from;
+    if (from?.pathname) return from.pathname;
+  }
+  return '/dashboard';
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (typeof error === 'string' && error) return error;
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
 
 const Login: React.FC = () => {
   const [activeTab, setActiveTab] = useState('login');
@@ -16,13 +42,12 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch<AppDispatch>();
-  const isAuthenticated = useSelector((state: any) => state.auth.isAuthenticated);
+  const isAuthenticated = useSelector(selectIsAuthenticated);
 
   // 如果已登录，跳转到首页
   useEffect(() => {
     if (isAuthenticated) {
-      const from = (location.state as any)?.from?.pathname || '/dashboard';
-      navigate(from, { replace: true });
+      navigate(getRedirectPath(location.state), { replace: true });
     }
   }, [isAuthenticated, navigate, location.state]);
 
@@ -33,17 +58,16 @@ const Login: React.FC = () => {
       await dispatch(login(values)).unwrap();
       await dispatch(fetchCurrentUser()).unwrap();
       message.success('登录成功');
-      const from = (location.state as any)?.from?.pathname || '/dashboard';
-      navigate(from, { replace: true });
-    } catch (error: any) {
-      message.error(error || '登录失败');
+      navigate(getRedirectPath(location.state), { replace: true });
+    } catch (error: unknown) {
+      message.error(getErrorMessage(error, '登录失败'));
     } finally {
       setLoading(false);
     }
   };
 
   // 注册
-  const handleRegister = async (values: any) => {
+  const handleRegister = async (values: RegisterFormValues) => {
     setLoading(true);
     try {
       await register({
@@ -54,8 +78,8 @@ const Login: React.FC = () => {
       });
       message.success('注册成功，请登录');
       setActiveTab('login');
-    } catch (error: any) {
-      message.error(error.message || '注册失败');
+    } catch (error: unknown) {
+      message.error(getErrorMessage(error, '注册失败'));
     } finally {
       setLoading(false);
     }

@@ -1,3 +1,5 @@
+import type { UserInfo } from '@/types/api';
+
 const TOKEN_KEY = 'starbyte_access_token';
 const REFRESH_TOKEN_KEY = 'starbyte_refresh_token';
 const USER_INFO_KEY = 'starbyte_user_info';
@@ -26,11 +28,11 @@ export function removeToken(): void {
 }
 
 // 用户信息缓存
-export function getUserInfo<T = any>(): T | null {
+export function getUserInfo<T = UserInfo>(): T | null {
   const data = localStorage.getItem(USER_INFO_KEY);
-  return data ? JSON.parse(data) : null;
+  return data ? (JSON.parse(data) as T) : null;
 }
 
-export function setUserInfo(user: any): void {
+export function setUserInfo(user: UserInfo): void {
   localStorage.setItem(USER_INFO_KEY, JSON.stringify(user));
 }

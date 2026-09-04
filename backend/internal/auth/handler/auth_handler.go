@@ -152,10 +152,7 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 // @Success 200 {object} response.Response
 // @Router /auth/wechat/qrcode [post]
 func (h *AuthHandler) WechatQRCode(c *gin.Context) {
-	c.JSON(501, gin.H{
-		"code":    response.CodeNotFound,
-		"message": "微信扫码登录功能暂未开通",
-	})
+	response.NotImplemented(c, "微信扫码登录功能暂未开通")
 }
 
 // WechatCallback handles POST /api/v1/auth/wechat/callback
@@ -168,10 +165,7 @@ func (h *AuthHandler) WechatQRCode(c *gin.Context) {
 // @Success 200 {object} response.Response
 // @Router /auth/wechat/callback [post]
 func (h *AuthHandler) WechatCallback(c *gin.Context) {
-	c.JSON(501, gin.H{
-		"code":    response.CodeNotFound,
-		"message": "微信登录回调功能暂未开通",
-	})
+	response.NotImplemented(c, "微信登录回调功能暂未开通")
 }
 
 // OAuthLogin handles POST /api/v1/auth/oauth/{provider}
@@ -186,11 +180,11 @@ func (h *AuthHandler) WechatCallback(c *gin.Context) {
 // @Router /auth/oauth/{provider} [post]
 func (h *AuthHandler) OAuthLogin(c *gin.Context) {
 	provider := c.Param("provider")
-	c.JSON(501, gin.H{
-		"code":     response.CodeNotFound,
-		"message":  "第三方 OAuth 登录功能暂未开通",
-		"provider": provider,
-	})
+	if provider == "" {
+		response.NotImplemented(c, "第三方 OAuth 登录功能暂未开通")
+		return
+	}
+	response.NotImplemented(c, "第三方 OAuth 登录功能暂未开通: "+provider)
 }
 
 // RegisterRoutes registers all authentication routes.

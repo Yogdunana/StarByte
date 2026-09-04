@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useSelector } from 'react-redux';
-import { selectPermissions } from '@/store/slices/userSlice';
+import { selectPermissions, selectRoles } from '@/store/slices/userSlice';
 
 /**
  * 检查单个权限
@@ -52,3 +52,20 @@ export function useAllPermissions(permissionCodes: string[]): boolean {
     return permissionCodes.every((code) => permissions.includes(code));
   }, [permissions, permissionCodes]);
 }
+
+/**
+ * 检查当前用户是否拥有指定角色。
+ * super_admin 视为拥有全部角色。
+ */
+export function useHasRole(roleCode: string): boolean {
+  const roles = useSelector(selectRoles);
+  return useMemo(() => {
+    if (roles.includes('super_admin')) {
+      return true;
+    }
+    return roles.includes(roleCode);
+  }, [roles, roleCode]);
+}
+
+/** Issue #20：usePermission 模块提供 hasRole */
+export const hasRole = useHasRole;
