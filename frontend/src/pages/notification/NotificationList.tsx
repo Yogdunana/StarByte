@@ -1,25 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  Card,
-  Table,
-  Button,
-  Select,
-  Space,
-  Tag,
-  Drawer,
-  Typography,
-  message,
-  Popconfirm,
-  Switch,
-  Badge,
-} from 'antd';
-import {
-  CheckOutlined,
-  DeleteOutlined,
-  ReloadOutlined,
-  EyeOutlined,
-} from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
+import { Card, Table, Button, Select, Space, Typography, message, Switch } from 'antd';
+import { CheckOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import type { AppDispatch } from '@/store';
@@ -34,55 +15,11 @@ import {
   deleteNotification,
 } from '@/api/notification';
 import type { Notification, NotificationCategory } from '@/types/api';
+import { categoryOptions } from './notificationMeta';
+import { getNotificationColumns } from './notificationColumns';
+import NotificationDetailDrawer from './NotificationDetailDrawer';
 
-const { Text, Paragraph, Title } = Typography;
-
-/** 分类选项 */
-const categoryOptions = [
-  { label: '全部', value: '' },
-  { label: '系统', value: 'system' },
-  { label: '任务', value: 'task' },
-  { label: '会议', value: 'meeting' },
-  { label: '审批', value: 'approval' },
-  { label: '面试', value: 'interview' },
-  { label: '其他', value: 'other' },
-];
-
-/** 分类标签颜色映射 */
-const categoryColorMap: Record<string, string> = {
-  system: 'blue',
-  task: 'green',
-  meeting: 'purple',
-  approval: 'orange',
-  interview: 'cyan',
-  other: 'default',
-};
-
-/** 分类中文映射 */
-const categoryLabelMap: Record<string, string> = {
-  system: '系统',
-  task: '任务',
-  meeting: '会议',
-  approval: '审批',
-  interview: '面试',
-  other: '其他',
-};
-
-/** 优先级颜色映射 */
-const priorityColorMap: Record<string, string> = {
-  urgent: 'red',
-  high: 'orange',
-  normal: 'blue',
-  low: 'default',
-};
-
-/** 优先级中文映射 */
-const priorityLabelMap: Record<string, string> = {
-  urgent: '紧急',
-  high: '高',
-  normal: '普通',
-  low: '低',
-};
+const { Text } = Typography;
 
 const NotificationList: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -119,11 +56,9 @@ const NotificationList: React.FC = () => {
     loadData();
   }, [loadData]);
 
-  // 标记单条已读
   const handleMarkRead = async (record: Notification) => {
     try {
       await markAsRead(record.id);
-      // 更新本地数据
       setData((prev) =>
         prev.map((item) =>
           item.id === record.id ? { ...item, is_read: true } : item,
@@ -136,7 +71,6 @@ const NotificationList: React.FC = () => {
     }
   };
 
-  // 全部已读
   const handleMarkAllRead = async () => {
     try {
       await markAllAsRead(category || undefined);
@@ -148,7 +82,6 @@ const NotificationList: React.FC = () => {
     }
   };
 
-  // 删除
   const handleDelete = async (record: Notification) => {
     try {
       await deleteNotification(record.id);
@@ -161,7 +94,6 @@ const NotificationList: React.FC = () => {
     }
   };
 
-  // 查看详情
   const handleViewDetail = (record: Notification) => {
     setCurrentNotification(record);
     setDrawerVisible(true);
@@ -170,115 +102,20 @@ const NotificationList: React.FC = () => {
     }
   };
 
-  // 点击通知跳转
   const handleAction = (record: Notification) => {
     if (record.action_url) {
       navigate(record.action_url);
     }
   };
 
-  const columns: ColumnsType<Notification> = [
-    {
-      title: '状态',
-      dataIndex: 'is_read',
-      key: 'is_read',
-      width: 70,
-      render: (isRead: boolean) =>
-        isRead ? <Tag>已读</Tag> : <Badge status="error" text="未读" />,
-    },
-    {
-      title: '标题',
-      dataIndex: 'title',
-      key: 'title',
-      width: 200,
-      render: (text: string, record: Notification) => (
-        <Text
-          strong={!record.is_read}
-          style={{ cursor: 'pointer' }}
-          onClick={() => handleViewDetail(record)}
-        >
-          {text}
-        </Text>
-      ),
-    },
-    {
-      title: '分类',
-      dataIndex: 'category',
-      key: 'category',
-      width: 90,
-      render: (cat: string) => (
-        <Tag color={categoryColorMap[cat] || 'default'}>
-          {categoryLabelMap[cat as NotificationCategory] || cat}
-        </Tag>
-      ),
-    },
-    {
-      title: '优先级',
-      dataIndex: 'priority',
-      key: 'priority',
-      width: 80,
-      render: (priority: string) => (
-        <Tag color={priorityColorMap[priority] || 'default'}>
-          {priorityLabelMap[priority] || priority}
-        </Tag>
-      ),
-    },
-    {
-      title: '发送者',
-      key: 'sender',
-      width: 100,
-      render: (_: unknown, record: Notification) =>
-        record.sender?.name || '-',
-    },
-    {
-      title: '时间',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      width: 160,
-      render: (time: string) =>
-        new Date(time).toLocaleString('zh-CN', { hour12: false }),
-    },
-    {
-      title: '操作',
-      key: 'action',
-      width: 150,
-      fixed: 'right',
-      render: (_: unknown, record: Notification) => (
-        <Space>
-          <Button
-            type="link"
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={() => handleViewDetail(record)}
-          >
-            查看
-          </Button>
-          {!record.is_read && (
-            <Button
-              type="link"
-              size="small"
-              icon={<CheckOutlined />}
-              onClick={() => handleMarkRead(record)}
-            >
-              已读
-            </Button>
-          )}
-          <Popconfirm
-            title="确认删除此通知？"
-            onConfirm={() => handleDelete(record)}
-          >
-            <Button type="link" size="small" danger icon={<DeleteOutlined />}>
-              删除
-            </Button>
-          </Popconfirm>
-        </Space>
-      ),
-    },
-  ];
+  const columns = getNotificationColumns({
+    onView: handleViewDetail,
+    onMarkRead: handleMarkRead,
+    onDelete: handleDelete,
+  });
 
   return (
     <Card>
-      {/* 工具栏 */}
       <div style={{ marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
         <Select
           value={category}
@@ -313,7 +150,6 @@ const NotificationList: React.FC = () => {
         </Button>
       </div>
 
-      {/* 表格 */}
       <Table
         columns={columns}
         dataSource={data}
@@ -334,56 +170,12 @@ const NotificationList: React.FC = () => {
         }}
       />
 
-      {/* 详情抽屉 */}
-      <Drawer
-        title="通知详情"
+      <NotificationDetailDrawer
         open={drawerVisible}
+        notification={currentNotification}
         onClose={() => setDrawerVisible(false)}
-        width={480}
-      >
-        {currentNotification && (
-          <div>
-            <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
-              <Tag color={categoryColorMap[currentNotification.category] || 'default'}>
-                {categoryLabelMap[currentNotification.category as NotificationCategory] || currentNotification.category}
-              </Tag>
-              <Tag color={priorityColorMap[currentNotification.priority] || 'default'}>
-                {priorityLabelMap[currentNotification.priority] || currentNotification.priority}
-              </Tag>
-              {currentNotification.is_read ? (
-                <Tag>已读</Tag>
-              ) : (
-                <Badge status="error" text="未读" />
-              )}
-            </div>
-
-            <Title level={5}>{currentNotification.title}</Title>
-
-            <div style={{ marginBottom: 16 }}>
-              <Text type="secondary">
-                发送者：{currentNotification.sender?.name || '系统'}
-              </Text>
-              <br />
-              <Text type="secondary">
-                时间：{new Date(currentNotification.created_at).toLocaleString('zh-CN', { hour12: false })}
-              </Text>
-            </div>
-
-            <Paragraph style={{ whiteSpace: 'pre-wrap' }}>
-              {currentNotification.content}
-            </Paragraph>
-
-            {currentNotification.action_url && (
-              <Button
-                type="primary"
-                onClick={() => handleAction(currentNotification)}
-              >
-                查看详情
-              </Button>
-            )}
-          </div>
-        )}
-      </Drawer>
+        onAction={handleAction}
+      />
     </Card>
   );
 };
