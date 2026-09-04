@@ -6,7 +6,7 @@
 > **新手快速上手 → [DEV_QUICKSTART.md](DEV_QUICKSTART.md)**（一句话认领任务 + AI 提示词模板）
 >
 > 仓库地址：https://github.com/Yogdunana/StarByte
-> 最后更新：2026-08-25
+> 最后更新：2026-09-04
 
 ---
 
@@ -684,8 +684,8 @@ Authorization: Bearer <access_token>
 #### 步骤 0：检查优先级与认领资格
 
 1. 打开 GitHub Issues 页面，按优先级标签筛选（`priority:p0` → `priority:p1` → `priority:p2` → `priority:p3`）
-2. **若 P0 Issue 尚未全部完成（存在 `status:available` 的 P0 Issue），禁止认领 P1/P2/P3 Issue**
-3. **若 P1 核心模块完成不足 50%，禁止认领 P2 Issue**
+2. **若 P0 Issue 尚未全部完成（存在未关闭、或未标 `status:completed` 的 P0），禁止认领 P1/P2/P3 Issue**
+3. **若 P1 核心 8 项完成不足 50%，禁止认领 P2 Issue**（口径见 §9.1，不要把 #47–#76 等扩展 P1 算进分母）
 4. **若 P2 业务模块完成不足 80%，禁止认领 P3 Issue**
 5. 每人**最多同时认领 2 个 Issue**，且**禁止同时认领 2 个 P0/P1 高优先级 Issue**
 
@@ -739,7 +739,7 @@ GitHub 账户名：[你的 GitHub 用户名]
 1. 优先级检查：
    - 检查当前 Issue 的优先级标签（priority:p0 / p1 / p2 / p3）
    - 若存在未完成的 P0 Issue，且当前 Issue 不是 P0，提醒用户：「存在未完成的 P0 基础设施 Issue，建议优先认领 P0 任务」
-   - P0 未完成时禁止开发 P1/P2/P3，P1 完成 <50% 时禁止开发 P2，P2 完成 <80% 时禁止开发 P3
+   - P0 未完成时禁止开发 P1/P2/P3；P1 **核心 8 项**完成 <50% 时禁止开发 P2；P2 完成 <80% 时禁止开发 P3
 
 2. 需求变更检查：
    - 使用 GitHub API 检查当前 Issue 是否有 req:changed 标签
@@ -805,13 +805,22 @@ GitHub 账户名：[你的 GitHub 用户名]
 |--------|------|------|----------|
 | P0 | `priority:p0` | 核心基础设施，不完成则其他模块无法开发 | 必须最先完成，禁止跳过 |
 | P1 | `priority:p1` | 核心功能模块，其他业务模块依赖 | P0 全部完成后才能认领 |
-| P2 | `priority:p2` | 具体业务功能，模块间弱依赖 | P1 核心模块完成 50% 后可认领 |
+| P2 | `priority:p2` | 具体业务功能，模块间弱依赖 | P1 **核心 8 项**完成 50% 后可认领 |
 | P3 | `priority:p3` | 辅助功能、优化、文档 | P2 业务模块完成 80% 后可认领 |
+
+**P1 门禁口径（强制，2026-09-04 起）**：
+
+- 「P1 核心」**只**统计 §9.4 的 8 个：#3 #4 #5 #17 #18 #19 #20 #21
+- 2026-08-27 之后新增的 P1（#47–#50、#71–#76 等）是 **P1 扩展**，标题带 `[扩展]` / `[二期]` 的也算扩展
+- 扩展 P1 **不计入** 50% 分母，也**不能**单独用来宣称「P1 已完成、可以认 P2」
+- 完成判定：GitHub `state=closed` **且** 带 `status:completed`（已关闭但仍标 `status:available` / `status:claimed` 的，一律不算完成）
+
+当前口径快照（2026-09-04）：P1 核心 6/8 已完成（#18、#19 仍开放）≈ 75%，**可以认领 P2**。
 
 **认领限制**：
 - 每人**最多同时认领 2 个 Issue**
 - **禁止同时认领 2 个 P0/P1 高优先级 Issue**（可 1 个 P1 + 1 个 P2，或 1 个 P2 + 1 个 P3）
-- 若需放弃认领，必须在评论区说明并通知 @Yogdunana 移除 `status:claimed` 标签
+- 若需放弃认领，必须在评论区说明并通知 @Yogdunana 移除 `status:claimed` 标签，恢复 `status:available`
 
 ### 9.2 认领格式（强制）
 
@@ -829,7 +838,13 @@ GitHub 账户名：[你的 GitHub 用户名]
 2. 添加 `status:claimed` 标签
 3. 移除 `status:available` 标签
 
-**三重防撞机制**：评论区认领记录 + GitHub Assignees + `status:claimed` 标签，三者缺一不可。
+**三重防撞机制**：评论区认领记录 + GitHub Assignees + `status:claimed` 标签，三者缺一不可。缺任一项则认领无效，Issue 保持 `status:available`。
+
+**完成后（强制）**：Squash Merge 并关闭 Issue 后，必须：
+1. 去掉 `status:available` / `status:claimed` / `status:in-progress` / `status:review`
+2. 加上 `status:completed`
+3. 确认 Assignee 为实际完成者（不要留空）
+4. PR 正文不要对「只完成一部分」的 Issue 写 `Closes #N`（会提前关单；用 `Related to #N`）
 
 ### 9.3 需求变更机制
 
@@ -877,50 +892,64 @@ AI 系统提示词（见 8.2 节）已包含强制变更检查步骤。当开发
 2. 读取 `REQUIREMENT_CHANGES.md`
 3. 若发现未处理变更，停止开发并提醒开发者先处理变更
 
-### 9.4 Issue 完整列表（33 个）
+### 9.4 一期核心 Issue 列表（33 个，门禁用这一张表）
 
-#### P0 - 核心基础设施（7 个，必须最先完成）
+> GitHub 上还有 #46–#102 等扩展单。**认领门禁、完成度统计只看本表。**  
+> 状态以 GitHub 为准；下表「完成」表示已 `status:completed`（2026-09-04 治理后）。
 
-| Issue | 标题 | 模块 | 依赖 |
-|-------|------|------|------|
-| [#1](https://github.com/Yogdunana/StarByte/issues/1) | RBAC 权限系统 + 组织架构 | backend | 无 |
-| [#2](https://github.com/Yogdunana/StarByte/issues/2) | 流程引擎核心模块 | backend | 无 |
-| #12 | 后端错误处理与统一异常管理 | backend | 无 |
-| #13 | 配置中心与多环境管理 | backend | 无 |
-| #14 | API 网关与路由中间件 | backend | 无 |
-| #15 | 前端公共组件库与布局系统 | frontend | 无 |
-| #16 | Docker 容器化与 CI/CD 完善 | devops | 无 |
+#### P0 - 核心基础设施（7 个，必须最先完成）— 已全部完成
 
-#### P1 - 核心服务（8 个，依赖 P0）
+| Issue | 标题 | 模块 | 依赖 | 状态 |
+|-------|------|------|------|------|
+| [#1](https://github.com/Yogdunana/StarByte/issues/1) | RBAC 权限系统 + 组织架构 | backend | 无 | 完成 |
+| [#2](https://github.com/Yogdunana/StarByte/issues/2) | 流程引擎核心模块 | backend | 无 | 完成（#38–#43；勿认 #27 重做网关） |
+| #12 | 后端错误处理与统一异常管理 | backend | 无 | 完成 |
+| #13 | 配置中心与多环境管理（YAML/环境变量） | backend | 无 | 完成（运行时 configs 表见扩展 #47） |
+| #14 | API 网关与路由中间件 | backend | 无 | 完成 |
+| #15 | 前端公共组件库与布局系统 | frontend | 无 | 完成 |
+| #16 | Docker 容器化与 CI/CD 完善 | devops | 无 | 完成 |
 
-| Issue | 标题 | 模块 | 依赖 |
-|-------|------|------|------|
-| [#3](https://github.com/Yogdunana/StarByte/issues/3) | 前端流程设计器（React Flow） | frontend | #2 |
-| [#4](https://github.com/Yogdunana/StarByte/issues/4) | 消息通知系统 | fullstack | #1 |
-| [#5](https://github.com/Yogdunana/StarByte/issues/5) | 审计日志系统 | backend | #1 |
-| #17 | 用户认证服务（JWT + Refresh Token + 第三方登录预留） | backend | #1 |
-| #18 | 文件上传与管理服务（MinIO 集成） | backend | #1 |
-| #19 | 数据库迁移与种子数据 | backend | #1 |
-| #20 | 前端权限路由与菜单系统 | frontend | #1, #15 |
-| #21 | 前端 API 层封装与类型定义 | frontend | #15 |
+#### P1 - 核心服务（8 个，依赖 P0）— 门禁分母，6/8 已完成
+
+| Issue | 标题 | 模块 | 依赖 | 状态 |
+|-------|------|------|------|------|
+| [#3](https://github.com/Yogdunana/StarByte/issues/3) | 前端流程设计器（React Flow） | frontend | #2 | 完成 |
+| [#4](https://github.com/Yogdunana/StarByte/issues/4) | 消息通知系统 | fullstack | #1 | 完成（模板已含；勿认 #49） |
+| [#5](https://github.com/Yogdunana/StarByte/issues/5) | 审计日志系统 | backend | #1 | 完成（二期 Diff/报告见 #76） |
+| #17 | 用户认证服务（JWT + Refresh Token + 第三方登录预留） | backend | #1 | 完成（OAuth 落地见 #63） |
+| #18 | 文件上传与管理服务（MinIO 集成） | backend | #1 | **未完成**（审计已有 MinIO 上传，须抽公共客户端） |
+| #19 | 数据库迁移与种子数据 | backend | #1 | **未完成**（000003–000007 已被占用，须重写序号） |
+| #20 | 前端权限路由与菜单系统 | frontend | #1, #15 | 完成 |
+| #21 | 前端 API 层封装与类型定义 | frontend | #15 | 完成 |
 
 #### P2 - 业务模块（13 个，依赖 P1）
 
-| Issue | 标题 | 模块 | 依赖 |
-|-------|------|------|------|
-| [#6](https://github.com/Yogdunana/StarByte/issues/6) | 入会申请 + 人员档案 | fullstack | #1, #2, #4 |
-| [#7](https://github.com/Yogdunana/StarByte/issues/7) | 面试管理 | fullstack | #1, #2, #6 |
-| [#8](https://github.com/Yogdunana/StarByte/issues/8) | 会议管理 + 投票系统 | fullstack | #1, #4 |
-| [#9](https://github.com/Yogdunana/StarByte/issues/9) | 任务流转 | fullstack | #1, #4 |
-| [#10](https://github.com/Yogdunana/StarByte/issues/10) | IT 实习管理 | fullstack | #1, #4 |
-| [#11](https://github.com/Yogdunana/StarByte/issues/11) | 数据统计与可视化报表 | fullstack | #1, #5 |
-| #22 | 财务管理模块（一期预留接口） | fullstack | #1, #4 |
-| #23 | 纪律处分记录模块 | fullstack | #1, #4 |
-| #24 | 合同管理模块（一期预留接口） | fullstack | #1, #4 |
-| #25 | 邮件通知服务 | backend | #4 |
-| #26 | 前端仪表盘与数据大屏 | frontend | #11, #15 |
-| #27 | 流程引擎节点插件（条件分支/并行网关） | backend | #2 |
-| #28 | 前端表单引擎与动态表单 | frontend | #3, #15 |
+| Issue | 标题 | 模块 | 依赖 | 备注 |
+|-------|------|------|------|------|
+| [#6](https://github.com/Yogdunana/StarByte/issues/6) | 入会申请 + 人员档案 | fullstack | #1, #2, #4 | 可认领（占位认领已驳回） |
+| [#7](https://github.com/Yogdunana/StarByte/issues/7) | 面试管理 | fullstack | #1, #2, #6 | |
+| [#8](https://github.com/Yogdunana/StarByte/issues/8) | 会议管理 + 投票系统（等权 + 加权） | fullstack | #1, #4 | 含加权；#51 已并入 |
+| [#9](https://github.com/Yogdunana/StarByte/issues/9) | 任务流转 | fullstack | #1, #4 | |
+| [#10](https://github.com/Yogdunana/StarByte/issues/10) | IT 实习管理 | fullstack | #1, #4 | |
+| [#11](https://github.com/Yogdunana/StarByte/issues/11) | 数据统计与可视化报表 | fullstack | #1, #5 | |
+| #22 | 财务管理模块（一期预留接口） | fullstack | #1, #4 | |
+| #23 | 纪律处分记录模块 | fullstack | #1, #4 | |
+| #24 | 合同管理模块（一期预留接口） | fullstack | #1, #4 | |
+| #25 | 邮件通知**增强**（附件/批量/重试/记录） | backend | #4 | 2026-09-04 改写；勿重做 SMTP |
+| #26 | 前端仪表盘与数据大屏 | frontend | #11, #15 | |
+| #27 | ~~流程引擎节点插件~~ | backend | #2 | **已关闭（重复 #2）** |
+| #28 | 前端表单引擎与动态表单 | frontend | #3, #15 | |
+
+#### 易撞车的扩展 Issue（不在 33 张门禁表内）
+
+| Issue | 怎么处理 |
+|-------|----------|
+| #47 | 运行时 `configs` 表，**不是** #13 |
+| #49 | **已关闭**，模板已在 #4 |
+| #51 | **已关闭**，加权投票在 #8 |
+| #63 | #17 预留接口落地，禁止重写认证 |
+| #76 | #5 二期（Diff/报告），错误码仍 5000–5999 |
+| #99 | 仅会签/加签/委派/超时/包容网关；网关本体已在 #2 |
 
 #### P3 - 支持功能（5 个）
 
@@ -936,11 +965,12 @@ AI 系统提示词（见 8.2 节）已包含强制变更检查步骤。当开发
 
 | 标签 | 含义 |
 |------|------|
-| `status:available` | 可认领 |
-| `status:claimed` | 已认领 |
+| `status:available` | 可认领（仅开放 Issue） |
+| `status:claimed` | 已认领（仅开放 Issue；完成后必须去掉） |
 | `status:in-progress` | 开发中 |
 | `status:blocked` | 阻塞中 |
 | `status:review` | 待 Review |
+| `status:completed` | 已完成并关闭（关闭后必须打上，同时去掉 available/claimed） |
 | `priority:p0` | P0 - 核心基础设施（阻塞） |
 | `priority:p1` | P1 - 核心功能模块 |
 | `priority:p2` | P2 - 业务功能 |
