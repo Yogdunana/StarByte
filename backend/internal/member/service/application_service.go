@@ -22,22 +22,23 @@ func (s *memberService) Submit(ctx context.Context, userID uuid.UUID, req *dto.S
 	}
 	now := time.Now()
 	app := &model.MemberApplication{
-		ID:           uuid.New(),
-		UserID:       userID,
-		Type:         int16(req.ApplicantType),
-		RealName:     req.RealName,
-		StudentNo:    req.StudentNo,
-		DepartmentID: parseOptionalUUID(req.DepartmentID),
-		Reason:       req.Reason,
-		Skills:       model.JSONStrings(req.Skills),
-		Experience:   req.Experience,
-		ContactPhone: req.ContactPhone,
-		ContactEmail: req.ContactEmail,
-		Status:       model.AppPending,
-		CurrentStage: stageLabel(model.AppPending),
-		SubmittedAt:  now,
-		CreatedAt:    now,
-		UpdatedAt:    now,
+		ID:             uuid.New(),
+		UserID:         userID,
+		Type:           int16(req.ApplicantType),
+		RealName:       req.RealName,
+		StudentNo:      req.StudentNo,
+		DepartmentID:   parseOptionalUUID(req.DepartmentID),
+		Reason:         req.Reason,
+		Skills:         nonemptyStrings(req.Skills),
+		Experience:     req.Experience,
+		ContactPhone:   req.ContactPhone,
+		ContactEmail:   req.ContactEmail,
+		Status:         model.AppPending,
+		CurrentStage:   stageLabel(model.AppPending),
+		RequiredFields: model.JSONStrings{},
+		SubmittedAt:    now,
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 	if err := s.apps.Create(ctx, app); err != nil {
 		return nil, fmt.Errorf("create application: %w", err)
@@ -223,6 +224,13 @@ func fieldFilled(app *model.MemberApplication, field string) bool {
 	default:
 		return true
 	}
+}
+
+func nonemptyStrings(in []string) model.JSONStrings {
+	if in == nil {
+		return model.JSONStrings{}
+	}
+	return model.JSONStrings(in)
 }
 
 func joinFields(fields []string) string {

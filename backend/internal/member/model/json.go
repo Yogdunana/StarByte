@@ -11,13 +11,13 @@ type JSONStrings []string
 
 func (j JSONStrings) Value() (driver.Value, error) {
 	if j == nil {
-		return []byte("[]"), nil
+		return "[]", nil
 	}
 	b, err := json.Marshal(j)
 	if err != nil {
 		return nil, err
 	}
-	return b, nil
+	return string(b), nil
 }
 
 func (j *JSONStrings) Scan(value interface{}) error {
@@ -44,13 +44,13 @@ type JSONProjects []ProjectItem
 
 func (j JSONProjects) Value() (driver.Value, error) {
 	if j == nil {
-		return []byte("[]"), nil
+		return "[]", nil
 	}
 	b, err := json.Marshal(j)
 	if err != nil {
 		return nil, err
 	}
-	return b, nil
+	return string(b), nil
 }
 
 func (j *JSONProjects) Scan(value interface{}) error {

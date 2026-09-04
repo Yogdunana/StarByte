@@ -45,7 +45,7 @@ func (s *memberService) transit(ctx context.Context, reviewer, id uuid.UUID, act
 	app.ReviewedAt = &now
 	app.UpdatedAt = now
 	if action == actionSupplement {
-		app.RequiredFields = model.JSONStrings(required)
+		app.RequiredFields = nonemptyStrings(required)
 	}
 
 	if next == model.AppInterviewing {
@@ -128,7 +128,8 @@ func (s *memberService) ensureProfile(ctx context.Context, app *model.MemberAppl
 		MemberType:   memberType,
 		Status:       model.ProfileActive,
 		JoinDate:     &join,
-		Skills:       app.Skills,
+		Skills:       nonemptyStrings(app.Skills),
+		Projects:     model.JSONProjects{},
 		ContactPhone: app.ContactPhone,
 		ContactEmail: app.ContactEmail,
 		CreatedAt:    now,
