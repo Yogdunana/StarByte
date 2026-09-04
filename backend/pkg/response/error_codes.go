@@ -17,6 +17,7 @@ package response
 //	10000-10999 Internship module
 //	11000-11999 Statistics module
 //	12000-12999 Notification module
+//	13000-13999 File module (reserved; #18 type/size checks use 1001)
 
 const (
 	// ===== Success =====
@@ -124,4 +125,5 @@ var ModuleRanges = map[string][2]int{
 	"internship":   {10000, 10999},
 	"statistics":   {11000, 11999},
 	"notification": {12000, 12999},
+	"file":         {13000, 13999},
 }

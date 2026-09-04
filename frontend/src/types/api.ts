@@ -811,33 +811,52 @@ export interface ApproveTaskParams {
 // 文件
 // ============================================================
 
-export interface FileInfo {
+export interface FileUploader {
   id: string;
   name: string;
+}
+
+export interface FileInfo {
+  id: string;
+  filename: string;
+  name: string;
   original_name: string;
+  file_size: number;
   size: number;
   mime_type: string;
-  storage_type: number; // 1=本地 2=MinIO
+  category: string;
+  storage_type?: string;
   bucket?: string;
-  path: string;
+  path?: string;
   url: string;
+  thumbnail_url?: string;
+  is_public?: boolean;
+  uploader?: FileUploader;
   uploader_id: string;
   uploader_name: string;
   created_at: string;
+  uploaded_at?: string;
 }
 
 export interface UploadResult {
   id: string;
+  filename: string;
   name: string;
-  url: string;
+  original_name: string;
+  file_size: number;
   size: number;
+  mime_type: string;
+  category: string;
+  url: string;
+  thumbnail_url?: string;
+  uploaded_at: string;
 }
 
 export interface ListFileParams extends ListParams {
+  category?: string;
+  keyword?: string;
   uploader_id?: string;
   mime_type?: string;
-  start_date?: string;
-  end_date?: string;
 }
 
 // ============================================================

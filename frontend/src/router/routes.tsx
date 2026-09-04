@@ -16,6 +16,7 @@ const UserList = lazy(() => import('@/pages/user/UserList'));
 const NotificationList = lazy(() => import('@/pages/notification/NotificationList'));
 const TemplateList = lazy(() => import('@/pages/notification/TemplateList'));
 const AuditList = lazy(() => import('@/pages/system/audit/AuditList'));
+const FileList = lazy(() => import('@/pages/file/FileList'));
 const WorkflowDesigner = lazy(() => import('@/pages/workflow/designer/DesignerPage'));
 const Forbidden = lazy(() => import('@/pages/error/Forbidden'));
 const NotFound = lazy(() => import('@/pages/error/NotFound'));
@@ -229,6 +230,11 @@ const routes: AppRouteObject[] = [
             meta: { title: '统计概览' },
           },
         ],
+      },
+      {
+        path: 'files',
+        element: lazyGuarded(FileList, 'file:read'),
+        meta: { title: '文件管理', icon: 'FolderOutlined', permission: 'file:read' },
       },
       {
         path: 'system',
