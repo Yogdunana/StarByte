@@ -73,7 +73,7 @@ StarByte/
 │   │   ├── file/                     # 文件管理（空目录，待开发）
 │   │   ├── internship/               # 实习管理（空目录，待开发）
 │   │   ├── interview/                # 面试管理（#7）
-│   │   ├── meeting/                  # 会议管理（空目录，待开发）
+│   │   ├── meeting/                  # 会议管理 + 投票（#8）
 │   │   ├── member/                   # 入会申请 + 人员档案（#6）
 │   │   ├── notification/             # 通知系统（空目录，待开发）
 │   │   ├── stats/                    # 数据统计（空目录，待开发）
@@ -243,7 +243,7 @@ response.ErrorWithCode(c, 2002, "用户名或密码错误") // 自定义错误�
 | 5000-5999 | 审计日志 | 5001 审计日志不存在, 5002 导出格式不支持 |
 | 6000-6999 | 会员模块 | 6001 申请不存在, 6003 重复申请, 6004 档案不存在 |
 | 7000-7999 | 面试模块 | 7001 场次不存在, 7002 记录不存在, 7003 时间冲突 |
-| 8000-8999 | 会议模块 | 8001 会议不存在, 8002 投票已结束 |
+| 8000-8999 | 会议模块 | 8001 会议不存在, 8002 状态不允许, 8006 投票未开始或已结束 |
 | 9000-9999 | 任务模块 | 9001 任务不存在, 9002 无权操作 |
 | 10000-10999 | 实习模块 | 10001 实习不存在, 10002 无权操作 |
 | 11000-11999 | 统计模块 | 11001 提供者不存在, 11002 参数无效 |
@@ -927,8 +927,8 @@ AI 系统提示词（见 8.2 节）已包含强制变更检查步骤。当开发
 | Issue | 标题 | 模块 | 依赖 | 备注 |
 |-------|------|------|------|------|
 | [#6](https://github.com/Yogdunana/StarByte/issues/6) | 入会申请 + 人员档案 | fullstack | #1, #2, #4 | 完成（`000020` 补列；勿另起表） |
-| [#7](https://github.com/Yogdunana/StarByte/issues/7) | 面试管理 | fullstack | #1, #2, #6 | 进行中（`000021` 补列；勿另起表） |
-| [#8](https://github.com/Yogdunana/StarByte/issues/8) | 会议管理 + 投票系统（等权 + 加权） | fullstack | #1, #4 | 含加权；#51 已并入 |
+| [#7](https://github.com/Yogdunana/StarByte/issues/7) | 面试管理 | fullstack | #1, #2, #6 | 完成（`000021` 补列；勿另起表） |
+| [#8](https://github.com/Yogdunana/StarByte/issues/8) | 会议管理 + 投票系统（等权 + 加权） | fullstack | #1, #4 | 进行中（`000022` 补列；勿另起表） |
 | [#9](https://github.com/Yogdunana/StarByte/issues/9) | 任务流转 | fullstack | #1, #4 | |
 | [#10](https://github.com/Yogdunana/StarByte/issues/10) | IT 实习管理 | fullstack | #1, #4 | |
 | [#11](https://github.com/Yogdunana/StarByte/issues/11) | 数据统计与可视化报表 | fullstack | #1, #5 | |

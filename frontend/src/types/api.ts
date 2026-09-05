@@ -513,21 +513,28 @@ export interface ListInterviewParams extends ListParams {
 // ============================================================
 
 export type MeetingStatus = 0 | 1 | 2 | 3;
-// 0=草稿 1=已发布 2=进行中 3=已结束
+// 0=待开始 1=进行中 2=已结束 3=已取消
+
+export interface MeetingOrganizer {
+  id: string;
+  name: string;
+}
 
 export interface Meeting {
   id: string;
   title: string;
   description?: string;
   status: MeetingStatus;
-  meeting_type: number; // 1=例会 2=临时会议 3=线上
+  meeting_type: number; // 1=例会 2=临时 3=线上
   start_time: string;
   end_time: string;
   location?: string;
-  organizer_id: string;
-  organizer_name: string;
-  participant_ids: string[];
-  participant_count: number;
+  online_link?: string;
+  organizer: MeetingOrganizer;
+  minutes?: string;
+  cancel_reason?: string;
+  attendee_count: number;
+  checked_in_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -536,45 +543,68 @@ export interface MeetingAgenda {
   id: string;
   meeting_id: string;
   title: string;
-  description?: string;
-  sort: number;
-  duration?: number;
-  speaker_id?: string;
-  speaker_name?: string;
+  content: string;
+  duration: number;
+  sort_order: number;
+  presenter: string;
 }
 
-export type VoteStatus = 0 | 1 | 2;
-// 0=未开始 1=进行中 2=已结束
+export interface MeetingAttendee {
+  id: string;
+  user_id: string;
+  name: string;
+  position_code?: string;
+  attended: boolean;
+  checked_in_at?: string;
+}
+
+export type VoteStatus = 0 | 1 | 2 | 3;
 
 export interface MeetingVote {
   id: string;
   meeting_id: string;
   title: string;
   description?: string;
-  vote_type: number; // 1=等权投票 2=加权投票
-  status: VoteStatus;
+  vote_type: 1 | 2;
   is_anonymous: boolean;
-  options: VoteOption[];
-  total_votes: number;
+  options: Array<{ key: string; label: string }>;
+  status: VoteStatus;
   start_time?: string;
   end_time?: string;
+  has_voted: boolean;
   created_at: string;
 }
 
-export interface VoteOption {
-  id: string;
-  text: string;
+export interface VoteResultItem {
+  option_key: string;
+  option_label: string;
   count: number;
-  weight?: number;
+  weight_total: number;
 }
 
-export interface VoteRecord {
+export interface VoteResult {
   id: string;
-  vote_id: string;
-  voter_id: string;
-  voter_name: string;
-  option_id: string;
-  voted_at: string;
+  title: string;
+  vote_type: 1 | 2;
+  is_anonymous: boolean;
+  status: VoteStatus;
+  results: VoteResultItem[];
+  total_voters: number;
+  total_weight: number;
+  start_time?: string;
+  end_time?: string;
+}
+
+export interface MeetingQRCode {
+  meeting_id: string;
+  token: string;
+  checkin_path: string;
+  png_base64: string;
+}
+
+export interface VoteWeightConfig {
+  weights: Record<string, number>;
+  default_weight: number;
 }
 
 export interface CreateMeetingParams {
@@ -584,35 +614,33 @@ export interface CreateMeetingParams {
   start_time: string;
   end_time: string;
   location?: string;
-  participant_ids: string[];
-  agendas?: Array<{ title: string; description?: string; sort: number }>;
+  online_link?: string;
+  user_ids?: string[];
 }
 
 export interface UpdateMeetingParams {
   title?: string;
   description?: string;
-  status?: MeetingStatus;
   meeting_type?: number;
   start_time?: string;
   end_time?: string;
   location?: string;
-  participant_ids?: string[];
+  online_link?: string;
 }
 
 export interface ListMeetingParams extends ListParams {
   status?: MeetingStatus;
-  meeting_type?: number;
+  start_date?: string;
+  end_date?: string;
 }
 
 export interface CreateVoteParams {
-  meeting_id: string;
   title: string;
   description?: string;
-  vote_type: number;
+  vote_type: 1 | 2;
   is_anonymous: boolean;
-  options: string[];
-  start_time?: string;
-  end_time?: string;
+  options: Array<{ key: string; label: string }>;
+  duration: number;
 }
 
 // ============================================================
