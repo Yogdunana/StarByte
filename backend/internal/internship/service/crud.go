@@ -45,6 +45,12 @@ func (s *internshipService) Create(ctx context.Context, operator uuid.UUID, req 
 		return nil, err
 	}
 	now := time.Now()
+	start := dateOnly(req.StartDate)
+	var end *time.Time
+	if req.EndDate != nil {
+		d := dateOnly(*req.EndDate)
+		end = &d
+	}
 	row := &model.Internship{
 		ID:           uuid.New(),
 		UserID:       ownerID,
@@ -52,8 +58,8 @@ func (s *internshipService) Create(ctx context.Context, operator uuid.UUID, req 
 		Title:        strings.TrimSpace(req.Title),
 		Organization: strings.TrimSpace(req.Organization),
 		Description:  req.Description,
-		StartDate:    req.StartDate,
-		EndDate:      req.EndDate,
+		StartDate:    start,
+		EndDate:      end,
 		Status:       model.StatusOngoing,
 		Type:         req.Type,
 		MentorID:     mentorID,
@@ -210,8 +216,17 @@ func applyUpdate(row *model.Internship, req *dto.UpdateInternshipRequest) error 
 	if req.Description != nil {
 		row.Description = *req.Description
 	}
-	if req.EndDate != nil {
-		row.EndDate = req.EndDate
+	if req.StartDate != nil {
+		row.StartDate = dateOnly(*req.StartDate)
+	}
+	if req.Type != nil {
+		row.Type = *req.Type
+	}
+	if req.ClearEndDate {
+		row.EndDate = nil
+	} else if req.EndDate != nil {
+		d := dateOnly(*req.EndDate)
+		row.EndDate = &d
 	}
 	if req.Skills != nil {
 		row.Skills = encodeSkills(req.Skills)

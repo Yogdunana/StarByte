@@ -25,7 +25,10 @@ type UpdateInternshipRequest struct {
 	Title        *string    `json:"title"`
 	Organization *string    `json:"organization"`
 	Description  *string    `json:"description"`
+	StartDate    *time.Time `json:"start_date"`
 	EndDate      *time.Time `json:"end_date"`
+	ClearEndDate bool       `json:"clear_end_date"`
+	Type         *int16     `json:"type" binding:"omitempty,oneof=0 1 2"`
 	Skills       []string   `json:"skills"`
 	Achievements *string    `json:"achievements"`
 	MentorID     *string    `json:"mentor_id"`

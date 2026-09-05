@@ -91,6 +91,32 @@ func TestGetDeniedByScope(t *testing.T) {
 	require.Equal(t, response.CodeInternshipNoAccess, ae.Code)
 }
 
+func TestUpdatePersistsStartTypeAndClearsEnd(t *testing.T) {
+	svc, mem := newTestSvc()
+	ctx := context.Background()
+	owner := uuid.New()
+	mem.users[owner] = &model.NamedUser{ID: owner, RealName: "赵六"}
+	end := time.Date(2026, 9, 20, 0, 0, 0, 0, time.UTC)
+	created, err := svc.Create(ctx, owner, &dto.CreateInternshipRequest{
+		Title: "A", Organization: "B", StartDate: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+		EndDate: &end, Type: 0,
+	}, nil)
+	require.NoError(t, err)
+	id := uuid.MustParse(created.ID)
+	require.NotNil(t, created.EndDate)
+
+	start := time.Date(2026, 8, 15, 15, 0, 0, 0, time.UTC)
+	typ := int16(2)
+	updated, err := svc.Update(ctx, owner, id, &dto.UpdateInternshipRequest{
+		StartDate: &start, Type: &typ, ClearEndDate: true,
+	}, nil)
+	require.NoError(t, err)
+	require.Equal(t, typ, updated.Type)
+	require.Nil(t, updated.EndDate)
+	require.Equal(t, 15, updated.StartDate.Day())
+	require.Equal(t, time.August, updated.StartDate.Month())
+}
+
 func TestUpdateClosedDenied(t *testing.T) {
 	svc, mem := newTestSvc()
 	ctx := context.Background()
