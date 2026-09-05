@@ -59,7 +59,7 @@ func (r *internshipRepo) namedQuery(ctx context.Context) *gorm.DB {
 	return r.db.WithContext(ctx).Table("internships AS i").
 		Select(`i.*,
 			COALESCE(u.real_name, u.username, '') AS user_name,
-			COALESCE(u.avatar, '') AS user_avatar,
+			COALESCE(u.avatar_url, '') AS user_avatar,
 			COALESCE(d.name, '') AS department_name,
 			COALESCE(m.real_name, m.username, '') AS mentor_name,
 			COALESCE(s.real_name, s.username, '') AS supervisor_name`).
@@ -127,7 +127,7 @@ func (r *internshipRepo) ListByUser(ctx context.Context, userID uuid.UUID, statu
 func (r *internshipRepo) GetUser(ctx context.Context, id uuid.UUID) (*model.NamedUser, error) {
 	var u model.NamedUser
 	err := r.db.WithContext(ctx).Table("users").
-		Select("id, real_name, username, avatar, department_id").
+		Select("id, real_name, username, COALESCE(avatar_url, '') AS avatar, department_id").
 		Where("id = ?", id).First(&u).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
