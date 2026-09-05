@@ -67,6 +67,9 @@ func SeedAll(db *gorm.DB) error {
 		if err := seedTemplates(tx); err != nil {
 			return fmt.Errorf("seed templates: %w", err)
 		}
+		if err := seedInternships(tx); err != nil {
+			return fmt.Errorf("seed internships: %w", err)
+		}
 		return nil
 	})
 }

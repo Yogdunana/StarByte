@@ -5,12 +5,12 @@ import type { ThemeConfig } from 'antd';
  */
 const theme: ThemeConfig = {
   token: {
-    colorPrimary: '#1677ff',
+    colorPrimary: '#2563eb',
     colorSuccess: '#52c41a',
     colorWarning: '#faad14',
     colorError: '#ff4d4f',
-    colorInfo: '#1677ff',
-    borderRadius: 6,
+    colorInfo: '#2563eb',
+    borderRadius: 10,
     fontSize: 14,
   },
   components: {

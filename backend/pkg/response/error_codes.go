@@ -119,8 +119,12 @@ const (
 	CodeTaskTargetGone   = 9008 // 转办目标用户不存在
 
 	// ===== Internship module (10000-10999) =====
-	CodeInternshipNotFound = 10001 // 实习记录不存在
-	CodeInternshipNoAccess = 10002 // 无权操作实习记录
+	CodeInternshipNotFound     = 10001 // 实习记录不存在
+	CodeInternshipNoAccess     = 10002 // 无权操作该实习记录
+	CodeInternshipInvalidState = 10003 // 实习状态不允许该操作
+	CodeInternshipClosed       = 10004 // 实习已结束，无法修改
+	CodeInternshipRankHidden   = 10005 // 排行榜不可见（未开启）
+	CodeInternshipDupComplete  = 10006 // 重复完成操作
 
 	// ===== Statistics module (11000-11999) =====
 	CodeStatsProviderNotFound = 11001 // 数据提供者不存在

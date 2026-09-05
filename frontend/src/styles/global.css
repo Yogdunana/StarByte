@@ -16,7 +16,7 @@ body {
     'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #f0f2f5;
+  background: linear-gradient(180deg, #eef2ff 0%, #f8fafc 220px, #f1f5f9 100%);
 }
 
 a {

@@ -1,12 +1,14 @@
 import React from 'react';
-import { Row, Col, Card, Statistic, List, Tag, Progress } from 'antd';
+import { Row, Col, Card, Statistic, List, Tag, Progress, Button, Space } from 'antd';
 import {
   UserOutlined,
   TeamOutlined,
   ScheduleOutlined,
   CheckCircleOutlined,
 } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import ReactECharts from 'echarts-for-react';
+import '@/pages/internship/internship.css';
 
 const Dashboard: React.FC = () => {
   // 统计卡片数据
@@ -70,8 +72,21 @@ const Dashboard: React.FC = () => {
     { user: '孙七', action: '提交了实习报告', time: '3小时前', type: '实习' },
   ];
 
+  const navigate = useNavigate();
+
   return (
     <div>
+      <div className="recruit-hero">
+        <div>
+          <h2>秋季招新工作台</h2>
+          <p>入会申请、面试安排、任务协同和实习培养都在这里。先把申请入口跑通，再安排一面 / 二面。</p>
+        </div>
+        <Space wrap>
+          <Button size="large" onClick={() => navigate('/member/application')}>入会申请</Button>
+          <Button size="large" onClick={() => navigate('/interview/list')}>面试安排</Button>
+          <Button type="primary" size="large" onClick={() => navigate('/internship/my')}>我的实习</Button>
+        </Space>
+      </div>
       {/* 统计卡片 */}
       <Row gutter={16} style={{ marginBottom: 16 }}>
         {stats.map((stat, index) => (

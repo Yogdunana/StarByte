@@ -1,62 +1,79 @@
 import request from './request';
 import type {
-  InternshipRecord,
-  InternshipStats,
+  Internship,
+  InternshipConfig,
+  InternshipDepartmentStats,
+  InternshipDurationStats,
+  InternshipRankingResponse,
   CreateInternshipParams,
   UpdateInternshipParams,
   ListInternshipParams,
   PageResponse,
 } from '@/types/api';
 
-// 提交实习记录
-export function createInternship(data: CreateInternshipParams): Promise<InternshipRecord> {
-  return request.post('/internships', data);
-}
-
-// 获取实习记录列表
-export function getInternshipList(
-  params: ListInternshipParams,
-): Promise<PageResponse<InternshipRecord>> {
+export function getInternshipList(params: ListInternshipParams): Promise<PageResponse<Internship>> {
   return request.get('/internships', { params });
 }
 
-// 获取我的实习记录
-export function getMyInternships(params: ListInternshipParams): Promise<PageResponse<InternshipRecord>> {
+export function getMyInternships(params?: { status?: number }): Promise<Internship[]> {
   return request.get('/internships/my', { params });
 }
 
-// 获取实习记录详情
-export function getInternshipDetail(id: string): Promise<InternshipRecord> {
+export function getInternshipDetail(id: string): Promise<Internship> {
   return request.get(`/internships/${id}`);
 }
 
-// 更新实习记录
-export function updateInternship(id: string, data: Partial<CreateInternshipParams>): Promise<InternshipRecord> {
+export function createInternship(data: CreateInternshipParams): Promise<Internship> {
+  return request.post('/internships', data);
+}
+
+export function updateInternship(id: string, data: UpdateInternshipParams): Promise<Internship> {
   return request.put(`/internships/${id}`, data);
 }
 
-// 删除实习记录
 export function deleteInternship(id: string): Promise<void> {
   return request.delete(`/internships/${id}`);
 }
 
-// 审核实习记录
-export function reviewInternship(id: string, data: UpdateInternshipParams): Promise<InternshipRecord> {
-  return request.post(`/internships/${id}/review`, data);
+export function completeInternship(id: string, data: { report?: string; achievements?: string }): Promise<Internship> {
+  return request.post(`/internships/${id}/complete`, data);
 }
 
-// 获取实习统计排名
-export function getInternshipStats(params: {
-  page?: number;
-  page_size?: number;
-  department_id?: string;
+export function submitInternshipReport(id: string, report: string): Promise<Internship> {
+  return request.post(`/internships/${id}/report`, { report });
+}
+
+export function commentInternship(id: string, mentorComment: string): Promise<Internship> {
+  return request.post(`/internships/${id}/mentor-comment`, { mentor_comment: mentorComment });
+}
+
+export function getInternshipDurationStats(params?: {
   start_date?: string;
   end_date?: string;
-}): Promise<PageResponse<InternshipStats>> {
-  return request.get('/internships/stats', { params });
+  group_by?: 'user' | 'department' | 'month';
+}): Promise<InternshipDurationStats> {
+  return request.get('/internships/stats/duration', { params });
 }
 
-// 获取个人实习统计
-export function getMyInternshipStats(): Promise<InternshipStats> {
-  return request.get('/internships/stats/my');
+export function getInternshipRanking(params?: {
+  department_id?: string;
+  limit?: number;
+  sort_by?: 'duration' | 'count';
+}): Promise<InternshipRankingResponse> {
+  return request.get('/internships/stats/ranking', { params });
+}
+
+export function getInternshipDepartmentStats(params?: {
+  start_date?: string;
+  end_date?: string;
+}): Promise<InternshipDepartmentStats> {
+  return request.get('/internships/stats/department', { params });
+}
+
+export function getInternshipConfig(): Promise<InternshipConfig> {
+  return request.get('/system/internship-config');
+}
+
+export function updateInternshipConfig(data: Partial<InternshipConfig>): Promise<InternshipConfig> {
+  return request.put('/system/internship-config', data);
 }

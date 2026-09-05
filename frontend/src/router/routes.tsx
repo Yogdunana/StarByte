@@ -31,6 +31,9 @@ const MeetingWeightPage = lazy(() => import('@/pages/meeting/WeightPage'));
 const TaskListPage = lazy(() => import('@/pages/task/ListPage'));
 const TaskBoardPage = lazy(() => import('@/pages/task/BoardPage'));
 const TaskMyPage = lazy(() => import('@/pages/task/MyPage'));
+const InternshipListPage = lazy(() => import('@/pages/internship/ListPage'));
+const InternshipMyPage = lazy(() => import('@/pages/internship/MyPage'));
+const InternshipStatsPage = lazy(() => import('@/pages/internship/StatsPage'));
 const WorkflowDesigner = lazy(() => import('@/pages/workflow/designer/DesignerPage'));
 const Forbidden = lazy(() => import('@/pages/error/Forbidden'));
 const NotFound = lazy(() => import('@/pages/error/NotFound'));
@@ -254,13 +257,18 @@ const routes: AppRouteObject[] = [
         children: [
           {
             path: 'list',
-            element: <div style={{ padding: 24 }}>实习记录（开发中）</div>,
-            meta: { title: '实习记录' },
+            element: lazyGuarded(InternshipListPage, 'internship:read'),
+            meta: { title: '实习记录', permission: 'internship:read' },
+          },
+          {
+            path: 'my',
+            element: lazyWrap(InternshipMyPage),
+            meta: { title: '我的实习' },
           },
           {
             path: 'stats',
-            element: <div style={{ padding: 24 }}>实习统计（开发中）</div>,
-            meta: { title: '实习统计' },
+            element: lazyGuarded(InternshipStatsPage, 'internship:read'),
+            meta: { title: '实习统计', permission: 'internship:read' },
           },
         ],
       },
