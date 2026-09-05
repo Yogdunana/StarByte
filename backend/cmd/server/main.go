@@ -18,6 +18,9 @@ import (
 	fileHandler "github.com/Yogdunana/StarByte/backend/internal/file/handler"
 	fileRepo "github.com/Yogdunana/StarByte/backend/internal/file/repo"
 	fileService "github.com/Yogdunana/StarByte/backend/internal/file/service"
+	interviewHandler "github.com/Yogdunana/StarByte/backend/internal/interview/handler"
+	interviewRepo "github.com/Yogdunana/StarByte/backend/internal/interview/repo"
+	interviewService "github.com/Yogdunana/StarByte/backend/internal/interview/service"
 	memberHandler "github.com/Yogdunana/StarByte/backend/internal/member/handler"
 	memberRepo "github.com/Yogdunana/StarByte/backend/internal/member/repo"
 	memberService "github.com/Yogdunana/StarByte/backend/internal/member/service"
@@ -204,6 +207,14 @@ func main() {
 	memberSvc := memberService.NewMemberService(memberAppRepo, memberProfRepo, interviewStarter)
 	memberH := memberHandler.NewMemberHandler(memberSvc)
 
+	// 面试管理
+	ivSessionRepo := interviewRepo.NewSessionRepo(database.DB())
+	ivRecordRepo := interviewRepo.NewInterviewRepo(database.DB())
+	ivEvalRepo := interviewRepo.NewEvaluationRepo(database.DB())
+	ivNotifier := interviewService.NewNotifier(notifSvc)
+	ivSvc := interviewService.NewInterviewService(ivSessionRepo, ivRecordRepo, ivEvalRepo, ivNotifier, memberSvc)
+	ivH := interviewHandler.NewInterviewHandler(ivSvc)
+
 	// 审计日志模块
 	auditR := auditRepo.NewAuditRepo(database.DB())
 	auditSvc := auditService.NewAuditService(auditR, &cfg.MinIO)
@@ -265,6 +276,9 @@ func main() {
 
 		// 入会申请 + 人员档案（/member）
 		memberHandler.RegisterRoutes(protected, memberH, cacheService, database.DB(), deptRepo)
+
+		// 面试管理（/interviews）
+		interviewHandler.RegisterRoutes(protected, ivH, cacheService, database.DB(), deptRepo)
 
 		// 审计日志模块路由（/system/audit-logs，audit:read / audit:export / audit:archive）
 		auditHandler.RegisterRoutes(protected, auditH, cacheService)

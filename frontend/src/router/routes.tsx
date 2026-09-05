@@ -19,6 +19,11 @@ const AuditList = lazy(() => import('@/pages/system/audit/AuditList'));
 const FileList = lazy(() => import('@/pages/file/FileList'));
 const ApplicationPage = lazy(() => import('@/pages/member/application/ApplicationPage'));
 const ProfilePage = lazy(() => import('@/pages/member/profile/ProfilePage'));
+const InterviewSessionPage = lazy(() => import('@/pages/interview/SessionPage'));
+const InterviewScorePage = lazy(() => import('@/pages/interview/ScorePage'));
+const InterviewMyPage = lazy(() => import('@/pages/interview/MyInterviewPage'));
+const InterviewStatsPage = lazy(() => import('@/pages/interview/StatsPage'));
+const InterviewCheckinPage = lazy(() => import('@/pages/interview/CheckinPage'));
 const WorkflowDesigner = lazy(() => import('@/pages/workflow/designer/DesignerPage'));
 const Forbidden = lazy(() => import('@/pages/error/Forbidden'));
 const NotFound = lazy(() => import('@/pages/error/NotFound'));
@@ -138,13 +143,28 @@ const routes: AppRouteObject[] = [
         children: [
           {
             path: 'list',
-            element: <div style={{ padding: 24 }}>面试安排（开发中）</div>,
-            meta: { title: '面试安排' },
+            element: lazyGuarded(InterviewSessionPage, 'interview:read'),
+            meta: { title: '面试安排', permission: 'interview:read' },
           },
           {
-            path: 'flow',
-            element: <div style={{ padding: 24 }}>面试流程（开发中）</div>,
-            meta: { title: '面试流程' },
+            path: 'score',
+            element: lazyGuarded(InterviewScorePage, 'interview:evaluate'),
+            meta: { title: '面试评分', permission: 'interview:evaluate' },
+          },
+          {
+            path: 'my',
+            element: lazyWrap(InterviewMyPage),
+            meta: { title: '我的面试' },
+          },
+          {
+            path: 'stats',
+            element: lazyGuarded(InterviewStatsPage, 'interview:read'),
+            meta: { title: '面试统计', permission: 'interview:read' },
+          },
+          {
+            path: 'checkin',
+            element: lazyWrap(InterviewCheckinPage),
+            meta: { title: '面试签到' },
           },
         ],
       },

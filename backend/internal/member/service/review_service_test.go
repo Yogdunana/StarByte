@@ -113,3 +113,25 @@ func TestReject_Pending(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, model.AppRejected, out.Status)
 }
+
+func TestSyncFromInterview_ApproveWhenInterviewing(t *testing.T) {
+	apps := &mockAppRepo{}
+	profs := &mockProfRepo{}
+	svc := NewMemberService(apps, profs, nil)
+	id := uuid.New()
+	userID := uuid.New()
+	apps.On("GetByID", mock.Anything, id).Return(&model.MemberApplication{
+		ID: id, UserID: userID, Type: model.ApplicantOfficer, Status: model.AppInterviewing,
+		RealName: "王五", StudentNo: "2024003",
+	}, nil)
+	profs.On("GetByUserID", mock.Anything, userID).Return(nil, nil)
+	profs.On("GetByStudentNo", mock.Anything, "2024003", (*uuid.UUID)(nil)).Return(nil, nil)
+	profs.On("Create", mock.Anything, mock.AnythingOfType("*model.MemberProfile")).Return(nil)
+	apps.On("Update", mock.Anything, mock.AnythingOfType("*model.MemberApplication")).Return(nil)
+	apps.On("CreateHistory", mock.Anything, mock.AnythingOfType("*model.ApplicationHistory")).Return(nil)
+	apps.On("GetByIDWithNames", mock.Anything, id).Return(&model.ApplicationWithNames{
+		MemberApplication: model.MemberApplication{ID: id, Status: model.AppApproved},
+	}, nil)
+	err := svc.SyncFromInterview(context.Background(), uuid.New(), id, 1, "面试通过")
+	require.NoError(t, err)
+}

@@ -25,6 +25,18 @@ var seedTemplatesData = []seedTemplate{
 		Schema: `{"real_name":"string","round":"string","scheduled_at":"string","location":"string"}`,
 	},
 	{
+		Code: "interview_assigned", Name: "面试官分配", Category: "interview",
+		Title:  "你被分配为面试官",
+		Body:   "请面试 {{.applicant_name}}，时间 {{.scheduled_at}}，地点 {{.location}}。",
+		Schema: `{"applicant_name":"string","scheduled_at":"string","location":"string","round":"string"}`,
+	},
+	{
+		Code: "interview_result", Name: "面试结果", Category: "interview",
+		Title:  "面试结果：{{.result}}",
+		Body:   "{{.real_name}}，你的面试结果为 {{.result}}。{{.comment}}",
+		Schema: `{"real_name":"string","result":"string","comment":"string"}`,
+	},
+	{
 		Code: "meeting_notice", Name: "会议通知", Category: "meeting",
 		Title:  "会议通知：{{.title}}",
 		Body:   "会议「{{.title}}」将于 {{.start_time}} 在 {{.location}} 召开。",

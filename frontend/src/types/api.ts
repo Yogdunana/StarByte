@@ -376,64 +376,136 @@ export interface MemberDepartmentOption {
 // 面试
 // ============================================================
 
-export type InterviewStatus = 0 | 1 | 2 | 3;
-// 0=待安排 1=已安排 2=进行中 3=已完成
+export type InterviewSessionStatus = 0 | 1 | 2 | 3;
+// 0待开始 1进行中 2已结束 3已取消
 
-export interface Interview {
+export type InterviewRecordStatus = 0 | 1 | 2 | 3 | 4 | 5;
+// 0待面试 1已签到 2面试中 3已完成 4缺席 5已取消
+
+export type InterviewResult = 0 | 1 | 2 | 3;
+// 0未出 1通过 2不通过 3待定
+
+export interface InterviewPerson {
   id: string;
-  application_id: string;
-  applicant_name: string;
-  round: number; // 第几轮
-  type: number; // 1=技术面 2=综合面 3=HR面
-  status: InterviewStatus;
-  interviewer_ids: string[];
-  interviewer_names: string[];
-  scheduled_at?: string;
-  location?: string;
-  duration?: number; // 分钟
-  score?: number;
-  result?: string;
-  notes?: string;
+  name: string;
+}
+
+export interface InterviewSession {
+  id: string;
+  title: string;
+  round: number;
+  department_id?: string;
+  department_name?: string;
+  start_time: string;
+  end_time: string;
+  location: string;
+  online_link?: string;
+  status: InterviewSessionStatus;
+  max_candidates: number;
+  description: string;
+  candidate_count: number;
   created_at: string;
   updated_at: string;
 }
 
-export interface InterviewEvaluation {
+export interface Interview {
   id: string;
-  interview_id: string;
-  interviewer_id: string;
-  interviewer_name: string;
-  score: number;
-  comment: string;
-  recommendation: number; // 1=强烈推荐 2=推荐 3=待定 4=不推荐
+  session_id?: string;
+  session_title?: string;
+  applicant: InterviewPerson;
+  student_no?: string;
+  application_id?: string;
+  status: InterviewRecordStatus;
+  scheduled_time?: string;
+  actual_start_time?: string;
+  actual_end_time?: string;
+  result: InterviewResult;
+  result_comment?: string;
+  location?: string;
+  duration?: number;
+  score?: number;
+  evaluators: InterviewPerson[];
+  department_name?: string;
   created_at: string;
+  updated_at: string;
+}
+
+export interface InterviewQRCode {
+  session_id: string;
+  token: string;
+  checkin_path: string;
+  png_base64: string;
+}
+
+export interface EvaluationDimension {
+  id: string;
+  name: string;
+  weight: number;
+  max_score: number;
+  sort_order: number;
+}
+
+export interface DimensionScore {
+  dimension: string;
+  score: number;
+  comment?: string;
+}
+
+export interface EvaluatorScores {
+  evaluator: InterviewPerson;
+  scores: DimensionScore[];
+  total_score: number;
+}
+
+export interface EvaluationSummary {
+  interview_id: string;
+  applicant: InterviewPerson;
+  evaluations: EvaluatorScores[];
+  average_score: number;
+  weighted_score: number;
+}
+
+export interface InterviewStats {
+  total: number;
+  pass_count: number;
+  fail_count: number;
+  pending_count: number;
+  pass_rate: number;
+  score_buckets: Array<{ range: string; count: number }>;
+  by_department: Array<{ department: string; count: number; pass_count: number }>;
+}
+
+export interface CreateSessionParams {
+  title: string;
+  round: number;
+  department_id?: string;
+  start_time: string;
+  end_time: string;
+  location?: string;
+  online_link?: string;
+  max_candidates: number;
+  description?: string;
 }
 
 export interface CreateInterviewParams {
-  application_id: string;
-  round: number;
-  type: number;
-  interviewer_ids: string[];
-  scheduled_at?: string;
+  session_id: string;
+  applicant_id?: string;
+  application_id?: string;
+  scheduled_time?: string;
   location?: string;
   duration?: number;
 }
 
-export interface UpdateInterviewParams {
-  status?: InterviewStatus;
-  interviewer_ids?: string[];
-  scheduled_at?: string;
-  location?: string;
-  duration?: number;
-  result?: string;
-  notes?: string;
+export interface ListSessionParams extends ListParams {
+  status?: InterviewSessionStatus;
+  department_id?: string;
+  round?: number;
 }
 
 export interface ListInterviewParams extends ListParams {
-  status?: InterviewStatus;
-  round?: number;
-  type?: number;
-  application_id?: string;
+  session_id?: string;
+  status?: InterviewRecordStatus;
+  result?: InterviewResult;
 }
 
 // ============================================================

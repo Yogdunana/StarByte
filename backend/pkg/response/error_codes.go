@@ -86,8 +86,15 @@ const (
 	CodeMemberFieldRequired = 6008 // 必填字段缺失
 
 	// ===== Interview module (7000-7999) =====
-	CodeInterviewNotFound = 7001 // 面试场次不存在
-	CodeInterviewConflict = 7002 // 面试时间冲突
+	CodeInterviewNotFound     = 7001 // 面试场次不存在
+	CodeInterviewRecordGone   = 7002 // 面试记录不存在
+	CodeInterviewConflict     = 7003 // 面试时间冲突
+	CodeInterviewNoEvaluator  = 7004 // 面试官未分配
+	CodeInterviewDupEval      = 7005 // 重复评分
+	CodeInterviewInvalidState = 7006 // 状态不允许操作
+	CodeInterviewScoreRange   = 7007 // 评分超出范围
+	CodeInterviewDimGone      = 7008 // 维度不存在
+	CodeInterviewSessionFull  = 7009 // 超过最大候选人数
 
 	// ===== Meeting module (8000-8999) =====
 	CodeMeetingNotFound = 8001 // 会议不存在
