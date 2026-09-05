@@ -59,7 +59,7 @@ func (s *taskService) Create(ctx context.Context, operator uuid.UUID, req *dto.C
 		s.notifyUsers(ctx, []uuid.UUID{*t.AssigneeID}, tplTaskAssigned, t, "")
 		s.addLog(ctx, t.ID, operator, model.ActionAssign, "", t.AssigneeID.String(), "")
 	}
-	return s.Get(ctx, t.ID)
+	return s.Get(ctx, operator, t.ID, nil)
 }
 
 func (s *taskService) List(ctx context.Context, viewer uuid.UUID, req *dto.ListTaskRequest, scope *rbacModel.DataScopeCondition) ([]*dto.TaskResponse, int64, error) {
@@ -74,7 +74,10 @@ func (s *taskService) List(ctx context.Context, viewer uuid.UUID, req *dto.ListT
 	return out, total, nil
 }
 
-func (s *taskService) Get(ctx context.Context, id uuid.UUID) (*dto.TaskResponse, error) {
+func (s *taskService) Get(ctx context.Context, viewer, id uuid.UUID, scope *rbacModel.DataScopeCondition) (*dto.TaskResponse, error) {
+	if _, err := s.mustVisible(ctx, id, viewer, scope); err != nil {
+		return nil, err
+	}
 	row, err := s.tasks.GetByIDWithNames(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get task: %w", err)
@@ -121,7 +124,7 @@ func (s *taskService) Update(ctx context.Context, id, operator uuid.UUID, req *d
 	if err := s.tasks.Update(ctx, t); err != nil {
 		return nil, fmt.Errorf("update task: %w", err)
 	}
-	return s.Get(ctx, id)
+	return s.Get(ctx, operator, id, nil)
 }
 
 func (s *taskService) Delete(ctx context.Context, id, operator uuid.UUID) error {
@@ -152,6 +155,17 @@ func (s *taskService) mustTask(ctx context.Context, id uuid.UUID) (*model.Task, 
 	return t, nil
 }
 
+func (s *taskService) mustVisible(ctx context.Context, id, viewer uuid.UUID, scope *rbacModel.DataScopeCondition) (*model.Task, error) {
+	t, err := s.mustTask(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if !canViewTask(t, viewer, scope) {
+		return nil, response.NewError(response.CodeTaskNoAccess, "无权查看该任务")
+	}
+	return t, nil
+}
+
 func (s *taskService) ensureMutable(t *model.Task, operator uuid.UUID) error {
 	if model.IsClosed(t.Status) {
 		return response.NewError(response.CodeTaskClosed, "任务已关闭，无法操作")
@@ -163,15 +177,54 @@ func (s *taskService) ensureMutable(t *model.Task, operator uuid.UUID) error {
 }
 
 func rewriteTaskScope(scope *rbacModel.DataScopeCondition, userID uuid.UUID) *rbacModel.DataScopeCondition {
+	return rewriteTaskScopeAlias(scope, userID, "t")
+}
+
+func rewriteTaskScopeAlias(scope *rbacModel.DataScopeCondition, userID uuid.UUID, alias string) *rbacModel.DataScopeCondition {
 	if scope == nil || scope.IsEmpty() {
 		return scope
 	}
+	prefix := ""
+	if alias != "" {
+		prefix = alias + "."
+	}
 	if scope.Query == "1 = 0" {
 		return &rbacModel.DataScopeCondition{
-			Query: "t.creator_id = ? OR t.assignee_id = ?",
+			Query: prefix + "creator_id = ? OR " + prefix + "assignee_id = ?",
 			Args:  []interface{}{userID, userID},
 		}
 	}
-	q := strings.ReplaceAll(scope.Query, "department_id", "t.department_id")
+	q := strings.ReplaceAll(scope.Query, "department_id", prefix+"department_id")
 	return &rbacModel.DataScopeCondition{Query: q, Args: scope.Args}
+}
+
+func canViewTask(t *model.Task, viewer uuid.UUID, scope *rbacModel.DataScopeCondition) bool {
+	rewritten := rewriteTaskScopeAlias(scope, viewer, "")
+	if rewritten == nil || rewritten.IsEmpty() {
+		return true
+	}
+	if strings.Contains(rewritten.Query, "creator_id = ? OR") {
+		if t.CreatorID == viewer {
+			return true
+		}
+		return t.AssigneeID != nil && *t.AssigneeID == viewer
+	}
+	if t.DepartmentID == nil {
+		return false
+	}
+	for _, arg := range rewritten.Args {
+		switch v := arg.(type) {
+		case uuid.UUID:
+			if v == *t.DepartmentID {
+				return true
+			}
+		case []uuid.UUID:
+			for _, id := range v {
+				if id == *t.DepartmentID {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }

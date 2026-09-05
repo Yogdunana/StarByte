@@ -47,16 +47,26 @@ func (s *taskService) notifyUsers(ctx context.Context, userIDs []uuid.UUID, temp
 	if s.notify == nil || len(userIDs) == 0 || t == nil {
 		return
 	}
-	vars := map[string]interface{}{
-		"title":     t.Title,
-		"real_name": "",
-		"message":   extra,
-		"due_date":  "",
-	}
+	due := ""
 	if t.DueDate != nil {
-		vars["due_date"] = t.DueDate.Format("2006-01-02 15:04")
+		due = t.DueDate.Format("2006-01-02 15:04")
 	}
-	if err := s.notify.Send(ctx, userIDs, template, vars); err != nil {
-		logger.Warn("send task notify failed", zap.Error(err), zap.String("tpl", template))
+	for _, uid := range userIDs {
+		name := ""
+		if u, err := s.tasks.GetUser(ctx, uid); err == nil && u != nil {
+			name = u.RealName
+			if name == "" {
+				name = u.Username
+			}
+		}
+		vars := map[string]interface{}{
+			"title":     t.Title,
+			"real_name": name,
+			"message":   extra,
+			"due_date":  due,
+		}
+		if err := s.notify.Send(ctx, []uuid.UUID{uid}, template, vars); err != nil {
+			logger.Warn("send task notify failed", zap.Error(err), zap.String("tpl", template))
+		}
 	}
 }

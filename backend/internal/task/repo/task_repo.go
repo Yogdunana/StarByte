@@ -23,7 +23,7 @@ type TaskRepo interface {
 	ListChildren(ctx context.Context, parentID uuid.UUID) ([]model.Task, error)
 	ListDueSoon(ctx context.Context, now, until time.Time) ([]model.Task, error)
 	ListOverdue(ctx context.Context, now time.Time) ([]model.Task, error)
-	Stats(ctx context.Context, req *dto.StatsRequest, now time.Time) (*dto.StatsResponse, error)
+	Stats(ctx context.Context, req *dto.StatsRequest, now time.Time, scope *rbacModel.DataScopeCondition) (*dto.StatsResponse, error)
 	GetUser(ctx context.Context, id uuid.UUID) (*model.NamedUser, error)
 	FindUsersByUsername(ctx context.Context, names []string) ([]model.NamedUser, error)
 }

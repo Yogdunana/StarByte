@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/task/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/task/model"
 	"github.com/google/uuid"
@@ -72,8 +73,8 @@ func (r *taskRepo) ListOverdue(ctx context.Context, now time.Time) ([]model.Task
 	return rows, err
 }
 
-func (r *taskRepo) Stats(ctx context.Context, req *dto.StatsRequest, now time.Time) (*dto.StatsResponse, error) {
-	q := r.db.WithContext(ctx).Model(&model.Task{})
+func (r *taskRepo) Stats(ctx context.Context, req *dto.StatsRequest, now time.Time, scope *rbacModel.DataScopeCondition) (*dto.StatsResponse, error) {
+	q := applyScope(r.db.WithContext(ctx).Model(&model.Task{}), scope)
 	if req.DepartmentID != "" {
 		q = q.Where("department_id = ?", req.DepartmentID)
 	}

@@ -87,7 +87,7 @@ func TestStateMachineAndTransfer(t *testing.T) {
 	if _, err := svc.Transfer(ctx, id, creator, &dto.TransferRequest{NewAssigneeID: a2.String(), Reason: "忙不过来"}); err != nil {
 		t.Fatal(err)
 	}
-	got, _ := svc.Get(ctx, id)
+	got, _ := svc.Get(ctx, creator, id, nil)
 	if got.Assignee == nil || got.Assignee.ID != a2.String() {
 		t.Fatalf("transfer %+v", got.Assignee)
 	}
@@ -120,7 +120,7 @@ func TestCommentMentionAndMyLists(t *testing.T) {
 	if len(cmt.Mentions) != 1 || cmt.Mentions[0] != assignee.String() {
 		t.Fatalf("mentions %+v", cmt.Mentions)
 	}
-	list, err := svc.ListComments(ctx, id)
+	list, err := svc.ListComments(ctx, creator, id, nil)
 	if err != nil || len(list) != 1 {
 		t.Fatalf("list comments %v %d", err, len(list))
 	}
@@ -141,7 +141,7 @@ func TestCommentMentionAndMyLists(t *testing.T) {
 	if err != nil || n != 1 || over[0].Title != "late" {
 		t.Fatalf("overdue %v %d %+v", err, n, over)
 	}
-	stats, err := svc.Stats(ctx, &dto.StatsRequest{})
+	stats, err := svc.Stats(ctx, creator, &dto.StatsRequest{}, nil)
 	if err != nil || stats.Total < 2 || stats.Overdue < 1 {
 		t.Fatalf("stats %+v %v", stats, err)
 	}
@@ -162,7 +162,7 @@ func TestRemindDueAndOverdue(t *testing.T) {
 	if err != nil || n != 2 {
 		t.Fatalf("remind n=%d err=%v", n, err)
 	}
-	if notify.calls != 2 {
+	if notify.calls != 4 {
 		t.Fatalf("notify=%d", notify.calls)
 	}
 	n, err = svc.RemindDueAndOverdue(ctx)
@@ -174,7 +174,7 @@ func TestRemindDueAndOverdue(t *testing.T) {
 func TestNoAccessAndNotFound(t *testing.T) {
 	svc, _, _, _ := newTestSvc()
 	ctx := context.Background()
-	if _, err := svc.Get(ctx, uuid.New()); err == nil {
+	if _, err := svc.Get(ctx, uuid.New(), uuid.New(), nil); err == nil {
 		t.Fatal("expected not found")
 	}
 	creator := uuid.New()

@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/task/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/task/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
@@ -32,7 +33,7 @@ func (s *taskService) Assign(ctx context.Context, id, operator uuid.UUID, assign
 	}
 	s.addLog(ctx, t.ID, operator, model.ActionAssign, old, assignee.ID.String(), "")
 	s.notifyUsers(ctx, []uuid.UUID{assignee.ID}, tplTaskAssigned, t, "")
-	return s.Get(ctx, id)
+	return s.Get(ctx, operator, id, nil)
 }
 
 func (s *taskService) Transfer(ctx context.Context, id, operator uuid.UUID, req *dto.TransferRequest) (*dto.TaskResponse, error) {
@@ -55,7 +56,7 @@ func (s *taskService) Transfer(ctx context.Context, id, operator uuid.UUID, req 
 	}
 	s.addLog(ctx, t.ID, operator, model.ActionTransfer, old, target.ID.String(), req.Reason)
 	s.notifyUsers(ctx, []uuid.UUID{target.ID}, tplTaskTransferred, t, req.Reason)
-	return s.Get(ctx, id)
+	return s.Get(ctx, operator, id, nil)
 }
 
 func (s *taskService) ChangeStatus(ctx context.Context, id, operator uuid.UUID, req *dto.StatusRequest) (*dto.TaskResponse, error) {
@@ -86,7 +87,7 @@ func (s *taskService) ChangeStatus(ctx context.Context, id, operator uuid.UUID, 
 		return nil, fmt.Errorf("change status: %w", err)
 	}
 	s.addLog(ctx, t.ID, operator, model.ActionStatusChange, old, strconv.Itoa(int(req.Status)), req.Comment)
-	return s.Get(ctx, id)
+	return s.Get(ctx, operator, id, nil)
 }
 
 func (s *taskService) Urge(ctx context.Context, id, operator uuid.UUID, message string) error {
@@ -108,8 +109,8 @@ func (s *taskService) Urge(ctx context.Context, id, operator uuid.UUID, message 
 	return nil
 }
 
-func (s *taskService) ListLogs(ctx context.Context, id uuid.UUID) ([]dto.LogResponse, error) {
-	if _, err := s.mustTask(ctx, id); err != nil {
+func (s *taskService) ListLogs(ctx context.Context, viewer, id uuid.UUID, scope *rbacModel.DataScopeCondition) ([]dto.LogResponse, error) {
+	if _, err := s.mustVisible(ctx, id, viewer, scope); err != nil {
 		return nil, err
 	}
 	rows, err := s.logs.ListByTask(ctx, id)
@@ -135,8 +136,8 @@ func (s *taskService) ListMy(ctx context.Context, userID uuid.UUID, kind string,
 	return out, total, nil
 }
 
-func (s *taskService) Stats(ctx context.Context, req *dto.StatsRequest) (*dto.StatsResponse, error) {
-	out, err := s.tasks.Stats(ctx, req, time.Now())
+func (s *taskService) Stats(ctx context.Context, viewer uuid.UUID, req *dto.StatsRequest, scope *rbacModel.DataScopeCondition) (*dto.StatsResponse, error) {
+	out, err := s.tasks.Stats(ctx, req, time.Now(), rewriteTaskScopeAlias(scope, viewer, ""))
 	if err != nil {
 		return nil, fmt.Errorf("task stats: %w", err)
 	}
