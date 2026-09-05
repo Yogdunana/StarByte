@@ -189,12 +189,12 @@ const routes: AppRouteObject[] = [
           {
             path: 'checkin',
             element: lazyWrap(MeetingCheckinPage),
-            meta: { title: '会议签到' },
+            meta: { title: '会议签到', hidden: true },
           },
           {
             path: ':id',
             element: lazyGuarded(MeetingDetailPage, 'meeting:read'),
-            meta: { title: '会议详情', permission: 'meeting:read' },
+            meta: { title: '会议详情', permission: 'meeting:read', hidden: true },
           },
         ],
       },
