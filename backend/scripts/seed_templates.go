@@ -66,6 +66,36 @@ var seedTemplatesData = []seedTemplate{
 		Body:   "{{.real_name}}，你被分配了任务「{{.title}}」。",
 		Schema: `{"real_name":"string","title":"string"}`,
 	},
+	{
+		Code: "task_transferred", Name: "任务转办", Category: "task",
+		Title:  "任务转办：{{.title}}",
+		Body:   "任务「{{.title}}」已转办给你。{{.message}}",
+		Schema: `{"title":"string","message":"string"}`,
+	},
+	{
+		Code: "task_urged", Name: "任务催办", Category: "task",
+		Title:  "催办：{{.title}}",
+		Body:   "任务「{{.title}}」被催办。{{.message}}",
+		Schema: `{"title":"string","message":"string"}`,
+	},
+	{
+		Code: "task_mention", Name: "任务评论提及", Category: "task",
+		Title:  "有人在任务中提到你：{{.title}}",
+		Body:   "任务「{{.title}}」的评论提到了你：{{.message}}",
+		Schema: `{"title":"string","message":"string"}`,
+	},
+	{
+		Code: "task_due_soon", Name: "任务即将到期", Category: "task",
+		Title:  "任务即将到期：{{.title}}",
+		Body:   "任务「{{.title}}」将于 {{.due_date}} 到期。",
+		Schema: `{"title":"string","due_date":"string"}`,
+	},
+	{
+		Code: "task_overdue", Name: "任务已超期", Category: "task",
+		Title:  "任务已超期：{{.title}}",
+		Body:   "任务「{{.title}}」已超过截止时间 {{.due_date}}。",
+		Schema: `{"title":"string","due_date":"string"}`,
+	},
 }
 
 func seedTemplates(db *gorm.DB) error {

@@ -28,6 +28,9 @@ const MeetingListPage = lazy(() => import('@/pages/meeting/ListPage'));
 const MeetingDetailPage = lazy(() => import('@/pages/meeting/DetailPage'));
 const MeetingCheckinPage = lazy(() => import('@/pages/meeting/CheckinPage'));
 const MeetingWeightPage = lazy(() => import('@/pages/meeting/WeightPage'));
+const TaskListPage = lazy(() => import('@/pages/task/ListPage'));
+const TaskBoardPage = lazy(() => import('@/pages/task/BoardPage'));
+const TaskMyPage = lazy(() => import('@/pages/task/MyPage'));
 const WorkflowDesigner = lazy(() => import('@/pages/workflow/designer/DesignerPage'));
 const Forbidden = lazy(() => import('@/pages/error/Forbidden'));
 const NotFound = lazy(() => import('@/pages/error/NotFound'));
@@ -204,12 +207,17 @@ const routes: AppRouteObject[] = [
         children: [
           {
             path: 'list',
-            element: <div style={{ padding: 24 }}>任务列表（开发中）</div>,
-            meta: { title: '任务列表' },
+            element: lazyGuarded(TaskListPage, 'task:read'),
+            meta: { title: '任务列表', permission: 'task:read' },
+          },
+          {
+            path: 'board',
+            element: lazyGuarded(TaskBoardPage, 'task:read'),
+            meta: { title: '任务看板', permission: 'task:read' },
           },
           {
             path: 'my',
-            element: <div style={{ padding: 24 }}>我的任务（开发中）</div>,
+            element: lazyWrap(TaskMyPage),
             meta: { title: '我的任务' },
           },
         ],

@@ -928,8 +928,8 @@ AI 系统提示词（见 8.2 节）已包含强制变更检查步骤。当开发
 |-------|------|------|------|------|
 | [#6](https://github.com/Yogdunana/StarByte/issues/6) | 入会申请 + 人员档案 | fullstack | #1, #2, #4 | 完成（`000020` 补列；勿另起表） |
 | [#7](https://github.com/Yogdunana/StarByte/issues/7) | 面试管理 | fullstack | #1, #2, #6 | 完成（`000021` 补列；勿另起表） |
-| [#8](https://github.com/Yogdunana/StarByte/issues/8) | 会议管理 + 投票系统（等权 + 加权） | fullstack | #1, #4 | 进行中（`000022` 补列；勿另起表） |
-| [#9](https://github.com/Yogdunana/StarByte/issues/9) | 任务流转 | fullstack | #1, #4 | |
+| [#8](https://github.com/Yogdunana/StarByte/issues/8) | 会议管理 + 投票系统（等权 + 加权） | fullstack | #1, #4 | 完成（`000022` 补列；勿另起表） |
+| [#9](https://github.com/Yogdunana/StarByte/issues/9) | 任务流转 | fullstack | #1, #4 | 进行中（`000023` 补列 + `task_logs`；勿另起表） |
 | [#10](https://github.com/Yogdunana/StarByte/issues/10) | IT 实习管理 | fullstack | #1, #4 | |
 | [#11](https://github.com/Yogdunana/StarByte/issues/11) | 数据统计与可视化报表 | fullstack | #1, #5 | |
 | #22 | 财务管理模块（一期预留接口） | fullstack | #1, #4 | |

@@ -109,8 +109,14 @@ const (
 	CodeVoteAnonymousHidden = 8010 // 匿名投票无法查看个人记录
 
 	// ===== Task module (9000-9999) =====
-	CodeTaskNotFound = 9001 // 任务不存在
-	CodeTaskNoAccess = 9002 // 无权操作任务
+	CodeTaskNotFound     = 9001 // 任务不存在
+	CodeTaskInvalidState = 9002 // 任务状态不允许该操作
+	CodeTaskNoAccess     = 9003 // 无权操作该任务
+	CodeTaskCommentGone  = 9004 // 评论不存在
+	CodeTaskAttachGone   = 9005 // 附件不存在
+	CodeTaskUploadFail   = 9006 // 文件上传失败
+	CodeTaskClosed       = 9007 // 任务已关闭，无法操作
+	CodeTaskTargetGone   = 9008 // 转办目标用户不存在
 
 	// ===== Internship module (10000-10999) =====
 	CodeInternshipNotFound = 10001 // 实习记录不存在

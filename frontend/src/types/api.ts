@@ -648,10 +648,22 @@ export interface CreateVoteParams {
 // ============================================================
 
 export type TaskStatus = 0 | 1 | 2 | 3 | 4;
-// 0=待处理 1=进行中 2=待审核 3=已完成 4=已取消
+// 0=待处理 1=进行中 2=已完成 3=已取消 4=已挂起
 
 export type TaskPriority = 0 | 1 | 2 | 3;
 // 0=低 1=中 2=高 3=紧急
+
+export interface TaskPerson {
+  id: string;
+  name: string;
+  avatar?: string;
+}
+
+export interface TaskBrief {
+  id: string;
+  title: string;
+  status: TaskStatus;
+}
 
 export interface Task {
   id: string;
@@ -659,29 +671,59 @@ export interface Task {
   description?: string;
   status: TaskStatus;
   priority: TaskPriority;
-  creator_id: string;
-  creator_name: string;
-  assignee_id?: string;
-  assignee_name?: string;
-  department_id?: string;
-  department_name?: string;
+  assignee?: TaskPerson;
+  creator: TaskPerson;
+  department?: TaskPerson;
+  parent?: { id: string; title: string };
+  children: TaskBrief[];
   due_date?: string;
-  progress: number; // 0-100
-  tags?: string[];
-  related_type?: string;
-  related_id?: string;
+  completed_at?: string;
+  tags: string[];
+  comment_count: number;
+  attachment_count: number;
+  progress: number;
   created_at: string;
   updated_at: string;
-  completed_at?: string;
 }
 
 export interface TaskComment {
   id: string;
   task_id: string;
-  author_id: string;
-  author_name: string;
+  user_id: string;
+  user: TaskPerson;
   content: string;
+  mentions: string[];
   created_at: string;
+  updated_at: string;
+}
+
+export interface TaskLog {
+  id: string;
+  action_type: 'status_change' | 'assign' | 'transfer' | 'comment' | 'urge' | 'create' | string;
+  old_value: string;
+  new_value: string;
+  operator: TaskPerson;
+  comment: string;
+  created_at: string;
+}
+
+export interface TaskAttachment {
+  id: string;
+  task_id: string;
+  file_id: string;
+  file_name: string;
+  file_path: string;
+  file_size: number;
+  file_type: string;
+  uploaded_by: string;
+  created_at: string;
+}
+
+export interface TaskStats {
+  total: number;
+  overdue: number;
+  by_status: Record<string, number>;
+  by_priority: Record<string, number>;
 }
 
 export interface CreateTaskParams {
@@ -692,19 +734,14 @@ export interface CreateTaskParams {
   department_id?: string;
   due_date?: string;
   tags?: string[];
-  related_type?: string;
-  related_id?: string;
+  parent_id?: string;
 }
 
 export interface UpdateTaskParams {
   title?: string;
   description?: string;
-  status?: TaskStatus;
   priority?: TaskPriority;
-  assignee_id?: string;
-  department_id?: string;
   due_date?: string;
-  progress?: number;
   tags?: string[];
 }
 
@@ -712,8 +749,10 @@ export interface ListTaskParams extends ListParams {
   status?: TaskStatus;
   priority?: TaskPriority;
   assignee_id?: string;
-  creator_id?: string;
   department_id?: string;
+  tags?: string;
+  sort_by?: string;
+  sort_order?: string;
 }
 
 // ============================================================
