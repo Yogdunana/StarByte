@@ -17,6 +17,7 @@ import type {
 } from '@/types/api';
 import { InterviewStatusMap, ResultMap, SessionStatusMap } from './meta';
 import SessionFormModal from './SessionFormModal';
+import '@/pages/internship/internship.css';
 
 const SessionPage: React.FC = () => {
   const canManage = usePermission('interview:manage');
@@ -162,6 +163,13 @@ const SessionPage: React.FC = () => {
   };
 
   return (
+    <div>
+      <div className="recruit-hero">
+        <div>
+          <h2>招新面试安排</h2>
+          <p>创建一面 / 二面场次、导入申请人、分配面试官。候选人也可在「我的面试」查看安排并签到。</p>
+        </div>
+      </div>
     <Card title="面试安排">
       <Tabs
         items={[
@@ -247,6 +255,7 @@ const SessionPage: React.FC = () => {
         {qr && <Image src={`data:image/png;base64,${qr}`} alt="签到二维码" />}
       </Modal>
     </Card>
+    </div>
   );
 };
 

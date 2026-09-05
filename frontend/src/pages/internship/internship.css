@@ -1,0 +1,71 @@
+.intern-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  margin-bottom: 16px;
+  border-radius: 16px;
+  color: #fff;
+  background: linear-gradient(135deg, #1d4ed8 0%, #7c3aed 55%, #db2777 100%);
+  box-shadow: 0 12px 32px rgba(29, 78, 216, 0.18);
+}
+
+.intern-hero h2 {
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.intern-hero p {
+  margin: 0;
+  opacity: 0.88;
+}
+
+.intern-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.intern-card {
+  height: 100%;
+  border-radius: 16px !important;
+  overflow: hidden;
+}
+
+.intern-card .ant-card-head {
+  border-bottom: 0;
+}
+
+.recruit-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 22px 24px;
+  margin-bottom: 16px;
+  border-radius: 16px;
+  color: #fff;
+  background: linear-gradient(135deg, #0f766e 0%, #2563eb 50%, #7c3aed 100%);
+  box-shadow: 0 12px 28px rgba(15, 118, 110, 0.16);
+}
+
+.recruit-hero h2 {
+  margin: 0 0 8px;
+  font-size: 22px;
+}
+
+.recruit-hero p {
+  margin: 0;
+  max-width: 640px;
+  line-height: 1.6;
+  opacity: 0.9;
+}
+
+.page-shell {
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px 24px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}

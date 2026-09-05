@@ -7,6 +7,7 @@ import ApplicationForm from './ApplicationForm';
 import ReviewDrawer from './ReviewDrawer';
 import { buildApplicationColumns } from './applicationColumns';
 import MemberStats from '../stats/MemberStats';
+import '@/pages/internship/internship.css';
 
 const ApplicationPage: React.FC = () => {
   const canRead = usePermission('member:read');
@@ -66,7 +67,14 @@ const ApplicationPage: React.FC = () => {
   };
 
   return (
-    <Card title="入会申请">
+    <div>
+      <div className="recruit-hero">
+        <div>
+          <h2>2026 秋季招新 · 入会申请</h2>
+          <p>欢迎加入计算机协会。会员可直接提交申请；干事需经过一面 / 二面。材料提交后可在「我的申请」跟踪进度。</p>
+        </div>
+      </div>
+    <Card title="入会申请" styles={{ body: { paddingTop: 12 } }}>
       <Tabs
         items={[
           {
@@ -160,6 +168,7 @@ const ApplicationPage: React.FC = () => {
         onDone={refresh}
       />
     </Card>
+    </div>
   );
 };
 

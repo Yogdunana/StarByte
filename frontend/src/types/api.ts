@@ -759,53 +759,109 @@ export interface ListTaskParams extends ListParams {
 // 实习
 // ============================================================
 
-export interface InternshipRecord {
+export type InternshipStatus = 0 | 1 | 2;
+export type InternshipType = 0 | 1 | 2;
+
+export interface InternshipPerson {
   id: string;
-  user_id: string;
-  username: string;
-  real_name: string;
-  department_id?: string;
-  department_name?: string;
-  date: string;
-  start_time: string;
-  end_time: string;
-  duration: number; // 小时
-  task_description: string;
-  status: number; // 0=待审核 1=已通过 2=已拒绝
-  reviewer_id?: string;
-  reviewer_name?: string;
-  reviewed_at?: string;
-  created_at: string;
+  name: string;
+  avatar?: string;
 }
 
-export interface InternshipStats {
-  user_id: string;
-  username: string;
-  real_name: string;
-  total_hours: number;
-  total_days: number;
+export interface Internship {
+  id: string;
+  user: InternshipPerson;
+  title: string;
+  organization: string;
+  description: string;
+  start_date: string;
+  end_date?: string;
+  status: InternshipStatus;
+  type: InternshipType;
+  mentor?: InternshipPerson;
+  supervisor?: InternshipPerson;
+  department?: InternshipPerson;
+  skills: string[];
+  achievements: string;
+  report?: string;
+  mentor_comment?: string;
+  duration_days: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InternshipRanking {
   rank: number;
+  user: InternshipPerson;
+  department?: InternshipPerson;
+  total_duration_days: number;
+  internship_count: number;
+  latest_internship: string;
+}
+
+export interface InternshipDurationItem {
+  key: string;
+  name: string;
+  duration_days: number;
+  count: number;
+}
+
+export interface InternshipDurationStats {
+  group_by: string;
+  items: InternshipDurationItem[];
+}
+
+export interface InternshipRankingResponse {
+  rankings: InternshipRanking[];
+  total: number;
+}
+
+export interface InternshipDepartmentStat {
+  department?: InternshipPerson;
+  duration_days: number;
+  count: number;
+  ongoing: number;
+}
+
+export interface InternshipDepartmentStats {
+  items: InternshipDepartmentStat[];
+}
+
+export interface InternshipConfig {
+  allow_student_edit: boolean;
+  allow_minister_edit: boolean;
+  ranking_visible: boolean;
 }
 
 export interface CreateInternshipParams {
-  date: string;
-  start_time: string;
-  end_time: string;
-  task_description: string;
-  department_id?: string;
+  title: string;
+  organization: string;
+  description?: string;
+  start_date: string;
+  end_date?: string | null;
+  type: InternshipType;
+  user_id?: string;
+  mentor_id?: string;
+  skills?: string[];
+  achievements?: string;
 }
 
 export interface UpdateInternshipParams {
-  status?: number;
-  review_comment?: string;
+  title?: string;
+  organization?: string;
+  description?: string;
+  end_date?: string | null;
+  skills?: string[];
+  achievements?: string;
+  mentor_id?: string;
 }
 
 export interface ListInternshipParams extends ListParams {
-  user_id?: string;
-  status?: number;
+  status?: InternshipStatus;
+  type?: InternshipType;
   department_id?: string;
-  start_date?: string;
-  end_date?: string;
+  user_id?: string;
+  keyword?: string;
 }
 
 // ============================================================

@@ -31,7 +31,7 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
   } = useMenu();
 
   const {
-    token: { colorBgContainer, borderRadiusLG },
+    token: { colorBgContainer },
   } = theme.useToken();
 
   useEffect(() => {
@@ -98,7 +98,8 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
             padding: 24,
             minHeight: 280,
             background: colorBgContainer,
-            borderRadius: borderRadiusLG,
+            borderRadius: 16,
+            boxShadow: '0 10px 30px rgba(15, 23, 42, 0.04)',
           }}
         >
           <Outlet />

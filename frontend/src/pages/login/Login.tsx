@@ -101,7 +101,8 @@ const Login: React.FC = () => {
       <div className={styles.left}>
         <div className={styles.brand}>
           <h1>StarByte</h1>
-          <p>计算机协会管理系统</p>
+          <p>计算机协会一体化管理平台</p>
+          <p style={{ marginTop: 12, fontSize: 16 }}>2026 秋季招新进行中 · 登录后即可提交入会申请</p>
         </div>
       </div>
       <div className={styles.right}>

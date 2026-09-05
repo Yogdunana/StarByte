@@ -18,6 +18,9 @@ import (
 	fileHandler "github.com/Yogdunana/StarByte/backend/internal/file/handler"
 	fileRepo "github.com/Yogdunana/StarByte/backend/internal/file/repo"
 	fileService "github.com/Yogdunana/StarByte/backend/internal/file/service"
+	internshipHandler "github.com/Yogdunana/StarByte/backend/internal/internship/handler"
+	internshipRepo "github.com/Yogdunana/StarByte/backend/internal/internship/repo"
+	internshipService "github.com/Yogdunana/StarByte/backend/internal/internship/service"
 	interviewHandler "github.com/Yogdunana/StarByte/backend/internal/interview/handler"
 	interviewRepo "github.com/Yogdunana/StarByte/backend/internal/interview/repo"
 	interviewService "github.com/Yogdunana/StarByte/backend/internal/interview/service"
@@ -230,6 +233,11 @@ func main() {
 	mtSvc := meetingService.NewMeetingService(mtMeetingRepo, mtAgendaRepo, mtAttendeeRepo, mtVoteRepo, mtNotifier)
 	mtH := meetingHandler.NewMeetingHandler(mtSvc)
 
+	// IT 实习管理
+	internRepo := internshipRepo.NewInternshipRepo(database.DB())
+	internSvc := internshipService.NewInternshipService(internRepo)
+	internH := internshipHandler.NewInternshipHandler(internSvc)
+
 	// 任务流转
 	tkTaskRepo := taskRepo.NewTaskRepo(database.DB())
 	tkLogRepo := taskRepo.NewLogRepo(database.DB())
@@ -311,6 +319,9 @@ func main() {
 
 		// 任务流转（/tasks，不与 /workflow/tasks 冲突）
 		taskHandler.RegisterRoutes(protected, tkH, cacheService, database.DB(), deptRepo)
+
+		// IT 实习管理（/internships, /system/internship-config）
+		internshipHandler.RegisterRoutes(protected, internH, cacheService, database.DB(), deptRepo)
 
 		// 审计日志模块路由（/system/audit-logs，audit:read / audit:export / audit:archive）
 		auditHandler.RegisterRoutes(protected, auditH, cacheService)
