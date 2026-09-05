@@ -75,6 +75,11 @@ func allSeedPermissions() []seedPerm {
 	perms = append(perms, moduleCRUD("meeting", "会议")...)
 	perms = append(perms, seedPerm{Name: "会议管理", Code: "meeting:manage", Resource: "meeting", Action: "manage"})
 	perms = append(perms, moduleCRUD("task", "任务")...)
+	perms = append(perms,
+		seedPerm{Name: "任务分配", Code: "task:assign", Resource: "task", Action: "assign"},
+		seedPerm{Name: "任务转办", Code: "task:transfer", Resource: "task", Action: "transfer"},
+		seedPerm{Name: "任务评论", Code: "task:comment", Resource: "task", Action: "comment"},
+	)
 	perms = append(perms, moduleCRUD("internship", "实习")...)
 	perms = append(perms, moduleCRUD("workflow", "流程")...)
 	perms = append(perms,
@@ -182,6 +187,7 @@ func seedRolePermissions(db *gorm.DB) error {
 			OR (p.resource = 'member' AND p.action IN ('approve','export','manage'))
 			OR (p.resource = 'interview' AND p.action IN ('manage','evaluate'))
 			OR (p.resource = 'meeting' AND p.action = 'manage')
+			OR (p.resource = 'task' AND p.action IN ('assign','transfer','comment'))
 		)
 		ON CONFLICT (role_id, permission_id) DO NOTHING
 	`).Error; err != nil {
@@ -197,6 +203,7 @@ func seedRolePermissions(db *gorm.DB) error {
 			p.action = 'read'
 			OR (p.resource IN ('member','interview','meeting','task','internship','file')
 			    AND p.action = 'create')
+			OR (p.resource = 'task' AND p.action IN ('update','comment'))
 		)
 		ON CONFLICT (role_id, permission_id) DO NOTHING
 	`).Error; err != nil {
@@ -213,7 +220,7 @@ func officerPermCodes() []string {
 	return []string{
 		"user:read", "member:read", "member:create",
 		"interview:read", "interview:evaluate", "meeting:read",
-		"task:read", "task:create",
+		"task:read", "task:create", "task:update", "task:comment",
 		"file:read", "file:create",
 		"internship:read", "internship:create",
 	}

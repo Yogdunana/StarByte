@@ -34,6 +34,9 @@ import (
 	rbacHandler "github.com/Yogdunana/StarByte/backend/internal/rbac/handler"
 	rbacRepo "github.com/Yogdunana/StarByte/backend/internal/rbac/repo"
 	rbacService "github.com/Yogdunana/StarByte/backend/internal/rbac/service"
+	taskHandler "github.com/Yogdunana/StarByte/backend/internal/task/handler"
+	taskRepo "github.com/Yogdunana/StarByte/backend/internal/task/repo"
+	taskService "github.com/Yogdunana/StarByte/backend/internal/task/service"
 	"github.com/Yogdunana/StarByte/backend/internal/user/handler"
 	"github.com/Yogdunana/StarByte/backend/internal/user/repo"
 	"github.com/Yogdunana/StarByte/backend/internal/user/service"
@@ -227,6 +230,17 @@ func main() {
 	mtSvc := meetingService.NewMeetingService(mtMeetingRepo, mtAgendaRepo, mtAttendeeRepo, mtVoteRepo, mtNotifier)
 	mtH := meetingHandler.NewMeetingHandler(mtSvc)
 
+	// 任务流转
+	tkTaskRepo := taskRepo.NewTaskRepo(database.DB())
+	tkLogRepo := taskRepo.NewLogRepo(database.DB())
+	tkCommentRepo := taskRepo.NewCommentRepo(database.DB())
+	tkAttachRepo := taskRepo.NewAttachmentRepo(database.DB())
+	tkNotifier := taskService.NewNotifier(notifSvc)
+	tkSvc := taskService.NewTaskService(tkTaskRepo, tkLogRepo, tkCommentRepo, tkAttachRepo, tkNotifier, fileSvc, objectStore)
+	tkH := taskHandler.NewTaskHandler(tkSvc)
+	taskReminder := taskService.NewReminderScheduler(tkSvc)
+	taskReminder.Start()
+
 	// 审计日志模块
 	auditR := auditRepo.NewAuditRepo(database.DB())
 	auditSvc := auditService.NewAuditService(auditR, &cfg.MinIO)
@@ -295,6 +309,9 @@ func main() {
 		// 会议管理 + 投票（/meetings, /votes, /system/vote-weight-config）
 		meetingHandler.RegisterRoutes(protected, mtH, cacheService, database.DB(), deptRepo)
 
+		// 任务流转（/tasks，不与 /workflow/tasks 冲突）
+		taskHandler.RegisterRoutes(protected, tkH, cacheService, database.DB(), deptRepo)
+
 		// 审计日志模块路由（/system/audit-logs，audit:read / audit:export / audit:archive）
 		auditHandler.RegisterRoutes(protected, auditH, cacheService)
 	}
@@ -342,6 +359,7 @@ func main() {
 
 	// 停止审计日志归档定时任务
 	archiveScheduler.Stop()
+	taskReminder.Stop()
 
 	logger.Info("server exited")
 }
