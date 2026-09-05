@@ -118,7 +118,7 @@ func (m *memTasks) ListOverdue(_ context.Context, now time.Time) ([]model.Task, 
 	}
 	return out, nil
 }
-func (m *memTasks) Stats(_ context.Context, _ *dto.StatsRequest, now time.Time) (*dto.StatsResponse, error) {
+func (m *memTasks) Stats(_ context.Context, _ *dto.StatsRequest, now time.Time, _ *rbacModel.DataScopeCondition) (*dto.StatsResponse, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	out := &dto.StatsResponse{
@@ -274,11 +274,13 @@ func (m *memFiles) ListByTask(_ context.Context, taskID uuid.UUID) ([]model.Task
 type memNotify struct {
 	mu    sync.Mutex
 	calls int
+	last  map[string]interface{}
 }
 
-func (m *memNotify) Send(_ context.Context, _ []uuid.UUID, _ string, _ map[string]interface{}) error {
+func (m *memNotify) Send(_ context.Context, _ []uuid.UUID, _ string, vars map[string]interface{}) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.calls++
+	m.last = vars
 	return nil
 }

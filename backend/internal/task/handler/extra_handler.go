@@ -15,12 +15,17 @@ import (
 // @Tags 任务
 // @Router /tasks/{id}/comments [get]
 func (h *TaskHandler) ListComments(c *gin.Context) {
+	userID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 	id, err := parseID(c)
 	if err != nil {
 		response.Error(c, err)
 		return
 	}
-	out, err := h.svc.ListComments(c.Request.Context(), id)
+	out, err := h.svc.ListComments(c.Request.Context(), userID, id, dataScope(c))
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -121,12 +126,17 @@ func (h *TaskHandler) DeleteComment(c *gin.Context) {
 // @Tags 任务
 // @Router /tasks/{id}/attachments [get]
 func (h *TaskHandler) ListAttachments(c *gin.Context) {
+	userID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 	id, err := parseID(c)
 	if err != nil {
 		response.Error(c, err)
 		return
 	}
-	out, err := h.svc.ListAttachments(c.Request.Context(), id)
+	out, err := h.svc.ListAttachments(c.Request.Context(), userID, id, dataScope(c))
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -177,7 +187,12 @@ func (h *TaskHandler) DownloadAttachment(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	rc, filename, contentType, err := h.svc.DownloadAttachment(c.Request.Context(), id, aid)
+	userID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	rc, filename, contentType, err := h.svc.DownloadAttachment(c.Request.Context(), userID, id, aid, dataScope(c))
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -262,21 +277,3 @@ func (h *TaskHandler) MyCreated(c *gin.Context) { h.myKind(c, "created") }
 // @Tags 任务
 // @Router /tasks/my/overdue [get]
 func (h *TaskHandler) MyOverdue(c *gin.Context) { h.myKind(c, "overdue") }
-
-// Stats 任务统计
-// @Summary 任务统计
-// @Tags 任务
-// @Router /tasks/stats [get]
-func (h *TaskHandler) Stats(c *gin.Context) {
-	var req dto.StatsRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
-		response.BadRequest(c, "参数错误: "+err.Error())
-		return
-	}
-	out, err := h.svc.Stats(c.Request.Context(), &req)
-	if err != nil {
-		response.Error(c, err)
-		return
-	}
-	response.OK(c, out)
-}

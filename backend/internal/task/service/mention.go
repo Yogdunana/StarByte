@@ -70,11 +70,14 @@ func encodeTags(tags []string) string {
 			clean = append(clean, t)
 		}
 	}
-	s := encodeJSONList(clean)
-	if len(s) > 500 {
-		s = s[:500]
+	for len(clean) > 0 {
+		s := encodeJSONList(clean)
+		if len(s) <= 500 {
+			return s
+		}
+		clean = clean[:len(clean)-1]
 	}
-	return s
+	return "[]"
 }
 
 func parseUUIDPtr(raw string) *uuid.UUID {

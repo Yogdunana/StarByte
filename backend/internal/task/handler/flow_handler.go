@@ -119,12 +119,40 @@ func (h *TaskHandler) Urge(c *gin.Context) {
 // @Tags 任务
 // @Router /tasks/{id}/logs [get]
 func (h *TaskHandler) ListLogs(c *gin.Context) {
+	userID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 	id, err := parseID(c)
 	if err != nil {
 		response.Error(c, err)
 		return
 	}
-	out, err := h.svc.ListLogs(c.Request.Context(), id)
+	out, err := h.svc.ListLogs(c.Request.Context(), userID, id, dataScope(c))
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.OK(c, out)
+}
+
+// Stats 任务统计
+// @Summary 任务统计
+// @Tags 任务
+// @Router /tasks/stats [get]
+func (h *TaskHandler) Stats(c *gin.Context) {
+	userID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	var req dto.StatsRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+	out, err := h.svc.Stats(c.Request.Context(), userID, &req, dataScope(c))
 	if err != nil {
 		response.Error(c, err)
 		return

@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"time"
 
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/task/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/task/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
 )
 
-func (s *taskService) ListComments(ctx context.Context, taskID uuid.UUID) ([]dto.CommentResponse, error) {
-	if _, err := s.mustTask(ctx, taskID); err != nil {
+func (s *taskService) ListComments(ctx context.Context, viewer, taskID uuid.UUID, scope *rbacModel.DataScopeCondition) ([]dto.CommentResponse, error) {
+	if _, err := s.mustVisible(ctx, taskID, viewer, scope); err != nil {
 		return nil, err
 	}
 	rows, err := s.comments.ListByTask(ctx, taskID)

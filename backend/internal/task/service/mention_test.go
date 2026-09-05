@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 )
@@ -35,5 +36,8 @@ func TestEncodeTagsTruncates(t *testing.T) {
 	s := encodeTags(tags)
 	if len(s) > 500 {
 		t.Fatalf("len=%d", len(s))
+	}
+	if !json.Valid([]byte(s)) {
+		t.Fatalf("invalid json %s", s)
 	}
 }

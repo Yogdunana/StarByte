@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"time"
 
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/task/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/task/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
@@ -54,8 +55,8 @@ func (s *taskService) UploadAttachment(ctx context.Context, taskID, operator uui
 	return &out, nil
 }
 
-func (s *taskService) ListAttachments(ctx context.Context, taskID uuid.UUID) ([]dto.AttachmentResponse, error) {
-	if _, err := s.mustTask(ctx, taskID); err != nil {
+func (s *taskService) ListAttachments(ctx context.Context, viewer, taskID uuid.UUID, scope *rbacModel.DataScopeCondition) ([]dto.AttachmentResponse, error) {
+	if _, err := s.mustVisible(ctx, taskID, viewer, scope); err != nil {
 		return nil, err
 	}
 	rows, err := s.files.ListByTask(ctx, taskID)
@@ -69,8 +70,8 @@ func (s *taskService) ListAttachments(ctx context.Context, taskID uuid.UUID) ([]
 	return out, nil
 }
 
-func (s *taskService) DownloadAttachment(ctx context.Context, taskID, attachID uuid.UUID) (io.ReadCloser, string, string, error) {
-	if _, err := s.mustTask(ctx, taskID); err != nil {
+func (s *taskService) DownloadAttachment(ctx context.Context, viewer, taskID, attachID uuid.UUID, scope *rbacModel.DataScopeCondition) (io.ReadCloser, string, string, error) {
+	if _, err := s.mustVisible(ctx, taskID, viewer, scope); err != nil {
 		return nil, "", "", err
 	}
 	named, err := s.mustAttachment(ctx, attachID, taskID)

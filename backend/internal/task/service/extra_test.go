@@ -12,6 +12,7 @@ import (
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/task/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/task/model"
+	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
 )
 
@@ -57,7 +58,7 @@ func TestUpdateDeleteListParent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := svc.Get(ctx, pid)
+	got, err := svc.Get(ctx, creator, pid, nil)
 	if err != nil || len(got.Children) != 1 || got.Children[0].ID != child.ID {
 		t.Fatalf("children %+v %v", got, err)
 	}
@@ -115,7 +116,7 @@ func TestCommentUpdateDeleteAndLogs(t *testing.T) {
 	if err := svc.DeleteComment(ctx, id, uuid.MustParse(cmt.ID), creator); err != nil {
 		t.Fatal(err)
 	}
-	logs, err := svc.ListLogs(ctx, id)
+	logs, err := svc.ListLogs(ctx, creator, id, nil)
 	if err != nil || len(logs) == 0 {
 		t.Fatalf("logs %v %d", err, len(logs))
 	}
@@ -138,11 +139,11 @@ func TestAttachments(t *testing.T) {
 	named, _ := files.GetNamed(ctx, uuid.MustParse(att.ID))
 	named.FilePath = "obj/f.txt"
 	named.FileName = "a.txt"
-	list, err := svc.ListAttachments(ctx, id)
+	list, err := svc.ListAttachments(ctx, creator, id, nil)
 	if err != nil || len(list) != 1 {
 		t.Fatalf("list att %v %d", err, len(list))
 	}
-	rc, name, _, err := svc.DownloadAttachment(ctx, id, uuid.MustParse(att.ID))
+	rc, name, _, err := svc.DownloadAttachment(ctx, creator, id, uuid.MustParse(att.ID), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,5 +204,62 @@ func TestNotifyAdapterNil(t *testing.T) {
 	n := reminderTargets(&model.Task{CreatorID: uuid.New()})
 	if len(n) != 1 {
 		t.Fatalf("targets %d", n)
+	}
+}
+
+func TestDataScopeVisibility(t *testing.T) {
+	svc, tasks, _, notify := newTestSvc()
+	ctx := context.Background()
+	creator := uuid.New()
+	assignee := uuid.New()
+	outsider := uuid.New()
+	dept := uuid.New()
+	otherDept := uuid.New()
+	tasks.users[assignee] = &model.NamedUser{ID: assignee, Username: "alice", RealName: "爱丽丝"}
+	tasks.users[outsider] = &model.NamedUser{ID: outsider, Username: "eve"}
+
+	row, err := svc.Create(ctx, creator, &dto.CreateTaskRequest{
+		Title: "范围", AssigneeID: assignee.String(), DepartmentID: dept.String(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.MustParse(row.ID)
+	if notify.calls < 1 || notify.last["real_name"] != "爱丽丝" {
+		t.Fatalf("assign notify %+v calls=%d", notify.last, notify.calls)
+	}
+
+	self := &rbacModel.DataScopeCondition{Query: "1 = 0"}
+	if _, err := svc.Get(ctx, outsider, id, self); err == nil {
+		t.Fatal("self scope outsider should be denied")
+	} else if ae, ok := err.(*response.AppError); !ok || ae.Code != response.CodeTaskNoAccess {
+		t.Fatalf("want 9003 got %v", err)
+	}
+	if _, err := svc.Get(ctx, creator, id, self); err != nil {
+		t.Fatalf("creator self scope %v", err)
+	}
+	if _, err := svc.Get(ctx, assignee, id, self); err != nil {
+		t.Fatalf("assignee self scope %v", err)
+	}
+	if _, err := svc.ListComments(ctx, outsider, id, self); err == nil {
+		t.Fatal("comments should honor scope")
+	}
+	if _, err := svc.ListLogs(ctx, outsider, id, self); err == nil {
+		t.Fatal("logs should honor scope")
+	}
+	if _, err := svc.ListAttachments(ctx, outsider, id, self); err == nil {
+		t.Fatal("attachments should honor scope")
+	}
+	if _, _, _, err := svc.DownloadAttachment(ctx, outsider, id, uuid.New(), self); err == nil {
+		t.Fatal("download should honor scope")
+	}
+
+	deptScope := &rbacModel.DataScopeCondition{Query: "department_id = ?", Args: []interface{}{dept}}
+	if _, err := svc.Get(ctx, outsider, id, deptScope); err != nil {
+		t.Fatalf("same dept %v", err)
+	}
+	wrongDept := &rbacModel.DataScopeCondition{Query: "department_id = ?", Args: []interface{}{otherDept}}
+	if _, err := svc.Get(ctx, outsider, id, wrongDept); err == nil {
+		t.Fatal("other dept should be denied")
 	}
 }

@@ -63,12 +63,17 @@ func (h *TaskHandler) ListTasks(c *gin.Context) {
 // @Tags 任务
 // @Router /tasks/{id} [get]
 func (h *TaskHandler) GetTask(c *gin.Context) {
+	userID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 	id, err := parseID(c)
 	if err != nil {
 		response.Error(c, err)
 		return
 	}
-	out, err := h.svc.Get(c.Request.Context(), id)
+	out, err := h.svc.Get(c.Request.Context(), userID, id, dataScope(c))
 	if err != nil {
 		response.Error(c, err)
 		return
