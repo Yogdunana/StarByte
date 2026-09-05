@@ -43,6 +43,18 @@ var seedTemplatesData = []seedTemplate{
 		Schema: `{"title":"string","start_time":"string","location":"string"}`,
 	},
 	{
+		Code: "meeting_started", Name: "会议开始", Category: "meeting",
+		Title:  "会议已开始：{{.title}}",
+		Body:   "会议「{{.title}}」已开始，地点 {{.location}}。",
+		Schema: `{"title":"string","start_time":"string","location":"string"}`,
+	},
+	{
+		Code: "meeting_ended", Name: "会议结束", Category: "meeting",
+		Title:  "会议已结束：{{.title}}",
+		Body:   "会议「{{.title}}」已结束。",
+		Schema: `{"title":"string","start_time":"string","location":"string"}`,
+	},
+	{
 		Code: "discipline_notice", Name: "处分通知", Category: "system",
 		Title:  "纪律处分通知",
 		Body:   "{{.real_name}}，你收到纪律处分：{{.title}}。",

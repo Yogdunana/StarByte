@@ -2,8 +2,11 @@ import request from './request';
 import type {
   Meeting,
   MeetingAgenda,
+  MeetingAttendee,
   MeetingVote,
-  VoteRecord,
+  MeetingQRCode,
+  VoteResult,
+  VoteWeightConfig,
   CreateMeetingParams,
   UpdateMeetingParams,
   CreateVoteParams,
@@ -11,65 +14,118 @@ import type {
   PageResponse,
 } from '@/types/api';
 
-// ============================================================
-// 会议
-// ============================================================
-
-// 获取会议列表
 export function getMeetingList(params: ListMeetingParams): Promise<PageResponse<Meeting>> {
   return request.get('/meetings', { params });
 }
 
-// 获取会议详情
 export function getMeetingDetail(id: string): Promise<Meeting> {
   return request.get(`/meetings/${id}`);
 }
 
-// 创建会议
 export function createMeeting(data: CreateMeetingParams): Promise<Meeting> {
   return request.post('/meetings', data);
 }
 
-// 更新会议
 export function updateMeeting(id: string, data: UpdateMeetingParams): Promise<Meeting> {
   return request.put(`/meetings/${id}`, data);
 }
 
-// 删除会议
 export function deleteMeeting(id: string): Promise<void> {
   return request.delete(`/meetings/${id}`);
 }
 
-// 获取会议议程
+export function startMeeting(id: string): Promise<Meeting> {
+  return request.post(`/meetings/${id}/start`);
+}
+
+export function endMeeting(id: string): Promise<Meeting> {
+  return request.post(`/meetings/${id}/end`);
+}
+
+export function cancelMeeting(id: string, reason?: string): Promise<Meeting> {
+  return request.post(`/meetings/${id}/cancel`, { reason });
+}
+
+export function updateMinutes(id: string, minutes: string): Promise<Meeting> {
+  return request.put(`/meetings/${id}/minutes`, { minutes });
+}
+
+export function getMeetingQRCode(id: string): Promise<MeetingQRCode> {
+  return request.get(`/meetings/${id}/qrcode`);
+}
+
 export function getMeetingAgendas(meetingId: string): Promise<MeetingAgenda[]> {
   return request.get(`/meetings/${meetingId}/agendas`);
 }
 
-// ============================================================
-// 投票
-// ============================================================
+export function addAgenda(meetingId: string, data: {
+  title: string; content?: string; duration?: number; presenter?: string; sort_order?: number;
+}): Promise<MeetingAgenda> {
+  return request.post(`/meetings/${meetingId}/agendas`, data);
+}
 
-// 获取会议投票列表
+export function updateAgenda(meetingId: string, agendaId: string, data: {
+  title?: string; content?: string; duration?: number; presenter?: string;
+}): Promise<MeetingAgenda> {
+  return request.put(`/meetings/${meetingId}/agendas/${agendaId}`, data);
+}
+
+export function deleteAgenda(meetingId: string, agendaId: string): Promise<void> {
+  return request.delete(`/meetings/${meetingId}/agendas/${agendaId}`);
+}
+
+export function sortAgendas(meetingId: string, agenda_ids: string[]): Promise<MeetingAgenda[]> {
+  return request.put(`/meetings/${meetingId}/agendas/sort`, { agenda_ids });
+}
+
+export function getAttendees(meetingId: string): Promise<MeetingAttendee[]> {
+  return request.get(`/meetings/${meetingId}/attendees`);
+}
+
+export function addAttendees(meetingId: string, user_ids: string[]): Promise<MeetingAttendee[]> {
+  return request.post(`/meetings/${meetingId}/attendees`, { user_ids });
+}
+
+export function removeAttendee(meetingId: string, userId: string): Promise<void> {
+  return request.delete(`/meetings/${meetingId}/attendees/${userId}`);
+}
+
+export function checkinMeeting(meetingId: string, token?: string): Promise<MeetingAttendee> {
+  return request.post(`/meetings/${meetingId}/checkin`, { token });
+}
+
 export function getMeetingVotes(meetingId: string): Promise<MeetingVote[]> {
   return request.get(`/meetings/${meetingId}/votes`);
 }
 
-// 获取投票详情
+export function createVote(meetingId: string, data: CreateVoteParams): Promise<MeetingVote> {
+  return request.post(`/meetings/${meetingId}/votes`, data);
+}
+
 export function getVoteDetail(voteId: string): Promise<MeetingVote> {
-  return request.get(`/meetings/votes/${voteId}`);
+  return request.get(`/votes/${voteId}`);
 }
 
-// 创建投票
-export function createVote(data: CreateVoteParams): Promise<MeetingVote> {
-  return request.post('/meetings/votes', data);
+export function castVote(voteId: string, option_key: string): Promise<void> {
+  return request.post(`/votes/${voteId}/cast`, { option_key });
 }
 
-// 提交投票
-export function submitVote(voteId: string, optionIds: string[]): Promise<void> {
-  return request.post(`/meetings/votes/${voteId}/cast`, { option_ids: optionIds });
+export function getVoteResult(voteId: string): Promise<VoteResult> {
+  return request.get(`/votes/${voteId}/result`);
 }
 
-// 获取投票记录
-export function getVoteRecords(voteId: string): Promise<VoteRecord[]> {
-  return request.get(`/meetings/votes/${voteId}/records`);
+export function closeVote(voteId: string): Promise<MeetingVote> {
+  return request.post(`/votes/${voteId}/close`);
+}
+
+export function getMyVote(voteId: string): Promise<{ option_key: string; weight: number; voted_at: string }> {
+  return request.get(`/votes/${voteId}/my`);
+}
+
+export function getVoteWeightConfig(): Promise<VoteWeightConfig> {
+  return request.get('/system/vote-weight-config');
+}
+
+export function updateVoteWeightConfig(data: VoteWeightConfig): Promise<VoteWeightConfig> {
+  return request.put('/system/vote-weight-config', data);
 }

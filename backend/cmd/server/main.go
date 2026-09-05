@@ -21,6 +21,9 @@ import (
 	interviewHandler "github.com/Yogdunana/StarByte/backend/internal/interview/handler"
 	interviewRepo "github.com/Yogdunana/StarByte/backend/internal/interview/repo"
 	interviewService "github.com/Yogdunana/StarByte/backend/internal/interview/service"
+	meetingHandler "github.com/Yogdunana/StarByte/backend/internal/meeting/handler"
+	meetingRepo "github.com/Yogdunana/StarByte/backend/internal/meeting/repo"
+	meetingService "github.com/Yogdunana/StarByte/backend/internal/meeting/service"
 	memberHandler "github.com/Yogdunana/StarByte/backend/internal/member/handler"
 	memberRepo "github.com/Yogdunana/StarByte/backend/internal/member/repo"
 	memberService "github.com/Yogdunana/StarByte/backend/internal/member/service"
@@ -215,6 +218,15 @@ func main() {
 	ivSvc := interviewService.NewInterviewService(ivSessionRepo, ivRecordRepo, ivEvalRepo, ivNotifier, memberSvc)
 	ivH := interviewHandler.NewInterviewHandler(ivSvc)
 
+	// 会议管理 + 投票
+	mtMeetingRepo := meetingRepo.NewMeetingRepo(database.DB())
+	mtAgendaRepo := meetingRepo.NewAgendaRepo(database.DB())
+	mtAttendeeRepo := meetingRepo.NewAttendeeRepo(database.DB())
+	mtVoteRepo := meetingRepo.NewVoteRepo(database.DB())
+	mtNotifier := meetingService.NewNotifier(notifSvc)
+	mtSvc := meetingService.NewMeetingService(mtMeetingRepo, mtAgendaRepo, mtAttendeeRepo, mtVoteRepo, mtNotifier)
+	mtH := meetingHandler.NewMeetingHandler(mtSvc)
+
 	// 审计日志模块
 	auditR := auditRepo.NewAuditRepo(database.DB())
 	auditSvc := auditService.NewAuditService(auditR, &cfg.MinIO)
@@ -279,6 +291,9 @@ func main() {
 
 		// 面试管理（/interviews）
 		interviewHandler.RegisterRoutes(protected, ivH, cacheService, database.DB(), deptRepo)
+
+		// 会议管理 + 投票（/meetings, /votes, /system/vote-weight-config）
+		meetingHandler.RegisterRoutes(protected, mtH, cacheService, database.DB(), deptRepo)
 
 		// 审计日志模块路由（/system/audit-logs，audit:read / audit:export / audit:archive）
 		auditHandler.RegisterRoutes(protected, auditH, cacheService)

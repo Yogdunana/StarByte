@@ -97,8 +97,16 @@ const (
 	CodeInterviewSessionFull  = 7009 // 超过最大候选人数
 
 	// ===== Meeting module (8000-8999) =====
-	CodeMeetingNotFound = 8001 // 会议不存在
-	CodeVoteClosed      = 8002 // 投票已结束
+	CodeMeetingNotFound     = 8001 // 会议不存在
+	CodeMeetingInvalidState = 8002 // 会议状态不允许该操作
+	CodeMeetingNotAttendee  = 8003 // 非参会人，无权签到
+	CodeMeetingDupCheckin   = 8004 // 重复签到
+	CodeVoteNotFound        = 8005 // 投票不存在
+	CodeVoteNotOpen         = 8006 // 投票未开始或已结束
+	CodeVoteDuplicate       = 8007 // 重复投票
+	CodeVoteNoAccess        = 8008 // 无权投票（非参会人）
+	CodeVoteOptionGone      = 8009 // 投票选项不存在
+	CodeVoteAnonymousHidden = 8010 // 匿名投票无法查看个人记录
 
 	// ===== Task module (9000-9999) =====
 	CodeTaskNotFound = 9001 // 任务不存在
