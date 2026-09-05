@@ -850,7 +850,10 @@ export interface UpdateInternshipParams {
   title?: string;
   organization?: string;
   description?: string;
+  start_date?: string;
   end_date?: string | null;
+  clear_end_date?: boolean;
+  type?: InternshipType;
   skills?: string[];
   achievements?: string;
   mentor_id?: string;

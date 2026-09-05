@@ -18,11 +18,25 @@ interface FormValues {
   achievements?: string;
 }
 
+interface InternshipFormPayload extends CreateInternshipParams {
+  clear_end_date?: boolean;
+}
+
 interface Props {
   open: boolean;
   editing: Internship | null;
   onClose: () => void;
-  onSubmit: (values: CreateInternshipParams) => Promise<void>;
+  onSubmit: (values: InternshipFormPayload) => Promise<void>;
+}
+
+function toCalendarDate(d: Dayjs): string {
+  return `${d.format('YYYY-MM-DD')}T00:00:00Z`;
+}
+
+function fromCalendarDate(raw?: string): Dayjs | undefined {
+  if (!raw) return undefined;
+  const d = dayjs(raw.slice(0, 10));
+  return d.isValid() ? d : undefined;
 }
 
 const FormDrawer: React.FC<Props> = ({ open, editing, onClose, onSubmit }) => {
@@ -46,8 +60,8 @@ const FormDrawer: React.FC<Props> = ({ open, editing, onClose, onSubmit }) => {
         skills: editing.skills,
         achievements: editing.achievements,
         range: [
-          dayjs(editing.start_date),
-          editing.end_date ? dayjs(editing.end_date) : undefined,
+          fromCalendarDate(editing.start_date),
+          fromCalendarDate(editing.end_date),
         ],
       });
     } else {
@@ -71,8 +85,9 @@ const FormDrawer: React.FC<Props> = ({ open, editing, onClose, onSubmit }) => {
         mentor_id: values.mentor_id,
         skills: values.skills || [],
         achievements: values.achievements,
-        start_date: start.startOf('day').toISOString(),
-        end_date: end ? end.startOf('day').toISOString() : null,
+        start_date: toCalendarDate(start),
+        end_date: end ? toCalendarDate(end) : null,
+        clear_end_date: !end,
       });
     } finally {
       setLoading(false);
