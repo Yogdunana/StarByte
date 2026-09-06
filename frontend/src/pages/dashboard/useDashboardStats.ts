@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   getStats,
   getStatsOverview,
@@ -55,20 +55,25 @@ export function useDashboardStats(refreshMs?: number): DashboardStatsState {
   const [errors, setErrors] = useState<Partial<Record<StatsProviderCode, string>>>({});
   const [loading, setLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const loaded = useRef(false);
 
   const reload = useCallback(async (signal?: AbortSignal) => {
-    setLoading(true);
+    if (!loaded.current) {
+      setLoading(true);
+    }
     try {
-      setOverview(await getStatsOverview(signal));
+      const ov = await getStatsOverview(signal);
+      setOverview(ov);
     } catch (e) {
       if (isAbortError(e)) return;
-      setOverview(null);
+      if (!loaded.current) {
+        setOverview(null);
+      }
     }
     if (!canReadCharts) {
-      setCharts({});
-      setErrors({});
       setUpdatedAt(new Date());
       setLoading(false);
+      loaded.current = true;
       return;
     }
     const next: Partial<Record<StatsProviderCode, StatsResult>> = {};
@@ -82,10 +87,18 @@ export function useDashboardStats(refreshMs?: number): DashboardStatsState {
         errs[code] = e instanceof Error ? e.message : '加载失败';
       }
     }
-    setCharts(next);
+    setCharts((prev) => {
+      const merged = { ...prev };
+      DASHBOARD_PROVIDERS.forEach((code) => {
+        const row = next[code];
+        if (row) merged[code] = row;
+      });
+      return merged;
+    });
     setErrors(errs);
     setUpdatedAt(new Date());
     setLoading(false);
+    loaded.current = true;
   }, [canReadCharts]);
 
   useEffect(() => {

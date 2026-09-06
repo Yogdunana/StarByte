@@ -74,7 +74,14 @@ const DashboardPanels: React.FC<DashboardPanelsProps> = ({
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={8}>
           <Card title="任务进度">
-            {loading ? <Skeleton active paragraph={{ rows: 4 }} /> : (
+            {!canReadCharts ? (
+              <>
+                <Typography.Text type="secondary">需要 stats:read 查看完成率</Typography.Text>
+                <div style={{ marginTop: 12 }}>
+                  <Typography.Text type="secondary">待办 {taskTodo} · 逾期 {taskOverdue}</Typography.Text>
+                </div>
+              </>
+            ) : loading ? <Skeleton active paragraph={{ rows: 4 }} /> : (
               <>
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
