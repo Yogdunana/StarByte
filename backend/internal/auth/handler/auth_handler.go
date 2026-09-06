@@ -3,6 +3,7 @@ package handler
 import (
 	"github.com/Yogdunana/StarByte/backend/internal/auth/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/auth/service"
+	rbacService "github.com/Yogdunana/StarByte/backend/internal/rbac/service"
 	authmiddleware "github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/gin-gonic/gin"
@@ -61,7 +62,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	result, err := h.authService.RefreshToken(c.Request.Context(), &req)
+	result, err := h.authService.RefreshToken(c.Request.Context(), &req, c.ClientIP(), c.GetHeader("User-Agent"))
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -189,14 +190,16 @@ func (h *AuthHandler) OAuthLogin(c *gin.Context) {
 
 // RegisterRoutes registers all authentication routes.
 // public routes (no auth): login, refresh, wechat, oauth
-// protected routes (auth): logout, me, password
+// protected routes (auth): logout, me, password, sessions
 // loginRateLimiter is an optional middleware applied to the login endpoint
 // for brute-force protection (e.g., 5 req/min). Pass nil to skip.
+// cacheService is required to register session admin routes; pass nil to skip.
 func RegisterRoutes(
 	public *gin.RouterGroup,
 	protected *gin.RouterGroup,
 	handler *AuthHandler,
 	loginRateLimiter gin.HandlerFunc,
+	cacheService rbacService.PermissionCacheService,
 ) {
 	if public != nil {
 		authGroup := public.Group("/auth")
@@ -219,6 +222,7 @@ func RegisterRoutes(
 			authProtected.POST("/logout", handler.Logout)
 			authProtected.GET("/me", handler.GetCurrentUser)
 			authProtected.PUT("/password", handler.ChangePassword)
+			registerSessionRoutes(authProtected, handler, cacheService)
 		}
 	}
 }

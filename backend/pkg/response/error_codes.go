@@ -20,6 +20,7 @@ package response
 //	13000-13999 File module (reserved; #18 type/size checks use 1001)
 //	14000-14999 Runtime configstore (#47)
 //	15000-15999 Data dictionary (#48)
+//	16000-16999 Session management (#50)
 
 const (
 	// ===== Success =====
@@ -156,6 +157,10 @@ const (
 	CodeDictItemNotFound = 15003 // 字典项不存在
 	CodeDictItemExists   = 15004 // 字典项值已存在
 	CodeDictSystemLocked = 15005 // 系统字典类型不可删除
+
+	// ===== Session management (#50, 16000-16999) =====
+	CodeSessionNotFound    = 16001 // 会话不存在或已失效
+	CodeSessionUserOffline = 16002 // 该用户当前没有在线会话
 )
 
 // ModuleRanges maps each module name to its error-code range [min, max].
@@ -176,4 +181,5 @@ var ModuleRanges = map[string][2]int{
 	"file":         {13000, 13999},
 	"configstore":  {14000, 14999},
 	"dict":         {15000, 15999},
+	"session":      {16000, 16999},
 }

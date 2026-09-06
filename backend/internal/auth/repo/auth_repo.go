@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/auth/model"
@@ -13,48 +14,29 @@ import (
 
 // AuthRepo handles all Redis-based authentication data operations.
 type AuthRepo interface {
-	// StoreRefreshToken stores a refresh token in Redis with the given TTL.
-	// The token is stored at key "auth:refresh:{token}" with userID as value.
-	StoreRefreshToken(ctx context.Context, token, userID string, ttl time.Duration) error
-
-	// GetRefreshTokenUserID retrieves the userID associated with a refresh token.
-	// Returns "" and redis.Nil if the token does not exist.
+	StoreRefreshToken(ctx context.Context, token, userID, accessJTI string, ttl time.Duration) error
 	GetRefreshTokenUserID(ctx context.Context, token string) (string, error)
-
-	// DeleteRefreshToken removes a refresh token from Redis (used during rotation).
+	GetRefreshTokenMeta(ctx context.Context, token string) (userID, jti string, err error)
 	DeleteRefreshToken(ctx context.Context, token string) error
+	DeleteRefreshTokensByUser(ctx context.Context, userID string) error
+	DeleteRefreshTokensByJTI(ctx context.Context, userID, jti string) error
 
-	// BlacklistToken adds a token (access or refresh) to the blacklist with the given TTL.
 	BlacklistToken(ctx context.Context, tokenID string, ttl time.Duration) error
-
-	// IsBlacklisted checks whether a token ID is in the blacklist.
 	IsBlacklisted(ctx context.Context, tokenID string) (bool, error)
 
-	// IncrLoginAttempts increments the failed login attempt counter for a username.
 	IncrLoginAttempts(ctx context.Context, username string) (int64, error)
-
-	// GetLoginAttempts returns the current failed attempt count for a username.
 	GetLoginAttempts(ctx context.Context, username string) (int64, error)
-
-	// ResetLoginAttempts clears the failed attempt counter for a username.
 	ResetLoginAttempts(ctx context.Context, username string) error
-
-	// SetLockout locks a username for the given duration.
 	SetLockout(ctx context.Context, username string, duration time.Duration) error
-
-	// IsLockedOut checks whether a username is currently locked out.
 	IsLockedOut(ctx context.Context, username string) (bool, error)
-
-	// GetLockoutTTL returns the remaining lockout time for a username.
 	GetLockoutTTL(ctx context.Context, username string) (time.Duration, error)
 
-	// StoreSession stores session metadata for a user.
 	StoreSession(ctx context.Context, userID, tokenID, ip, userAgent string, ttl time.Duration) error
-
-	// DeleteSession removes a session by token ID.
+	GetSession(ctx context.Context, tokenID string) (*model.Session, error)
 	DeleteSession(ctx context.Context, tokenID string) error
+	ListSessions(ctx context.Context) ([]model.Session, error)
+	ListSessionsByUser(ctx context.Context, userID string) ([]model.Session, error)
 
-	// GenerateRefreshToken generates a cryptographically random refresh token string.
 	GenerateRefreshToken() string
 }
 
@@ -73,33 +55,83 @@ const (
 	keyLoginAttempts = "auth:login_attempts:%s"
 	keyLockout       = "auth:lockout:%s"
 	keySession       = "auth:session:%s"
+	keyUserSessions  = "auth:user_sessions:%s"
+	keyUserRefresh   = "auth:user_refresh:%s"
 
 	maxLoginAttempts = 5
 	lockoutDuration  = 15 * time.Minute
+	sessionIndexTTL  = 8 * 24 * time.Hour
 )
 
-func (r *authRepo) StoreRefreshToken(ctx context.Context, token, userID string, ttl time.Duration) error {
+type refreshRecord struct {
+	UserID string `json:"user_id"`
+	JTI    string `json:"jti,omitempty"`
+}
+
+func parseRefreshRecord(val string) (userID, jti string) {
+	val = strings.TrimSpace(val)
+	if strings.HasPrefix(val, "{") {
+		var rec refreshRecord
+		if json.Unmarshal([]byte(val), &rec) == nil && rec.UserID != "" {
+			return rec.UserID, rec.JTI
+		}
+	}
+	return val, ""
+}
+
+func (r *authRepo) StoreRefreshToken(ctx context.Context, token, userID, accessJTI string, ttl time.Duration) error {
 	key := fmt.Sprintf(keyRefreshToken, token)
-	return r.rdb.Set(ctx, key, userID, ttl).Err()
+	data, err := json.Marshal(refreshRecord{UserID: userID, JTI: accessJTI})
+	if err != nil {
+		return fmt.Errorf("marshal refresh: %w", err)
+	}
+	pipe := r.rdb.TxPipeline()
+	pipe.Set(ctx, key, string(data), ttl)
+	ukey := fmt.Sprintf(keyUserRefresh, userID)
+	pipe.SAdd(ctx, ukey, token)
+	pipe.Expire(ctx, ukey, ttl)
+	_, err = pipe.Exec(ctx)
+	return err
 }
 
 func (r *authRepo) GetRefreshTokenUserID(ctx context.Context, token string) (string, error) {
+	uid, _, err := r.GetRefreshTokenMeta(ctx, token)
+	return uid, err
+}
+
+func (r *authRepo) GetRefreshTokenMeta(ctx context.Context, token string) (string, string, error) {
 	key := fmt.Sprintf(keyRefreshToken, token)
 	val, err := r.rdb.Get(ctx, key).Result()
 	if err == redis.Nil {
-		return "", redis.Nil
+		return "", "", redis.Nil
 	}
-	return val, err
+	if err != nil {
+		return "", "", err
+	}
+	uid, jti := parseRefreshRecord(val)
+	return uid, jti, nil
 }
 
 func (r *authRepo) DeleteRefreshToken(ctx context.Context, token string) error {
 	key := fmt.Sprintf(keyRefreshToken, token)
-	return r.rdb.Del(ctx, key).Err()
+	val, err := r.rdb.Get(ctx, key).Result()
+	if err != nil && err != redis.Nil {
+		return err
+	}
+	if err := r.rdb.Del(ctx, key).Err(); err != nil {
+		return err
+	}
+	if val != "" {
+		if userID, _ := parseRefreshRecord(val); userID != "" {
+			_ = r.rdb.SRem(ctx, fmt.Sprintf(keyUserRefresh, userID), token).Err()
+		}
+	}
+	return nil
 }
 
 func (r *authRepo) BlacklistToken(ctx context.Context, tokenID string, ttl time.Duration) error {
 	if ttl <= 0 {
-		return nil // no need to blacklist an already-expired token
+		return nil
 	}
 	key := fmt.Sprintf(keyBlacklist, tokenID)
 	return r.rdb.Set(ctx, key, "1", ttl).Err()
@@ -180,12 +212,27 @@ func (r *authRepo) StoreSession(ctx context.Context, userID, tokenID, ip, userAg
 	if err != nil {
 		return fmt.Errorf("marshal session: %w", err)
 	}
-	return r.rdb.Set(ctx, key, string(data), ttl).Err()
+	pipe := r.rdb.TxPipeline()
+	pipe.Set(ctx, key, string(data), ttl)
+	ukey := fmt.Sprintf(keyUserSessions, userID)
+	pipe.SAdd(ctx, ukey, tokenID)
+	pipe.Expire(ctx, ukey, sessionIndexTTL)
+	_, err = pipe.Exec(ctx)
+	return err
 }
 
 func (r *authRepo) DeleteSession(ctx context.Context, tokenID string) error {
-	key := fmt.Sprintf(keySession, tokenID)
-	return r.rdb.Del(ctx, key).Err()
+	sess, err := r.GetSession(ctx, tokenID)
+	if err != nil {
+		return err
+	}
+	if err := r.rdb.Del(ctx, fmt.Sprintf(keySession, tokenID)).Err(); err != nil {
+		return err
+	}
+	if sess != nil && sess.UserID != "" {
+		_ = r.rdb.SRem(ctx, fmt.Sprintf(keyUserSessions, sess.UserID), tokenID).Err()
+	}
+	return nil
 }
 
 // GenerateRefreshToken generates a cryptographically random refresh token string.

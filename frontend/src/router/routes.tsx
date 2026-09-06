@@ -19,6 +19,7 @@ const AuditList = lazy(() => import('@/pages/system/audit/AuditList'));
 const DepartmentPage = lazy(() => import('@/pages/system/department/DepartmentPage'));
 const ConfigPage = lazy(() => import('@/pages/system/config/ConfigPage'));
 const DictPage = lazy(() => import('@/pages/system/dict/DictPage'));
+const SessionPage = lazy(() => import('@/pages/system/session/SessionPage'));
 const FileList = lazy(() => import('@/pages/file/FileList'));
 const ApplicationPage = lazy(() => import('@/pages/member/application/ApplicationPage'));
 const ProfilePage = lazy(() => import('@/pages/member/profile/ProfilePage'));
@@ -324,6 +325,11 @@ const routes: AppRouteObject[] = [
             path: 'config',
             element: lazyGuarded(ConfigPage, 'config:read'),
             meta: { title: '系统配置', permission: 'config:read' },
+          },
+          {
+            path: 'sessions',
+            element: lazyGuarded(SessionPage, 'session:read'),
+            meta: { title: '在线会话', permission: 'session:read' },
           },
         ],
       },

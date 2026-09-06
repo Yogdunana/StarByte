@@ -293,7 +293,7 @@ func main() {
 
 		// 认证路由（登录、刷新、第三方登录预留）
 		// 登录端点额外应用 LoginRateLimit（5 req/min，防暴力破解）
-		authHandler.RegisterRoutes(public, nil, authH, middleware.RateLimitWithFallback(redis.Client(), middleware.LoginRateLimit))
+		authHandler.RegisterRoutes(public, nil, authH, middleware.RateLimitWithFallback(redis.Client(), middleware.LoginRateLimit), cacheService)
 
 		// 注册仍由 user handler 处理
 		public.POST("/auth/register", userHandler.Register)
@@ -307,8 +307,8 @@ func main() {
 	protected.Use(authmiddleware.JWTAuth(&cfg.JWT, redis.Client()))
 	protected.Use(middleware.RateLimit(redis.Client(), middleware.PerIPRateLimit))
 	{
-		// 认证路由（登出、当前用户、修改密码）
-		authHandler.RegisterRoutes(nil, protected, authH, nil)
+		// 认证路由（登出、当前用户、修改密码、在线会话 #50）
+		authHandler.RegisterRoutes(nil, protected, authH, nil, cacheService)
 
 		// 用户模块
 		handler.RegisterUserRoutes(protected, userHandler)

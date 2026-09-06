@@ -88,6 +88,36 @@ export interface UserInfo {
   created_at: string;
 }
 
+export interface AuthSession {
+  token_id: string;
+  user_id: string;
+  username: string;
+  real_name: string;
+  ip: string;
+  user_agent: string;
+  browser: string;
+  os: string;
+  device: string;
+  login_at: string;
+  expires_at: string;
+  multi_device: boolean;
+  multi_ip: boolean;
+}
+
+export interface AuthSessionList {
+  list: AuthSession[];
+  total: number;
+}
+
+export interface UserAuthSessions {
+  user_id: string;
+  username: string;
+  real_name: string;
+  multi_device: boolean;
+  multi_ip: boolean;
+  sessions: AuthSession[];
+}
+
 export interface UserListItem {
   id: string;
   username: string;
