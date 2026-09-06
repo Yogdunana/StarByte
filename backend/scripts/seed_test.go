@@ -118,6 +118,15 @@ func TestVicePresident_ExcludesConfigWrites(t *testing.T) {
 	assert.False(t, excluded["config:read"])
 	assert.False(t, excluded["cache:read"])
 	assert.False(t, excluded["scheduler:read"])
+	assert.False(t, excluded["search:read"])
+}
+
+func TestAllSeedPermissions_IncludesSearch(t *testing.T) {
+	seen := map[string]bool{}
+	for _, p := range allSeedPermissions() {
+		seen[p.Code] = true
+	}
+	assert.True(t, seen["search:read"], "missing permission search:read")
 }
 
 func TestAllSeedPermissions_IncludesCache(t *testing.T) {

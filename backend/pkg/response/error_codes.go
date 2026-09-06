@@ -24,12 +24,14 @@ package response
 //	17000-17999 Export / print engine (#71)
 //	18000-18999 Cache management (#72)
 //	19000-19999 Scheduler (#73)
+//	20000-20999 Unified search (#74)
 //
 //	Note: issue #71 asked for 9000-9499, but that range is already owned by
 //	the task module (9000-9999). Export therefore uses 17000-17999 (after
 //	session 16000). Issue #72 asked for 9500-9699, also inside the task
 //	range; cache management uses 18000-18999. Issue #73 asked for 9700-9899,
-//	also inside the task range; the scheduler uses 19000-19999.
+//	also inside the task range; the scheduler uses 19000-19999. Issue #74
+//	asked for 9900-9999; unified search uses 20000-20999.
 
 const (
 	// ===== Success =====
@@ -196,6 +198,16 @@ const (
 	CodeSchedulerBadHandler  = 19004 // 未知处理器
 	CodeSchedulerPaused      = 19005 // 任务状态不允许该操作
 	CodeSchedulerBusy        = 19006 // 调度引擎忙或未启动
+
+	// ===== Unified search (#74, 20000-20999) =====
+	// Issue #74 listed 9900-9999; that range is the task module. Use 20000+.
+	CodeSearchUnknownResource = 20001 // 未知检索资源
+	CodeSearchUnknownField    = 20002 // 未知字段
+	CodeSearchInvalidOp       = 20003 // 不支持的运算符
+	CodeSearchInvalidQuery    = 20004 // 查询不合法
+	CodeSearchInvalidCursor   = 20005 // 游标无效
+	CodeSearchInvalidAgg      = 20006 // 聚合不合法
+	CodeSearchDeepPage        = 20007 // 深分页请改用游标
 )
 
 // ModuleRanges maps each module name to its error-code range [min, max].
@@ -220,4 +232,5 @@ var ModuleRanges = map[string][2]int{
 	"export":       {17000, 17999},
 	"cache":        {18000, 18999},
 	"scheduler":    {19000, 19999},
+	"search":       {20000, 20999},
 }

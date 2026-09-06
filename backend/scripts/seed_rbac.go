@@ -111,6 +111,9 @@ func allSeedPermissions() []seedPerm {
 		seedPerm{Name: "调度执行", Code: "scheduler:run", Resource: "scheduler", Action: "run"},
 		seedPerm{Name: "调度启停", Code: "scheduler:manage", Resource: "scheduler", Action: "manage"},
 	)
+	perms = append(perms,
+		seedPerm{Name: "统一搜索", Code: "search:read", Resource: "search", Action: "read"},
+	)
 	return perms
 }
 

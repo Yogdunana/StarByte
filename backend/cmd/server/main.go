@@ -51,6 +51,8 @@ import (
 	schedHandler "github.com/Yogdunana/StarByte/backend/internal/scheduler/handler"
 	schedRepo "github.com/Yogdunana/StarByte/backend/internal/scheduler/repo"
 	schedService "github.com/Yogdunana/StarByte/backend/internal/scheduler/service"
+	searchHandler "github.com/Yogdunana/StarByte/backend/internal/search/handler"
+	searchService "github.com/Yogdunana/StarByte/backend/internal/search/service"
 	taskHandler "github.com/Yogdunana/StarByte/backend/internal/task/handler"
 	taskRepo "github.com/Yogdunana/StarByte/backend/internal/task/repo"
 	taskService "github.com/Yogdunana/StarByte/backend/internal/task/service"
@@ -377,6 +379,11 @@ func main() {
 		// 定时任务调度（/system/scheduler，#73）
 		schedH := schedHandler.NewSchedulerHandler(schedSvc)
 		schedHandler.RegisterRoutes(protected, schedH, cacheService)
+
+		// 统一搜索（/system/search，#74）
+		searchSvc := searchService.NewSearchService(database.DB())
+		searchH := searchHandler.NewSearchHandler(searchSvc)
+		searchHandler.RegisterRoutes(protected, searchH, cacheService)
 
 		// 审计日志模块路由（/system/audit-logs，audit:read / audit:export / audit:archive）
 		auditHandler.RegisterRoutes(protected, auditH, cacheService)
