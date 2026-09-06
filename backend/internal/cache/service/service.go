@@ -14,6 +14,8 @@ import (
 const maxScan = int64(200)
 const maxDelete = int64(500)
 
+const authKeyPrefix = "auth:"
+
 // CacheService is the admin API for Redis + L1 cache.
 type CacheService interface {
 	Stats(ctx context.Context, pattern string) (*dto.Stats, error)
@@ -45,9 +47,6 @@ func (s *cacheService) Close() {
 
 func (s *cacheService) Stats(ctx context.Context, pattern string) (*dto.Stats, error) {
 	pattern = strings.TrimSpace(pattern)
-	if pattern == "" {
-		pattern = "*"
-	}
 	out := &dto.Stats{Pattern: pattern, Keys: []dto.KeyInfo{}}
 	hits, misses, size := s.layered.Stats()
 	out.L1Hits, out.L1Misses, out.L1Size = hits, misses, size
@@ -62,11 +61,17 @@ func (s *cacheService) Stats(ctx context.Context, pattern string) (*dto.Stats, e
 	out.Pool = *pool
 	out.Healthy = pool.PingOK
 
+	if pattern == "" || pattern == "*" || pattern == "?" {
+		return out, nil
+	}
+	if err := denySensitivePattern(pattern); err != nil {
+		return nil, err
+	}
 	keys, err := s.layered.L2().ScanKeys(ctx, pattern, maxScan)
 	if err != nil {
 		return nil, response.NewError(response.CodeCacheRedisDown, "扫描缓存键失败")
 	}
-	for _, k := range keys {
+	for _, k := range dropSensitiveKeys(keys) {
 		ttl, terr := s.layered.L2().TTL(ctx, k)
 		info := dto.KeyInfo{Key: k, TTLSeconds: -1}
 		if terr == nil {
@@ -87,6 +92,9 @@ func (s *cacheService) DeleteKey(ctx context.Context, key string) error {
 	if key == "" {
 		return response.NewError(response.CodeCacheInvalidKey, "缓存键不能为空")
 	}
+	if isSensitiveKey(key) {
+		return response.NewForbiddenError("不能操作认证相关缓存键")
+	}
 	ok, err := s.layered.L2().Exists(ctx, key)
 	if err != nil {
 		return response.NewError(response.CodeCacheRedisDown, "检查缓存键失败")
@@ -105,10 +113,14 @@ func (s *cacheService) DeletePattern(ctx context.Context, pattern string) (*dto.
 	if err := validatePattern(pattern); err != nil {
 		return nil, err
 	}
+	if err := denySensitivePattern(pattern); err != nil {
+		return nil, err
+	}
 	keys, err := s.layered.L2().ScanKeys(ctx, pattern, maxDelete)
 	if err != nil {
 		return nil, response.NewError(response.CodeCacheRedisDown, "扫描缓存键失败")
 	}
+	keys = dropSensitiveKeys(keys)
 	if len(keys) == 0 {
 		return &dto.DeleteResult{Keys: []string{}}, nil
 	}
@@ -132,6 +144,9 @@ func (s *cacheService) Warmup(ctx context.Context, req *dto.WarmupRequest) (*dto
 		if key == "" {
 			return nil, response.NewError(response.CodeCacheInvalidKey, "预热键不能为空")
 		}
+		if isSensitiveKey(key) {
+			return nil, response.NewForbiddenError("不能操作认证相关缓存键")
+		}
 		ttl := time.Duration(e.TTLSeconds) * time.Second
 		if err := s.layered.Set(ctx, key, e.Value, ttl); err != nil {
 			return nil, response.NewError(response.CodeCacheWarmupFail, "写入预热键失败")
@@ -143,11 +158,14 @@ func (s *cacheService) Warmup(ctx context.Context, req *dto.WarmupRequest) (*dto
 		if err := validatePattern(prefix); err != nil {
 			return nil, err
 		}
+		if err := denySensitivePattern(prefix); err != nil {
+			return nil, err
+		}
 		keys, err := s.layered.L2().ScanKeys(ctx, prefix, maxScan)
 		if err != nil {
 			return nil, response.NewError(response.CodeCacheWarmupFail, "扫描预热前缀失败")
 		}
-		for _, k := range keys {
+		for _, k := range dropSensitiveKeys(keys) {
 			v, gerr := s.layered.L2().Get(ctx, k)
 			if gerr != nil {
 				continue
@@ -173,4 +191,26 @@ func validatePattern(pattern string) error {
 		return response.NewError(response.CodeCacheInvalidPattern, "清除模式过宽，请指定前缀")
 	}
 	return nil
+}
+
+func isSensitiveKey(key string) bool {
+	return strings.HasPrefix(key, authKeyPrefix)
+}
+
+func denySensitivePattern(pattern string) error {
+	p := strings.ToLower(strings.TrimSpace(pattern))
+	if strings.HasPrefix(p, authKeyPrefix) || strings.Contains(p, "auth:") {
+		return response.NewForbiddenError("不能操作认证相关缓存键")
+	}
+	return nil
+}
+
+func dropSensitiveKeys(keys []string) []string {
+	out := make([]string, 0, len(keys))
+	for _, k := range keys {
+		if !isSensitiveKey(k) {
+			out = append(out, k)
+		}
+	}
+	return out
 }

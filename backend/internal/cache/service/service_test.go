@@ -79,7 +79,43 @@ func TestCacheService_InvalidInputs(t *testing.T) {
 
 	st, err := svc.Stats(ctx, "")
 	require.NoError(t, err)
-	assert.Equal(t, "*", st.Pattern)
+	assert.Empty(t, st.Pattern)
+	assert.Empty(t, st.Keys)
+}
+
+func TestCacheService_HidesAuthKeys(t *testing.T) {
+	mr := miniredis.RunT(t)
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = rdb.Close() })
+	ctx := context.Background()
+	require.NoError(t, rdb.Set(ctx, "auth:refresh:stolen", "uid", time.Minute).Err())
+	require.NoError(t, rdb.Set(ctx, "demo:ok", "1", time.Minute).Err())
+	svc := NewCacheService(rdb)
+	t.Cleanup(svc.Close)
+
+	st, err := svc.Stats(ctx, "auth:refresh:*")
+	require.Error(t, err)
+	app, ok := err.(*response.AppError)
+	require.True(t, ok)
+	assert.Equal(t, response.CodeForbidden, app.Code)
+
+	st, err = svc.Stats(ctx, "*")
+	require.NoError(t, err)
+	assert.Empty(t, st.Keys)
+
+	st, err = svc.Stats(ctx, "demo:*")
+	require.NoError(t, err)
+	require.Len(t, st.Keys, 1)
+	assert.Equal(t, "demo:ok", st.Keys[0].Key)
+
+	err = svc.DeleteKey(ctx, "auth:refresh:stolen")
+	require.Error(t, err)
+	n, err := rdb.Exists(ctx, "auth:refresh:stolen").Result()
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), n)
+
+	_, err = svc.DeletePattern(ctx, "auth:*")
+	require.Error(t, err)
 }
 
 func TestCacheService_WarmupScanPrefix(t *testing.T) {
