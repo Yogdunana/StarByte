@@ -143,23 +143,38 @@ func (s *exportService) Download(ctx context.Context, fileID, callerID string, i
 	if !loadBytes {
 		return out, nil
 	}
+	data, err := s.loadExportBytes(ctx, meta)
+	if err != nil {
+		return nil, err
+	}
+	out.Bytes = data
+	return out, nil
+}
+
+func (s *exportService) loadExportBytes(ctx context.Context, meta *model.FileMeta) ([]byte, error) {
+	var storeErr error
 	if s.store != nil && meta.ObjectKey != "" {
 		rc, _, derr := s.store.Download(ctx, meta.ObjectKey)
-		if derr == nil {
+		if derr != nil {
+			storeErr = derr
+		} else {
 			defer rc.Close()
-			out.Bytes, _ = io.ReadAll(rc)
+			data, rerr := io.ReadAll(rc)
+			if rerr != nil {
+				storeErr = rerr
+			} else if len(data) > 0 {
+				return data, nil
+			}
 		}
 	}
-	if len(out.Bytes) == 0 {
-		blob, berr := s.repo.GetBlob(ctx, fileID)
-		if berr == nil {
-			out.Bytes = blob
-		}
+	blob, berr := s.repo.GetBlob(ctx, meta.FileID)
+	if berr == nil && len(blob) > 0 {
+		return blob, nil
 	}
-	if len(out.Bytes) == 0 {
-		return nil, response.NewError(response.CodeExportFileExpired, "导出文件已过期")
+	if storeErr != nil {
+		return nil, response.NewError(response.CodeInternalError, "读取导出文件失败")
 	}
-	return out, nil
+	return nil, response.NewError(response.CodeExportFileExpired, "导出文件已过期")
 }
 
 func validateTable(req *dto.TableExportRequest) error {

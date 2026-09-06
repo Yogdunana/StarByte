@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"sync"
 	"testing"
@@ -38,6 +39,20 @@ func TestExport_WithObjectStore(t *testing.T) {
 	assert.NotEmpty(t, dl.Bytes)
 	assert.True(t, json.Valid(dl.Bytes))
 	assert.Equal(t, 1, store.downloadCalls())
+}
+
+func TestExport_StoreDownloadErrorNotExpired(t *testing.T) {
+	mr := miniredis.RunT(t)
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = rdb.Close() })
+	store := &memStore{objects: map[string][]byte{}}
+	svc := NewExportService(repo.NewRedisRepo(rdb), store, nil)
+	out, err := svc.ExportTable(context.Background(), "json", testUserID, sampleReq(1))
+	require.NoError(t, err)
+	store.setDownloadErr(errors.New("minio unavailable"))
+	_, err = svc.Download(context.Background(), out.FileID, testUserID, false, true)
+	require.Error(t, err)
+	assert.Equal(t, response.CodeInternalError, err.(*response.AppError).Code)
 }
 
 func TestExport_OwnerAccess(t *testing.T) {
@@ -81,9 +96,10 @@ func TestCanAccessExport(t *testing.T) {
 }
 
 type memStore struct {
-	mu        sync.Mutex
-	objects   map[string][]byte
-	downloads int
+	mu          sync.Mutex
+	objects     map[string][]byte
+	downloads   int
+	downloadErr error
 }
 
 func (m *memStore) EnsureBucket(context.Context) error { return nil }
@@ -101,6 +117,9 @@ func (m *memStore) Download(_ context.Context, objectName string) (io.ReadCloser
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.downloads++
+	if m.downloadErr != nil {
+		return nil, "", m.downloadErr
+	}
 	data, ok := m.objects[objectName]
 	if !ok {
 		return nil, "", io.EOF
@@ -112,6 +131,11 @@ func (m *memStore) downloadCalls() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.downloads
+}
+func (m *memStore) setDownloadErr(err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.downloadErr = err
 }
 func (m *memStore) Delete(context.Context, string) error { return nil }
 func (m *memStore) List(context.Context, string) ([]storage.ObjectInfo, error) {
