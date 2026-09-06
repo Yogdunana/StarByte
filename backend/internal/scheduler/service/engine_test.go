@@ -65,12 +65,77 @@ func TestEngine_SkipWhenDepsMissing(t *testing.T) {
 		Status:    model.StatusActive, TimeoutSec: 5, NextRunAt: &now,
 	}
 	require.NoError(t, mem.CreateTask(ctx, task))
-	eng.dispatch(*task, true)
+	eng.dispatch(*task, false)
 	got, err := mem.GetTask(ctx, task.ID)
 	require.NoError(t, err)
 	assert.Empty(t, got.LastStatus)
+	require.NotNil(t, got.NextRunAt)
+	assert.True(t, got.NextRunAt.After(now))
+}
+
+func TestEngine_UnknownHandlerDefers(t *testing.T) {
+	mem := newMemRepo()
+	eng := NewEngine(mem, nil, nil)
+	ctx := context.Background()
+	now := time.Now()
+	eng.now = func() time.Time { return now }
+	task := &model.Task{
+		ID: uuid.New(), Name: "gone", Code: "gone", HandlerKey: "missing",
+		Status: model.StatusActive, TimeoutSec: 5, NextRunAt: &now,
+	}
+	require.NoError(t, mem.CreateTask(ctx, task))
+	eng.dispatch(*task, false)
+	got, err := mem.GetTask(ctx, task.ID)
+	require.NoError(t, err)
+	assert.Empty(t, got.LastStatus)
+	require.NotNil(t, got.NextRunAt)
+	assert.True(t, got.NextRunAt.After(now))
+}
+
+func TestEngine_SuccessDoesNotRevivePaused(t *testing.T) {
+	mem := newMemRepo()
+	eng := NewEngine(mem, nil, nil)
+	ctx := context.Background()
+	now := time.Now()
+	eng.now = func() time.Time { return now }
+	task := &model.Task{
+		ID: uuid.New(), Name: "ok", Code: "ok", HandlerKey: "noop",
+		Status: model.StatusActive, TimeoutSec: 5, MaxRetries: 1,
+		CronExpr: "0 0 0 * * *", NextRunAt: &now, CreatedAt: now, UpdatedAt: now,
+	}
+	require.NoError(t, mem.CreateTask(ctx, task))
+	stale := *task
+	run := &model.Run{ID: uuid.New(), TaskID: task.ID, Status: model.RunRunning}
+	require.NoError(t, mem.CreateRun(ctx, run))
+	paused := *task
+	paused.Status = model.StatusPaused
+	paused.NextRunAt = nil
+	require.NoError(t, mem.UpdateTask(ctx, &paused))
+	eng.onSuccess(ctx, &stale, run)
+	got, err := mem.GetTask(ctx, task.ID)
+	require.NoError(t, err)
+	assert.Equal(t, model.StatusPaused, got.Status)
+	assert.Nil(t, got.NextRunAt)
+	assert.Equal(t, model.RunSuccess, got.LastStatus)
+}
+
+func TestEngine_WorkerIDUnique(t *testing.T) {
+	a := NewEngine(newMemRepo(), nil, nil)
+	b := NewEngine(newMemRepo(), nil, nil)
+	assert.NotEmpty(t, a.workerID)
+	assert.NotEqual(t, a.workerID, b.workerID)
 }
 
 func TestLockName(t *testing.T) {
-	assert.Equal(t, "scheduler:task:abc", lockName("abc"))
+	assert.Equal(t, "scheduler:task:abc", lockName("abc", ""))
+	assert.Equal(t, "scheduler:shard:east", lockName("abc", "east"))
+}
+
+func TestRunWithTimeoutWaitsForHandler(t *testing.T) {
+	err := runWithTimeout(context.Background(), 20*time.Millisecond, func(c context.Context) error {
+		<-c.Done()
+		time.Sleep(30 * time.Millisecond)
+		return nil
+	})
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
 }

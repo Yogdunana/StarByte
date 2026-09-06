@@ -77,6 +77,10 @@ func runWithTimeout(ctx context.Context, timeout time.Duration, fn func(context.
 	case err := <-errCh:
 		return err
 	case <-c.Done():
+		err := <-errCh
+		if err != nil {
+			return err
+		}
 		return c.Err()
 	}
 }

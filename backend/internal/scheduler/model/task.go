@@ -16,7 +16,7 @@ const (
 type Task struct {
 	ID         uuid.UUID  `gorm:"type:uuid;primaryKey"`
 	Name       string     `gorm:"type:varchar(100);not null"`
-	Code       string     `gorm:"type:varchar(64);uniqueIndex;not null"`
+	Code       string     `gorm:"type:varchar(64);not null"`
 	CronExpr   string     `gorm:"type:varchar(64);not null;default:''"`
 	RunAt      *time.Time `gorm:"type:timestamptz"`
 	Timezone   string     `gorm:"type:varchar(64);not null;default:Asia/Shanghai"`

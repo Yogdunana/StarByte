@@ -52,7 +52,7 @@ func (m *memRepo) GetTaskByCode(_ context.Context, code string) (*model.Task, er
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, rec := range m.tasks {
-		if rec.Code == code {
+		if rec.Code == code && rec.Status != model.StatusDeleted {
 			cp := *rec
 			return &cp, nil
 		}

@@ -15,16 +15,31 @@ import (
 )
 
 func (e *Engine) runLocked(ctx context.Context, task model.Task, manual bool, _ *cache.Lock) {
-	if !manual && task.Status != model.StatusActive {
+	if !manual {
+		fresh, err := e.repo.GetTask(ctx, task.ID)
+		if err != nil || fresh.Status != model.StatusActive {
+			return
+		}
+		task = *fresh
+	} else if task.Status == model.StatusDeleted {
 		return
 	}
 	if !e.depsReady(ctx, &task) {
+		e.shiftNextRun(ctx, task.ID, 5*time.Second)
 		return
 	}
 	fn, ok := lookupHandler(task.HandlerKey)
 	if !ok {
 		logger.Warn("scheduler unknown handler", zap.String("handler", task.HandlerKey))
+		e.shiftNextRun(ctx, task.ID, 5*time.Second)
 		return
+	}
+	if !manual {
+		lease := time.Duration(task.TimeoutSec+5) * time.Second
+		if lease < 8*time.Second {
+			lease = 8 * time.Second
+		}
+		e.shiftNextRun(ctx, task.ID, lease)
 	}
 	now := e.now()
 	run := &model.Run{
@@ -75,7 +90,7 @@ func (e *Engine) onSuccess(ctx context.Context, task *model.Task, run *model.Run
 		task.Status = model.StatusFinished
 		task.NextRunAt = nil
 	}
-	_ = e.repo.UpdateTask(ctx, task)
+	e.persistAfterRun(ctx, task)
 }
 
 func (e *Engine) onFail(ctx context.Context, task *model.Task, run *model.Run, execErr error) {
@@ -108,7 +123,37 @@ func (e *Engine) onFail(ctx context.Context, task *model.Task, run *model.Run, e
 		}
 	}
 	_ = e.repo.UpdateRun(ctx, run)
-	_ = e.repo.UpdateTask(ctx, task)
+	e.persistAfterRun(ctx, task)
+}
+
+func (e *Engine) shiftNextRun(ctx context.Context, id uuid.UUID, delay time.Duration) {
+	rec, err := e.repo.GetTask(ctx, id)
+	if err != nil || rec.Status != model.StatusActive {
+		return
+	}
+	n := e.now().Add(delay)
+	rec.NextRunAt = &n
+	rec.UpdatedAt = e.now()
+	_ = e.repo.UpdateTask(ctx, rec)
+}
+
+func (e *Engine) persistAfterRun(ctx context.Context, task *model.Task) {
+	fresh, err := e.repo.GetTask(ctx, task.ID)
+	if err != nil {
+		_ = e.repo.UpdateTask(ctx, task)
+		return
+	}
+	fresh.LastRunAt = task.LastRunAt
+	fresh.LastStatus = task.LastStatus
+	fresh.RetryCount = task.RetryCount
+	fresh.UpdatedAt = task.UpdatedAt
+	if fresh.Status == model.StatusActive {
+		fresh.NextRunAt = task.NextRunAt
+		if task.Status == model.StatusFinished {
+			fresh.Status = model.StatusFinished
+		}
+	}
+	_ = e.repo.UpdateTask(ctx, fresh)
 }
 
 func (e *Engine) depsReady(ctx context.Context, task *model.Task) bool {

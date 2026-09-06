@@ -57,6 +57,9 @@ func backoff(attempt int) time.Duration {
 	return d
 }
 
-func lockName(taskID string) string {
+func lockName(taskID, shardKey string) string {
+	if shardKey != "" {
+		return fmt.Sprintf("scheduler:shard:%s", shardKey)
+	}
 	return fmt.Sprintf("scheduler:task:%s", taskID)
 }

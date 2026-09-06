@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/scheduler/model"
@@ -22,16 +24,21 @@ type Engine struct {
 	sleeper  func(time.Duration)
 	now      func() time.Time
 	workerID string
+	inFlight sync.Map
 	stop     chan struct{}
 	done     chan struct{}
 }
 
 func NewEngine(r repo.Repository, rdb *redis.Client, alerter Alerter) *Engine {
 	host, _ := os.Hostname()
+	if host == "" {
+		host = "unknown"
+	}
 	return &Engine{
 		repo: r, rdb: rdb, alerter: alerter,
 		tick: time.Second, sleeper: time.Sleep, now: time.Now,
-		workerID: host, stop: make(chan struct{}), done: make(chan struct{}),
+		workerID: fmt.Sprintf("%s-%d-%s", host, os.Getpid(), uuid.NewString()),
+		stop:     make(chan struct{}), done: make(chan struct{}),
 	}
 }
 
@@ -90,6 +97,10 @@ func (e *Engine) Trigger(ctx context.Context, id uuid.UUID) error {
 }
 
 func (e *Engine) dispatch(task model.Task, manual bool) {
+	if _, loaded := e.inFlight.LoadOrStore(task.ID, struct{}{}); loaded {
+		return
+	}
+	defer e.inFlight.Delete(task.ID)
 	if e.rdb == nil {
 		e.runLocked(context.Background(), task, manual, nil)
 		return
@@ -98,7 +109,8 @@ func (e *Engine) dispatch(task model.Task, manual bool) {
 	if ttl < 8*time.Second {
 		ttl = 8 * time.Second
 	}
-	lk, err := cache.Acquire(context.Background(), e.rdb, lockName(task.ID.String()), e.workerID, ttl)
+	// Unique owner per attempt: cache.Acquire is reentrant for the same owner.
+	lk, err := cache.Acquire(context.Background(), e.rdb, lockName(task.ID.String(), task.ShardKey), uuid.NewString(), ttl)
 	if err == cache.ErrLockBusy {
 		return
 	}

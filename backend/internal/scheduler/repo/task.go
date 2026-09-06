@@ -51,7 +51,7 @@ func (r *repository) GetTask(ctx context.Context, id uuid.UUID) (*model.Task, er
 
 func (r *repository) GetTaskByCode(ctx context.Context, code string) (*model.Task, error) {
 	var rec model.Task
-	err := r.db.WithContext(ctx).Where("code = ?", code).First(&rec).Error
+	err := r.db.WithContext(ctx).Where("code = ? AND status <> ?", code, model.StatusDeleted).First(&rec).Error
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func (r *repository) ListTasks(ctx context.Context, keyword string, status *int1
 	q := r.db.WithContext(ctx).Model(&model.Task{}).Where("status <> ?", model.StatusDeleted)
 	if keyword != "" {
 		like := "%" + keyword + "%"
-		q = q.Where("name ILIKE ? OR code ILIKE ?", like, like)
+		q = q.Where("(name ILIKE ? OR code ILIKE ?)", like, like)
 	}
 	if status != nil {
 		q = q.Where("status = ?", *status)

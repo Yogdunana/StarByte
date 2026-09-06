@@ -72,10 +72,18 @@ func TestServiceCRUD(t *testing.T) {
 	_, err = svc.Get(ctx, uuid.MustParse(created.ID))
 	require.Error(t, err)
 
+	recreated, err := svc.Create(ctx, uid, dto.CreateTaskRequest{
+		Name: "echo job", Code: "echo-job", HandlerKey: "echo",
+		CronExpr: "0 */5 * * * *",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "echo-job", recreated.Code)
+
 	list, total, _, _, err := svc.List(ctx, dto.ListQuery{Page: 1, PageSize: 10})
 	require.NoError(t, err)
-	assert.Equal(t, int64(0), total)
-	assert.Empty(t, list)
+	assert.Equal(t, int64(1), total)
+	assert.Len(t, list, 1)
+	assert.Equal(t, recreated.ID, list[0].ID)
 	assert.NotEmpty(t, svc.Handlers())
 }
 
