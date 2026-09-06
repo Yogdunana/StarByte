@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/Yogdunana/StarByte/backend/internal/auth/model"
 	"github.com/redis/go-redis/v9"
@@ -35,26 +36,7 @@ func (r *authRepo) ListSessionsByUser(ctx context.Context, userID string) ([]mod
 	if userID == "" {
 		return nil, nil
 	}
-	ids, err := r.rdb.SMembers(ctx, fmt.Sprintf(keyUserSessions, userID)).Result()
-	if err != nil && err != redis.Nil {
-		return nil, err
-	}
-	out := make([]model.Session, 0, len(ids))
-	for _, id := range ids {
-		sess, err := r.GetSession(ctx, id)
-		if err != nil {
-			return nil, err
-		}
-		if sess == nil {
-			_ = r.rdb.SRem(ctx, fmt.Sprintf(keyUserSessions, userID), id).Err()
-			continue
-		}
-		out = append(out, *sess)
-	}
-	if len(out) > 0 {
-		return out, nil
-	}
-	// 兼容登录时尚未写入用户索引的旧 session
+	// 始终 SCAN：索引里已有新登录时，部署前未入集的旧 session 仍需一并返回
 	return r.scanSessions(ctx, userID)
 }
 
@@ -100,32 +82,49 @@ func (r *authRepo) DeleteRefreshTokensByUser(ctx context.Context, userID string)
 	if userID == "" {
 		return nil
 	}
-	ukey := fmt.Sprintf(keyUserRefresh, userID)
-	tokens, err := r.rdb.SMembers(ctx, ukey).Result()
-	if err != nil && err != redis.Nil {
+	if err := r.deleteRefreshTokensMatching(ctx, userID, ""); err != nil {
 		return err
 	}
-	for _, token := range tokens {
-		_ = r.rdb.Del(ctx, fmt.Sprintf(keyRefreshToken, token)).Err()
-	}
-	return r.rdb.Del(ctx, ukey).Err()
+	return r.rdb.Del(ctx, fmt.Sprintf(keyUserRefresh, userID)).Err()
 }
 
 func (r *authRepo) DeleteRefreshTokensByJTI(ctx context.Context, userID, jti string) error {
 	if userID == "" || jti == "" {
 		return nil
 	}
-	tokens, err := r.rdb.SMembers(ctx, fmt.Sprintf(keyUserRefresh, userID)).Result()
-	if err != nil && err != redis.Nil {
-		return err
-	}
-	for _, token := range tokens {
-		uid, recJTI, err := r.GetRefreshTokenMeta(ctx, token)
+	return r.deleteRefreshTokensMatching(ctx, userID, jti)
+}
+
+// deleteRefreshTokensMatching 扫描 auth:refresh:*，覆盖从未写入 auth:user_refresh 的旧 key。
+// jti 为空时删除该用户全部 refresh；非空时删除匹配 jti 的记录，以及无法绑定会话的旧格式（无 jti）记录。
+func (r *authRepo) deleteRefreshTokensMatching(ctx context.Context, userID, jti string) error {
+	var cursor uint64
+	prefix := fmt.Sprintf(keyRefreshToken, "")
+	for {
+		keys, next, err := r.rdb.Scan(ctx, cursor, fmt.Sprintf(keyRefreshToken, "*"), 64).Result()
 		if err != nil {
-			continue
+			return err
 		}
-		if uid == userID && recJTI == jti {
-			_ = r.DeleteRefreshToken(ctx, token)
+		for _, key := range keys {
+			val, err := r.rdb.Get(ctx, key).Result()
+			if err == redis.Nil {
+				continue
+			}
+			if err != nil {
+				return err
+			}
+			uid, recJTI := parseRefreshRecord(val)
+			if uid != userID {
+				continue
+			}
+			if jti != "" && recJTI != "" && recJTI != jti {
+				continue
+			}
+			_ = r.DeleteRefreshToken(ctx, strings.TrimPrefix(key, prefix))
+		}
+		cursor = next
+		if cursor == 0 {
+			break
 		}
 	}
 	return nil

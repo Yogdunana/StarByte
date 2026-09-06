@@ -63,6 +63,24 @@ func TestSessionIndex_ScanFallback(t *testing.T) {
 	assert.Equal(t, "legacy", got[0].TokenID)
 }
 
+func TestSessionIndex_ScanFallbackWithPartialIndex(t *testing.T) {
+	r, mr := newTestRepo(t)
+	ctx := context.Background()
+	require.NoError(t, r.StoreSession(ctx, "u1", "legacy", "1.1.1.1", "ua", time.Hour))
+	mr.Del("auth:user_sessions:u1")
+	require.NoError(t, r.StoreSession(ctx, "u1", "new", "2.2.2.2", "ua", time.Hour))
+
+	got, err := r.ListSessionsByUser(ctx, "u1")
+	require.NoError(t, err)
+	require.Len(t, got, 2)
+	ids := map[string]struct{}{}
+	for _, s := range got {
+		ids[s.TokenID] = struct{}{}
+	}
+	assert.Contains(t, ids, "legacy")
+	assert.Contains(t, ids, "new")
+}
+
 func TestRefreshToken_JSONAndLegacy(t *testing.T) {
 	r, mr := newTestRepo(t)
 	ctx := context.Background()
@@ -106,6 +124,35 @@ func TestRefreshToken_DeleteByUserAndJTI(t *testing.T) {
 	_, _, err = r.GetRefreshTokenMeta(ctx, "b")
 	assert.Error(t, err)
 	uid, err = r.GetRefreshTokenUserID(ctx, "c")
+	require.NoError(t, err)
+	assert.Equal(t, "u2", uid)
+}
+
+func TestRefreshToken_DeleteLegacyUnindexed(t *testing.T) {
+	r, mr := newTestRepo(t)
+	ctx := context.Background()
+
+	mr.Set("auth:refresh:legacy-tok", "u1")
+	require.NoError(t, r.StoreRefreshToken(ctx, "new-tok", "u1", "j-new", time.Hour))
+	mr.Set("auth:refresh:other-user", "u2")
+
+	require.NoError(t, r.DeleteRefreshTokensByJTI(ctx, "u1", "old-jti"))
+	_, _, err := r.GetRefreshTokenMeta(ctx, "legacy-tok")
+	assert.Error(t, err)
+	uid, err := r.GetRefreshTokenUserID(ctx, "new-tok")
+	require.NoError(t, err)
+	assert.Equal(t, "u1", uid)
+	uid, err = r.GetRefreshTokenUserID(ctx, "other-user")
+	require.NoError(t, err)
+	assert.Equal(t, "u2", uid)
+
+	mr.Set("auth:refresh:legacy-tok2", "u1")
+	require.NoError(t, r.DeleteRefreshTokensByUser(ctx, "u1"))
+	_, _, err = r.GetRefreshTokenMeta(ctx, "legacy-tok2")
+	assert.Error(t, err)
+	_, _, err = r.GetRefreshTokenMeta(ctx, "new-tok")
+	assert.Error(t, err)
+	uid, err = r.GetRefreshTokenUserID(ctx, "other-user")
 	require.NoError(t, err)
 	assert.Equal(t, "u2", uid)
 }
