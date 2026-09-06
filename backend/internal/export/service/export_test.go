@@ -1,12 +1,8 @@
 package service
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"io"
-	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -14,12 +10,13 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/export/model"
 	"github.com/Yogdunana/StarByte/backend/internal/export/repo"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/Yogdunana/StarByte/backend/pkg/storage"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+const testUserID = "u1"
 
 func newTestSvc(t *testing.T) (ExportService, *miniredis.Miniredis) {
 	t.Helper()
@@ -107,19 +104,19 @@ func TestExport_TemplateMissing(t *testing.T) {
 
 func TestExport_TaskNotFound(t *testing.T) {
 	svc, _ := newTestSvc(t)
-	_, err := svc.GetTask(context.Background(), "missing")
+	_, err := svc.GetTask(context.Background(), "missing", testUserID, false)
 	require.Error(t, err)
 	assert.Equal(t, response.CodeExportTaskNotFound, err.(*response.AppError).Code)
 }
 
 func TestExport_SyncCSVAndDownload(t *testing.T) {
 	svc, _ := newTestSvc(t)
-	out, err := svc.ExportTable(context.Background(), "csv", "", sampleReq(1))
+	out, err := svc.ExportTable(context.Background(), "csv", testUserID, sampleReq(1))
 	require.NoError(t, err)
 	assert.Equal(t, model.StatusDone, out.Status)
 	assert.NotEmpty(t, out.TaskID)
 	assert.NotEmpty(t, out.FileID)
-	dl, err := svc.Download(context.Background(), out.FileID)
+	dl, err := svc.Download(context.Background(), out.FileID, testUserID, false, true)
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(dl.Bytes), 3)
 	assert.Equal(t, []byte{0xEF, 0xBB, 0xBF}, dl.Bytes[:3])
@@ -129,10 +126,10 @@ func TestExport_AllFormats(t *testing.T) {
 	svc, _ := newTestSvc(t)
 	ctx := context.Background()
 	for _, format := range []string{"excel", "csv", "pdf", "json"} {
-		out, err := svc.ExportTable(ctx, format, "", sampleReq(1))
+		out, err := svc.ExportTable(ctx, format, testUserID, sampleReq(1))
 		require.NoError(t, err, format)
 		assert.Equal(t, model.StatusDone, out.Status, format)
-		dl, err := svc.Download(ctx, out.FileID)
+		dl, err := svc.Download(ctx, out.FileID, testUserID, false, true)
 		require.NoError(t, err, format)
 		require.NotEmpty(t, dl.Bytes, format)
 		switch format {
@@ -152,7 +149,7 @@ func TestExport_BuiltinTemplates(t *testing.T) {
 	require.Len(t, list, 3)
 	ctx := context.Background()
 	for _, tpl := range list {
-		out, err := svc.ExportTemplate(ctx, tpl.ID, "", &dto.TemplateExportRequest{
+		out, err := svc.ExportTemplate(ctx, tpl.ID, testUserID, &dto.TemplateExportRequest{
 			Filename:  tpl.ID,
 			Watermark: "StarByte",
 			Vars: map[string]string{
@@ -162,7 +159,7 @@ func TestExport_BuiltinTemplates(t *testing.T) {
 			},
 		})
 		require.NoError(t, err, tpl.ID)
-		dl, err := svc.Download(ctx, out.FileID)
+		dl, err := svc.Download(ctx, out.FileID, testUserID, false, true)
 		require.NoError(t, err, tpl.ID)
 		assert.Equal(t, "%PDF", string(dl.Bytes[:4]), tpl.ID)
 	}
@@ -170,7 +167,7 @@ func TestExport_BuiltinTemplates(t *testing.T) {
 
 func TestExport_ExpiredDownload(t *testing.T) {
 	svc, mr := newTestSvc(t)
-	out, err := svc.ExportTable(context.Background(), "json", "", sampleReq(1))
+	out, err := svc.ExportTable(context.Background(), "json", testUserID, sampleReq(1))
 	require.NoError(t, err)
 	key := model.FileKey(out.FileID)
 	raw, err := mr.Get(key)
@@ -181,14 +178,14 @@ func TestExport_ExpiredDownload(t *testing.T) {
 	updated, err := json.Marshal(meta)
 	require.NoError(t, err)
 	require.NoError(t, mr.Set(key, string(updated)))
-	_, err = svc.Download(context.Background(), out.FileID)
+	_, err = svc.Download(context.Background(), out.FileID, testUserID, false, true)
 	require.Error(t, err)
 	assert.Equal(t, response.CodeExportFileExpired, err.(*response.AppError).Code)
 }
 
 func TestExport_ExpiredMissingFile(t *testing.T) {
 	svc, _ := newTestSvc(t)
-	_, err := svc.Download(context.Background(), "gone")
+	_, err := svc.Download(context.Background(), "gone", testUserID, false, true)
 	require.Error(t, err)
 	assert.Equal(t, response.CodeExportFileExpired, err.(*response.AppError).Code)
 }
@@ -199,14 +196,14 @@ func TestExport_AsyncPath(t *testing.T) {
 	defer func() { asyncRowThreshold = old }()
 
 	svc, _ := newTestSvc(t)
-	out, err := svc.ExportTable(context.Background(), "csv", "", sampleReq(3))
+	out, err := svc.ExportTable(context.Background(), "csv", testUserID, sampleReq(3))
 	require.NoError(t, err)
 	assert.Equal(t, model.StatusPending, out.Status)
 	assert.NotEmpty(t, out.TaskID)
 	assert.Empty(t, out.FileID)
 
 	require.Eventually(t, func() bool {
-		got, err := svc.GetTask(context.Background(), out.TaskID)
+		got, err := svc.GetTask(context.Background(), out.TaskID, testUserID, false)
 		return err == nil && got.Status == model.StatusDone && got.FileID != ""
 	}, 5*time.Second, 50*time.Millisecond)
 }
@@ -219,54 +216,6 @@ func TestExport_TooManyRows(t *testing.T) {
 	_, err := svc.ExportTable(context.Background(), "csv", "", sampleReq(2))
 	require.Error(t, err)
 	assert.Equal(t, response.CodeExportTooManyRows, err.(*response.AppError).Code)
-}
-
-func TestExport_WithObjectStore(t *testing.T) {
-	mr := miniredis.RunT(t)
-	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
-	t.Cleanup(func() { _ = rdb.Close() })
-	store := &memStore{objects: map[string][]byte{}}
-	svc := NewExportService(repo.NewRedisRepo(rdb), store, nil)
-	out, err := svc.ExportTable(context.Background(), "json", "", sampleReq(1))
-	require.NoError(t, err)
-	dl, err := svc.Download(context.Background(), out.FileID)
-	require.NoError(t, err)
-	assert.True(t, strings.HasPrefix(dl.URL, "http://minio/export/"))
-	assert.NotEmpty(t, dl.Bytes)
-	assert.True(t, json.Valid(dl.Bytes))
-}
-
-type memStore struct {
-	mu      sync.Mutex
-	objects map[string][]byte
-}
-
-func (m *memStore) EnsureBucket(context.Context) error { return nil }
-func (m *memStore) Upload(_ context.Context, objectName string, reader io.Reader, _ int64, _ string) error {
-	data, err := io.ReadAll(reader)
-	if err != nil {
-		return err
-	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.objects[objectName] = data
-	return nil
-}
-func (m *memStore) Download(_ context.Context, objectName string) (io.ReadCloser, string, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	data, ok := m.objects[objectName]
-	if !ok {
-		return nil, "", io.EOF
-	}
-	return io.NopCloser(bytes.NewReader(data)), "application/octet-stream", nil
-}
-func (m *memStore) Delete(context.Context, string) error { return nil }
-func (m *memStore) List(context.Context, string) ([]storage.ObjectInfo, error) {
-	return nil, nil
-}
-func (m *memStore) PresignedURL(_ context.Context, objectName string, _ time.Duration) (string, error) {
-	return "http://minio/" + objectName, nil
 }
 
 func TestFilenameAndSheetHelpers(t *testing.T) {

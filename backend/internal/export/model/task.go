@@ -33,6 +33,7 @@ type ExportTask struct {
 // when object storage is unavailable.
 type FileMeta struct {
 	FileID      string    `json:"file_id"`
+	UserID      string    `json:"user_id,omitempty"`
 	ObjectKey   string    `json:"object_key,omitempty"`
 	Filename    string    `json:"filename"`
 	ContentType string    `json:"content_type"`

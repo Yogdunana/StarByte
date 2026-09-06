@@ -41,15 +41,6 @@ export function getExportDownload(fileId: string): Promise<ExportDownloadInfo> {
 }
 
 export async function downloadExportFile(fileId: string, filename: string): Promise<void> {
-  try {
-    const info = await getExportDownload(fileId);
-    if (info.url) {
-      window.open(info.url, '_blank');
-      return;
-    }
-  } catch {
-    // fall through to stream
-  }
   const res = await request.get(`/export/download/${encodeURIComponent(fileId)}`, {
     params: { stream: 1 },
     responseType: 'blob',

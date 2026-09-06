@@ -7,8 +7,24 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/export/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/export/model"
+	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
 )
+
+func canAccessExport(ownerID, callerID string, isSuper bool) bool {
+	if isSuper {
+		return true
+	}
+	return ownerID != "" && ownerID == callerID
+}
+
+func (s *exportService) loadDoneTask(ctx context.Context, id string) (*dto.ExportTaskResponse, error) {
+	task, err := s.repo.GetTask(ctx, id)
+	if err != nil {
+		return nil, response.NewError(response.CodeInternalError, "查询导出任务失败")
+	}
+	return toTaskDTO(task), nil
+}
 
 func (s *exportService) patchTask(ctx context.Context, id, status string, progress int, fileID, filename string) error {
 	task, err := s.repo.GetTask(ctx, id)

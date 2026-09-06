@@ -22,8 +22,6 @@ var asyncRowThreshold = 10000
 // maxExportRows is a hard cap even for async jobs (error 17005).
 var maxExportRows = 1000000
 
-const presignExpiry = 15 * time.Minute
-
 // ReadyNotifier is optional; used when an export file is ready.
 type ReadyNotifier interface {
 	NotifyReady(ctx context.Context, userID, filename, fileID string)
@@ -39,8 +37,8 @@ var validFormats = map[string]string{
 type ExportService interface {
 	ExportTable(ctx context.Context, format, userID string, req *dto.TableExportRequest) (*dto.ExportTaskResponse, error)
 	ExportTemplate(ctx context.Context, templateID, userID string, req *dto.TemplateExportRequest) (*dto.ExportTaskResponse, error)
-	GetTask(ctx context.Context, taskID string) (*dto.ExportTaskResponse, error)
-	Download(ctx context.Context, fileID string) (*dto.DownloadResult, error)
+	GetTask(ctx context.Context, taskID, callerID string, isSuper bool) (*dto.ExportTaskResponse, error)
+	Download(ctx context.Context, fileID, callerID string, isSuper, loadBytes bool) (*dto.DownloadResult, error)
 	ListTemplates() []dto.TemplateInfo
 }
 
@@ -75,13 +73,13 @@ func (s *exportService) ExportTable(ctx context.Context, format, userID string, 
 		return nil, response.NewError(response.CodeInternalError, "创建导出任务失败")
 	}
 	if len(copied.Rows) > asyncRowThreshold {
-		go s.runTableJob(context.Background(), task.ID, format, copied)
+		go s.runTableJob(context.Background(), task.ID, format, userID, copied)
 		return toTaskDTO(task), nil
 	}
-	if err := s.runTableJob(ctx, task.ID, format, copied); err != nil {
+	if err := s.runTableJob(ctx, task.ID, format, userID, copied); err != nil {
 		return nil, err
 	}
-	return s.GetTask(ctx, task.ID)
+	return s.loadDoneTask(ctx, task.ID)
 }
 
 func (s *exportService) ExportTemplate(ctx context.Context, templateID, userID string, req *dto.TemplateExportRequest) (*dto.ExportTaskResponse, error) {
@@ -100,13 +98,13 @@ func (s *exportService) ExportTemplate(ctx context.Context, templateID, userID s
 		return nil, response.NewError(response.CodeInternalError, "创建导出任务失败")
 	}
 	copied := copyTplReq(req)
-	if err := s.runTemplateJob(ctx, task.ID, templateID, copied); err != nil {
+	if err := s.runTemplateJob(ctx, task.ID, templateID, userID, copied); err != nil {
 		return nil, err
 	}
-	return s.GetTask(ctx, task.ID)
+	return s.loadDoneTask(ctx, task.ID)
 }
 
-func (s *exportService) GetTask(ctx context.Context, taskID string) (*dto.ExportTaskResponse, error) {
+func (s *exportService) GetTask(ctx context.Context, taskID, callerID string, isSuper bool) (*dto.ExportTaskResponse, error) {
 	task, err := s.repo.GetTask(ctx, taskID)
 	if err != nil {
 		if err == repo.ErrNotFound {
@@ -114,10 +112,13 @@ func (s *exportService) GetTask(ctx context.Context, taskID string) (*dto.Export
 		}
 		return nil, response.NewError(response.CodeInternalError, "查询导出任务失败")
 	}
+	if !canAccessExport(task.UserID, callerID, isSuper) {
+		return nil, response.NewForbiddenError("无权查看该导出任务")
+	}
 	return toTaskDTO(task), nil
 }
 
-func (s *exportService) Download(ctx context.Context, fileID string) (*dto.DownloadResult, error) {
+func (s *exportService) Download(ctx context.Context, fileID, callerID string, isSuper, loadBytes bool) (*dto.DownloadResult, error) {
 	meta, err := s.repo.GetFile(ctx, fileID)
 	if err != nil {
 		if err == repo.ErrNotFound {
@@ -128,17 +129,19 @@ func (s *exportService) Download(ctx context.Context, fileID string) (*dto.Downl
 	if !meta.ExpiresAt.IsZero() && time.Now().After(meta.ExpiresAt) {
 		return nil, response.NewError(response.CodeExportFileExpired, "导出文件已过期")
 	}
+	if !canAccessExport(meta.UserID, callerID, isSuper) {
+		return nil, response.NewForbiddenError("无权下载该导出文件")
+	}
 	out := &dto.DownloadResult{
 		FileID:      meta.FileID,
 		Filename:    meta.Filename,
 		ContentType: meta.ContentType,
 		ExpiresAt:   meta.ExpiresAt,
 	}
+	if !loadBytes {
+		return out, nil
+	}
 	if s.store != nil && meta.ObjectKey != "" {
-		url, uerr := s.store.PresignedURL(ctx, meta.ObjectKey, presignExpiry)
-		if uerr == nil {
-			out.URL = url
-		}
 		rc, _, derr := s.store.Download(ctx, meta.ObjectKey)
 		if derr == nil {
 			defer rc.Close()
@@ -151,7 +154,7 @@ func (s *exportService) Download(ctx context.Context, fileID string) (*dto.Downl
 			out.Bytes = blob
 		}
 	}
-	if out.URL == "" && len(out.Bytes) == 0 {
+	if len(out.Bytes) == 0 {
 		return nil, response.NewError(response.CodeExportFileExpired, "导出文件已过期")
 	}
 	return out, nil
@@ -167,7 +170,7 @@ func validateTable(req *dto.TableExportRequest) error {
 	return nil
 }
 
-func (s *exportService) runTableJob(ctx context.Context, taskID, format string, req *dto.TableExportRequest) error {
+func (s *exportService) runTableJob(ctx context.Context, taskID, format, userID string, req *dto.TableExportRequest) error {
 	_ = s.patchTask(ctx, taskID, model.StatusRunning, 10, "", "")
 	data, err := renderTable(format, req)
 	if err != nil {
@@ -175,7 +178,7 @@ func (s *exportService) runTableJob(ctx context.Context, taskID, format string, 
 		return err
 	}
 	_ = s.patchTask(ctx, taskID, model.StatusRunning, 70, "", "")
-	fileID, filename, err := s.persistFile(ctx, format, filenameOf(req.Filename, format), data)
+	fileID, filename, err := s.persistFile(ctx, format, filenameOf(req.Filename, format), data, userID)
 	if err != nil {
 		_ = s.failTask(ctx, taskID, err.Error())
 		return err
@@ -183,7 +186,7 @@ func (s *exportService) runTableJob(ctx context.Context, taskID, format string, 
 	return s.finishTask(ctx, taskID, fileID, filename)
 }
 
-func (s *exportService) runTemplateJob(ctx context.Context, taskID, templateID string, req *dto.TemplateExportRequest) error {
+func (s *exportService) runTemplateJob(ctx context.Context, taskID, templateID, userID string, req *dto.TemplateExportRequest) error {
 	_ = s.patchTask(ctx, taskID, model.StatusRunning, 10, "", "")
 	htmlBody, err := renderTemplate(templateID, req.Vars)
 	if err != nil {
@@ -204,7 +207,7 @@ func (s *exportService) runTemplateJob(ctx context.Context, taskID, templateID s
 		_ = s.failTask(ctx, taskID, err.Error())
 		return response.NewError(response.CodeInternalError, "生成 PDF 失败")
 	}
-	fileID, filename, err := s.persistFile(ctx, "pdf", filenameOf(req.Filename, "pdf"), data)
+	fileID, filename, err := s.persistFile(ctx, "pdf", filenameOf(req.Filename, "pdf"), data, userID)
 	if err != nil {
 		_ = s.failTask(ctx, taskID, err.Error())
 		return err
@@ -227,11 +230,12 @@ func renderTable(format string, req *dto.TableExportRequest) ([]byte, error) {
 	}
 }
 
-func (s *exportService) persistFile(ctx context.Context, format, filename string, data []byte) (string, string, error) {
+func (s *exportService) persistFile(ctx context.Context, format, filename string, data []byte, userID string) (string, string, error) {
 	fileID := uuid.NewString()
 	ext := validFormats[format]
 	meta := &model.FileMeta{
 		FileID:      fileID,
+		UserID:      userID,
 		Filename:    filename,
 		ContentType: contentTypeOf(format),
 		Ext:         ext,

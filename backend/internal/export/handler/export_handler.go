@@ -64,7 +64,7 @@ func (h *ExportHandler) GetTask(c *gin.Context) {
 		response.BadRequest(c, "任务 ID 不能为空")
 		return
 	}
-	out, err := h.svc.GetTask(c.Request.Context(), id)
+	out, err := h.svc.GetTask(c.Request.Context(), id, auth.GetUserID(c), isSuperAdmin(c))
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -82,27 +82,22 @@ func (h *ExportHandler) Download(c *gin.Context) {
 		response.BadRequest(c, "文件 ID 不能为空")
 		return
 	}
-	out, err := h.svc.Download(c.Request.Context(), id)
+	stream := c.Query("stream") == "1"
+	out, err := h.svc.Download(c.Request.Context(), id, auth.GetUserID(c), isSuperAdmin(c), stream)
 	if err != nil {
 		response.Error(c, err)
 		return
 	}
-	stream := c.Query("stream") == "1"
 	if !stream {
 		response.OK(c, dto.DownloadInfo{
 			FileID:      out.FileID,
 			Filename:    out.Filename,
 			ContentType: out.ContentType,
-			URL:         out.URL,
 			ExpiresIn:   900,
 		})
 		return
 	}
 	if len(out.Bytes) == 0 {
-		if out.URL != "" {
-			c.Redirect(http.StatusFound, out.URL)
-			return
-		}
 		response.Error(c, response.NewError(response.CodeExportFileExpired, "导出文件已过期"))
 		return
 	}
@@ -110,6 +105,16 @@ func (h *ExportHandler) Download(c *gin.Context) {
 	if ct == "" {
 		ct = "application/octet-stream"
 	}
-	c.Header("Content-Disposition", `attachment; filename="`+url.PathEscape(out.Filename)+`"`)
+	escaped := url.PathEscape(out.Filename)
+	c.Header("Content-Disposition", `attachment; filename="`+escaped+`"; filename*=UTF-8''`+escaped)
 	c.Data(http.StatusOK, ct, out.Bytes)
+}
+
+func isSuperAdmin(c *gin.Context) bool {
+	v, ok := c.Get("is_super_admin")
+	if !ok {
+		return false
+	}
+	b, ok := v.(bool)
+	return ok && b
 }

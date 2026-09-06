@@ -32,10 +32,10 @@ func (s *stubSvc) ExportTable(context.Context, string, string, *dto.TableExportR
 func (s *stubSvc) ExportTemplate(context.Context, string, string, *dto.TemplateExportRequest) (*dto.ExportTaskResponse, error) {
 	return s.tpl, s.err
 }
-func (s *stubSvc) GetTask(context.Context, string) (*dto.ExportTaskResponse, error) {
+func (s *stubSvc) GetTask(context.Context, string, string, bool) (*dto.ExportTaskResponse, error) {
 	return s.task, s.err
 }
-func (s *stubSvc) Download(context.Context, string) (*dto.DownloadResult, error) {
+func (s *stubSvc) Download(context.Context, string, string, bool, bool) (*dto.DownloadResult, error) {
 	return s.dl, s.err
 }
 func (s *stubSvc) ListTemplates() []dto.TemplateInfo { return s.list }
@@ -116,6 +116,8 @@ func TestDownload_Stream(t *testing.T) {
 	h.Download(c)
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "hi", w.Body.String())
+	assert.Contains(t, w.Header().Get("Content-Disposition"), "filename=")
+	assert.Contains(t, w.Header().Get("Content-Disposition"), "a.csv")
 }
 
 func TestDownload_JSONWithoutURL(t *testing.T) {
@@ -138,6 +140,16 @@ func TestDownload_JSONWithURL(t *testing.T) {
 	var resp response.Response
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 	assert.Equal(t, 0, resp.Code)
+}
+
+func TestIsSuperAdmin(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	assert.False(t, isSuperAdmin(c))
+	c.Set("is_super_admin", "yes")
+	assert.False(t, isSuperAdmin(c))
+	c.Set("is_super_admin", true)
+	assert.True(t, isSuperAdmin(c))
 }
 
 func TestDownload_Expired(t *testing.T) {
@@ -164,7 +176,7 @@ func TestGetTask_OK(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestDownload_Redirect(t *testing.T) {
+func TestDownload_StreamMissingBytes(t *testing.T) {
 	h := NewExportHandler(&stubSvc{dl: &dto.DownloadResult{
 		FileID: "f1", Filename: "a.xlsx", URL: "http://minio/x",
 	}})
@@ -174,7 +186,17 @@ func TestDownload_Redirect(t *testing.T) {
 	c.Params = gin.Params{{Key: "file_id", Value: "f1"}}
 	c.Set("request_id", "rid")
 	h.Download(c)
-	assert.Equal(t, http.StatusFound, w.Code)
+	var resp response.Response
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, response.CodeExportFileExpired, resp.Code)
+}
+
+func TestGetTask_Forbidden(t *testing.T) {
+	h := NewExportHandler(&stubSvc{err: response.NewForbiddenError("无权查看该导出任务")})
+	w := doJSON(h.GetTask, http.MethodGet, "/api/v1/export/tasks/t1", nil, gin.Params{{Key: "task_id", Value: "t1"}})
+	var resp response.Response
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, response.CodeForbidden, resp.Code)
 }
 
 func TestDownload_EmptyExpired(t *testing.T) {
