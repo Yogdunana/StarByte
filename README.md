@@ -105,11 +105,21 @@ docker-compose -f deploy/docker-compose.yml ps
 ```
 
 服务启动后访问:
-- 前端: http://localhost:3000
+- 前端: http://localhost/ （容器映射 80 端口）
 - 后端 API: http://localhost:8080/api/v1
-- MinIO 控制台: http://localhost:9001 (minioadmin / minioadmin)
+- 健康检查: http://localhost:8080/health 、`/health/ready`
+- Metrics: http://localhost:8080/metrics
+- MinIO API: http://localhost:9000
 
 ### 本地开发
+
+本地只起基础设施，用 **dev** compose（会把 Postgres/Redis/MinIO 端口打到主机）。生产 `docker-compose.yml` 不暴露 5432/6379。
+
+```bash
+docker compose -f deploy/docker-compose.dev.yml up -d
+```
+
+默认库名 `starbyte_dev`，账号密码 `starbyte` / `starbyte`（见 `backend/configs/config.dev.yaml`）。
 
 #### 后端开发
 
@@ -122,15 +132,12 @@ go mod download
 # 配置环境变量（参考 .env.example）
 cp .env.example .env
 
-# 启动数据库和 Redis（使用 Docker）
-docker-compose -f ../deploy/docker-compose.yml up -d postgres redis minio
-
-# 运行数据库迁移与种子数据（需已安装 golang-migrate）
-# make migrate-up
+# 迁移与种子（需已安装 golang-migrate；库名与 compose.dev 对齐）
+# make migrate-up POSTGRES_DB=starbyte_dev
 # make seed
 
-# 启动服务
-go run cmd/server/main.go
+# 启动服务（必须编译整个 cmd/server 包，不要只 run main.go）
+APP_ENV=dev go run ./cmd/server
 ```
 
 仓库根目录 `Makefile` 提供统一命令：
@@ -162,20 +169,26 @@ npm run dev
 
 ### 一期功能 (Phase 1)
 
+对照 2026-09-06 可用性检查（见 [docs/phase1-readiness.md](docs/phase1-readiness.md)）。账号：`admin/admin123`。
+
 | 模块 | 功能描述 | 状态 |
 |------|----------|------|
-| 用户认证 | 注册、登录、JWT、权限管理 | 骨架完成 |
-| 人员档案 | 用户信息、部门、职位管理 | 规划中 |
-| 入会申请 | 会员/干事申请、资料审核 | 规划中 |
-| 面试管理 | 面试安排、面试评分、流程配置 | 规划中 |
-| 流程引擎 | 可视化流程设计、流程实例管理 | 规划中 |
-| 会议管理 | 会议创建、议程管理、签到 | 规划中 |
-| 会议投票 | 等权投票、加权投票、匿名投票 | 规划中 |
-| 任务流转 | 任务创建、分配、跟踪 | 规划中 |
-| 实习管理 | 实习记录、时长统计、排名 | 规划中 |
-| 消息通知 | 站内消息、WebSocket 推送 | 规划中 |
-| 数据统计 | 会员分布、面试数据、ECharts 图表 | 规划中 |
-| 审计日志 | 操作日志、登录日志 | 规划中 |
+| 用户认证 | 注册、登录、JWT、Refresh、会话强制下线 | 可用 |
+| 人员档案 | 会员档案、部门、数据范围 | 可用（角色/权限管理页仍占位，API 已有） |
+| 入会申请 | 会员/干事申请、审核、补充材料 | 可用 |
+| 面试管理 | 场次、评分、签到、统计 | 可用 |
+| 流程引擎 | 可视化设计器 + 引擎 API | 设计器可用；实例/待办页占位 |
+| 会议管理 | 会议、议程、签到 | 可用 |
+| 会议投票 | 等权匿名 + 加权 | 可用 |
+| 任务流转 | 创建、分配、看板、超时提醒 | 可用 |
+| 实习管理 | 记录、时长、排行、配置开关 | 可用 |
+| 消息通知 | 站内 + WebSocket + 邮件增强 | 可用 |
+| 数据统计 | ECharts 概览、工作台、数据大屏 | 可用 |
+| 审计日志 | 操作日志、Trace、归档/报告 | 可用 |
+| 文件 / 表单 | MinIO 文件、动态表单引擎 | 可用 |
+| 运维探针 | `/health` `/health/ready` `/metrics`、Swagger | 可用 |
+
+财务、纪律处分、合同、OAuth、移动端仍属二期（门禁表 #22/#23/#24 未做产品页）。
 
 ### 二期功能 (Phase 2)
 - 财务管理
@@ -214,15 +227,14 @@ npm run dev
 
 ## 设计文档
 
+- [一期可用性检查（2026-09-06）](docs/phase1-readiness.md)
 - [整体架构设计](docs/specs/00-overall-architecture.md)
 - [工作流引擎设计](docs/specs/01-workflow-engine.md)
 - [RBAC 权限系统设计](docs/specs/02-rbac-system.md)
 
 ## API 文档
 
-启动后端服务后访问: http://localhost:8080/swagger/index.html
-
-> 待接入 Swagger，目前可参考各模块 handler 文件中的注释。
+非生产环境启动后端后访问: http://localhost:8080/swagger/index.html
 
 ## 贡献指南
 
