@@ -8,7 +8,6 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/notification/model"
 	"github.com/Yogdunana/StarByte/backend/internal/notification/repo"
 	"github.com/Yogdunana/StarByte/backend/pkg/logger"
-	"github.com/go-mail/mail"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
@@ -71,6 +70,7 @@ type EmailChannel struct {
 	username string
 	password string
 	from     string
+	dispatch MailDispatcher
 }
 
 // NewEmailChannel 创建邮件渠道
@@ -94,18 +94,14 @@ func (c *EmailChannel) Send(ctx context.Context, msg *NotificationMessage) error
 	if msg.Email == "" {
 		return fmt.Errorf("email address is empty for user %s", msg.UserID)
 	}
-
-	m := mail.NewMessage()
-	m.SetHeader("From", c.from)
-	m.SetHeader("To", msg.Email)
-	m.SetHeader("Subject", msg.Title)
-	m.SetBody("text/plain", msg.Content)
-
-	d := mail.NewDialer(c.smtpHost, c.smtpPort, c.username, c.password)
-	if err := d.DialAndSend(m); err != nil {
-		return fmt.Errorf("send email: %w", err)
+	job := MailJob{
+		To: []string{msg.Email}, Subject: msg.Title, Body: msg.Content, UserID: &msg.UserID,
 	}
-	return nil
+	if c.dispatch != nil {
+		_, err := c.dispatch.Enqueue(ctx, job)
+		return err
+	}
+	return c.SendMIME(ctx, job, nil)
 }
 
 // WebSocketChannel WebSocket 实时推送渠道

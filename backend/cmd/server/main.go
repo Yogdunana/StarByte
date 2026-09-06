@@ -193,17 +193,38 @@ func main() {
 	// 工作流引擎模块
 	wfHandlers := workflow.Init(database.DB(), eventBus, logger.GetLogger())
 
+	// 对象存储（MinIO）：bucket 不存在则创建；失败只告警，避免拖垮其他模块
+	var objectStore storage.ObjectStorage
+	minioStore, err := storage.NewMinIO(cfg.MinIO)
+	if err != nil {
+		logger.Error("init MinIO client failed", zap.Error(err))
+	} else {
+		objectStore = minioStore
+		if err := objectStore.EnsureBucket(context.Background()); err != nil {
+			logger.Error("ensure MinIO bucket failed", zap.Error(err))
+		}
+	}
+
 	// 通知模块
 	notifR := notifRepo.NewNotificationRepo(database.DB())
 	tplRepo := notifRepo.NewTemplateRepo(database.DB())
 
 	hub := notifService.NewHub()
-	channelRegistry := notifService.NewChannelRegistry()
-	channelRegistry.Register(notifService.NewInAppChannel(notifR))
-	channelRegistry.Register(notifService.NewEmailChannel(
+	emailLogs := notifRepo.NewEmailLogRepo(database.DB())
+	emailCh := notifService.NewEmailChannel(
 		cfg.Email.SMTPHost, cfg.Email.SMTPPort,
 		cfg.Email.Username, cfg.Email.Password, cfg.Email.From,
-	))
+	)
+	emailWorker := notifService.NewEmailWorker(
+		emailCh, emailLogs,
+		notifService.NewAttachmentLoader(database.DB(), objectStore),
+		notifService.NewMinuteLimiter(50, nil),
+	)
+	emailWorker.Start(context.Background())
+	emailCh.WithDispatcher(emailWorker)
+	channelRegistry := notifService.NewChannelRegistry()
+	channelRegistry.Register(notifService.NewInAppChannel(notifR))
+	channelRegistry.Register(emailCh)
 	channelRegistry.Register(notifService.NewWebSocketChannel(hub))
 
 	tplEngine := notifService.NewTemplateEngine(tplRepo)
@@ -218,18 +239,8 @@ func main() {
 	notificationHandler := notifHandler.NewNotificationHandler(notifSvc, hub)
 	templateHandler := notifHandler.NewTemplateHandler(tplSvc)
 	wsHandler := notifHandler.NewWSHandler(hub, &cfg.JWT, cfg.CORS.AllowedOrigins)
-
-	// 对象存储（MinIO）：bucket 不存在则创建；失败只告警，避免拖垮其他模块
-	var objectStore storage.ObjectStorage
-	minioStore, err := storage.NewMinIO(cfg.MinIO)
-	if err != nil {
-		logger.Error("init MinIO client failed", zap.Error(err))
-	} else {
-		objectStore = minioStore
-		if err := objectStore.EnsureBucket(context.Background()); err != nil {
-			logger.Error("ensure MinIO bucket failed", zap.Error(err))
-		}
-	}
+	emailSvc := notifService.NewEmailService(emailWorker, tplEngine, emailLogs)
+	emailHandler := notifHandler.NewEmailHandler(emailSvc)
 
 	// 文件管理模块
 	fileR := fileRepo.NewFileRepo(database.DB())
@@ -354,7 +365,7 @@ func main() {
 		wfHandler.RegisterRoutes(protected, wfHandlers.Definition, wfHandlers.Instance, wfHandlers.Task)
 
 		// 通知模块路由
-		notifHandler.RegisterRoutes(protected, protected, notificationHandler, templateHandler, wsHandler)
+		notifHandler.RegisterRoutes(protected, protected, notificationHandler, templateHandler, wsHandler, emailHandler, cacheService)
 
 		// 文件管理模块（/files，file:read / file:create；删除由服务层校验上传者或 file:delete）
 		fileHandler.RegisterRoutes(protected, fileH, cacheService)
