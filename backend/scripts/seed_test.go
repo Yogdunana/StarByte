@@ -17,6 +17,10 @@ func TestAllSeedPermissions_Count(t *testing.T) {
 		assert.False(t, dup, "duplicate permission %s", p.Code)
 		seen[p.Code] = struct{}{}
 	}
+	for _, need := range []string{"config:read", "config:create", "config:update", "config:delete"} {
+		_, ok := seen[need]
+		assert.True(t, ok, "missing permission %s", need)
+	}
 }
 
 func TestSeedRoles_IncludesRequired(t *testing.T) {
@@ -79,6 +83,27 @@ func TestSeedRoles_OnlyTopRolesAreSystem(t *testing.T) {
 			assert.False(t, r.IsSystem, "%s should not be system", r.Code)
 		}
 	}
+}
+
+func TestSeedRuntimeConfigs_Keys(t *testing.T) {
+	assert.GreaterOrEqual(t, len(seedConfigsData), 3)
+	seen := map[string]bool{}
+	for _, c := range seedConfigsData {
+		assert.NotEmpty(t, c.Key)
+		assert.False(t, seen[c.Key], "duplicate config %s", c.Key)
+		seen[c.Key] = true
+	}
+}
+
+func TestVicePresident_ExcludesConfigWrites(t *testing.T) {
+	excluded := map[string]bool{}
+	for _, c := range vicePresidentExcludedPerms() {
+		excluded[c] = true
+	}
+	for _, need := range []string{"system:config", "config:create", "config:update", "config:delete"} {
+		assert.True(t, excluded[need], "vice_president must not inherit %s", need)
+	}
+	assert.False(t, excluded["config:read"])
 }
 
 func TestOfficerAndMemberPerms_NonEmpty(t *testing.T) {

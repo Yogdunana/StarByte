@@ -1,0 +1,34 @@
+.cfg-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  margin-bottom: 16px;
+  border-radius: 16px;
+  color: #fff;
+  background: linear-gradient(135deg, #0f766e 0%, #1d4ed8 55%, #7c3aed 100%);
+  box-shadow: 0 12px 32px rgba(15, 118, 110, 0.18);
+}
+
+.cfg-hero h2 {
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.cfg-hero p {
+  margin: 0;
+  opacity: 0.88;
+}
+
+.page-shell {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.cfg-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}

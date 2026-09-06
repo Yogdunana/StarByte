@@ -17,6 +17,7 @@ const NotificationList = lazy(() => import('@/pages/notification/NotificationLis
 const TemplateList = lazy(() => import('@/pages/notification/TemplateList'));
 const AuditList = lazy(() => import('@/pages/system/audit/AuditList'));
 const DepartmentPage = lazy(() => import('@/pages/system/department/DepartmentPage'));
+const ConfigPage = lazy(() => import('@/pages/system/config/ConfigPage'));
 const FileList = lazy(() => import('@/pages/file/FileList'));
 const ApplicationPage = lazy(() => import('@/pages/member/application/ApplicationPage'));
 const ProfilePage = lazy(() => import('@/pages/member/profile/ProfilePage'));
@@ -315,8 +316,8 @@ const routes: AppRouteObject[] = [
           },
           {
             path: 'config',
-            element: guarded(<div style={{ padding: 24 }}>系统配置（开发中）</div>, 'system:config'),
-            meta: { title: '系统配置', permission: 'system:config' },
+            element: lazyGuarded(ConfigPage, 'config:read'),
+            meta: { title: '系统配置', permission: 'config:read' },
           },
         ],
       },

@@ -1146,6 +1146,41 @@ export interface ListFileParams extends ListParams {
 }
 
 // ============================================================
+// 运行时配置
+// ============================================================
+
+export type RuntimeConfigType = 'string' | 'number' | 'boolean' | 'json';
+
+export interface RuntimeConfig {
+  id: string;
+  config_key: string;
+  config_value: string;
+  config_type: RuntimeConfigType;
+  description: string;
+  category: string;
+  is_public: boolean;
+  updated_at: string;
+  created_at: string;
+}
+
+export interface CreateRuntimeConfigParams {
+  config_key: string;
+  config_value: string;
+  config_type: RuntimeConfigType;
+  description?: string;
+  category: string;
+  is_public?: boolean;
+}
+
+export interface UpdateRuntimeConfigParams {
+  config_value?: string;
+  config_type?: RuntimeConfigType;
+  description?: string;
+  category?: string;
+  is_public?: boolean;
+}
+
+// ============================================================
 // 统计
 // ============================================================
 

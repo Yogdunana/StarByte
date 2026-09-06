@@ -15,6 +15,9 @@ import (
 	authHandler "github.com/Yogdunana/StarByte/backend/internal/auth/handler"
 	authRepo "github.com/Yogdunana/StarByte/backend/internal/auth/repo"
 	authService "github.com/Yogdunana/StarByte/backend/internal/auth/service"
+	cfgstoreHandler "github.com/Yogdunana/StarByte/backend/internal/configstore/handler"
+	cfgstoreRepo "github.com/Yogdunana/StarByte/backend/internal/configstore/repo"
+	cfgstoreService "github.com/Yogdunana/StarByte/backend/internal/configstore/service"
 	fileHandler "github.com/Yogdunana/StarByte/backend/internal/file/handler"
 	fileRepo "github.com/Yogdunana/StarByte/backend/internal/file/repo"
 	fileService "github.com/Yogdunana/StarByte/backend/internal/file/service"
@@ -46,6 +49,7 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/workflow"
 	wfHandler "github.com/Yogdunana/StarByte/backend/internal/workflow/handler"
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
+	"github.com/Yogdunana/StarByte/backend/pkg/configstore"
 	"github.com/Yogdunana/StarByte/backend/pkg/database"
 	"github.com/Yogdunana/StarByte/backend/pkg/events"
 	"github.com/Yogdunana/StarByte/backend/pkg/logger"
@@ -233,6 +237,12 @@ func main() {
 	mtSvc := meetingService.NewMeetingService(mtMeetingRepo, mtAgendaRepo, mtAttendeeRepo, mtVoteRepo, mtNotifier)
 	mtH := meetingHandler.NewMeetingHandler(mtSvc)
 
+	// 运行时业务配置（#47，复用 configs 表，不改 pkg/config YAML）
+	cfgRows := cfgstoreRepo.NewConfigRepo(database.DB())
+	cfgStore := configstore.New(redis.Client(), &cfgstoreRepo.BackendAdapter{Rows: cfgRows})
+	cfgSvc := cfgstoreService.NewConfigService(cfgRows, cfgStore)
+	cfgH := cfgstoreHandler.NewConfigHandler(cfgSvc)
+
 	// IT 实习管理
 	internRepo := internshipRepo.NewInternshipRepo(database.DB())
 	internSvc := internshipService.NewInternshipService(internRepo)
@@ -322,6 +332,9 @@ func main() {
 
 		// IT 实习管理（/internships, /system/internship-config）
 		internshipHandler.RegisterRoutes(protected, internH, cacheService, database.DB(), deptRepo)
+
+		// 运行时配置（/system/configs）
+		cfgstoreHandler.RegisterRoutes(protected, cfgH, cacheService)
 
 		// 审计日志模块路由（/system/audit-logs，audit:read / audit:export / audit:archive）
 		auditHandler.RegisterRoutes(protected, auditH, cacheService)
