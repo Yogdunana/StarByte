@@ -141,6 +141,17 @@ func OKWithoutData(c *gin.Context) {
 	})
 }
 
+// Degraded sends HTTP 200 with CodeDegraded and fallback data (circuit open).
+func Degraded(c *gin.Context, data interface{}) {
+	c.JSON(http.StatusOK, Response{
+		Code:      CodeDegraded,
+		Message:   "服务降级，已返回兜底数据",
+		Data:      data,
+		RequestID: c.GetString("request_id"),
+		Timestamp: time.Now().Unix(),
+	})
+}
+
 // BadRequest sends a 400 response with the given message.
 func BadRequest(c *gin.Context, msg string) {
 	c.JSON(http.StatusBadRequest, Response{
@@ -305,8 +316,14 @@ func httpStatusFromCode(code int) int {
 		return http.StatusNotFound
 	case CodeConflict:
 		return http.StatusConflict
-	case CodeTooManyReq:
+	case CodeTooManyReq, CodeRateLimited:
 		return http.StatusTooManyRequests
+	case CodeCircuitOpen:
+		return http.StatusServiceUnavailable
+	case CodeBlacklisted:
+		return http.StatusForbidden
+	case CodeDegraded:
+		return http.StatusOK
 	case CodeInternalError:
 		return http.StatusInternalServerError
 	case CodeNotImplemented:

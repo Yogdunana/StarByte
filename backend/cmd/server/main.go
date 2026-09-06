@@ -68,6 +68,8 @@ import (
 	"github.com/Yogdunana/StarByte/backend/pkg/logger"
 	"github.com/Yogdunana/StarByte/backend/pkg/middleware"
 	authmiddleware "github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
+	"github.com/Yogdunana/StarByte/backend/pkg/middleware/circuitbreaker"
+	"github.com/Yogdunana/StarByte/backend/pkg/middleware/ratelimit"
 	"github.com/Yogdunana/StarByte/backend/pkg/redis"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/Yogdunana/StarByte/backend/pkg/storage"
@@ -300,13 +302,14 @@ func main() {
 
 	// 10. API 路由组
 	api := r.Group("/api/v1")
-	// API 组限流：全局 1000 req/s
+	// API 组限流：全局 1000 req/s（#14 固定窗口）+ 令牌桶 IP/接口 + 熔断（#75）
+	// /health 不在此组，不受 API 限流与熔断影响
 	api.Use(middleware.RateLimit(redis.Client(), middleware.GlobalRateLimit))
+	trafficCfg := ratelimit.LoadFromEnv()
+	applyAPITraffic(api, redis.Client(), trafficCfg, circuitbreaker.New(circuitbreaker.DefaultSettings()))
 
-	// 10a. 公开路由（不需要鉴权）
-	// 中间件: PerIPRateLimit (100 req/min per IP)
+	// 10a. 公开路由（不需要鉴权）；IP 令牌桶已挂在 api 组
 	public := api.Group("")
-	public.Use(middleware.RateLimit(redis.Client(), middleware.PerIPRateLimit))
 	{
 		public.GET("/ping", func(c *gin.Context) {
 			response.OK(c, "pong")
@@ -321,12 +324,12 @@ func main() {
 	}
 
 	// 10b. 需要鉴权的路由
-	// 中间件链: AuditLog → JWTAuth → PerIPRateLimit
+	// 中间件链: AuditLog → JWTAuth → 用户令牌桶（#75）
 	// AuditLog 在 JWTAuth 之前以捕获失败认证尝试
 	protected := api.Group("")
 	protected.Use(middleware.AuditLog(database.DB()))
 	protected.Use(authmiddleware.JWTAuth(&cfg.JWT, redis.Client()))
-	protected.Use(middleware.RateLimit(redis.Client(), middleware.PerIPRateLimit))
+	applyUserTraffic(protected, redis.Client(), trafficCfg)
 	{
 		// 认证路由（登出、当前用户、修改密码、在线会话 #50）
 		authHandler.RegisterRoutes(nil, protected, authH, nil, cacheService)

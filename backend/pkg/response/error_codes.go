@@ -25,13 +25,14 @@ package response
 //	18000-18999 Cache management (#72)
 //	19000-19999 Scheduler (#73)
 //	20000-20999 Unified search (#74)
+//	21000-21999 API rate limit / circuit breaker (#75)
 //
 //	Note: issue #71 asked for 9000-9499, but that range is already owned by
 //	the task module (9000-9999). Export therefore uses 17000-17999 (after
 //	session 16000). Issue #72 asked for 9500-9699, also inside the task
 //	range; cache management uses 18000-18999. Issue #73 asked for 9700-9899,
 //	also inside the task range; the scheduler uses 19000-19999. Issue #74
-//	asked for 9900-9999; unified search uses 20000-20999.
+//	asked for 9900-9999; unified search uses 20000-20999. #75 uses 21000-21999.
 
 const (
 	// ===== Success =====
@@ -208,6 +209,12 @@ const (
 	CodeSearchInvalidCursor   = 20005 // 游标无效
 	CodeSearchInvalidAgg      = 20006 // 聚合不合法
 	CodeSearchDeepPage        = 20007 // 深分页请改用游标
+
+	// ===== Traffic protection (#75, 21000-21999) =====
+	CodeRateLimited = 21001 // 令牌桶限流触发
+	CodeCircuitOpen = 21002 // 熔断器打开
+	CodeBlacklisted = 21003 // IP/用户在黑名单
+	CodeDegraded    = 21004 // 已降级返回
 )
 
 // ModuleRanges maps each module name to its error-code range [min, max].
@@ -233,4 +240,5 @@ var ModuleRanges = map[string][2]int{
 	"cache":        {18000, 18999},
 	"scheduler":    {19000, 19999},
 	"search":       {20000, 20999},
+	"traffic":      {21000, 21999},
 }

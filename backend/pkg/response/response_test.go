@@ -97,6 +97,16 @@ func TestOKWithoutData(t *testing.T) {
 	assert.Nil(t, resp.Data)
 }
 
+func TestDegraded(t *testing.T) {
+	c, w := newContext()
+	Degraded(c, gin.H{"fallback": true})
+	assert.Equal(t, http.StatusOK, w.Code)
+	resp := parseResponse(t, w)
+	assert.Equal(t, CodeDegraded, resp.Code)
+	assert.Equal(t, "服务降级，已返回兜底数据", resp.Message)
+	assert.NotNil(t, resp.Data)
+}
+
 func TestBadRequest(t *testing.T) {
 	c, w := newContext()
 	BadRequest(c, "invalid param")
@@ -245,6 +255,10 @@ func TestHttpStatusFromCode(t *testing.T) {
 		{CodeNotFound, http.StatusNotFound},
 		{CodeConflict, http.StatusConflict},
 		{CodeTooManyReq, http.StatusTooManyRequests},
+		{CodeRateLimited, http.StatusTooManyRequests},
+		{CodeCircuitOpen, http.StatusServiceUnavailable},
+		{CodeBlacklisted, http.StatusForbidden},
+		{CodeDegraded, http.StatusOK},
 		{CodeInternalError, http.StatusInternalServerError},
 		{CodeNotImplemented, http.StatusNotImplemented},
 		{5999, http.StatusBadRequest}, // audit module code → 400
@@ -317,6 +331,23 @@ func TestModuleRanges(t *testing.T) {
 	assert.Equal(t, 19999, r[1])
 	assert.Equal(t, 19001, CodeSchedulerNotFound)
 	assert.True(t, r[0] > taskRange[1], "scheduler must not collide with task 9000-9999")
+
+	r, ok = ModuleRanges["search"]
+	assert.True(t, ok)
+	assert.Equal(t, 20000, r[0])
+	assert.Equal(t, 20999, r[1])
+	assert.Equal(t, 20001, CodeSearchUnknownResource)
+	assert.True(t, r[0] > taskRange[1], "search must not collide with task 9000-9999")
+
+	r, ok = ModuleRanges["traffic"]
+	assert.True(t, ok)
+	assert.Equal(t, 21000, r[0])
+	assert.Equal(t, 21999, r[1])
+	assert.Equal(t, 21001, CodeRateLimited)
+	assert.Equal(t, 21002, CodeCircuitOpen)
+	assert.Equal(t, 21003, CodeBlacklisted)
+	assert.Equal(t, 21004, CodeDegraded)
+	assert.True(t, r[0] > taskRange[1], "traffic must not collide with task 9000-9999")
 }
 
 // ========== TranslateGORMError tests ==========
