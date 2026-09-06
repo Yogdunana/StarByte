@@ -13,16 +13,21 @@ import (
 func Metrics() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
+		// Record in defer so a handler panic still increments counters.
+		// Register this middleware *before* ErrorHandler so the recovered
+		// 500 is already written when the defer runs.
+		defer func() {
+			path := c.FullPath()
+			if path == "" {
+				path = "unmatched"
+			}
+			if path == "/metrics" {
+				return
+			}
+			status := strconv.Itoa(c.Writer.Status())
+			metrics.HTTPRequestsTotal.WithLabelValues(c.Request.Method, path, status).Inc()
+			metrics.HTTPRequestDuration.WithLabelValues(c.Request.Method, path).Observe(time.Since(start).Seconds())
+		}()
 		c.Next()
-		path := c.FullPath()
-		if path == "" {
-			path = "unmatched"
-		}
-		if path == "/metrics" {
-			return
-		}
-		status := strconv.Itoa(c.Writer.Status())
-		metrics.HTTPRequestsTotal.WithLabelValues(c.Request.Method, path, status).Inc()
-		metrics.HTTPRequestDuration.WithLabelValues(c.Request.Method, path).Observe(time.Since(start).Seconds())
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Yogdunana/StarByte/backend/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
@@ -34,6 +35,14 @@ func TestSlowQueryLogger_TraceSlowAndError(t *testing.T) {
 	l.Trace(context.Background(), time.Now(), func() (string, int64) {
 		return "SELECT missing", 0
 	}, gorm.ErrRecordNotFound)
+}
+
+func TestSlowQueryLogger_TraceSlowWithRequestID(t *testing.T) {
+	l := newSlowQueryLogger()
+	ctx := logger.WithRequestID(context.Background(), "slow-req-1")
+	l.Trace(ctx, time.Now().Add(-time.Second), func() (string, int64) {
+		return "SELECT * FROM slow", 3
+	}, nil)
 }
 
 func TestSlowQueryLogger_SilentSkipsTrace(t *testing.T) {

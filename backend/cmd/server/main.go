@@ -158,13 +158,14 @@ func main() {
 	}
 
 	// 7. 注册全局中间件
-	// 顺序: RequestID → Logger → ErrorHandler → CORS
+	// 顺序: RequestID → Logger → Metrics → ErrorHandler → CORS
+	// Metrics 必须在 ErrorHandler 之前，panic 被 recover 成 500 后仍能记账。
 	// 注意: 全局限流不放在全局中间件中，以避免影响健康检查端点
 	r.Use(middleware.RequestID())
 	r.Use(middleware.Logger())
+	r.Use(middleware.Metrics())
 	r.Use(middleware.ErrorHandler())
 	r.Use(middleware.CORSWithConfig(cfg.CORS))
-	r.Use(middleware.Metrics())
 
 	// 8. 健康检查与 metrics（不受 API 限流影响）
 	var pingMinio middleware.MinioPinger

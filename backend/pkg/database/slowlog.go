@@ -64,7 +64,7 @@ func (l *slowQueryLogger) Trace(ctx context.Context, begin time.Time, fc func() 
 	if elapsed < slowQueryThreshold {
 		return
 	}
-	reqID, _ := ctx.Value("request_id").(string)
+	reqID := logger.RequestIDFrom(ctx)
 	logger.Warn("slow query detected",
 		zap.String("sql", sql),
 		zap.Int64("duration_ms", elapsed.Milliseconds()),
