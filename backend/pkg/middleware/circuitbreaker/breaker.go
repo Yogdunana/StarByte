@@ -162,7 +162,7 @@ func shouldTrip(ss []sample, s Settings) bool {
 	if float64(fails)/float64(len(ss)) >= s.ErrorRate {
 		return true
 	}
-	if s.P99 > 0 && percentile(lats, 0.99) >= s.P99 {
+	if s.P99 > 0 && len(ss) >= s.Window && percentile(lats, 0.99) >= s.P99 {
 		return true
 	}
 	return false

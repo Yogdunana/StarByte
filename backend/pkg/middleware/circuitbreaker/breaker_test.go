@@ -50,6 +50,11 @@ func TestBreaker_P99Trips(t *testing.T) {
 		assert.True(t, b.Allow("slow"))
 		b.Record("slow", false, 20*time.Millisecond)
 	}
+	assert.Equal(t, StateClosed, b.State("slow"), "P99 must not trip before the window is full")
+	for i := 0; i < 5; i++ {
+		assert.True(t, b.Allow("slow"))
+		b.Record("slow", false, 20*time.Millisecond)
+	}
 	assert.Equal(t, StateOpen, b.State("slow"))
 }
 

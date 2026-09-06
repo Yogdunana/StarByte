@@ -7,13 +7,15 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// applyAPITraffic mounts IP/route token buckets and the circuit breaker on /api/v1.
-// /health stays outside this group. Global 1000/s and login 5/min stay in main.go.
-func applyAPITraffic(api *gin.RouterGroup, rdb *redis.Client, cfg ratelimit.Config, br *circuitbreaker.Breaker) {
+// applyAPITraffic mounts IP/route token buckets on /api/v1.
+// Circuit breaker is not applied here: unauthenticated login/register must not
+// share a trip with other clients (slow-body / P99 DoS).
+func applyAPITraffic(api *gin.RouterGroup, rdb *redis.Client, cfg ratelimit.Config) {
 	api.Use(ratelimit.Middleware(rdb, cfg))
-	api.Use(circuitbreaker.Middleware(br, circuitbreaker.PingDegrade))
 }
 
-func applyUserTraffic(protected *gin.RouterGroup, rdb *redis.Client, cfg ratelimit.Config) {
+// applyProtectedTraffic runs after JWT: user token bucket then per-route breaker.
+func applyProtectedTraffic(protected *gin.RouterGroup, rdb *redis.Client, cfg ratelimit.Config, br *circuitbreaker.Breaker) {
 	protected.Use(ratelimit.UserMiddleware(rdb, cfg))
+	protected.Use(circuitbreaker.Middleware(br, nil))
 }

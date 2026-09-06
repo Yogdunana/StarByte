@@ -311,7 +311,7 @@ func main() {
 	// /health 不在此组，不受 API 限流与熔断影响
 	api.Use(middleware.RateLimit(redis.Client(), middleware.GlobalRateLimit))
 	trafficCfg := ratelimit.LoadFromEnv()
-	applyAPITraffic(api, redis.Client(), trafficCfg, circuitbreaker.New(circuitbreaker.DefaultSettings()))
+	applyAPITraffic(api, redis.Client(), trafficCfg)
 
 	// 10a. 公开路由（不需要鉴权）；IP 令牌桶已挂在 api 组
 	public := api.Group("")
@@ -329,12 +329,13 @@ func main() {
 	}
 
 	// 10b. 需要鉴权的路由
-	// 中间件链: AuditLog → JWTAuth → 用户令牌桶（#75）
+	// 中间件链: AuditLog → JWTAuth → 用户令牌桶 → 熔断（#75）
+	// 熔断只挂鉴权组，避免未登录慢请求把共享断路器打开
 	// AuditLog 在 JWTAuth 之前以捕获失败认证尝试
 	protected := api.Group("")
 	protected.Use(middleware.AuditLog(database.DB()))
 	protected.Use(authmiddleware.JWTAuth(&cfg.JWT, redis.Client()))
-	applyUserTraffic(protected, redis.Client(), trafficCfg)
+	applyProtectedTraffic(protected, redis.Client(), trafficCfg, circuitbreaker.New(circuitbreaker.DefaultSettings()))
 	{
 		// 认证路由（登出、当前用户、修改密码、在线会话 #50）
 		authHandler.RegisterRoutes(nil, protected, authH, nil, cacheService)
