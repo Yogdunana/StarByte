@@ -21,23 +21,29 @@ const (
 
 // AuditLog 审计日志模型，对应 audit_logs 表。
 type AuditLog struct {
-	ID             uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
-	UserID         *uuid.UUID `gorm:"type:uuid;index" json:"user_id"`
-	Username       string     `gorm:"type:varchar(50)" json:"username"`
-	RealName       string     `gorm:"type:varchar(50)" json:"real_name"`
-	Operation      string     `gorm:"type:varchar(100);not null;index" json:"operation"`
-	Method         string     `gorm:"type:varchar(10)" json:"method"`
-	Path           string     `gorm:"type:varchar(500)" json:"path"`
-	Module         string     `gorm:"type:varchar(50);index" json:"module"`
-	Action         string     `gorm:"type:varchar(20);index" json:"action"`
-	IP             string     `gorm:"type:varchar(50);index" json:"ip"`
-	UserAgent      string     `gorm:"type:varchar(500)" json:"user_agent"`
-	RequestParams  string     `gorm:"type:text" json:"request_params"`
-	ResponseStatus int        `gorm:"type:int" json:"response_status"`
-	ResponseBody   string     `gorm:"type:text" json:"response_body"`
-	DurationMs     int        `gorm:"type:int" json:"duration_ms"`
-	RequestID      string     `gorm:"type:varchar(100)" json:"request_id"`
-	CreatedAt      time.Time  `gorm:"type:timestamp;default:CURRENT_TIMESTAMP;index" json:"created_at"`
+	ID              uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
+	UserID          *uuid.UUID `gorm:"type:uuid;index" json:"user_id"`
+	Username        string     `gorm:"type:varchar(50)" json:"username"`
+	RealName        string     `gorm:"type:varchar(50)" json:"real_name"`
+	Operation       string     `gorm:"type:varchar(100);not null;index" json:"operation"`
+	Method          string     `gorm:"type:varchar(10)" json:"method"`
+	Path            string     `gorm:"type:varchar(500)" json:"path"`
+	Module          string     `gorm:"type:varchar(50);index" json:"module"`
+	Action          string     `gorm:"type:varchar(20);index" json:"action"`
+	IP              string     `gorm:"type:varchar(50);index" json:"ip"`
+	UserAgent       string     `gorm:"type:varchar(500)" json:"user_agent"`
+	RequestParams   string     `gorm:"type:text" json:"request_params"`
+	ResponseStatus  int        `gorm:"type:int" json:"response_status"`
+	ResponseBody    string     `gorm:"type:text" json:"response_body"`
+	DurationMs      int        `gorm:"type:int" json:"duration_ms"`
+	RequestID       string     `gorm:"type:varchar(100)" json:"request_id"`
+	EntityType      string     `gorm:"type:varchar(50);index:idx_audit_logs_entity" json:"entity_type"`
+	EntityID        string     `gorm:"type:varchar(64);index:idx_audit_logs_entity" json:"entity_id"`
+	BeforeJSON      string     `gorm:"type:text" json:"before_json"`
+	AfterJSON       string     `gorm:"type:text" json:"after_json"`
+	DiffJSON        string     `gorm:"type:text" json:"diff_json"`
+	ComplianceFlags string     `gorm:"type:varchar(200);index" json:"compliance_flags"`
+	CreatedAt       time.Time  `gorm:"type:timestamp;default:CURRENT_TIMESTAMP;index" json:"created_at"`
 }
 
 func (AuditLog) TableName() string {

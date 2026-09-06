@@ -8,11 +8,11 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/audit/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/audit/model"
 	"github.com/Yogdunana/StarByte/backend/internal/audit/repo"
-	"github.com/Yogdunana/StarByte/backend/pkg/audit"
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
 	"github.com/Yogdunana/StarByte/backend/pkg/events"
 	"github.com/Yogdunana/StarByte/backend/pkg/logger"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
+	"github.com/Yogdunana/StarByte/backend/pkg/storage"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -25,6 +25,10 @@ type AuditService interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*dto.AuditLogResponse, error)
 	Export(ctx context.Context, req *dto.ExportAuditLogRequest) ([]byte, string, error)
 	Archive(ctx context.Context, beforeDays int) (*dto.ArchiveResponse, error)
+	Trace(ctx context.Context, entityType, entityID string, req *dto.TraceQueryRequest) ([]dto.AuditTraceItem, int64, error)
+	Report(ctx context.Context, req *dto.ReportRequest) (*dto.ReportResponse, []byte, string, error)
+	ListArchives(ctx context.Context, req *dto.ArchiveListRequest) ([]dto.ArchiveListItem, int64, error)
+	PullArchive(ctx context.Context, id uuid.UUID, req *dto.ArchiveListRequest) (*dto.ArchivePullResponse, error)
 }
 
 type minioUploader func(cfg *config.MinIOConfig, objectName string, data []byte, contentType string) error
@@ -33,13 +37,19 @@ type auditService struct {
 	auditRepo repo.AuditRepo
 	minioCfg  *config.MinIOConfig
 	uploadFn  minioUploader
+	store     storage.ObjectStorage
 }
 
 func NewAuditService(auditRepo repo.AuditRepo, minioCfg *config.MinIOConfig) AuditService {
+	return NewAuditServiceWithStore(auditRepo, minioCfg, nil)
+}
+
+func NewAuditServiceWithStore(auditRepo repo.AuditRepo, minioCfg *config.MinIOConfig, store storage.ObjectStorage) AuditService {
 	return &auditService{
 		auditRepo: auditRepo,
 		minioCfg:  minioCfg,
 		uploadFn:  uploadToMinIO,
+		store:     store,
 	}
 }
 
@@ -84,96 +94,6 @@ func (s *auditService) GetByID(ctx context.Context, id uuid.UUID) (*dto.AuditLog
 	}
 	resp := toDetailResponse(*log)
 	return &resp, nil
-}
-
-func toAuditLog(entry *model.AuditEntry) *model.AuditLog {
-	ts := entry.Timestamp
-	if ts.IsZero() {
-		ts = time.Now()
-	}
-	log := &model.AuditLog{
-		ID:             uuid.New(),
-		Username:       entry.Username,
-		RealName:       entry.RealName,
-		Operation:      entry.Method + " " + entry.Path,
-		Method:         entry.Method,
-		Path:           entry.Path,
-		Module:         entry.Module,
-		Action:         entry.Action,
-		IP:             entry.IPAddress,
-		UserAgent:      entry.UserAgent,
-		RequestParams:  string(entry.RequestBody),
-		ResponseStatus: entry.ResponseCode,
-		DurationMs:     int(entry.Duration),
-		RequestID:      entry.RequestID,
-		CreatedAt:      ts,
-	}
-	if entry.UserID != uuid.Nil {
-		id := entry.UserID
-		log.UserID = &id
-	}
-	return log
-}
-
-func toListParams(userID, username, action, module, keyword, ip, method string, start, end *time.Time) *repo.ListParams {
-	params := &repo.ListParams{
-		Username:  username,
-		Action:    action,
-		Module:    module,
-		Keyword:   keyword,
-		IP:        ip,
-		Method:    method,
-		StartTime: start,
-		EndTime:   end,
-	}
-	if userID != "" {
-		if parsed, err := uuid.Parse(userID); err == nil {
-			params.UserID = &parsed
-		}
-	}
-	return params
-}
-
-func toUser(log model.AuditLog) dto.AuditUser {
-	u := dto.AuditUser{Username: log.Username, RealName: log.RealName}
-	if log.UserID != nil {
-		u.ID = log.UserID.String()
-	}
-	return u
-}
-
-func toListResponse(log model.AuditLog) dto.AuditLogListResponse {
-	return dto.AuditLogListResponse{
-		ID:           log.ID.String(),
-		User:         toUser(log),
-		Method:       log.Method,
-		Path:         log.Path,
-		Module:       log.Module,
-		Action:       log.Action,
-		RequestBody:  audit.DesensitizeJSON(log.RequestParams),
-		ResponseCode: log.ResponseStatus,
-		IPAddress:    log.IP,
-		UserAgent:    log.UserAgent,
-		DurationMs:   log.DurationMs,
-		Timestamp:    log.CreatedAt.Format(time.RFC3339),
-	}
-}
-
-func toDetailResponse(log model.AuditLog) dto.AuditLogResponse {
-	return dto.AuditLogResponse{
-		ID:           log.ID.String(),
-		User:         toUser(log),
-		Method:       log.Method,
-		Path:         log.Path,
-		Module:       log.Module,
-		Action:       log.Action,
-		RequestBody:  audit.DesensitizeJSON(log.RequestParams),
-		ResponseCode: log.ResponseStatus,
-		IPAddress:    log.IP,
-		UserAgent:    log.UserAgent,
-		DurationMs:   log.DurationMs,
-		Timestamp:    log.CreatedAt.Format(time.RFC3339),
-	}
 }
 
 // RegisterAuthEvents 订阅登录/登出事件并异步写入审计日志。

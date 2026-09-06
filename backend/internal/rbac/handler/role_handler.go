@@ -131,6 +131,10 @@ func (h *RoleHandler) Update(c *gin.Context) {
 		return
 	}
 
+	captureRoleBefore(c, id, func() (any, error) {
+		return h.roleService.GetByID(c.Request.Context(), id)
+	})
+
 	var req dto.UpdateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, parseBindingError(err))
@@ -163,6 +167,10 @@ func (h *RoleHandler) Delete(c *gin.Context) {
 		return
 	}
 
+	captureRoleBefore(c, id, func() (any, error) {
+		return h.roleService.GetByID(c.Request.Context(), id)
+	})
+
 	if err := h.roleService.Delete(c.Request.Context(), id); err != nil {
 		response.Error(c, err)
 		return
@@ -189,6 +197,10 @@ func (h *RoleHandler) AssignPermissions(c *gin.Context) {
 		response.BadRequest(c, "无效的角色ID")
 		return
 	}
+
+	captureRoleBefore(c, id, func() (any, error) {
+		return h.roleService.GetByID(c.Request.Context(), id)
+	})
 
 	var req dto.AssignPermissionsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

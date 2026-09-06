@@ -18,6 +18,11 @@ type AuditRepo interface {
 	Iterate(ctx context.Context, req *ListParams, batchSize int, fn func([]model.AuditLog) error) error
 	DeleteBefore(ctx context.Context, before time.Time) (int64, error)
 	CreateArchive(ctx context.Context, archive *model.AuditLogArchive) error
+	ListByEntity(ctx context.Context, entityType, entityID string, page, pageSize int) ([]model.AuditLog, int64, error)
+	ListArchives(ctx context.Context, page, pageSize int) ([]model.AuditLogArchive, int64, error)
+	GetArchiveByID(ctx context.Context, id uuid.UUID) (*model.AuditLogArchive, error)
+	GroupCount(ctx context.Context, req *ListParams, column string) ([]CountRow, error)
+	GroupCompliance(ctx context.Context, req *ListParams) ([]CountRow, error)
 }
 
 // ListParams 列表/导出/归档查询参数
@@ -152,4 +157,48 @@ func (r *auditRepo) DeleteBefore(ctx context.Context, before time.Time) (int64, 
 
 func (r *auditRepo) CreateArchive(ctx context.Context, archive *model.AuditLogArchive) error {
 	return r.db.WithContext(ctx).Create(archive).Error
+}
+
+func (r *auditRepo) ListByEntity(ctx context.Context, entityType, entityID string, page, pageSize int) ([]model.AuditLog, int64, error) {
+	query := r.db.WithContext(ctx).Model(&model.AuditLog{}).
+		Where("entity_type = ? AND entity_id = ?", entityType, entityID)
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = model.DefaultListPageSize
+	}
+	var logs []model.AuditLog
+	err := query.Order("created_at DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&logs).Error
+	return logs, total, err
+}
+
+func (r *auditRepo) ListArchives(ctx context.Context, page, pageSize int) ([]model.AuditLogArchive, int64, error) {
+	query := r.db.WithContext(ctx).Model(&model.AuditLogArchive{})
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 {
+		pageSize = model.DefaultListPageSize
+	}
+	var rows []model.AuditLogArchive
+	err := query.Order("created_at DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&rows).Error
+	return rows, total, err
+}
+
+func (r *auditRepo) GetArchiveByID(ctx context.Context, id uuid.UUID) (*model.AuditLogArchive, error) {
+	var row model.AuditLogArchive
+	err := r.db.WithContext(ctx).Where("id = ?", id).First(&row).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &row, err
 }

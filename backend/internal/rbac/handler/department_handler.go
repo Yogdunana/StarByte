@@ -120,6 +120,10 @@ func (h *DepartmentHandler) Update(c *gin.Context) {
 		return
 	}
 
+	captureDeptBefore(c, id, func() (any, error) {
+		return h.deptService.GetByID(c.Request.Context(), id)
+	})
+
 	var req dto.UpdateDepartmentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, parseBindingError(err))
@@ -158,6 +162,10 @@ func (h *DepartmentHandler) Delete(c *gin.Context) {
 		response.BadRequest(c, "无效的部门ID")
 		return
 	}
+
+	captureDeptBefore(c, id, func() (any, error) {
+		return h.deptService.GetByID(c.Request.Context(), id)
+	})
 
 	if err := h.deptService.Delete(c.Request.Context(), id); err != nil {
 		response.Error(c, err)

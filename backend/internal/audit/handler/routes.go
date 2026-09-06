@@ -23,8 +23,11 @@ func RegisterRoutes(
 
 	withPermission(auditLogs, "audit:export", cacheService).GET("/export", auditHandler.Export)
 	withPermission(auditLogs, "audit:archive", cacheService).POST("/archive", auditHandler.TriggerArchive)
+	withPermission(auditLogs, "audit:report", cacheService).GET("/reports", auditHandler.Report)
 
 	read := withPermission(auditLogs, "audit:read", cacheService)
 	read.GET("", auditHandler.List)
+	read.GET("/traces/:entity_type/:entity_id", auditHandler.Trace)
+	read.GET("/archives", auditHandler.Archives)
 	read.GET("/:id", auditHandler.GetByID)
 }

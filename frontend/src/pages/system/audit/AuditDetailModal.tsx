@@ -65,7 +65,41 @@ const AuditDetailModal: React.FC<AuditDetailModalProps> = ({
             <Descriptions.Item label="User-Agent" span={2}>
               <Text style={{ fontSize: 12 }}>{detail.user_agent || '-'}</Text>
             </Descriptions.Item>
+            <Descriptions.Item label="实体">
+              {detail.entity_type ? `${detail.entity_type} / ${detail.entity_id || '-'}` : '-'}
+            </Descriptions.Item>
+            <Descriptions.Item label="合规标记">
+              {detail.compliance_flags?.length
+                ? detail.compliance_flags.map((f) => (
+                    <Tag key={f} color={f === 'delete' ? 'red' : f === 'export' ? 'orange' : 'purple'}>
+                      {f}
+                    </Tag>
+                  ))
+                : '-'}
+            </Descriptions.Item>
           </Descriptions>
+          {detail.diff && detail.diff.length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <Text strong>字段 Diff：</Text>
+              <pre style={preStyle}>
+                {detail.diff
+                  .map((d) => `${d.path}: ${JSON.stringify(d.before)} → ${JSON.stringify(d.after)}`)
+                  .join('\n')}
+              </pre>
+            </div>
+          )}
+          {(detail.before_json || detail.after_json) && (
+            <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+              <div style={{ flex: 1 }}>
+                <Text strong>Before：</Text>
+                <pre style={preStyle}>{formatJSON(detail.before_json || '')}</pre>
+              </div>
+              <div style={{ flex: 1 }}>
+                <Text strong>After：</Text>
+                <pre style={preStyle}>{formatJSON(detail.after_json || '')}</pre>
+              </div>
+            </div>
+          )}
           <div style={{ marginTop: 16 }}>
             <Text strong>请求参数：</Text>
             <pre style={preStyle}>{formatJSON(detail.request_body)}</pre>

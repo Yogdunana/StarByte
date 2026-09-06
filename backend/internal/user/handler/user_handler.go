@@ -237,6 +237,8 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
+	captureUserBefore(c, h.userService, id)
+
 	var req dto.UpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "参数错误: "+err.Error())
@@ -269,6 +271,8 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 		return
 	}
 
+	captureUserBefore(c, h.userService, id)
+
 	err = h.userService.Delete(c.Request.Context(), id)
 	if err != nil {
 		response.Error(c, err)
@@ -276,27 +280,4 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	}
 
 	response.OKWithoutData(c)
-}
-
-// ========== 路由注册 ==========
-
-// RegisterUserRoutes 注册用户路由（需要鉴权）
-func RegisterUserRoutes(r *gin.RouterGroup, handler *UserHandler) {
-	// 当前用户相关
-	user := r.Group("/user")
-	{
-		user.GET("/me", handler.GetCurrentUser)
-		user.PUT("/profile", handler.UpdateProfile)
-		user.PUT("/password", handler.ChangePassword)
-	}
-
-	// 用户管理（管理员）
-	users := r.Group("/users")
-	{
-		users.GET("", handler.ListUser)
-		users.GET("/:id", handler.GetUser)
-		users.POST("", handler.CreateUser)
-		users.PUT("/:id", handler.UpdateUser)
-		users.DELETE("/:id", handler.DeleteUser)
-	}
 }

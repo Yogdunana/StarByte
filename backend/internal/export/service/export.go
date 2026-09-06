@@ -247,6 +247,22 @@ func renderTable(format string, req *dto.TableExportRequest) ([]byte, error) {
 	}
 }
 
+// RenderTable 同步渲染表格（供审计合规报告等模块复用 #71 引擎，不落任务队列）。
+func RenderTable(format string, req *dto.TableExportRequest) ([]byte, string, error) {
+	format = strings.ToLower(strings.TrimSpace(format))
+	if _, ok := validFormats[format]; !ok {
+		return nil, "", response.NewError(response.CodeExportInvalidFormat, "不支持的导出格式")
+	}
+	if req == nil || len(req.Columns) == 0 || len(req.Rows) == 0 {
+		return nil, "", response.NewError(response.CodeExportEmptyData, "导出数据为空")
+	}
+	data, err := renderTable(format, req)
+	if err != nil {
+		return nil, "", err
+	}
+	return data, filenameOf(req.Filename, format), nil
+}
+
 func (s *exportService) persistFile(ctx context.Context, format, filename string, data []byte, userID string) (string, string, error) {
 	fileID := uuid.NewString()
 	ext := validFormats[format]

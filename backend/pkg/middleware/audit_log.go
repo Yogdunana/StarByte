@@ -21,6 +21,7 @@ import (
 var writeMethods = map[string]bool{
 	"POST":   true,
 	"PUT":    true,
+	"PATCH":  true,
 	"DELETE": true,
 }
 
@@ -137,7 +138,7 @@ func AuditLog(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		method := c.Request.Method
 		path := c.Request.URL.Path
-		if !writeMethods[method] || skipAuditPaths[path] {
+		if !shouldAudit(method, path) {
 			c.Next()
 			return
 		}
@@ -183,6 +184,7 @@ func AuditLog(db *gorm.DB) gin.HandlerFunc {
 			RequestID:      c.GetString("request_id"),
 			CreatedAt:      time.Now(),
 		}
+		fillTraceFields(c, &entry, reqBody, respBody)
 		writer.write(entry)
 
 		logger.Info("audit log",

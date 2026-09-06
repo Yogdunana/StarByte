@@ -45,34 +45,43 @@ type AuditUser struct {
 
 // AuditLogResponse 审计日志详情
 type AuditLogResponse struct {
-	ID           string    `json:"id"`
-	User         AuditUser `json:"user"`
-	Method       string    `json:"method"`
-	Path         string    `json:"path"`
-	Module       string    `json:"module"`
-	Action       string    `json:"action"`
-	RequestBody  string    `json:"request_body"`
-	ResponseCode int       `json:"response_code"`
-	IPAddress    string    `json:"ip_address"`
-	UserAgent    string    `json:"user_agent"`
-	DurationMs   int       `json:"duration_ms"`
-	Timestamp    string    `json:"timestamp"`
+	ID              string        `json:"id"`
+	User            AuditUser     `json:"user"`
+	Method          string        `json:"method"`
+	Path            string        `json:"path"`
+	Module          string        `json:"module"`
+	Action          string        `json:"action"`
+	RequestBody     string        `json:"request_body"`
+	ResponseCode    int           `json:"response_code"`
+	IPAddress       string        `json:"ip_address"`
+	UserAgent       string        `json:"user_agent"`
+	DurationMs      int           `json:"duration_ms"`
+	Timestamp       string        `json:"timestamp"`
+	EntityType      string        `json:"entity_type"`
+	EntityID        string        `json:"entity_id"`
+	BeforeJSON      string        `json:"before_json"`
+	AfterJSON       string        `json:"after_json"`
+	Diff            []FieldChange `json:"diff"`
+	ComplianceFlags []string      `json:"compliance_flags"`
 }
 
 // AuditLogListResponse 列表项
 type AuditLogListResponse struct {
-	ID           string    `json:"id"`
-	User         AuditUser `json:"user"`
-	Method       string    `json:"method"`
-	Path         string    `json:"path"`
-	Module       string    `json:"module"`
-	Action       string    `json:"action"`
-	RequestBody  string    `json:"request_body"`
-	ResponseCode int       `json:"response_code"`
-	IPAddress    string    `json:"ip_address"`
-	UserAgent    string    `json:"user_agent"`
-	DurationMs   int       `json:"duration_ms"`
-	Timestamp    string    `json:"timestamp"`
+	ID              string    `json:"id"`
+	User            AuditUser `json:"user"`
+	Method          string    `json:"method"`
+	Path            string    `json:"path"`
+	Module          string    `json:"module"`
+	Action          string    `json:"action"`
+	RequestBody     string    `json:"request_body"`
+	ResponseCode    int       `json:"response_code"`
+	IPAddress       string    `json:"ip_address"`
+	UserAgent       string    `json:"user_agent"`
+	DurationMs      int       `json:"duration_ms"`
+	Timestamp       string    `json:"timestamp"`
+	EntityType      string    `json:"entity_type"`
+	EntityID        string    `json:"entity_id"`
+	ComplianceFlags []string  `json:"compliance_flags"`
 }
 
 // ArchiveResponse 归档响应

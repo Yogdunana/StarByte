@@ -291,7 +291,7 @@ func main() {
 
 	// 审计日志模块
 	auditR := auditRepo.NewAuditRepo(database.DB())
-	auditSvc := auditService.NewAuditService(auditR, &cfg.MinIO)
+	auditSvc := auditService.NewAuditServiceWithStore(auditR, &cfg.MinIO, objectStore)
 	auditH := auditHandler.NewAuditHandler(auditSvc)
 	auditService.RegisterAuthEvents(eventBus, auditSvc)
 
@@ -394,7 +394,7 @@ func main() {
 		searchH := searchHandler.NewSearchHandler(searchSvc, database.DB(), deptRepo, cacheService)
 		searchHandler.RegisterRoutes(protected, searchH, cacheService)
 
-		// 审计日志模块路由（/system/audit-logs，audit:read / audit:export / audit:archive）
+		// 审计日志模块路由（/system/audit-logs，audit:read / audit:export / audit:archive / audit:report）
 		auditHandler.RegisterRoutes(protected, auditH, cacheService)
 	}
 

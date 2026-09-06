@@ -160,7 +160,7 @@ func TestAuditLog_LargeResponseBodyTruncated(t *testing.T) {
 func TestWriteMethods(t *testing.T) {
 	assert.True(t, writeMethods["POST"])
 	assert.True(t, writeMethods["PUT"])
-	assert.False(t, writeMethods["PATCH"])
+	assert.True(t, writeMethods["PATCH"])
 	assert.True(t, writeMethods["DELETE"])
 	assert.False(t, writeMethods["GET"])
 	assert.False(t, writeMethods["OPTIONS"])

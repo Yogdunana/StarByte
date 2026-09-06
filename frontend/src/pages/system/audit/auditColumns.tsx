@@ -15,7 +15,7 @@ export const actionColorMap: Record<string, string> = {
   CREATE: 'green',
   UPDATE: 'blue',
   DELETE: 'red',
-  LOGIN: 'purple',
+  EXPORT: 'gold',
   LOGOUT: 'default',
 };
 
@@ -82,6 +82,20 @@ export function buildAuditColumns(
       dataIndex: 'ip_address',
       key: 'ip_address',
       width: 130,
+    },
+    {
+      title: '合规',
+      dataIndex: 'compliance_flags',
+      key: 'compliance_flags',
+      width: 140,
+      render: (flags: string[] | undefined) =>
+        flags && flags.length
+          ? flags.map((f) => (
+              <Tag key={f} color={f === 'delete' ? 'red' : f === 'export' ? 'orange' : 'purple'}>
+                {f}
+              </Tag>
+            ))
+          : '-',
     },
     {
       title: '状态码',
