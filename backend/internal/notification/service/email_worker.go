@@ -35,7 +35,8 @@ type EmailWorker struct {
 	backoff []time.Duration
 	jobs    chan MailJob
 	now     func() time.Time
-	delayMu sync.Mutex
+	mu      sync.Mutex
+	queued  int
 	delayed []delayedJob
 }
 
@@ -88,35 +89,67 @@ func (w *EmailWorker) Enqueue(ctx context.Context, job MailJob) (uuid.UUID, erro
 		}
 		job.LogID = row.ID
 	}
-	if err := w.push(ctx, job); err != nil {
+	if !w.reserve() {
+		_ = w.mark(ctx, job.LogID, model.EmailFailed, "queue is full", int16(job.Attempts))
+		return job.LogID, errEmailQueueFull
+	}
+	if err := w.offer(job); err != nil {
+		w.release()
+		_ = w.mark(ctx, job.LogID, model.EmailFailed, "queue is full", int16(job.Attempts))
 		return job.LogID, err
 	}
 	return job.LogID, nil
 }
 
-func (w *EmailWorker) push(ctx context.Context, job MailJob) error {
+func (w *EmailWorker) reserve() bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.queued >= emailQueueSize {
+		return false
+	}
+	w.queued++
+	return true
+}
+
+func (w *EmailWorker) release() {
+	w.mu.Lock()
+	if w.queued > 0 {
+		w.queued--
+	}
+	w.mu.Unlock()
+}
+
+func (w *EmailWorker) offer(job MailJob) error {
 	select {
 	case w.jobs <- job:
 		return nil
 	default:
-		_ = w.mark(ctx, job.LogID, model.EmailFailed, "queue is full", int16(job.Attempts))
 		return errEmailQueueFull
 	}
 }
 
+func (w *EmailWorker) park(job MailJob, d time.Duration) {
+	if d < 0 {
+		d = 0
+	}
+	w.mu.Lock()
+	w.delayed = append(w.delayed, delayedJob{job: job, at: w.now().Add(d)})
+	w.mu.Unlock()
+}
+
 func (w *EmailWorker) schedule(job MailJob, d time.Duration) {
 	if d <= 0 {
-		_ = w.push(context.Background(), job)
-		return
+		if err := w.offer(job); err == nil {
+			return
+		}
+		d = rateRetryDelay
 	}
-	w.delayMu.Lock()
-	w.delayed = append(w.delayed, delayedJob{job: job, at: w.now().Add(d)})
-	w.delayMu.Unlock()
+	w.park(job, d)
 }
 
 func (w *EmailWorker) flushDue() {
 	now := w.now()
-	w.delayMu.Lock()
+	w.mu.Lock()
 	keep := w.delayed[:0]
 	due := make([]MailJob, 0)
 	for _, item := range w.delayed {
@@ -127,9 +160,11 @@ func (w *EmailWorker) flushDue() {
 		}
 	}
 	w.delayed = keep
-	w.delayMu.Unlock()
+	w.mu.Unlock()
 	for _, job := range due {
-		_ = w.push(context.Background(), job)
+		if err := w.offer(job); err != nil {
+			w.park(job, rateRetryDelay)
+		}
 	}
 }
 
@@ -143,18 +178,18 @@ func (w *EmailWorker) process(ctx context.Context, job MailJob) {
 	if len(job.AttachmentIDs) > 0 && w.attach != nil {
 		files, err = w.attach.Load(ctx, job.AttachmentIDs)
 		if err != nil {
-			_ = w.mark(ctx, job.LogID, model.EmailFailed, err.Error(), int16(job.Attempts))
+			w.finish(ctx, job, model.EmailFailed, err.Error())
 			return
 		}
 	}
 	err = w.sender.SendMIME(ctx, job, files)
 	if err == nil {
-		_ = w.mark(ctx, job.LogID, model.EmailSent, "", int16(job.Attempts))
+		w.finish(ctx, job, model.EmailSent, "")
 		return
 	}
 	job.Attempts++
 	if job.Attempts >= emailMaxAttempts {
-		_ = w.mark(ctx, job.LogID, model.EmailFailed, err.Error(), int16(job.Attempts))
+		w.finish(ctx, job, model.EmailFailed, err.Error())
 		return
 	}
 	_ = w.mark(ctx, job.LogID, model.EmailRetrying, err.Error(), int16(job.Attempts))
@@ -163,6 +198,11 @@ func (w *EmailWorker) process(ctx context.Context, job MailJob) {
 		wait = w.backoff[i]
 	}
 	w.schedule(job, wait)
+}
+
+func (w *EmailWorker) finish(ctx context.Context, job MailJob, status int16, errMsg string) {
+	_ = w.mark(ctx, job.LogID, status, errMsg, int16(job.Attempts))
+	w.release()
 }
 
 func (w *EmailWorker) newLog(job MailJob) *model.EmailLog {

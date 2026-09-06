@@ -173,6 +173,50 @@ func TestEmailWorkerDoesNotBlockOnRetryBackoff(t *testing.T) {
 	assert.Len(t, w.delayed, 1)
 }
 
+func TestEmailWorkerQueueBoundIncludesDelayed(t *testing.T) {
+	now := time.Date(2026, 9, 6, 12, 0, 0, 0, time.UTC)
+	l := newMinuteLimiter(50, func() time.Time { return now })
+	for i := 0; i < 50; i++ {
+		require.True(t, l.Allow())
+	}
+	logs := newMemLogs()
+	w := NewEmailWorker(&stubMIME{}, logs, nil, l)
+	ctx := context.Background()
+	for i := 0; i < emailQueueSize; i++ {
+		_, err := w.Enqueue(ctx, MailJob{To: []string{"a@b.c"}, Subject: "s", Body: "b"})
+		require.NoError(t, err)
+	}
+	for i := 0; i < emailQueueSize; i++ {
+		processQueued(t, w, ctx)
+	}
+	_, err := w.Enqueue(ctx, MailJob{To: []string{"overflow@x.test"}, Subject: "s", Body: "b"})
+	require.ErrorIs(t, err, errEmailQueueFull)
+	assert.Equal(t, emailQueueSize, w.queued)
+	assert.Len(t, w.delayed, emailQueueSize)
+}
+
+func TestFlushDueKeepsRetryWhenQueueFull(t *testing.T) {
+	logs := newMemLogs()
+	w := NewEmailWorker(&stubMIME{}, logs, nil, newMinuteLimiter(50, time.Now))
+	ctx := context.Background()
+	for i := 0; i < emailQueueSize; i++ {
+		_, err := w.Enqueue(ctx, MailJob{To: []string{"a@b.c"}, Subject: "s", Body: "b"})
+		require.NoError(t, err)
+	}
+	extra := MailJob{To: []string{"retry@x.test"}, Subject: "s", Body: "b", Attempts: 1}
+	row := w.newLog(extra)
+	row.Status = model.EmailRetrying
+	require.NoError(t, logs.Create(ctx, row))
+	extra.LogID = row.ID
+	w.delayed = []delayedJob{{job: extra, at: w.now()}}
+	w.flushDue()
+	got, err := logs.GetByID(ctx, row.ID)
+	require.NoError(t, err)
+	assert.Equal(t, model.EmailRetrying, got.Status)
+	assert.NotEqual(t, "queue is full", got.ErrorMessage)
+	assert.Len(t, w.delayed, 1)
+}
+
 func TestEmailWorkerStoresLongRecipientList(t *testing.T) {
 	logs := newMemLogs()
 	w := NewEmailWorker(&stubMIME{}, logs, nil, newMinuteLimiter(50, time.Now))
