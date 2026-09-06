@@ -70,6 +70,9 @@ func SeedAll(db *gorm.DB) error {
 		if err := seedInternships(tx); err != nil {
 			return fmt.Errorf("seed internships: %w", err)
 		}
+		if err := seedRuntimeConfigs(tx); err != nil {
+			return fmt.Errorf("seed runtime configs: %w", err)
+		}
 		return nil
 	})
 }

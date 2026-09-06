@@ -18,6 +18,7 @@ package response
 //	11000-11999 Statistics module
 //	12000-12999 Notification module
 //	13000-13999 File module (reserved; #18 type/size checks use 1001)
+//	14000-14999 Runtime configstore (#47)
 
 const (
 	// ===== Success =====
@@ -139,6 +140,14 @@ const (
 	CodeNotificationEmailFail   = 12006 // 邮件发送失败
 	CodeNotificationBadChannel  = 12007 // 不支持的通知渠道
 	CodeNotificationNoAccess    = 12008 // 无权操作该通知
+
+	// ===== Runtime configstore (#47, 14000-14999) =====
+	CodeConfigNotFound     = 14001 // 配置不存在
+	CodeConfigKeyExists    = 14002 // 配置键已存在
+	CodeConfigInvalidType  = 14003 // 不支持的类型或分组
+	CodeConfigInvalidValue = 14004 // 配置值与类型不匹配
+	CodeConfigProtected    = 14005 // 业务占用配置不可删除
+	CodeConfigInvalidKey   = 14006 // 配置键格式不合法
 )
 
 // ModuleRanges maps each module name to its error-code range [min, max].
@@ -157,4 +166,5 @@ var ModuleRanges = map[string][2]int{
 	"statistics":   {11000, 11999},
 	"notification": {12000, 12999},
 	"file":         {13000, 13999},
+	"configstore":  {14000, 14999},
 }
