@@ -2,6 +2,8 @@ import React from 'react';
 import { Alert, Button, Card, Dropdown, Empty, Space } from 'antd';
 import { DownloadOutlined } from '@ant-design/icons';
 import type { EChartsOption } from 'echarts';
+import { useSelector } from 'react-redux';
+import { selectTheme } from '@/store/slices/appSlice';
 import { useECharts } from './useECharts';
 
 export interface ChartCardProps {
@@ -26,7 +28,8 @@ const ChartCard: React.FC<ChartCardProps> = ({
   actions,
 }) => {
   const hideChart = !!error || (!!empty && !loading);
-  const { ref, chart } = useECharts(hideChart ? undefined : option, loading && !error);
+  const theme = useSelector(selectTheme);
+  const { ref, chart } = useECharts(hideChart ? undefined : option, loading && !error, theme);
 
   const extra = (
     <Space size={8}>

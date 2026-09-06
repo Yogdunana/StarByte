@@ -23,3 +23,6 @@ export { default as ErrorBoundary } from './ErrorBoundary';
 
 export { default as FileUpload } from './FileUpload';
 export type { FileUploadProps } from './FileUpload';
+
+export { Chart, ChartCard, PieChart, BarChart, LineChart, useECharts, CHART_COLORS } from './Chart';
+export type { ChartProps, ChartCardProps, PieChartProps, BarChartProps, LineChartProps } from './Chart';

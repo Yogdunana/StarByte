@@ -1,0 +1,118 @@
+.bs-root {
+  min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #d6e4ff;
+  background:
+    radial-gradient(1200px 480px at 10% -10%, rgba(37, 99, 235, 0.28), transparent 55%),
+    radial-gradient(900px 420px at 90% 0%, rgba(14, 116, 144, 0.22), transparent 50%),
+    #06101c;
+}
+
+.bs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 24px 8px;
+}
+
+.bs-title {
+  color: #e6f4ff !important;
+  margin: 0 !important;
+}
+
+.bs-sub,
+.bs-meta {
+  color: rgba(214, 228, 255, 0.75);
+  margin: 4px 0 0;
+}
+
+.bs-kpis {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  padding: 8px 24px 12px;
+}
+
+.bs-kpi {
+  border: 1px solid rgba(37, 99, 235, 0.35);
+  border-radius: 12px;
+  padding: 12px 16px;
+  background: rgba(8, 24, 48, 0.7);
+}
+
+.bs-kpi span {
+  display: block;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.bs-kpi strong {
+  font-size: 28px;
+  color: #69b1ff;
+}
+
+.bs-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-rows: 1fr 1fr;
+  gap: 12px;
+  padding: 0 24px 16px;
+}
+
+.bs-panel {
+  grid-column: span 2;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(37, 99, 235, 0.28);
+  border-radius: 12px;
+  padding: 8px 12px 12px;
+  background: rgba(8, 24, 48, 0.65);
+}
+
+.bs-panel h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #91caff;
+}
+
+.bs-panel > div {
+  flex: 1;
+  min-height: 0;
+}
+
+.bs-panel-wide {
+  grid-column: span 4;
+}
+
+@media (max-width: 1439px) {
+  .bs-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .bs-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: none;
+    overflow: auto;
+  }
+
+  .bs-panel,
+  .bs-panel-wide {
+    grid-column: span 1;
+    min-height: 280px;
+  }
+}
+
+@media (min-width: 2560px) {
+  .bs-kpi strong {
+    font-size: 36px;
+  }
+}

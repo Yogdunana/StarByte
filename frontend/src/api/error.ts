@@ -1,4 +1,12 @@
-import type { AxiosError } from 'axios';
+import axios, { type AxiosError } from 'axios';
+
+/** 主动取消（AbortSignal / 卸载）不算失败，拦截器不应弹 toast。 */
+export function isCanceledError(error: unknown): boolean {
+  if (axios.isCancel(error)) return true;
+  if (typeof error !== 'object' || error === null) return false;
+  const e = error as { code?: string; name?: string };
+  return e.code === 'ERR_CANCELED' || e.name === 'CanceledError' || e.name === 'AbortError';
+}
 
 /**
  * 业务错误码到中文消息的映射

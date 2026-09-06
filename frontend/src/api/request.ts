@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosError } from 'axios';
 import { message } from 'antd';
 import { getToken, getRefreshToken, setToken, setRefreshToken, removeToken } from '@/utils/storage';
-import { handleApiError } from './error';
+import { handleApiError, isCanceledError } from './error';
 
 const baseURL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
@@ -104,6 +104,11 @@ request.interceptors.response.use(
     return Promise.reject(new Error(msg || '请求失败'));
   },
   async (error: AxiosError) => {
+    // 卸载/切页取消请求：不重试、不弹「网络连接失败」
+    if (isCanceledError(error)) {
+      return Promise.reject(error);
+    }
+
     const originalRequest = error.config as InternalAxiosRequestConfig;
 
     // 处理 401 Token 过期

@@ -12,6 +12,7 @@ import PermissionRoute from '@/router/guards/PermissionRoute';
 // 页面组件
 const Login = lazy(() => import('@/pages/login/Login'));
 const Dashboard = lazy(() => import('@/pages/dashboard/Dashboard'));
+const BigScreenPage = lazy(() => import('@/pages/dashboard/bigscreen/BigScreenPage'));
 const UserList = lazy(() => import('@/pages/user/UserList'));
 const NotificationList = lazy(() => import('@/pages/notification/NotificationList'));
 const TemplateList = lazy(() => import('@/pages/notification/TemplateList'));
@@ -96,6 +97,15 @@ const routes: AppRouteObject[] = [
     path: '/login',
     element: lazyWrap(Login),
     meta: { title: '登录', public: true, hidden: true },
+  },
+  {
+    path: '/dashboard/bigscreen',
+    element: (
+      <AuthRoute>
+        {lazyGuarded(BigScreenPage, 'stats:read')}
+      </AuthRoute>
+    ),
+    meta: { title: '数据大屏', hidden: true, permission: 'stats:read' },
   },
   {
     path: '/',
