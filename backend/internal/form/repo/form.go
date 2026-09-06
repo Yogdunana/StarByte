@@ -17,6 +17,7 @@ type Repository interface {
 	CountSubmissions(ctx context.Context, formID uuid.UUID) (int64, error)
 	CreateSubmission(ctx context.Context, rec *model.Submission) error
 	ListSubmissions(ctx context.Context, formID uuid.UUID, offset, limit int) ([]model.Submission, int64, error)
+	UserDisplayNames(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error)
 }
 
 type repository struct{ db *gorm.DB }
@@ -86,4 +87,28 @@ func (r *repository) ListSubmissions(ctx context.Context, formID uuid.UUID, offs
 	var list []model.Submission
 	err := q.Order("submitted_at DESC").Offset(offset).Limit(limit).Find(&list).Error
 	return list, total, err
+}
+
+func (r *repository) UserDisplayNames(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error) {
+	out := make(map[uuid.UUID]string, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	type row struct {
+		ID   uuid.UUID
+		Name string
+	}
+	var rows []row
+	err := r.db.WithContext(ctx).
+		Table("users").
+		Select("id, COALESCE(NULLIF(real_name, ''), username) AS name").
+		Where("id IN ? AND deleted_at IS NULL", ids).
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, rec := range rows {
+		out[rec.ID] = rec.Name
+	}
+	return out, nil
 }

@@ -13,10 +13,15 @@ type memRepo struct {
 	mu    sync.Mutex
 	forms map[uuid.UUID]*model.Form
 	subs  map[uuid.UUID]*model.Submission
+	names map[uuid.UUID]string
 }
 
 func newMemRepo() *memRepo {
-	return &memRepo{forms: map[uuid.UUID]*model.Form{}, subs: map[uuid.UUID]*model.Submission{}}
+	return &memRepo{
+		forms: map[uuid.UUID]*model.Form{},
+		subs:  map[uuid.UUID]*model.Submission{},
+		names: map[uuid.UUID]string{},
+	}
 }
 
 func (m *memRepo) Create(_ context.Context, rec *model.Form) error {
@@ -123,4 +128,16 @@ func (m *memRepo) ListSubmissions(_ context.Context, formID uuid.UUID, offset, l
 		end = len(all)
 	}
 	return all[offset:end], total, nil
+}
+
+func (m *memRepo) UserDisplayNames(_ context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make(map[uuid.UUID]string, len(ids))
+	for _, id := range ids {
+		if n, ok := m.names[id]; ok {
+			out[id] = n
+		}
+	}
+	return out, nil
 }

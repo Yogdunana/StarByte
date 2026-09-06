@@ -36,6 +36,11 @@ func validateSchema(fields []model.FormField) error {
 			return response.NewError(response.CodeFormInvalidSchema, fmt.Sprintf("字段名重复: %s", name))
 		}
 		seen[name] = struct{}{}
+		if f.Validation != nil && strings.TrimSpace(f.Validation.Pattern) != "" {
+			if _, err := regexp.Compile(f.Validation.Pattern); err != nil {
+				return response.NewError(response.CodeFormInvalidSchema, fmt.Sprintf("字段 %s 的 pattern 不是合法正则", name))
+			}
+		}
 		if needsOptions(f.Type) && len(f.Options) == 0 {
 			return response.NewError(response.CodeFormInvalidSchema, fmt.Sprintf("字段 %s 需要 options", name))
 		}
@@ -95,7 +100,7 @@ func compareNum(a, b interface{}) int {
 	fa, ok1 := toFloat(a)
 	fb, ok2 := toFloat(b)
 	if !ok1 || !ok2 {
-		return strings.Compare(fmt.Sprint(a), fmt.Sprint(b))
+		return 0
 	}
 	if fa > fb {
 		return 1
@@ -197,8 +202,8 @@ func validateValue(f model.FormField, v interface{}) error {
 				return response.NewError(response.CodeFormFieldInvalid, fieldMessage(f, f.Label+" 超出长度"))
 			}
 			if f.Validation.Pattern != "" {
-				ok, err := regexp.MatchString(f.Validation.Pattern, s)
-				if err != nil || !ok {
+				re, err := regexp.Compile(f.Validation.Pattern)
+				if err == nil && !re.MatchString(s) {
 					return response.NewError(response.CodeFormFieldInvalid, fieldMessage(f, f.Label+" 格式不正确"))
 				}
 			}

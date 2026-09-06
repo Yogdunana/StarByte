@@ -8,13 +8,15 @@ import FieldList from './FieldList';
 import PropPanel from './PropPanel';
 
 function slug(type: FormFieldType, used: Set<string>): string {
-  let i = 1;
-  const name = type === 'text' ? 'field' : type;
-  while (used.has(name) || used.has(`${name}_${i}`)) {
+  const base = type === 'text' ? 'field' : type;
+  if (!used.has(base)) {
+    return base;
+  }
+  let i = 2;
+  while (used.has(`${base}_${i}`)) {
     i += 1;
   }
-  const candidate = used.has(name) ? `${name}_${i}` : name;
-  return used.has(candidate) ? `${type}_${i}` : candidate;
+  return `${base}_${i}`;
 }
 
 const DesignerPage: React.FC = () => {

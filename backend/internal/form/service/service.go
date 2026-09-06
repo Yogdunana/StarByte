@@ -213,6 +213,23 @@ func (s *formService) ListSubmissions(ctx context.Context, id uuid.UUID, q dto.S
 	if err != nil {
 		return nil, 0, page, size, err
 	}
+	ids := make([]uuid.UUID, 0, len(list))
+	seen := make(map[uuid.UUID]struct{}, len(list))
+	for i := range list {
+		if list[i].SubmittedBy == nil {
+			continue
+		}
+		uid := *list[i].SubmittedBy
+		if _, ok := seen[uid]; ok {
+			continue
+		}
+		seen[uid] = struct{}{}
+		ids = append(ids, uid)
+	}
+	names, err := s.repo.UserDisplayNames(ctx, ids)
+	if err != nil {
+		return nil, 0, page, size, err
+	}
 	out := make([]dto.SubmissionItem, 0, len(list))
 	for i := range list {
 		data := map[string]interface{}(list[i].Data)
@@ -221,7 +238,8 @@ func (s *formService) ListSubmissions(ctx context.Context, id uuid.UUID, q dto.S
 		}
 		item := dto.SubmissionItem{ID: list[i].ID.String(), Data: data, SubmittedAt: list[i].SubmittedAt}
 		if list[i].SubmittedBy != nil {
-			item.SubmittedBy = &dto.UserBrief{ID: list[i].SubmittedBy.String(), Name: list[i].SubmittedBy.String()}
+			uid := *list[i].SubmittedBy
+			item.SubmittedBy = &dto.UserBrief{ID: uid.String(), Name: names[uid]}
 		}
 		out = append(out, item)
 	}
