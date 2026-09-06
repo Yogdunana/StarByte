@@ -53,15 +53,17 @@ func (c *Layered) Get(ctx context.Context, key string) (string, error) {
 		}
 		return v, nil
 	}
-	if c.bloom != nil && !c.bloom.MightHave(key) {
-		return "", ErrNotFound
-	}
+	// Do not treat a Bloom miss as definitive: a new process (empty filter)
+	// or a key written only to Redis must still read L2, same as GetOrLoad.
 	v, err := c.l2.Get(ctx, key)
 	if err == redis.Nil {
 		return "", ErrNotFound
 	}
 	if err != nil {
 		return "", err
+	}
+	if c.bloom != nil {
+		c.bloom.Add(key)
 	}
 	c.l1.Set(key, v, time.Minute)
 	if v == emptySentinel {

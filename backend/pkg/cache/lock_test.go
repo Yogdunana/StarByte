@@ -72,6 +72,33 @@ func TestLock_FairFIFO(t *testing.T) {
 	assert.ErrorIs(t, err, ErrLockBusy)
 }
 
+func TestLock_TwoHandlesSameOwner(t *testing.T) {
+	_, rdb := testRedis(t)
+	ctx := context.Background()
+	a, err := Acquire(ctx, rdb, "same", "o", time.Second)
+	require.NoError(t, err)
+	b, err := Acquire(ctx, rdb, "same", "o", time.Second)
+	require.NoError(t, err)
+	require.NoError(t, a.Unlock(ctx))
+	n, err := rdb.Exists(ctx, lockKey("same")).Result()
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), n)
+	require.NoError(t, b.Unlock(ctx))
+	n, err = rdb.Exists(ctx, lockKey("same")).Result()
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), n)
+}
+
+func TestLock_FairReclaimsStaleHead(t *testing.T) {
+	_, rdb := testRedis(t)
+	ctx := context.Background()
+	queue := lockKey("stale") + ":wait"
+	require.NoError(t, rdb.RPush(ctx, queue, "dead-ticket").Err())
+	lk, err := AcquireFair(ctx, rdb, "stale", "o", time.Second, 400*time.Millisecond)
+	require.NoError(t, err)
+	require.NoError(t, lk.Unlock(ctx))
+}
+
 func TestLock_ReenterUnlocked(t *testing.T) {
 	_, rdb := testRedis(t)
 	lk, err := Acquire(context.Background(), rdb, "x", "o", time.Second)

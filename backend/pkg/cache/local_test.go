@@ -34,6 +34,17 @@ func TestLocal_HitMissExpireEvict(t *testing.T) {
 	assert.Equal(t, 1, size)
 }
 
+func TestLocal_NeverExpireNotPreferred(t *testing.T) {
+	l := NewLocal(2)
+	l.Set("perm", "p", 0)
+	l.Set("temp", "t", time.Millisecond)
+	time.Sleep(3 * time.Millisecond)
+	l.Set("new", "n", time.Minute)
+	v, ok := l.Get("perm")
+	assert.True(t, ok)
+	assert.Equal(t, "p", v)
+}
+
 func TestLocal_EvictExpiredFirst(t *testing.T) {
 	l := NewLocal(1)
 	l.Set("old", "x", time.Millisecond)

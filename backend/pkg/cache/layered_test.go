@@ -75,13 +75,19 @@ func TestLayered_GetOrLoadSingleflightAndEmpty(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestLayered_GetOrLoadReadsL2WhenBloomEmpty(t *testing.T) {
+func TestLayered_GetReadsL2WhenBloomEmpty(t *testing.T) {
 	_, rdb := testRedis(t)
 	c := NewLayered(rdb)
 	ctx := context.Background()
 	require.NoError(t, c.L2().Set(ctx, "only-l2", "from-redis", time.Minute))
 	c.bloom = NewBloom(1<<16, 4)
-	v, err := c.GetOrLoad(ctx, "only-l2", time.Minute, func() (string, error) {
+	v, err := c.Get(ctx, "only-l2")
+	require.NoError(t, err)
+	assert.Equal(t, "from-redis", v)
+
+	c.L1().Delete("only-l2")
+	c.bloom = NewBloom(1<<16, 4)
+	v, err = c.GetOrLoad(ctx, "only-l2", time.Minute, func() (string, error) {
 		t.Fatal("loader should not run")
 		return "", nil
 	})

@@ -57,9 +57,9 @@ func (l *Local) Set(key, value string, ttl time.Duration) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if len(l.items) >= l.maxSize {
-		// drop one arbitrary expired or first key
+		// drop one expired key first; zero expiresAt means never-expire
 		for k, e := range l.items {
-			if e.expiresAt.IsZero() || time.Now().After(e.expiresAt) {
+			if !e.expiresAt.IsZero() && time.Now().After(e.expiresAt) {
 				delete(l.items, k)
 				break
 			}
