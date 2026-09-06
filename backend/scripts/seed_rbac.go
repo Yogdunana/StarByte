@@ -98,6 +98,11 @@ func allSeedPermissions() []seedPerm {
 		seedPerm{Name: "导出查看", Code: "export:read", Resource: "export", Action: "read"},
 		seedPerm{Name: "导出下载", Code: "export:download", Resource: "export", Action: "download"},
 	)
+	perms = append(perms,
+		seedPerm{Name: "缓存查看", Code: "cache:read", Resource: "cache", Action: "read"},
+		seedPerm{Name: "缓存清除", Code: "cache:delete", Resource: "cache", Action: "delete"},
+		seedPerm{Name: "缓存预热", Code: "cache:manage", Resource: "cache", Action: "manage"},
+	)
 	return perms
 }
 
@@ -165,7 +170,7 @@ func seedRolePermissions(db *gorm.DB) error {
 		SELECT uuid_generate_v4(), r.id, p.id, 'all'
 		FROM roles r CROSS JOIN permissions p
 		WHERE r.code = 'vice_president'
-		  AND p.code NOT IN ('system:config', 'config:create', 'config:update', 'config:delete')
+		  AND p.code NOT IN ('system:config', 'config:create', 'config:update', 'config:delete', 'cache:delete', 'cache:manage')
 		ON CONFLICT (role_id, permission_id) DO NOTHING
 	`).Error; err != nil {
 		return fmt.Errorf("assign vice_president perms: %w", err)
@@ -175,7 +180,7 @@ func seedRolePermissions(db *gorm.DB) error {
 		USING roles r, permissions p
 		WHERE rp.role_id = r.id AND rp.permission_id = p.id
 		  AND r.code = 'vice_president'
-		  AND p.code IN ('config:create', 'config:update', 'config:delete')
+		  AND p.code IN ('config:create', 'config:update', 'config:delete', 'cache:delete', 'cache:manage')
 	`).Error; err != nil {
 		return fmt.Errorf("revoke vice_president config writes: %w", err)
 	}
@@ -241,7 +246,10 @@ func memberPermCodes() []string {
 }
 
 func vicePresidentExcludedPerms() []string {
-	return []string{"system:config", "config:create", "config:update", "config:delete"}
+	return []string{
+		"system:config", "config:create", "config:update", "config:delete",
+		"cache:delete", "cache:manage",
+	}
 }
 
 func assignPermCodes(db *gorm.DB, roleCode, dataScope string, codes []string) error {

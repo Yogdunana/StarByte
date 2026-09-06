@@ -22,10 +22,12 @@ package response
 //	15000-15999 Data dictionary (#48)
 //	16000-16999 Session management (#50)
 //	17000-17999 Export / print engine (#71)
+//	18000-18999 Cache management (#72)
 //
 //	Note: issue #71 asked for 9000-9499, but that range is already owned by
 //	the task module (9000-9999). Export therefore uses 17000-17999 (after
-//	session 16000).
+//	session 16000). Issue #72 asked for 9500-9699, also inside the task
+//	range; cache management uses 18000-18999.
 
 const (
 	// ===== Success =====
@@ -175,6 +177,14 @@ const (
 	CodeExportFileExpired   = 17004 // 导出文件已过期
 	CodeExportTooManyRows   = 17005 // 数据量过大且无法异步导出
 	CodeExportEmptyData     = 17006 // 导出数据为空
+
+	// ===== Cache management (#72, 18000-18999) =====
+	// Issue #72 listed 9500-9699; that range is the task module. Use 18000+.
+	CodeCacheKeyNotFound    = 18001 // 缓存键不存在
+	CodeCacheInvalidPattern = 18002 // 清除模式无效或过宽
+	CodeCacheRedisDown      = 18003 // Redis 不可用
+	CodeCacheWarmupFail     = 18004 // 缓存预热失败
+	CodeCacheInvalidKey     = 18005 // 缓存键不合法
 )
 
 // ModuleRanges maps each module name to its error-code range [min, max].
@@ -197,4 +207,5 @@ var ModuleRanges = map[string][2]int{
 	"dict":         {15000, 15999},
 	"session":      {16000, 16999},
 	"export":       {17000, 17999},
+	"cache":        {18000, 18999},
 }

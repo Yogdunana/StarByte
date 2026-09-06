@@ -15,6 +15,8 @@ import (
 	authHandler "github.com/Yogdunana/StarByte/backend/internal/auth/handler"
 	authRepo "github.com/Yogdunana/StarByte/backend/internal/auth/repo"
 	authService "github.com/Yogdunana/StarByte/backend/internal/auth/service"
+	cacheadminHandler "github.com/Yogdunana/StarByte/backend/internal/cache/handler"
+	cacheadminService "github.com/Yogdunana/StarByte/backend/internal/cache/service"
 	cfgstoreHandler "github.com/Yogdunana/StarByte/backend/internal/configstore/handler"
 	cfgstoreRepo "github.com/Yogdunana/StarByte/backend/internal/configstore/repo"
 	cfgstoreService "github.com/Yogdunana/StarByte/backend/internal/configstore/service"
@@ -357,6 +359,11 @@ func main() {
 
 		// 打印 / 报表导出（/export）
 		exportHandler.RegisterRoutes(protected, expH, cacheService)
+
+		// 缓存管理（/system/cache，#72）
+		cacheAdminSvc := cacheadminService.NewCacheService(redis.Client())
+		cacheAdminH := cacheadminHandler.NewCacheHandler(cacheAdminSvc)
+		cacheadminHandler.RegisterRoutes(protected, cacheAdminH, cacheService)
 
 		// 审计日志模块路由（/system/audit-logs，audit:read / audit:export / audit:archive）
 		auditHandler.RegisterRoutes(protected, auditH, cacheService)

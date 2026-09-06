@@ -1282,3 +1282,44 @@ export interface ExportDownloadInfo {
   expires_in?: number;
 }
 
+export interface CachePoolHealth {
+  ping_ok: boolean;
+  hits: number;
+  misses: number;
+  timeouts: number;
+  total_conns: number;
+  idle_conns: number;
+  stale_conns: number;
+}
+
+export interface CacheKeyInfo {
+  key: string;
+  ttl_seconds: number;
+}
+
+export interface CacheStats {
+  healthy: boolean;
+  pool: CachePoolHealth;
+  l1_hits: number;
+  l1_misses: number;
+  l1_size: number;
+  keys: CacheKeyInfo[];
+  key_count: number;
+  pattern: string;
+}
+
+export interface CacheDeleteResult {
+  deleted: number;
+  keys: string[];
+}
+
+export interface CacheWarmupRequest {
+  entries?: { key: string; value: string; ttl_seconds?: number }[];
+  scan_prefix?: string;
+}
+
+export interface CacheWarmupResult {
+  loaded: number;
+  keys: string[];
+}
+

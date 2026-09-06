@@ -303,6 +303,13 @@ func TestModuleRanges(t *testing.T) {
 	taskRange := ModuleRanges["task"]
 	assert.Equal(t, 9000, taskRange[0])
 	assert.True(t, r[0] > taskRange[1], "export must not collide with task 9000-9999")
+
+	r, ok = ModuleRanges["cache"]
+	assert.True(t, ok)
+	assert.Equal(t, 18000, r[0])
+	assert.Equal(t, 18999, r[1])
+	assert.Equal(t, 18001, CodeCacheKeyNotFound)
+	assert.True(t, r[0] > taskRange[1], "cache must not collide with task 9000-9999")
 }
 
 // ========== TranslateGORMError tests ==========
