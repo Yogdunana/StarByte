@@ -1402,3 +1402,76 @@ export interface SchedulerLogs {
   logs: SchedulerLogLine[];
 }
 
+export interface SearchField {
+  name: string;
+  label: string;
+  type: 'string' | 'number' | 'time' | 'bool';
+  searchable: boolean;
+  filterable: boolean;
+  sortable: boolean;
+  agg: boolean;
+  operators: string[];
+}
+
+export interface SearchResource {
+  code: string;
+  name: string;
+  fields: SearchField[];
+}
+
+export interface SearchCondition {
+  field: string;
+  operator: string;
+  value?: string | number | boolean | Array<string | number> | null;
+}
+
+export interface SearchGroup {
+  logic: 'and' | 'or';
+  conditions: SearchCondition[];
+  groups?: SearchGroup[];
+}
+
+export interface SearchSort {
+  field: string;
+  desc: boolean;
+}
+
+export interface SearchAggRequest {
+  name?: string;
+  field?: string;
+  fn?: string;
+  interval?: string;
+  row?: string;
+  col?: string;
+}
+
+export interface SearchAggRow {
+  key?: unknown;
+  row?: unknown;
+  col?: unknown;
+  value: number;
+}
+
+export interface SearchResult {
+  list: Record<string, unknown>[];
+  total: number;
+  page: number;
+  page_size: number;
+  next_cursor?: string;
+  has_more: boolean;
+  aggregations?: Record<string, SearchAggRow[]>;
+  elapsed_ms: number;
+}
+
+export interface SearchQueryBody {
+  resource: string;
+  keyword?: string;
+  filters?: SearchGroup;
+  sorts?: SearchSort[];
+  page?: number;
+  page_size?: number;
+  cursor?: string;
+  aggregations?: SearchAggRequest[];
+}
+
+

@@ -159,8 +159,8 @@ func buildDataScopeCondition(ctx context.Context, db *gorm.DB, deptRepo rbacRepo
 		return &rbacModel.DataScopeCondition{}, nil
 
 	case rbacModel.DataScopeSelf:
-		// 仅本人数据：fail-closed 策略，直接拒绝访问以避免因表无 created_by 字段导致 SQL 错误
-		return &rbacModel.DataScopeCondition{Query: "1 = 0"}, nil
+		// 仅本人：Query 保持 "1 = 0" 以免无 created_by 的表直接拼 SQL；IsSelf 供业务改写。
+		return &rbacModel.DataScopeCondition{Query: "1 = 0", IsSelf: true}, nil
 
 	case rbacModel.DataScopeDepartment:
 		deptID, err := fetchUserDepartmentID(ctx, db, userID)

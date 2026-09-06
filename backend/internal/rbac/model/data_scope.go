@@ -7,6 +7,9 @@ package model
 type DataScopeCondition struct {
 	Query string
 	Args  []interface{}
+	// IsSelf 为 true 时表示 data_scope=self；Query 仍为 "1 = 0"，由能表达“仅本人”的业务改写。
+	// 其他 "1 = 0" 表示拒绝全部（无范围、部门无法解析、fail-closed）。
+	IsSelf bool
 }
 
 // IsEmpty 返回是否为空条件（不限制数据范围）
