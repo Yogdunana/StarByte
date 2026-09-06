@@ -26,6 +26,7 @@ package response
 //	19000-19999 Scheduler (#73)
 //	20000-20999 Unified search (#74)
 //	21000-21999 API rate limit / circuit breaker (#75)
+//	22000-22999 Dynamic form engine (#28; issue listed 16001-16099, taken by #50 sessions)
 //
 //	Note: issue #71 asked for 9000-9499, but that range is already owned by
 //	the task module (9000-9999). Export therefore uses 17000-17999 (after
@@ -224,6 +225,16 @@ const (
 	CodeCircuitOpen = 21002 // 熔断器打开
 	CodeBlacklisted = 21003 // IP/用户在黑名单
 	CodeDegraded    = 21004 // 已降级返回
+
+	// ===== Dynamic form engine (#28, 22000-22999) =====
+	// Issue #28 listed 16001-16099; that range is session management. Use 22000+.
+	CodeFormNotFound      = 22001 // 表单不存在
+	CodeFormNotPublished  = 22002 // 表单未发布
+	CodeFormFieldRequired = 22003 // 必填字段缺失
+	CodeFormFieldInvalid  = 22004 // 字段校验失败
+	CodeFormInvalidSchema = 22005 // 表单字段定义不合法
+	CodeFormInvalidStatus = 22006 // 表单状态不允许该操作
+	CodeFormNameExists    = 22007 // 表单名称已存在
 )
 
 // ModuleRanges maps each module name to its error-code range [min, max].
@@ -250,4 +261,5 @@ var ModuleRanges = map[string][2]int{
 	"scheduler":    {19000, 19999},
 	"search":       {20000, 20999},
 	"traffic":      {21000, 21999},
+	"form":         {22000, 22999},
 }

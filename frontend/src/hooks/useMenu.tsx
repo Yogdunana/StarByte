@@ -16,6 +16,7 @@ import {
   BellOutlined,
   FolderOutlined,
   BookOutlined,
+  FormOutlined,
 } from '@ant-design/icons';
 
 import routes, { AppRouteObject, RouteMeta } from '@/router/routes';
@@ -55,6 +56,7 @@ const iconMap: Record<string, React.FC> = {
   BellOutlined,
   FolderOutlined,
   BookOutlined,
+  FormOutlined,
 };
 
 function hasMenuPermission(permissions: string[], meta?: RouteMeta): boolean {
