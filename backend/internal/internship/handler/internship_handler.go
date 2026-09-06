@@ -8,12 +8,16 @@ import (
 
 // CreateInternship 创建实习记录
 // @Summary 创建实习记录
+// @Description 创建实习记录
 // @Tags 实习
 // @Accept json
 // @Produce json
 // @Param request body dto.CreateInternshipRequest true "实习"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /internships [post]
+// @Security BearerAuth
 func (h *InternshipHandler) CreateInternship(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -35,9 +39,11 @@ func (h *InternshipHandler) CreateInternship(c *gin.Context) {
 
 // ListInternships 实习列表
 // @Summary 实习列表
+// @Description 实习列表
 // @Tags 实习
 // @Produce json
 // @Router /internships [get]
+// @Security BearerAuth
 func (h *InternshipHandler) ListInternships(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -60,11 +66,15 @@ func (h *InternshipHandler) ListInternships(c *gin.Context) {
 
 // GetInternship 实习详情
 // @Summary 实习详情
+// @Description 实习详情
 // @Tags 实习
 // @Produce json
 // @Param id path string true "实习ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /internships/{id} [get]
+// @Security BearerAuth
 func (h *InternshipHandler) GetInternship(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -86,13 +96,17 @@ func (h *InternshipHandler) GetInternship(c *gin.Context) {
 
 // UpdateInternship 更新实习
 // @Summary 更新实习
+// @Description 更新实习
 // @Tags 实习
 // @Accept json
 // @Produce json
 // @Param id path string true "实习ID"
 // @Param request body dto.UpdateInternshipRequest true "更新"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /internships/{id} [put]
+// @Security BearerAuth
 func (h *InternshipHandler) UpdateInternship(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -119,11 +133,15 @@ func (h *InternshipHandler) UpdateInternship(c *gin.Context) {
 
 // DeleteInternship 删除实习
 // @Summary 删除实习
+// @Description 删除实习
 // @Tags 实习
 // @Produce json
 // @Param id path string true "实习ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /internships/{id} [delete]
+// @Security BearerAuth
 func (h *InternshipHandler) DeleteInternship(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -144,9 +162,11 @@ func (h *InternshipHandler) DeleteInternship(c *gin.Context) {
 
 // ListMine 我的实习
 // @Summary 我的实习
+// @Description 我的实习
 // @Tags 实习
 // @Produce json
 // @Router /internships/my [get]
+// @Security BearerAuth
 func (h *InternshipHandler) ListMine(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {

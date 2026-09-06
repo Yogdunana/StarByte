@@ -25,11 +25,13 @@ func NewRoleHandler(roleService service.RoleService) *RoleHandler {
 // @Tags 角色管理
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param page query int false "页码" default(1)
 // @Param page_size query int false "每页数量" default(10)
 // @Param keyword query string false "关键词"
 // @Success 200 {object} response.Response{data=response.PageResponse{list=[]dto.RoleListResponse}}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/roles [get]
 func (h *RoleHandler) List(c *gin.Context) {
 	var req dto.ListRoleRequest
@@ -58,9 +60,11 @@ func (h *RoleHandler) List(c *gin.Context) {
 // @Description 根据ID获取角色详细信息（含权限列表）
 // @Tags 角色管理
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "角色ID"
 // @Success 200 {object} response.Response{data=dto.RoleDetailResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/roles/{id} [get]
 func (h *RoleHandler) GetByID(c *gin.Context) {
 	idStr := c.Param("id")
@@ -85,9 +89,11 @@ func (h *RoleHandler) GetByID(c *gin.Context) {
 // @Tags 角色管理
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param request body dto.CreateRoleRequest true "角色信息"
 // @Success 200 {object} response.Response{data=dto.RoleResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/roles [post]
 func (h *RoleHandler) Create(c *gin.Context) {
 	var req dto.CreateRoleRequest
@@ -118,10 +124,12 @@ func (h *RoleHandler) Create(c *gin.Context) {
 // @Tags 角色管理
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "角色ID"
 // @Param request body dto.UpdateRoleRequest true "角色信息"
 // @Success 200 {object} response.Response{data=dto.RoleResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/roles/{id} [put]
 func (h *RoleHandler) Update(c *gin.Context) {
 	idStr := c.Param("id")
@@ -155,9 +163,11 @@ func (h *RoleHandler) Update(c *gin.Context) {
 // @Description 删除指定角色
 // @Tags 角色管理
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "角色ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/roles/{id} [delete]
 func (h *RoleHandler) Delete(c *gin.Context) {
 	idStr := c.Param("id")
@@ -185,10 +195,12 @@ func (h *RoleHandler) Delete(c *gin.Context) {
 // @Tags 角色管理
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "角色ID"
 // @Param request body dto.AssignPermissionsRequest true "权限ID列表"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/roles/{id}/permissions [put]
 func (h *RoleHandler) AssignPermissions(c *gin.Context) {
 	idStr := c.Param("id")
@@ -228,11 +240,13 @@ func (h *RoleHandler) AssignPermissions(c *gin.Context) {
 // @Description 分页查询指定角色关联的用户列表
 // @Tags 角色管理
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "角色ID"
 // @Param page query int false "页码" default(1)
 // @Param page_size query int false "每页数量" default(10)
 // @Success 200 {object} response.Response{data=response.PageResponse{list=[]dto.RoleUserResponse}}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/roles/{id}/users [get]
 func (h *RoleHandler) GetRoleUsers(c *gin.Context) {
 	idStr := c.Param("id")

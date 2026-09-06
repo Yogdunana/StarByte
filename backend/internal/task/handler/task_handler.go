@@ -8,12 +8,16 @@ import (
 
 // CreateTask 创建任务
 // @Summary 创建任务
+// @Description 创建任务
 // @Tags 任务
 // @Accept json
 // @Produce json
 // @Param request body dto.CreateTaskRequest true "任务"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /tasks [post]
+// @Security BearerAuth
 func (h *TaskHandler) CreateTask(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -35,9 +39,11 @@ func (h *TaskHandler) CreateTask(c *gin.Context) {
 
 // ListTasks 任务列表
 // @Summary 任务列表
+// @Description 任务列表
 // @Tags 任务
 // @Produce json
 // @Router /tasks [get]
+// @Security BearerAuth
 func (h *TaskHandler) ListTasks(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -60,8 +66,10 @@ func (h *TaskHandler) ListTasks(c *gin.Context) {
 
 // GetTask 任务详情
 // @Summary 任务详情
+// @Description 任务详情
 // @Tags 任务
 // @Router /tasks/{id} [get]
+// @Security BearerAuth
 func (h *TaskHandler) GetTask(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -83,8 +91,10 @@ func (h *TaskHandler) GetTask(c *gin.Context) {
 
 // UpdateTask 更新任务
 // @Summary 更新任务
+// @Description 更新任务
 // @Tags 任务
 // @Router /tasks/{id} [put]
+// @Security BearerAuth
 func (h *TaskHandler) UpdateTask(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -111,8 +121,10 @@ func (h *TaskHandler) UpdateTask(c *gin.Context) {
 
 // DeleteTask 删除任务
 // @Summary 删除任务
+// @Description 删除任务
 // @Tags 任务
 // @Router /tasks/{id} [delete]
+// @Security BearerAuth
 func (h *TaskHandler) DeleteTask(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {

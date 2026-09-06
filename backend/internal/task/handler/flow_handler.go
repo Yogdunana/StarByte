@@ -8,8 +8,10 @@ import (
 
 // Assign 分配任务
 // @Summary 分配任务
+// @Description 分配任务
 // @Tags 任务
 // @Router /tasks/{id}/assign [post]
+// @Security BearerAuth
 func (h *TaskHandler) Assign(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -36,8 +38,10 @@ func (h *TaskHandler) Assign(c *gin.Context) {
 
 // Transfer 转办任务
 // @Summary 转办任务
+// @Description 转办任务
 // @Tags 任务
 // @Router /tasks/{id}/transfer [post]
+// @Security BearerAuth
 func (h *TaskHandler) Transfer(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -64,8 +68,10 @@ func (h *TaskHandler) Transfer(c *gin.Context) {
 
 // ChangeStatus 更新状态
 // @Summary 更新任务状态
+// @Description 更新任务状态
 // @Tags 任务
 // @Router /tasks/{id}/status [post]
+// @Security BearerAuth
 func (h *TaskHandler) ChangeStatus(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -92,8 +98,10 @@ func (h *TaskHandler) ChangeStatus(c *gin.Context) {
 
 // Urge 催办
 // @Summary 催办任务
+// @Description 催办任务
 // @Tags 任务
 // @Router /tasks/{id}/urge [post]
+// @Security BearerAuth
 func (h *TaskHandler) Urge(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -116,8 +124,10 @@ func (h *TaskHandler) Urge(c *gin.Context) {
 
 // ListLogs 流转记录
 // @Summary 任务流转记录
+// @Description 任务流转记录
 // @Tags 任务
 // @Router /tasks/{id}/logs [get]
+// @Security BearerAuth
 func (h *TaskHandler) ListLogs(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -139,8 +149,10 @@ func (h *TaskHandler) ListLogs(c *gin.Context) {
 
 // Stats 任务统计
 // @Summary 任务统计
+// @Description 任务统计
 // @Tags 任务
 // @Router /tasks/stats [get]
+// @Security BearerAuth
 func (h *TaskHandler) Stats(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {

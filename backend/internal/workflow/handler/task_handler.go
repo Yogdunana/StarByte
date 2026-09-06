@@ -23,10 +23,12 @@ func NewTaskHandler(taskService service.TaskService) *TaskHandler {
 // @Tags 流程任务
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param page query int false "页码" default(1)
 // @Param page_size query int false "每页数量" default(10)
 // @Success 200 {object} response.Response{data=response.PageResponse{list=[]dto.TaskResponse}}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /workflow/tasks/todo [get]
 func (h *TaskHandler) ListTodoTasks(c *gin.Context) {
 	page, pageSize := parsePagination(c)
@@ -57,10 +59,12 @@ func (h *TaskHandler) ListTodoTasks(c *gin.Context) {
 // @Tags 流程任务
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param page query int false "页码" default(1)
 // @Param page_size query int false "每页数量" default(10)
 // @Success 200 {object} response.Response{data=response.PageResponse{list=[]dto.TaskResponse}}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /workflow/tasks/done [get]
 func (h *TaskHandler) ListDoneTasks(c *gin.Context) {
 	page, pageSize := parsePagination(c)
@@ -90,9 +94,11 @@ func (h *TaskHandler) ListDoneTasks(c *gin.Context) {
 // @Description 根据ID获取任务详细信息
 // @Tags 流程任务
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "任务ID"
 // @Success 200 {object} response.Response{data=dto.TaskResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /workflow/tasks/{id} [get]
 func (h *TaskHandler) GetByID(c *gin.Context) {
 	id, err := parseUUIDParam(c, "id", "无效的任务ID")
@@ -116,10 +122,12 @@ func (h *TaskHandler) GetByID(c *gin.Context) {
 // @Tags 流程任务
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "任务ID"
 // @Param request body dto.CompleteTaskRequest true "审批信息"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /workflow/tasks/{id}/approve [post]
 func (h *TaskHandler) Approve(c *gin.Context) {
 	id, err := parseUUIDParam(c, "id", "无效的任务ID")
@@ -154,10 +162,12 @@ func (h *TaskHandler) Approve(c *gin.Context) {
 // @Tags 流程任务
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "任务ID"
 // @Param request body dto.CompleteTaskRequest true "驳回信息"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /workflow/tasks/{id}/reject [post]
 func (h *TaskHandler) Reject(c *gin.Context) {
 	id, err := parseUUIDParam(c, "id", "无效的任务ID")
@@ -192,10 +202,12 @@ func (h *TaskHandler) Reject(c *gin.Context) {
 // @Tags 流程任务
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "任务ID"
 // @Param request body dto.TransferTaskRequest true "转办信息"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /workflow/tasks/{id}/transfer [post]
 func (h *TaskHandler) Transfer(c *gin.Context) {
 	id, err := parseUUIDParam(c, "id", "无效的任务ID")
@@ -230,10 +242,12 @@ func (h *TaskHandler) Transfer(c *gin.Context) {
 // @Tags 流程任务
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "任务ID"
 // @Param request body dto.RollbackTaskRequest true "退回信息"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /workflow/tasks/{id}/rollback [post]
 func (h *TaskHandler) Rollback(c *gin.Context) {
 	id, err := parseUUIDParam(c, "id", "无效的任务ID")

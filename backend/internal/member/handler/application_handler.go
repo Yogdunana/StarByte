@@ -8,12 +8,16 @@ import (
 
 // Submit 提交入会申请
 // @Summary 提交入会申请
+// @Description 提交入会申请
 // @Tags 会员
 // @Accept json
 // @Produce json
 // @Param request body dto.SubmitApplicationRequest true "申请"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /member/applications [post]
+// @Security BearerAuth
 func (h *MemberHandler) Submit(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -35,10 +39,14 @@ func (h *MemberHandler) Submit(c *gin.Context) {
 
 // MyApplications 我的申请
 // @Summary 我的申请
+// @Description 我的申请
 // @Tags 会员
 // @Produce json
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /member/applications/my [get]
+// @Security BearerAuth
 func (h *MemberHandler) MyApplications(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -55,13 +63,17 @@ func (h *MemberHandler) MyApplications(c *gin.Context) {
 
 // Resubmit 补充材料后重新提交
 // @Summary 补充材料后重新提交
+// @Description 补充材料后重新提交
 // @Tags 会员
 // @Accept json
 // @Produce json
 // @Param id path string true "申请ID"
 // @Param request body dto.ResubmitApplicationRequest true "补充内容"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /member/applications/{id}/resubmit [post]
+// @Security BearerAuth
 func (h *MemberHandler) Resubmit(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -88,10 +100,14 @@ func (h *MemberHandler) Resubmit(c *gin.Context) {
 
 // ListApplications 申请列表
 // @Summary 申请列表
+// @Description 申请列表
 // @Tags 会员
 // @Produce json
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /member/applications [get]
+// @Security BearerAuth
 func (h *MemberHandler) ListApplications(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -119,11 +135,15 @@ func (h *MemberHandler) ListApplications(c *gin.Context) {
 
 // GetApplication 申请详情
 // @Summary 申请详情
+// @Description 申请详情
 // @Tags 会员
 // @Produce json
 // @Param id path string true "申请ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /member/applications/{id} [get]
+// @Security BearerAuth
 func (h *MemberHandler) GetApplication(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -145,11 +165,15 @@ func (h *MemberHandler) GetApplication(c *gin.Context) {
 
 // ApplicationHistory 申请历史
 // @Summary 申请历史
+// @Description 申请历史
 // @Tags 会员
 // @Produce json
 // @Param id path string true "申请ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /member/applications/{id}/history [get]
+// @Security BearerAuth
 func (h *MemberHandler) ApplicationHistory(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -171,10 +195,14 @@ func (h *MemberHandler) ApplicationHistory(c *gin.Context) {
 
 // ListDepartments 意向部门
 // @Summary 入会意向部门
+// @Description 入会意向部门
 // @Tags 会员
 // @Produce json
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /member/departments [get]
+// @Security BearerAuth
 func (h *MemberHandler) ListDepartments(c *gin.Context) {
 	list, err := h.svc.ListDepartments(c.Request.Context())
 	if err != nil {

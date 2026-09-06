@@ -23,8 +23,10 @@ func NewPermissionHandler(permissionService service.PermissionService) *Permissi
 // @Description 获取完整的权限树形结构
 // @Tags 权限管理
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Success 200 {object} response.Response{data=[]dto.PermissionTreeResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/permissions [get]
 func (h *PermissionHandler) GetTree(c *gin.Context) {
 	tree, err := h.permissionService.GetTree(c.Request.Context())
@@ -41,9 +43,11 @@ func (h *PermissionHandler) GetTree(c *gin.Context) {
 // @Description 根据ID获取权限详细信息
 // @Tags 权限管理
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "权限ID"
 // @Success 200 {object} response.Response{data=dto.PermissionResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/permissions/{id} [get]
 func (h *PermissionHandler) GetByID(c *gin.Context) {
 	idStr := c.Param("id")
@@ -68,9 +72,11 @@ func (h *PermissionHandler) GetByID(c *gin.Context) {
 // @Tags 权限管理
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param request body dto.CreatePermissionRequest true "权限信息"
 // @Success 200 {object} response.Response{data=dto.PermissionResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/permissions [post]
 func (h *PermissionHandler) Create(c *gin.Context) {
 	var req dto.CreatePermissionRequest
@@ -94,10 +100,12 @@ func (h *PermissionHandler) Create(c *gin.Context) {
 // @Tags 权限管理
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "权限ID"
 // @Param request body dto.UpdatePermissionRequest true "权限信息"
 // @Success 200 {object} response.Response{data=dto.PermissionResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/permissions/{id} [put]
 func (h *PermissionHandler) Update(c *gin.Context) {
 	idStr := c.Param("id")
@@ -127,9 +135,11 @@ func (h *PermissionHandler) Update(c *gin.Context) {
 // @Description 删除指定权限
 // @Tags 权限管理
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "权限ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/permissions/{id} [delete]
 func (h *PermissionHandler) Delete(c *gin.Context) {
 	idStr := c.Param("id")

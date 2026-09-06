@@ -29,12 +29,14 @@ func NewNotificationHandler(notificationService service.NotificationService, hub
 // @Description 获取当前用户的通知列表，支持分类筛选和未读筛选
 // @Tags 通知
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param page query int false "页码"
 // @Param page_size query int false "每页条数"
 // @Param category query string false "分类"
 // @Param unread_only query bool false "仅未读"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /notifications [get]
 func (h *NotificationHandler) List(c *gin.Context) {
 	userID := getUserID(c)
@@ -64,8 +66,10 @@ func (h *NotificationHandler) List(c *gin.Context) {
 // @Description 获取当前用户的未读通知数量
 // @Tags 通知
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /notifications/unread/count [get]
 func (h *NotificationHandler) UnreadCount(c *gin.Context) {
 	userID := getUserID(c)
@@ -84,9 +88,11 @@ func (h *NotificationHandler) UnreadCount(c *gin.Context) {
 // @Description 标记指定通知为已读
 // @Tags 通知
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "通知 ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /notifications/{id}/read [post]
 func (h *NotificationHandler) MarkAsRead(c *gin.Context) {
 	userID := getUserID(c)
@@ -111,9 +117,11 @@ func (h *NotificationHandler) MarkAsRead(c *gin.Context) {
 // @Description 标记当前用户的所有通知为已读
 // @Tags 通知
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param category body dto.MarkAllReadRequest false "按分类标记已读（可选）"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /notifications/read-all [post]
 func (h *NotificationHandler) MarkAllAsRead(c *gin.Context) {
 	userID := getUserID(c)
@@ -134,9 +142,11 @@ func (h *NotificationHandler) MarkAllAsRead(c *gin.Context) {
 // @Description 删除指定通知
 // @Tags 通知
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "通知 ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /notifications/{id} [delete]
 func (h *NotificationHandler) Delete(c *gin.Context) {
 	userID := getUserID(c)
@@ -162,9 +172,11 @@ func (h *NotificationHandler) Delete(c *gin.Context) {
 // @Tags 系统管理-通知
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param request body dto.SendNotificationRequest true "发送参数"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/notifications/send [post]
 func (h *NotificationHandler) Send(c *gin.Context) {
 	var req dto.SendNotificationRequest
@@ -187,9 +199,11 @@ func (h *NotificationHandler) Send(c *gin.Context) {
 // @Tags 系统管理-通知
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param request body dto.BroadcastNotificationRequest true "广播参数"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/notifications/broadcast [post]
 func (h *NotificationHandler) Broadcast(c *gin.Context) {
 	var req dto.BroadcastNotificationRequest

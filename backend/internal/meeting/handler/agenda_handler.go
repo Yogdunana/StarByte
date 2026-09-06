@@ -9,8 +9,10 @@ import (
 
 // ListAgendas 议程列表
 // @Summary 议程列表
+// @Description 议程列表
 // @Tags 会议
 // @Router /meetings/{id}/agendas [get]
+// @Security BearerAuth
 func (h *MeetingHandler) ListAgendas(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -27,8 +29,10 @@ func (h *MeetingHandler) ListAgendas(c *gin.Context) {
 
 // AddAgenda 添加议程
 // @Summary 添加议程
+// @Description 添加议程
 // @Tags 会议
 // @Router /meetings/{id}/agendas [post]
+// @Security BearerAuth
 func (h *MeetingHandler) AddAgenda(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -50,8 +54,10 @@ func (h *MeetingHandler) AddAgenda(c *gin.Context) {
 
 // UpdateAgenda 更新议程
 // @Summary 更新议程
+// @Description 更新议程
 // @Tags 会议
 // @Router /meetings/{id}/agendas/{aid} [put]
+// @Security BearerAuth
 func (h *MeetingHandler) UpdateAgenda(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -78,8 +84,10 @@ func (h *MeetingHandler) UpdateAgenda(c *gin.Context) {
 
 // DeleteAgenda 删除议程
 // @Summary 删除议程
+// @Description 删除议程
 // @Tags 会议
 // @Router /meetings/{id}/agendas/{aid} [delete]
+// @Security BearerAuth
 func (h *MeetingHandler) DeleteAgenda(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -100,8 +108,10 @@ func (h *MeetingHandler) DeleteAgenda(c *gin.Context) {
 
 // SortAgendas 排序议程
 // @Summary 排序议程
+// @Description 排序议程
 // @Tags 会议
 // @Router /meetings/{id}/agendas/sort [put]
+// @Security BearerAuth
 func (h *MeetingHandler) SortAgendas(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {

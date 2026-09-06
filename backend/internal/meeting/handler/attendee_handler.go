@@ -9,8 +9,10 @@ import (
 
 // ListAttendees 参会人列表
 // @Summary 参会人列表
+// @Description 参会人列表
 // @Tags 会议
 // @Router /meetings/{id}/attendees [get]
+// @Security BearerAuth
 func (h *MeetingHandler) ListAttendees(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -27,8 +29,10 @@ func (h *MeetingHandler) ListAttendees(c *gin.Context) {
 
 // AddAttendees 添加参会人
 // @Summary 添加参会人
+// @Description 添加参会人
 // @Tags 会议
 // @Router /meetings/{id}/attendees [post]
+// @Security BearerAuth
 func (h *MeetingHandler) AddAttendees(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -59,8 +63,10 @@ func (h *MeetingHandler) AddAttendees(c *gin.Context) {
 
 // RemoveAttendee 移除参会人
 // @Summary 移除参会人
+// @Description 移除参会人
 // @Tags 会议
 // @Router /meetings/{id}/attendees/{uid} [delete]
+// @Security BearerAuth
 func (h *MeetingHandler) RemoveAttendee(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -81,8 +87,10 @@ func (h *MeetingHandler) RemoveAttendee(c *gin.Context) {
 
 // Checkin 会议签到
 // @Summary 会议签到
+// @Description 会议签到
 // @Tags 会议
 // @Router /meetings/{id}/checkin [post]
+// @Security BearerAuth
 func (h *MeetingHandler) Checkin(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {

@@ -11,7 +11,7 @@ type KeyInfo struct {
 // Stats is GET /system/cache/stats.
 type Stats struct {
 	Healthy  bool             `json:"healthy"`
-	Pool     cache.PoolHealth `json:"pool"`
+	Pool     cache.PoolHealth `json:"pool" swaggertype:"object"`
 	L1Hits   int64            `json:"l1_hits"`
 	L1Misses int64            `json:"l1_misses"`
 	L1Size   int              `json:"l1_size"`

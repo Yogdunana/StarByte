@@ -219,7 +219,7 @@ definitions:
     properties:
       new_password:
         maxLength: 50
-        minLength: 6
+        minLength: 8
         type: string
       old_password:
         type: string
@@ -237,6 +237,18 @@ definitions:
         type: boolean
       title:
         type: string
+    type: object
+  dto.CommentRequest:
+    properties:
+      content:
+        maxLength: 2000
+        type: string
+      mentions:
+        items:
+          type: string
+        type: array
+    required:
+    - content
     type: object
   dto.CompleteRequest:
     properties:
@@ -262,12 +274,60 @@ definitions:
     required:
     - action
     type: object
+  dto.ConfigResponse:
+    properties:
+      category:
+        type: string
+      config_key:
+        type: string
+      config_type:
+        type: string
+      config_value:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      is_public:
+        type: boolean
+      updated_at:
+        type: string
+    type: object
   dto.CountItem:
     properties:
       count:
         type: integer
       key:
         type: string
+    type: object
+  dto.CreateConfigRequest:
+    properties:
+      category:
+        maxLength: 50
+        type: string
+      config_key:
+        maxLength: 100
+        type: string
+      config_type:
+        enum:
+        - string
+        - number
+        - boolean
+        - json
+        type: string
+      config_value:
+        type: string
+      description:
+        maxLength: 255
+        type: string
+      is_public:
+        type: boolean
+    required:
+    - category
+    - config_key
+    - config_type
     type: object
   dto.CreateDefinitionRequest:
     properties:
@@ -379,6 +439,29 @@ definitions:
         type: string
     required:
     - session_id
+    type: object
+  dto.CreateItemRequest:
+    properties:
+      item_label:
+        maxLength: 100
+        type: string
+      item_value:
+        maxLength: 50
+        type: string
+      sort_order:
+        type: integer
+      status:
+        enum:
+        - 0
+        - 1
+        type: integer
+      type_code:
+        maxLength: 50
+        type: string
+    required:
+    - item_label
+    - item_value
+    - type_code
     type: object
   dto.CreateMeetingRequest:
     properties:
@@ -531,34 +614,32 @@ definitions:
     type: object
   dto.CreateTaskRequest:
     properties:
-      code:
+      assignee_id:
         type: string
-      cron_expr:
+      department_id:
         type: string
-      depends_on:
+      description:
+        type: string
+      due_date:
+        type: string
+      parent_id:
+        type: string
+      priority:
+        enum:
+        - 0
+        - 1
+        - 2
+        - 3
+        type: integer
+      tags:
         items:
           type: string
         type: array
-      handler_key:
-        type: string
-      max_retries:
-        type: integer
-      name:
-        type: string
-      payload:
-        type: string
-      run_at:
-        type: string
-      shard_key:
-        type: string
-      timeout_sec:
-        type: integer
-      timezone:
+      title:
+        maxLength: 200
         type: string
     required:
-    - code
-    - handler_key
-    - name
+    - title
     type: object
   dto.CreateTemplateRequest:
     properties:
@@ -586,6 +667,28 @@ definitions:
     - code
     - name
     - title_template
+    type: object
+  dto.CreateTypeRequest:
+    properties:
+      code:
+        maxLength: 50
+        type: string
+      description:
+        maxLength: 255
+        type: string
+      name:
+        maxLength: 100
+        type: string
+      sort_order:
+        type: integer
+      status:
+        enum:
+        - 0
+        - 1
+        type: integer
+    required:
+    - code
+    - name
     type: object
   dto.CreateUserRequest:
     properties:
@@ -670,6 +773,15 @@ definitions:
       updated_by:
         type: string
     type: object
+  dto.DeleteResult:
+    properties:
+      deleted:
+        type: integer
+      keys:
+        items:
+          type: string
+        type: array
+    type: object
   dto.DepartmentResponse:
     properties:
       children:
@@ -724,6 +836,19 @@ definitions:
       updated_at:
         type: string
     type: object
+  dto.DownloadInfo:
+    properties:
+      content_type:
+        type: string
+      expires_in:
+        type: integer
+      file_id:
+        type: string
+      filename:
+        type: string
+      url:
+        type: string
+    type: object
   dto.EvaluationItem:
     properties:
       comment:
@@ -736,11 +861,96 @@ definitions:
     required:
     - dimension
     type: object
+  dto.ExportTaskResponse:
+    properties:
+      created_at:
+        type: string
+      error:
+        type: string
+      file_id:
+        type: string
+      filename:
+        type: string
+      format:
+        type: string
+      progress:
+        type: integer
+      status:
+        type: string
+      task_id:
+        type: string
+    type: object
   dto.FieldChange:
     properties:
       after: {}
       before: {}
       path:
+        type: string
+    type: object
+  dto.FileDetailResponse:
+    properties:
+      bucket:
+        type: string
+      category:
+        type: string
+      created_at:
+        type: string
+      file_size:
+        type: integer
+      filename:
+        type: string
+      id:
+        type: string
+      is_public:
+        type: boolean
+      mime_type:
+        type: string
+      name:
+        type: string
+      original_name:
+        type: string
+      path:
+        type: string
+      size:
+        type: integer
+      storage_type:
+        type: string
+      thumbnail_url:
+        type: string
+      uploaded_at:
+        type: string
+      uploader:
+        $ref: '#/definitions/dto.UploaderInfo'
+      uploader_id:
+        type: string
+      uploader_name:
+        type: string
+      url:
+        type: string
+    type: object
+  dto.FileUploadResponse:
+    properties:
+      category:
+        type: string
+      file_size:
+        type: integer
+      filename:
+        type: string
+      id:
+        type: string
+      mime_type:
+        type: string
+      name:
+        type: string
+      original_name:
+        type: string
+      size:
+        type: integer
+      thumbnail_url:
+        type: string
+      uploaded_at:
+        type: string
+      url:
         type: string
     type: object
   dto.FormDetail:
@@ -877,6 +1087,34 @@ definitions:
       ranking_visible:
         type: boolean
     type: object
+  dto.ItemResponse:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      item_label:
+        type: string
+      item_value:
+        type: string
+      sort_order:
+        type: integer
+      status:
+        type: integer
+      type_code:
+        type: string
+      type_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  dto.KeyInfo:
+    properties:
+      key:
+        type: string
+      ttl_seconds:
+        type: integer
+    type: object
   dto.LoginRequest:
     properties:
       password:
@@ -965,6 +1203,13 @@ definitions:
       total_tasks_in_progress:
         type: integer
     type: object
+  dto.ParentRef:
+    properties:
+      id:
+        type: string
+      title:
+        type: string
+    type: object
   dto.PermissionResponse:
     properties:
       action:
@@ -1047,6 +1292,13 @@ definitions:
       updated_at:
         type: string
     type: object
+  dto.Person:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+    type: object
   dto.PositionResponse:
     properties:
       code:
@@ -1069,6 +1321,15 @@ definitions:
         type: string
       vote_weight:
         type: number
+    type: object
+  dto.ProjectItem:
+    properties:
+      name:
+        type: string
+      period:
+        type: string
+      role:
+        type: string
     type: object
   dto.ProviderInfo:
     properties:
@@ -1358,6 +1619,44 @@ definitions:
     - template_code
     - user_ids
     type: object
+  dto.SessionListResponse:
+    properties:
+      list:
+        items:
+          $ref: '#/definitions/dto.SessionView'
+        type: array
+      total:
+        type: integer
+    type: object
+  dto.SessionView:
+    properties:
+      browser:
+        type: string
+      device:
+        type: string
+      expires_at:
+        type: string
+      ip:
+        type: string
+      login_at:
+        type: string
+      multi_device:
+        type: boolean
+      multi_ip:
+        type: boolean
+      os:
+        type: string
+      real_name:
+        type: string
+      token_id:
+        type: string
+      user_agent:
+        type: string
+      user_id:
+        type: string
+      username:
+        type: string
+    type: object
   dto.StartInstanceRequest:
     properties:
       business_key:
@@ -1373,6 +1672,27 @@ definitions:
         type: object
     required:
     - definition_id
+    type: object
+  dto.Stats:
+    properties:
+      healthy:
+        type: boolean
+      key_count:
+        type: integer
+      keys:
+        items:
+          $ref: '#/definitions/dto.KeyInfo'
+        type: array
+      l1_hits:
+        type: integer
+      l1_misses:
+        type: integer
+      l1_size:
+        type: integer
+      pattern:
+        type: string
+      pool:
+        type: object
     type: object
   dto.StatsResult:
     properties:
@@ -1464,47 +1784,92 @@ definitions:
     required:
     - reason
     type: object
-  dto.TaskResponse:
+  dto.TableExportRequest:
     properties:
-      code:
-        type: string
-      created_at:
-        type: string
-      cron_expr:
-        type: string
-      depends_on:
+      columns:
         items:
           type: string
         type: array
-      handler_key:
+      delimiter:
         type: string
+      filename:
+        type: string
+      rows:
+        items:
+          items:
+            type: string
+          type: array
+        type: array
+      sheet:
+        type: string
+      title:
+        type: string
+    type: object
+  dto.TaskBrief:
+    properties:
       id:
-        type: string
-      last_run_at:
-        type: string
-      last_status:
-        type: string
-      max_retries:
-        type: integer
-      name:
-        type: string
-      next_run_at:
-        type: string
-      payload:
-        type: string
-      retry_count:
-        type: integer
-      run_at:
-        type: string
-      shard_key:
         type: string
       status:
         type: integer
-      timeout_sec:
+      title:
+        type: string
+    type: object
+  dto.TaskResponse:
+    properties:
+      assignee:
+        $ref: '#/definitions/dto.Person'
+      attachment_count:
         type: integer
-      timezone:
+      children:
+        items:
+          $ref: '#/definitions/dto.TaskBrief'
+        type: array
+      comment_count:
+        type: integer
+      completed_at:
+        type: string
+      created_at:
+        type: string
+      creator:
+        $ref: '#/definitions/dto.Person'
+      department:
+        $ref: '#/definitions/dto.Person'
+      description:
+        type: string
+      due_date:
+        type: string
+      id:
+        type: string
+      parent:
+        $ref: '#/definitions/dto.ParentRef'
+      priority:
+        type: integer
+      progress:
+        type: integer
+      status:
+        type: integer
+      tags:
+        items:
+          type: string
+        type: array
+      title:
         type: string
       updated_at:
+        type: string
+    type: object
+  dto.TemplateExportRequest:
+    properties:
+      filename:
+        type: string
+      variables:
+        additionalProperties:
+          type: string
+        type: object
+      vars:
+        additionalProperties:
+          type: string
+        type: object
+      watermark:
         type: string
     type: object
   dto.TerminateInstanceRequest:
@@ -1530,6 +1895,47 @@ definitions:
         type: string
     required:
     - target_user_id
+    type: object
+  dto.TypeResponse:
+    properties:
+      code:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      is_system:
+        type: boolean
+      name:
+        type: string
+      sort_order:
+        type: integer
+      status:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  dto.UpdateConfigRequest:
+    properties:
+      category:
+        maxLength: 50
+        type: string
+      config_type:
+        enum:
+        - string
+        - number
+        - boolean
+        - json
+        type: string
+      config_value:
+        type: string
+      description:
+        maxLength: 255
+        type: string
+      is_public:
+        type: boolean
     type: object
   dto.UpdateDefinitionRequest:
     properties:
@@ -1604,6 +2010,19 @@ definitions:
         - 2
         type: integer
     type: object
+  dto.UpdateItemRequest:
+    properties:
+      item_label:
+        maxLength: 100
+        type: string
+      sort_order:
+        type: integer
+      status:
+        enum:
+        - 0
+        - 1
+        type: integer
+    type: object
   dto.UpdatePermissionRequest:
     properties:
       description:
@@ -1648,10 +2067,14 @@ definitions:
     type: object
   dto.UpdateProfileRequest:
     properties:
-      avatar_url:
-        maxLength: 500
+      bio:
+        maxLength: 2000
         type: string
-      email:
+      contact_email:
+        maxLength: 100
+        type: string
+      contact_phone:
+        maxLength: 20
         type: string
       gender:
         enum:
@@ -1659,12 +2082,23 @@ definitions:
         - 1
         - 2
         type: integer
-      phone:
+      grade:
         maxLength: 20
         type: string
+      major:
+        maxLength: 100
+        type: string
+      projects:
+        items:
+          $ref: '#/definitions/dto.ProjectItem'
+        type: array
       real_name:
         maxLength: 50
         type: string
+      skills:
+        items:
+          type: string
+        type: array
     type: object
   dto.UpdateProfileStatusRequest:
     properties:
@@ -1721,6 +2155,22 @@ definitions:
           type: string
         type: object
     type: object
+  dto.UpdateTypeRequest:
+    properties:
+      description:
+        maxLength: 255
+        type: string
+      name:
+        maxLength: 100
+        type: string
+      sort_order:
+        type: integer
+      status:
+        enum:
+        - 0
+        - 1
+        type: integer
+    type: object
   dto.UpdateUserRequest:
     properties:
       department_id:
@@ -1751,6 +2201,13 @@ definitions:
         - 1
         - 2
         type: integer
+    type: object
+  dto.UploaderInfo:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
     type: object
   dto.UserInfo:
     properties:
@@ -1845,6 +2302,23 @@ definitions:
       username:
         type: string
     type: object
+  dto.UserSessionsResponse:
+    properties:
+      multi_device:
+        type: boolean
+      multi_ip:
+        type: boolean
+      real_name:
+        type: string
+      sessions:
+        items:
+          $ref: '#/definitions/dto.SessionView'
+        type: array
+      user_id:
+        type: string
+      username:
+        type: string
+    type: object
   dto.VersionResponse:
     properties:
       bpmn_data:
@@ -1862,6 +2336,35 @@ definitions:
       status:
         type: integer
       version:
+        type: integer
+    type: object
+  dto.WarmupEntry:
+    properties:
+      key:
+        type: string
+      ttl_seconds:
+        type: integer
+      value:
+        type: string
+    required:
+    - key
+    type: object
+  dto.WarmupRequest:
+    properties:
+      entries:
+        items:
+          $ref: '#/definitions/dto.WarmupEntry'
+        type: array
+      scan_prefix:
+        type: string
+    type: object
+  dto.WarmupResult:
+    properties:
+      keys:
+        items:
+          type: string
+        type: array
+      loaded:
         type: integer
     type: object
   dto.WechatLoginRequest:
@@ -1982,6 +2485,14 @@ paths:
                 data:
                   $ref: '#/definitions/dto.LoginResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       summary: 用户登录
       tags:
       - 认证
@@ -2003,8 +2514,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 用户登出
       tags:
       - 认证
@@ -2023,8 +2542,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.UserInfo'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取当前用户信息
       tags:
       - 认证
@@ -2052,6 +2579,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 第三方 OAuth 登录（预留）
       tags:
       - 认证
@@ -2074,8 +2611,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 修改密码
       tags:
       - 认证
@@ -2103,6 +2648,14 @@ paths:
                 data:
                   $ref: '#/definitions/dto.RefreshResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       summary: 刷新 Token
       tags:
       - 认证
@@ -2125,7 +2678,152 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
       summary: 用户注册
+      tags:
+      - 认证
+  /auth/sessions:
+    get:
+      description: 管理员查看当前在线 Access Token 会话，可按关键词或用户筛选
+      parameters:
+      - description: 关键词
+        in: query
+        name: keyword
+        type: string
+      - description: 用户 ID
+        in: query
+        name: user_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.SessionListResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 在线会话列表
+      tags:
+      - 认证
+  /auth/sessions/{token}:
+    delete:
+      description: 按 token 标识强制下线一个会话
+      parameters:
+      - description: 会话 token 标识
+        in: path
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 踢出单个会话
+      tags:
+      - 认证
+  /auth/sessions/{user_id}:
+    get:
+      description: 查看某一用户当前全部在线会话
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.UserSessionsResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 指定用户的在线会话
+      tags:
+      - 认证
+  /auth/sessions/user/{user_id}:
+    delete:
+      description: 强制下线指定用户的全部在线会话
+      parameters:
+      - description: 用户 ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 踢出用户全部会话
       tags:
       - 认证
   /auth/wechat/callback:
@@ -2147,6 +2845,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 微信登录回调（预留）
       tags:
       - 认证
@@ -2160,9 +2868,513 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 获取微信登录二维码（预留）
       tags:
       - 认证
+  /export/csv:
+    post:
+      consumes:
+      - application/json
+      description: 将表格数据导出为 csv
+      parameters:
+      - description: 表格数据
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.TableExportRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ExportTaskResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 导出 CSV
+      tags:
+      - 导出
+  /export/download/{file_id}:
+    get:
+      description: 默认返回预签名信息；stream=1 时直接输出字节流
+      parameters:
+      - description: 文件 ID
+        in: path
+        name: file_id
+        required: true
+        type: string
+      - description: 1 表示直接下载字节流
+        in: query
+        name: stream
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.DownloadInfo'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 下载导出文件
+      tags:
+      - 导出
+  /export/excel:
+    post:
+      consumes:
+      - application/json
+      description: 将表格数据导出为 xlsx
+      parameters:
+      - description: 表格数据
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.TableExportRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ExportTaskResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 导出 Excel
+      tags:
+      - 导出
+  /export/json:
+    post:
+      consumes:
+      - application/json
+      description: 将表格数据导出为 json
+      parameters:
+      - description: 表格数据
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.TableExportRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ExportTaskResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 导出 JSON
+      tags:
+      - 导出
+  /export/pdf:
+    post:
+      consumes:
+      - application/json
+      description: 将表格数据导出为 pdf
+      parameters:
+      - description: 表格数据
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.TableExportRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ExportTaskResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 导出 PDF
+      tags:
+      - 导出
+  /export/tasks/{task_id}:
+    get:
+      description: 查询异步导出任务进度与结果文件
+      parameters:
+      - description: 任务 ID
+        in: path
+        name: task_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ExportTaskResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 导出任务状态
+      tags:
+      - 导出
+  /export/template/{template_id}:
+    post:
+      consumes:
+      - application/json
+      description: 使用内置 HTML 模板生成导出文件
+      parameters:
+      - description: 模板 ID
+        in: path
+        name: template_id
+        required: true
+        type: string
+      - description: 模板变量
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/dto.TemplateExportRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ExportTaskResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 按模板导出
+      tags:
+      - 导出
+  /export/templates:
+    get:
+      description: 列出内置打印/导出模板
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 导出模板列表
+      tags:
+      - 导出
+  /files:
+    get:
+      description: 分页查询已上传文件
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: page_size
+        type: integer
+      - description: 分类
+        in: query
+        name: category
+        type: string
+      - description: 关键词
+        in: query
+        name: keyword
+        type: string
+      - description: 上传者 ID
+        in: query
+        name: uploader_id
+        type: string
+      - description: MIME 类型
+        in: query
+        name: mime_type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 文件列表
+      tags:
+      - 文件
+  /files/{id}:
+    delete:
+      description: 删除文件记录及对象存储中的对象；上传者或持 file:delete 可删
+      parameters:
+      - description: 文件 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除文件
+      tags:
+      - 文件
+    get:
+      description: 按 ID 获取文件元数据
+      parameters:
+      - description: 文件 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.FileDetailResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 文件详情
+      tags:
+      - 文件
+  /files/{id}/download:
+    get:
+      description: 签发预签名地址并 302 跳转
+      parameters:
+      - description: 文件 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "302":
+          description: 跳转到对象存储预签名 URL
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 下载文件
+      tags:
+      - 文件
+  /files/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 单文件上传到对象存储
+      parameters:
+      - description: 文件
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: 分类
+        in: formData
+        name: category
+        type: string
+      - description: 是否公开
+        in: formData
+        name: is_public
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.FileUploadResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 上传文件
+      tags:
+      - 文件
+  /files/upload-batch:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 一次上传多个文件，表单字段名为 files 或 files[]
+      parameters:
+      - description: 文件列表
+        in: formData
+        name: files
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 批量上传文件
+      tags:
+      - 文件
   /forms:
     get:
       description: 列出表单定义；无 form:read 时仅返回已发布表单
@@ -2371,15 +3583,19 @@ paths:
       - 表单
   /internships:
     get:
+      description: 实习列表
       produces:
       - application/json
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 实习列表
       tags:
       - 实习
     post:
       consumes:
       - application/json
+      description: 创建实习记录
       parameters:
       - description: 实习
         in: body
@@ -2394,11 +3610,22 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 创建实习记录
       tags:
       - 实习
   /internships/{id}:
     delete:
+      description: 删除实习
       parameters:
       - description: 实习ID
         in: path
@@ -2412,10 +3639,21 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 删除实习
       tags:
       - 实习
     get:
+      description: 实习详情
       parameters:
       - description: 实习ID
         in: path
@@ -2429,12 +3667,23 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 实习详情
       tags:
       - 实习
     put:
       consumes:
       - application/json
+      description: 更新实习
       parameters:
       - description: 实习ID
         in: path
@@ -2454,6 +3703,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 更新实习
       tags:
       - 实习
@@ -2461,6 +3720,7 @@ paths:
     post:
       consumes:
       - application/json
+      description: 完成实习
       parameters:
       - description: 实习ID
         in: path
@@ -2480,6 +3740,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 完成实习
       tags:
       - 实习
@@ -2487,6 +3757,7 @@ paths:
     post:
       consumes:
       - application/json
+      description: 指导老师评价
       parameters:
       - description: 实习ID
         in: path
@@ -2506,6 +3777,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 指导老师评价
       tags:
       - 实习
@@ -2513,6 +3794,7 @@ paths:
     post:
       consumes:
       - application/json
+      description: 提交实习报告
       parameters:
       - description: 实习ID
         in: path
@@ -2532,43 +3814,66 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 提交实习报告
       tags:
       - 实习
   /internships/my:
     get:
+      description: 我的实习
       produces:
       - application/json
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 我的实习
       tags:
       - 实习
   /internships/stats/department:
     get:
+      description: 部门统计
       produces:
       - application/json
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 部门统计
       tags:
       - 实习
   /internships/stats/duration:
     get:
+      description: 时长统计
       produces:
       - application/json
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 时长统计
       tags:
       - 实习
   /internships/stats/ranking:
     get:
+      description: 实习排行榜
       produces:
       - application/json
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 实习排行榜
       tags:
       - 实习
   /interviews:
     get:
+      description: 面试列表
       produces:
       - application/json
       responses:
@@ -2576,12 +3881,23 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 面试列表
       tags:
       - 面试
     post:
       consumes:
       - application/json
+      description: 创建面试记录
       parameters:
       - description: 面试
         in: body
@@ -2596,11 +3912,22 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 创建面试记录
       tags:
       - 面试
   /interviews/{id}:
     get:
+      description: 面试详情
       parameters:
       - description: 面试ID
         in: path
@@ -2612,11 +3939,22 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 面试详情
       tags:
       - 面试
   /interviews/{id}/assign:
     post:
+      description: 分配面试官
       parameters:
       - description: 面试ID
         in: path
@@ -2628,11 +3966,22 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 分配面试官
       tags:
       - 面试
   /interviews/{id}/checkin:
     post:
+      description: 面试签到
       parameters:
       - description: 面试ID
         in: path
@@ -2644,11 +3993,22 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 面试签到
       tags:
       - 面试
   /interviews/{id}/end:
     post:
+      description: 结束面试
       parameters:
       - description: 面试ID
         in: path
@@ -2660,11 +4020,22 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 结束面试
       tags:
       - 面试
   /interviews/{id}/evaluations:
     get:
+      description: 查看评分
       parameters:
       - description: 面试ID
         in: path
@@ -2676,12 +4047,23 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 查看评分
       tags:
       - 面试
     post:
       consumes:
       - application/json
+      description: 提交评分
       parameters:
       - description: 面试ID
         in: path
@@ -2701,11 +4083,22 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 提交评分
       tags:
       - 面试
   /interviews/{id}/evaluations/{eid}:
     put:
+      description: 更新评分
       parameters:
       - description: 面试ID
         in: path
@@ -2722,11 +4115,22 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 更新评分
       tags:
       - 面试
   /interviews/{id}/result:
     post:
+      description: 提交面试结果
       parameters:
       - description: 面试ID
         in: path
@@ -2738,11 +4142,22 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 提交面试结果
       tags:
       - 面试
   /interviews/{id}/start:
     post:
+      description: 开始面试
       parameters:
       - description: 面试ID
         in: path
@@ -2754,49 +4169,104 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 开始面试
       tags:
       - 面试
   /interviews/dimensions:
     get:
+      description: 评分维度列表
       responses:
         "200":
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 评分维度列表
       tags:
       - 面试
     post:
+      description: 创建评分维度
       responses:
         "200":
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 创建评分维度
       tags:
       - 面试
   /interviews/dimensions/{id}:
     delete:
+      description: 删除评分维度
       responses:
         "200":
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 删除评分维度
       tags:
       - 面试
     put:
+      description: 更新评分维度
       responses:
         "200":
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 更新评分维度
       tags:
       - 面试
   /interviews/my:
     get:
+      description: 我的面试
       produces:
       - application/json
       responses:
@@ -2804,11 +4274,22 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 我的面试
       tags:
       - 面试
   /interviews/sessions:
     get:
+      description: 场次列表
       produces:
       - application/json
       responses:
@@ -2816,12 +4297,23 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 场次列表
       tags:
       - 面试
     post:
       consumes:
       - application/json
+      description: 创建面试场次
       parameters:
       - description: 场次
         in: body
@@ -2836,11 +4328,22 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 创建面试场次
       tags:
       - 面试
   /interviews/sessions/{id}:
     delete:
+      description: 删除场次
       parameters:
       - description: 场次ID
         in: path
@@ -2852,10 +4355,21 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 删除场次
       tags:
       - 面试
     get:
+      description: 场次详情
       parameters:
       - description: 场次ID
         in: path
@@ -2869,12 +4383,23 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 场次详情
       tags:
       - 面试
     put:
       consumes:
       - application/json
+      description: 更新场次
       parameters:
       - description: 场次ID
         in: path
@@ -2888,11 +4413,22 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 更新场次
       tags:
       - 面试
   /interviews/sessions/{id}/end:
     post:
+      description: 结束场次
       parameters:
       - description: 场次ID
         in: path
@@ -2904,11 +4440,22 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 结束场次
       tags:
       - 面试
   /interviews/sessions/{id}/qrcode:
     get:
+      description: 获取签到二维码
       parameters:
       - description: 场次ID
         in: path
@@ -2920,11 +4467,22 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 获取签到二维码
       tags:
       - 面试
   /interviews/sessions/{id}/start:
     post:
+      description: 开始场次
       parameters:
       - description: 场次ID
         in: path
@@ -2936,21 +4494,43 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 开始场次
       tags:
       - 面试
   /interviews/stats:
     get:
+      description: 面试统计
       responses:
         "200":
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 面试统计
       tags:
       - 面试
   /meetings:
     get:
+      description: 会议列表
       produces:
       - application/json
       responses:
@@ -2958,12 +4538,23 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 会议列表
       tags:
       - 会议
     post:
       consumes:
       - application/json
+      description: 创建会议
       parameters:
       - description: 会议
         in: body
@@ -2978,16 +4569,30 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 创建会议
       tags:
       - 会议
   /meetings/{id}:
     delete:
+      description: 删除会议
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 删除会议
       tags:
       - 会议
     get:
+      description: 会议详情
       parameters:
       - description: 会议ID
         in: path
@@ -3001,108 +4606,170 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 会议详情
       tags:
       - 会议
     put:
+      description: 更新会议
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 更新会议
       tags:
       - 会议
   /meetings/{id}/agendas:
     get:
+      description: 议程列表
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 议程列表
       tags:
       - 会议
     post:
+      description: 添加议程
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 添加议程
       tags:
       - 会议
   /meetings/{id}/agendas/{aid}:
     delete:
+      description: 删除议程
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 删除议程
       tags:
       - 会议
     put:
+      description: 更新议程
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 更新议程
       tags:
       - 会议
   /meetings/{id}/agendas/sort:
     put:
+      description: 排序议程
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 排序议程
       tags:
       - 会议
   /meetings/{id}/attendees:
     get:
+      description: 参会人列表
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 参会人列表
       tags:
       - 会议
     post:
+      description: 添加参会人
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 添加参会人
       tags:
       - 会议
   /meetings/{id}/attendees/{uid}:
     delete:
+      description: 移除参会人
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 移除参会人
       tags:
       - 会议
   /meetings/{id}/cancel:
     post:
+      description: 取消会议
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 取消会议
       tags:
       - 会议
   /meetings/{id}/checkin:
     post:
+      description: 会议签到
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 会议签到
       tags:
       - 会议
   /meetings/{id}/end:
     post:
+      description: 结束会议
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 结束会议
       tags:
       - 会议
   /meetings/{id}/minutes:
     put:
+      description: 更新纪要
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 更新纪要
       tags:
       - 会议
   /meetings/{id}/qrcode:
     get:
+      description: 获取签到二维码
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 获取签到二维码
       tags:
       - 会议
   /meetings/{id}/start:
     post:
+      description: 开始会议
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 开始会议
       tags:
       - 会议
   /meetings/{id}/votes:
     get:
+      description: 投票列表
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 投票列表
       tags:
       - 会议
     post:
+      description: 创建投票
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 创建投票
       tags:
       - 会议
   /member/applications:
     get:
+      description: 申请列表
       produces:
       - application/json
       responses:
@@ -3110,12 +4777,23 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 申请列表
       tags:
       - 会员
     post:
       consumes:
       - application/json
+      description: 提交入会申请
       parameters:
       - description: 申请
         in: body
@@ -3130,11 +4808,22 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 提交入会申请
       tags:
       - 会员
   /member/applications/{id}:
     get:
+      description: 申请详情
       parameters:
       - description: 申请ID
         in: path
@@ -3148,6 +4837,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 申请详情
       tags:
       - 会员
@@ -3155,6 +4854,7 @@ paths:
     post:
       consumes:
       - application/json
+      description: 审核通过
       parameters:
       - description: 申请ID
         in: path
@@ -3174,11 +4874,22 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 审核通过
       tags:
       - 会员
   /member/applications/{id}/history:
     get:
+      description: 申请历史
       parameters:
       - description: 申请ID
         in: path
@@ -3192,6 +4903,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 申请历史
       tags:
       - 会员
@@ -3199,6 +4920,7 @@ paths:
     post:
       consumes:
       - application/json
+      description: 审核拒绝
       parameters:
       - description: 申请ID
         in: path
@@ -3218,6 +4940,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 审核拒绝
       tags:
       - 会员
@@ -3225,6 +4957,7 @@ paths:
     post:
       consumes:
       - application/json
+      description: 补充材料后重新提交
       parameters:
       - description: 申请ID
         in: path
@@ -3244,6 +4977,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 补充材料后重新提交
       tags:
       - 会员
@@ -3251,6 +4994,7 @@ paths:
     post:
       consumes:
       - application/json
+      description: 要求补充材料
       parameters:
       - description: 申请ID
         in: path
@@ -3270,11 +5014,22 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 要求补充材料
       tags:
       - 会员
   /member/applications/my:
     get:
+      description: 我的申请
       produces:
       - application/json
       responses:
@@ -3282,11 +5037,22 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 我的申请
       tags:
       - 会员
   /member/departments:
     get:
+      description: 入会意向部门
       produces:
       - application/json
       responses:
@@ -3294,11 +5060,22 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 入会意向部门
       tags:
       - 会员
   /member/profiles:
     get:
+      description: 档案列表
       produces:
       - application/json
       responses:
@@ -3306,11 +5083,22 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 档案列表
       tags:
       - 会员
   /member/profiles/{id}:
     get:
+      description: 档案详情
       parameters:
       - description: 档案ID
         in: path
@@ -3324,12 +5112,23 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 档案详情
       tags:
       - 会员
     put:
       consumes:
       - application/json
+      description: 更新档案
       parameters:
       - description: 档案ID
         in: path
@@ -3349,11 +5148,22 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 更新档案
       tags:
       - 会员
   /member/profiles/{id}/history:
     get:
+      description: 档案变更历史
       parameters:
       - description: 档案ID
         in: path
@@ -3367,6 +5177,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 档案变更历史
       tags:
       - 会员
@@ -3374,6 +5194,7 @@ paths:
     put:
       consumes:
       - application/json
+      description: 变更档案状态
       parameters:
       - description: 档案ID
         in: path
@@ -3393,11 +5214,22 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 变更档案状态
       tags:
       - 会员
   /member/profiles/export:
     get:
+      description: 导出档案 PDF
       produces:
       - application/pdf
       responses:
@@ -3405,11 +5237,22 @@ paths:
           description: OK
           schema:
             type: file
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 导出档案 PDF
       tags:
       - 会员
   /member/stats/applications:
     get:
+      description: 申请统计
       parameters:
       - description: 开始日期
         in: query
@@ -3430,11 +5273,22 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 申请统计
       tags:
       - 会员
   /member/stats/members:
     get:
+      description: 会员分布
       parameters:
       - description: department/grade/type/status
         in: query
@@ -3447,6 +5301,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 会员分布
       tags:
       - 会员
@@ -3477,8 +5341,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 通知列表（分页）
       tags:
       - 通知
@@ -3498,8 +5370,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 删除通知
       tags:
       - 通知
@@ -3519,8 +5399,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 标记通知已读
       tags:
       - 通知
@@ -3528,6 +5416,7 @@ paths:
     post:
       consumes:
       - application/json
+      description: 批量发送邮件
       parameters:
       - description: 批量发送
         in: body
@@ -3547,13 +5436,22 @@ paths:
                 data:
                   $ref: '#/definitions/dto.BatchSendEmailResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 批量发送邮件
       tags:
       - 通知
   /notifications/email/logs:
     get:
+      description: 邮件发送记录
       parameters:
       - description: 页码
         in: query
@@ -3574,8 +5472,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 邮件发送记录
       tags:
       - 通知
@@ -3583,6 +5489,7 @@ paths:
     post:
       consumes:
       - application/json
+      description: 发送邮件
       parameters:
       - description: 发送参数
         in: body
@@ -3602,8 +5509,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.SendEmailResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 发送邮件
       tags:
       - 通知
@@ -3623,8 +5538,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 全部已读
       tags:
       - 通知
@@ -3638,13 +5561,22 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 未读通知计数
       tags:
       - 通知
   /stats/{provider}:
     get:
+      description: 获取指定提供者的统计数据
       parameters:
       - description: 提供者名称
         in: path
@@ -3683,13 +5615,22 @@ paths:
                 data:
                   $ref: '#/definitions/dto.StatsResult'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取指定提供者的统计数据
       tags:
       - 数据统计
   /stats/export/{provider}:
     get:
+      description: 导出统计数据 CSV/Excel
       parameters:
       - description: 提供者名称
         in: path
@@ -3710,13 +5651,22 @@ paths:
           description: 导出文件
           schema:
             type: file
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 导出统计数据 CSV/Excel
       tags:
       - 数据统计
   /stats/overview:
     get:
+      description: 获取统计概览
       produces:
       - application/json
       responses:
@@ -3729,13 +5679,22 @@ paths:
                 data:
                   $ref: '#/definitions/dto.OverviewResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取统计概览
       tags:
       - 数据统计
   /stats/providers:
     get:
+      description: 列出统计提供者
       produces:
       - application/json
       responses:
@@ -3750,8 +5709,16 @@ paths:
                     $ref: '#/definitions/dto.ProviderInfo'
                   type: array
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 列出统计提供者
       tags:
       - 数据统计
@@ -3820,13 +5787,22 @@ paths:
                         type: array
                     type: object
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取审计日志列表
       tags:
       - 审计日志
   /system/audit-logs/{id}:
     get:
+      description: 获取审计日志详情
       parameters:
       - description: 审计日志ID
         in: path
@@ -3845,8 +5821,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.AuditLogResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取审计日志详情
       tags:
       - 审计日志
@@ -3854,6 +5838,7 @@ paths:
     post:
       consumes:
       - application/json
+      description: 手动触发归档
       parameters:
       - description: 归档参数
         in: body
@@ -3872,13 +5857,22 @@ paths:
                 data:
                   $ref: '#/definitions/dto.ArchiveResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 手动触发归档
       tags:
       - 审计日志
   /system/audit-logs/archives:
     get:
+      description: 归档查询
       parameters:
       - description: 归档ID，传入则拉取对象内容
         in: query
@@ -3891,8 +5885,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 归档查询
       tags:
       - 审计日志
@@ -3915,13 +5917,22 @@ paths:
           description: 导出文件
           schema:
             type: file
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 导出审计日志
       tags:
       - 审计日志
   /system/audit-logs/reports:
     get:
+      description: 审计合规报告
       parameters:
       - description: json/csv/pdf/excel
         in: query
@@ -3939,13 +5950,22 @@ paths:
                 data:
                   $ref: '#/definitions/dto.ReportResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 审计合规报告
       tags:
       - 审计日志
   /system/audit-logs/traces/{entity_type}/{entity_id}:
     get:
+      description: 实体变更追踪
       parameters:
       - description: 实体类型
         in: path
@@ -3976,11 +5996,321 @@ paths:
                         type: array
                     type: object
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 实体变更追踪
       tags:
       - 审计日志
+  /system/cache/{key}:
+    delete:
+      description: 按完整键名删除 Redis 缓存
+      parameters:
+      - description: 缓存键
+        in: path
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.DeleteResult'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除单个缓存键
+      tags:
+      - 缓存
+  /system/cache/pattern/{pattern}:
+    delete:
+      description: 按 glob 模式批量删除缓存键
+      parameters:
+      - description: 匹配模式
+        in: path
+        name: pattern
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.DeleteResult'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 按模式清除缓存
+      tags:
+      - 缓存
+  /system/cache/stats:
+    get:
+      description: 查看 Redis 连接池与按 pattern 扫描的键
+      parameters:
+      - description: 键匹配模式
+        in: query
+        name: pattern
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.Stats'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 缓存统计
+      tags:
+      - 缓存
+  /system/cache/warmup:
+    post:
+      consumes:
+      - application/json
+      description: 将指定键写入 L1/L2 缓存
+      parameters:
+      - description: 预热条目
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.WarmupRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.WarmupResult'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 缓存预热
+      tags:
+      - 缓存
+  /system/configs:
+    get:
+      description: 按分类或关键词列出系统运行时配置
+      parameters:
+      - description: 分类
+        in: query
+        name: category
+        type: string
+      - description: 关键词
+        in: query
+        name: keyword
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 运行时配置列表
+      tags:
+      - 系统配置
+    post:
+      consumes:
+      - application/json
+      description: 新增一条系统运行时配置
+      parameters:
+      - description: 配置
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ConfigResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建运行时配置
+      tags:
+      - 系统配置
+  /system/configs/{id}:
+    delete:
+      description: 按 ID 删除一条运行时配置
+      parameters:
+      - description: 配置 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除运行时配置
+      tags:
+      - 系统配置
+    put:
+      consumes:
+      - application/json
+      description: 按 ID 更新运行时配置值
+      parameters:
+      - description: 配置 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 更新内容
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ConfigResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新运行时配置
+      tags:
+      - 系统配置
+  /system/configs/key/{key}:
+    get:
+      description: 根据 config_key 获取一条运行时配置
+      parameters:
+      - description: 配置键
+        in: path
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ConfigResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 按键读取配置
+      tags:
+      - 系统配置
   /system/departments:
     get:
       description: 获取完整的部门树形结构
@@ -3998,8 +6328,16 @@ paths:
                     $ref: '#/definitions/dto.DepartmentTreeResponse'
                   type: array
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取部门树
       tags:
       - 部门管理
@@ -4026,8 +6364,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.DepartmentResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 创建部门
       tags:
       - 部门管理
@@ -4047,8 +6393,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 删除部门
       tags:
       - 部门管理
@@ -4072,8 +6426,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.DepartmentResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取部门详情
       tags:
       - 部门管理
@@ -4105,13 +6467,65 @@ paths:
                 data:
                   $ref: '#/definitions/dto.DepartmentResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 更新部门
       tags:
       - 部门管理
-  /system/internship-config:
-    get:
+  /system/dicts:
+    post:
+      consumes:
+      - application/json
+      description: 在指定字典类型下新增选项
+      parameters:
+      - description: 字典项
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateItemRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ItemResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建字典项
+      tags:
+      - 数据字典
+  /system/dicts/{id}:
+    delete:
+      description: 删除一条数据字典项
+      parameters:
+      - description: 字典项 ID
+        in: path
+        name: id
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -4119,12 +6533,245 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除字典项
+      tags:
+      - 数据字典
+    put:
+      consumes:
+      - application/json
+      description: 更新字典项标签、排序或状态
+      parameters:
+      - description: 字典项 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 更新内容
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateItemRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ItemResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新字典项
+      tags:
+      - 数据字典
+  /system/dicts/{type}:
+    get:
+      description: 按类型编码列出字典项；默认仅启用项，all=1 需 dict:read
+      parameters:
+      - description: 类型编码
+        in: path
+        name: type
+        required: true
+        type: string
+      - description: 传 1 返回全部含停用项
+        in: query
+        name: all
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 字典项列表
+      tags:
+      - 数据字典
+  /system/dicts/types:
+    get:
+      description: 列出全部数据字典类型
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 字典类型列表
+      tags:
+      - 数据字典
+    post:
+      consumes:
+      - application/json
+      description: 新建数据字典类型
+      parameters:
+      - description: 字典类型
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateTypeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.TypeResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建字典类型
+      tags:
+      - 数据字典
+  /system/dicts/types/{id}:
+    delete:
+      description: 删除非系统字典类型及其字典项
+      parameters:
+      - description: 类型 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除字典类型
+      tags:
+      - 数据字典
+    put:
+      consumes:
+      - application/json
+      description: 更新数据字典类型名称、排序或状态
+      parameters:
+      - description: 类型 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 更新内容
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateTypeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.TypeResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新字典类型
+      tags:
+      - 数据字典
+  /system/internship-config:
+    get:
+      description: 获取实习配置
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 获取实习配置
       tags:
       - 实习
     put:
       consumes:
       - application/json
+      description: 更新实习配置
       parameters:
       - description: 配置
         in: body
@@ -4139,6 +6786,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 更新实习配置
       tags:
       - 实习
@@ -4165,8 +6822,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 模板列表
       tags:
       - 系统管理-通知模板
@@ -4188,8 +6853,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 创建通知模板
       tags:
       - 系统管理-通知模板
@@ -4209,8 +6882,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 删除模板
       tags:
       - 系统管理-通知模板
@@ -4229,8 +6910,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 模板详情
       tags:
       - 系统管理-通知模板
@@ -4257,8 +6946,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 更新模板
       tags:
       - 系统管理-通知模板
@@ -4286,8 +6983,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 测试模板
       tags:
       - 系统管理-通知模板
@@ -4310,8 +7015,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 广播通知（管理员）
       tags:
       - 系统管理-通知
@@ -4334,8 +7047,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 发送通知（管理员）
       tags:
       - 系统管理-通知
@@ -4356,8 +7077,16 @@ paths:
                     $ref: '#/definitions/dto.PermissionTreeResponse'
                   type: array
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取权限树
       tags:
       - 权限管理
@@ -4384,8 +7113,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.PermissionResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 创建权限
       tags:
       - 权限管理
@@ -4405,8 +7142,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 删除权限
       tags:
       - 权限管理
@@ -4430,8 +7175,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.PermissionResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取权限详情
       tags:
       - 权限管理
@@ -4463,8 +7216,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.PermissionResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 更新权限
       tags:
       - 权限管理
@@ -4507,8 +7268,16 @@ paths:
                         type: array
                     type: object
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取职位列表
       tags:
       - 职位管理
@@ -4535,8 +7304,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.PositionResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 创建职位
       tags:
       - 职位管理
@@ -4556,8 +7333,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 删除职位
       tags:
       - 职位管理
@@ -4581,8 +7366,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.PositionResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取职位详情
       tags:
       - 职位管理
@@ -4614,8 +7407,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.PositionResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 更新职位
       tags:
       - 职位管理
@@ -4658,8 +7459,16 @@ paths:
                         type: array
                     type: object
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取角色列表
       tags:
       - 角色管理
@@ -4686,8 +7495,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.RoleResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 创建角色
       tags:
       - 角色管理
@@ -4707,8 +7524,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 删除角色
       tags:
       - 角色管理
@@ -4732,8 +7557,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.RoleDetailResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取角色详情
       tags:
       - 角色管理
@@ -4765,8 +7598,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.RoleResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 更新角色
       tags:
       - 角色管理
@@ -4794,8 +7635,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 分配角色权限
       tags:
       - 角色管理
@@ -4837,33 +7686,405 @@ paths:
                         type: array
                     type: object
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取角色下用户
       tags:
       - 角色管理
+  /system/scheduler/handlers:
+    get:
+      description: 列出调度器已注册的 handler_key
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 可注册的任务处理器
+      tags:
+      - 调度
+  /system/scheduler/tasks:
+    get:
+      description: 分页查询系统定时任务
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数
+        in: query
+        name: page_size
+        type: integer
+      - description: 关键词
+        in: query
+        name: keyword
+        type: string
+      - description: 状态
+        in: query
+        name: status
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 定时任务列表
+      tags:
+      - 调度
+    post:
+      consumes:
+      - application/json
+      description: 创建 cron 或一次性调度任务
+      parameters:
+      - description: 定时任务
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建定时任务
+      tags:
+      - 调度
+  /system/scheduler/tasks/{id}:
+    delete:
+      description: 删除定时任务及其运行记录
+      parameters:
+      - description: 任务 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除定时任务
+      tags:
+      - 调度
+    get:
+      description: 按 ID 获取定时任务配置
+      parameters:
+      - description: 任务 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 定时任务详情
+      tags:
+      - 调度
+    put:
+      consumes:
+      - application/json
+      description: 更新定时任务配置
+      parameters:
+      - description: 任务 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 更新内容
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新定时任务
+      tags:
+      - 调度
+  /system/scheduler/tasks/{id}/logs:
+    get:
+      description: 查询任务运行记录，可按 run_id 过滤
+      parameters:
+      - description: 任务 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 运行记录 ID
+        in: query
+        name: run_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 定时任务运行日志
+      tags:
+      - 调度
+  /system/scheduler/tasks/{id}/pause:
+    post:
+      description: 暂停后不再调度执行
+      parameters:
+      - description: 任务 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 暂停定时任务
+      tags:
+      - 调度
+  /system/scheduler/tasks/{id}/resume:
+    post:
+      description: 恢复已暂停的定时任务
+      parameters:
+      - description: 任务 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 恢复定时任务
+      tags:
+      - 调度
+  /system/scheduler/tasks/{id}/run:
+    post:
+      description: 手动触发一次调度执行
+      parameters:
+      - description: 任务 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 立即执行定时任务
+      tags:
+      - 调度
+  /system/search/query:
+    post:
+      consumes:
+      - application/json
+      description: 按资源类型、关键词、过滤与排序检索数据
+      parameters:
+      - description: 检索条件
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 全局检索
+      tags:
+      - 搜索
+  /system/search/resources:
+    get:
+      description: 列出全局搜索支持的资源类型与字段
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
+      summary: 可检索资源目录
+      tags:
+      - 搜索
   /system/vote-weight-config:
     get:
+      description: 获取权重配置
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 获取权重配置
       tags:
       - 会议
     put:
+      description: 更新权重配置
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 更新权重配置
       tags:
       - 会议
   /tasks:
     get:
+      description: 任务列表
       produces:
       - application/json
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 任务列表
       tags:
       - 任务
     post:
       consumes:
       - application/json
+      description: 创建任务
       parameters:
       - description: 任务
         in: body
@@ -4878,126 +8099,410 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 创建任务
       tags:
       - 任务
   /tasks/{id}:
     delete:
+      description: 删除任务
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 删除任务
       tags:
       - 任务
     get:
+      description: 任务详情
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 任务详情
       tags:
       - 任务
     put:
+      description: 更新任务
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 更新任务
       tags:
       - 任务
   /tasks/{id}/assign:
     post:
+      description: 分配任务
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 分配任务
       tags:
       - 任务
   /tasks/{id}/attachments:
     get:
-      responses: {}
+      description: 列出任务附件
+      parameters:
+      - description: 任务 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 任务附件列表
       tags:
       - 任务
     post:
-      responses: {}
+      consumes:
+      - multipart/form-data
+      description: 为任务上传附件文件
+      parameters:
+      - description: 任务 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 文件
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 上传任务附件
       tags:
       - 任务
   /tasks/{id}/attachments/{aid}:
     delete:
-      responses: {}
+      description: 删除一条任务附件
+      parameters:
+      - description: 任务 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 附件 ID
+        in: path
+        name: aid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 删除任务附件
       tags:
       - 任务
     get:
-      responses: {}
+      description: 下载任务附件文件
+      parameters:
+      - description: 任务 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 附件 ID
+        in: path
+        name: aid
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 下载任务附件
       tags:
       - 任务
   /tasks/{id}/comments:
     get:
-      responses: {}
+      description: 列出任务下的评论
+      parameters:
+      - description: 任务 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 任务评论列表
       tags:
       - 任务
     post:
-      responses: {}
+      consumes:
+      - application/json
+      description: 在任务下新增一条评论
+      parameters:
+      - description: 任务 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 评论
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CommentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 添加任务评论
       tags:
       - 任务
   /tasks/{id}/comments/{cid}:
     delete:
-      responses: {}
+      description: 删除一条任务评论
+      parameters:
+      - description: 任务 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 评论 ID
+        in: path
+        name: cid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 删除任务评论
       tags:
       - 任务
     put:
-      responses: {}
+      consumes:
+      - application/json
+      description: 修改一条任务评论
+      parameters:
+      - description: 任务 ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 评论 ID
+        in: path
+        name: cid
+        required: true
+        type: string
+      - description: 评论
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CommentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 更新任务评论
       tags:
       - 任务
   /tasks/{id}/logs:
     get:
+      description: 任务流转记录
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 任务流转记录
       tags:
       - 任务
   /tasks/{id}/status:
     post:
+      description: 更新任务状态
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 更新任务状态
       tags:
       - 任务
   /tasks/{id}/transfer:
     post:
+      description: 转办任务
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 转办任务
       tags:
       - 任务
   /tasks/{id}/urge:
     post:
+      description: 催办任务
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 催办任务
       tags:
       - 任务
   /tasks/my/created:
     get:
-      responses: {}
+      description: 当前用户创建的任务列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 我创建的任务
       tags:
       - 任务
   /tasks/my/done:
     get:
-      responses: {}
+      description: 当前用户已办任务列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 我的已办
       tags:
       - 任务
   /tasks/my/overdue:
     get:
-      responses: {}
+      description: 当前用户超期任务列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 我的超期任务
       tags:
       - 任务
   /tasks/my/todo:
     get:
-      responses: {}
+      description: 当前用户待办任务列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
+      security:
+      - BearerAuth: []
       summary: 我的待办
       tags:
       - 任务
   /tasks/stats:
     get:
+      description: 任务统计
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 任务统计
       tags:
       - 任务
@@ -5016,8 +8521,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.UserInfoResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取当前用户信息
       tags:
       - 用户
@@ -5040,8 +8553,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 修改密码
       tags:
       - 用户
@@ -5064,8 +8585,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 更新个人资料
       tags:
       - 用户
@@ -5114,8 +8643,16 @@ paths:
                         type: array
                     type: object
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取用户列表
       tags:
       - 用户管理
@@ -5142,8 +8679,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.UserInfoResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 创建用户
       tags:
       - 用户管理
@@ -5163,8 +8708,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 删除用户
       tags:
       - 用户管理
@@ -5188,8 +8741,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.UserInfoResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取用户详情
       tags:
       - 用户管理
@@ -5221,38 +8782,61 @@ paths:
                 data:
                   $ref: '#/definitions/dto.UserInfoResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 更新用户
       tags:
       - 用户管理
   /votes/{id}:
     get:
+      description: 投票详情
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 投票详情
       tags:
       - 会议
   /votes/{id}/cast:
     post:
+      description: 投票
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 投票
       tags:
       - 会议
   /votes/{id}/close:
     post:
+      description: 关闭投票
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 关闭投票
       tags:
       - 会议
   /votes/{id}/my:
     get:
+      description: 我的投票记录
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 我的投票记录
       tags:
       - 会议
   /votes/{id}/result:
     get:
+      description: 投票结果
       responses: {}
+      security:
+      - BearerAuth: []
       summary: 投票结果
       tags:
       - 会议
@@ -5303,8 +8887,16 @@ paths:
                         type: array
                     type: object
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取流程定义列表
       tags:
       - 流程定义
@@ -5331,8 +8923,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.DefinitionResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 创建流程定义
       tags:
       - 流程定义
@@ -5352,8 +8952,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 删除流程定义
       tags:
       - 流程定义
@@ -5377,8 +8985,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.DefinitionResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取流程定义详情
       tags:
       - 流程定义
@@ -5410,8 +9026,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.DefinitionResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 更新流程定义
       tags:
       - 流程定义
@@ -5444,8 +9068,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.DefinitionResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 保存流程定义草稿图
       tags:
       - 流程定义
@@ -5478,8 +9110,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.VersionResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 发布流程定义
       tags:
       - 流程定义
@@ -5506,8 +9146,16 @@ paths:
                     $ref: '#/definitions/dto.VersionResponse'
                   type: array
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取流程定义版本列表
       tags:
       - 流程定义
@@ -5537,8 +9185,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.VersionResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取指定版本详情
       tags:
       - 流程定义
@@ -5589,8 +9245,16 @@ paths:
                         type: array
                     type: object
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取流程实例列表
       tags:
       - 流程实例
@@ -5617,8 +9281,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.InstanceResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 启动流程实例
       tags:
       - 流程实例
@@ -5643,8 +9315,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.InstanceResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取流程实例详情
       tags:
       - 流程实例
@@ -5671,8 +9351,16 @@ paths:
                     $ref: '#/definitions/dto.HistoryResponse'
                   type: array
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取流程历史记录
       tags:
       - 流程实例
@@ -5694,8 +9382,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 恢复流程实例
       tags:
       - 流程实例
@@ -5723,8 +9419,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 挂起流程实例
       tags:
       - 流程实例
@@ -5752,8 +9456,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 终止流程实例
       tags:
       - 流程实例
@@ -5778,8 +9490,16 @@ paths:
                 data:
                   $ref: '#/definitions/dto.TaskResponse'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取任务详情
       tags:
       - 流程任务
@@ -5807,8 +9527,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 审批通过
       tags:
       - 流程任务
@@ -5836,8 +9564,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 审批驳回
       tags:
       - 流程任务
@@ -5865,8 +9601,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 退回任务
       tags:
       - 流程任务
@@ -5894,8 +9638,16 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 转办任务
       tags:
       - 流程任务
@@ -5934,8 +9686,16 @@ paths:
                         type: array
                     type: object
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取我的已办任务
       tags:
       - 流程任务
@@ -5974,8 +9734,16 @@ paths:
                         type: array
                     type: object
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.Response'
       security:
-      - Bearer: []
+      - BearerAuth: []
       summary: 获取我的待办任务
       tags:
       - 流程任务

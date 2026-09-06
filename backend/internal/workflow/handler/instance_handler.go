@@ -26,9 +26,11 @@ func NewInstanceHandler(instService service.InstanceService) *InstanceHandler {
 // @Tags 流程实例
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param request body dto.StartInstanceRequest true "启动参数"
 // @Success 200 {object} response.Response{data=dto.InstanceResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /workflow/instances [post]
 func (h *InstanceHandler) Start(c *gin.Context) {
 	var req dto.StartInstanceRequest
@@ -58,13 +60,15 @@ func (h *InstanceHandler) Start(c *gin.Context) {
 // @Tags 流程实例
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param page query int false "页码" default(1)
 // @Param page_size query int false "每页数量" default(10)
 // @Param status query int false "状态"
 // @Param definition_id query string false "流程定义ID"
 // @Param initiator_id query string false "发起人ID"
 // @Success 200 {object} response.Response{data=response.PageResponse{list=[]dto.InstanceResponse}}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /workflow/instances [get]
 func (h *InstanceHandler) List(c *gin.Context) {
 	page, pageSize := parsePagination(c)
@@ -109,9 +113,11 @@ func (h *InstanceHandler) List(c *gin.Context) {
 // @Description 根据ID获取流程实例详细信息
 // @Tags 流程实例
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "流程实例ID"
 // @Success 200 {object} response.Response{data=dto.InstanceResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /workflow/instances/{id} [get]
 func (h *InstanceHandler) GetByID(c *gin.Context) {
 	id, err := parseUUIDParam(c, "id", "无效的流程实例ID")
@@ -135,10 +141,12 @@ func (h *InstanceHandler) GetByID(c *gin.Context) {
 // @Tags 流程实例
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "流程实例ID"
 // @Param request body dto.TerminateInstanceRequest true "终止原因"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /workflow/instances/{id}/terminate [post]
 func (h *InstanceHandler) Terminate(c *gin.Context) {
 	id, err := parseUUIDParam(c, "id", "无效的流程实例ID")
@@ -173,10 +181,12 @@ func (h *InstanceHandler) Terminate(c *gin.Context) {
 // @Tags 流程实例
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "流程实例ID"
 // @Param request body dto.SuspendInstanceRequest true "挂起原因"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /workflow/instances/{id}/suspend [post]
 func (h *InstanceHandler) Suspend(c *gin.Context) {
 	id, err := parseUUIDParam(c, "id", "无效的流程实例ID")
@@ -211,9 +221,11 @@ func (h *InstanceHandler) Suspend(c *gin.Context) {
 // @Tags 流程实例
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "流程实例ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /workflow/instances/{id}/resume [post]
 func (h *InstanceHandler) Resume(c *gin.Context) {
 	id, err := parseUUIDParam(c, "id", "无效的流程实例ID")
@@ -241,9 +253,11 @@ func (h *InstanceHandler) Resume(c *gin.Context) {
 // @Description 获取指定流程实例的历史操作记录
 // @Tags 流程实例
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "流程实例ID"
 // @Success 200 {object} response.Response{data=[]dto.HistoryResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /workflow/instances/{id}/history [get]
 func (h *InstanceHandler) ListHistory(c *gin.Context) {
 	id, err := parseUUIDParam(c, "id", "无效的流程实例ID")

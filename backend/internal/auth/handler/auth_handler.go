@@ -27,6 +27,8 @@ func NewAuthHandler(authService service.AuthService) *AuthHandler {
 // @Produce json
 // @Param request body dto.LoginRequest true "登录信息"
 // @Success 200 {object} response.Response{data=dto.LoginResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /auth/login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req dto.LoginRequest
@@ -54,6 +56,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 // @Produce json
 // @Param request body dto.RefreshTokenRequest true "Refresh Token"
 // @Success 200 {object} response.Response{data=dto.RefreshResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /auth/refresh [post]
 func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	var req dto.RefreshTokenRequest
@@ -77,9 +81,11 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 // @Tags 认证
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param request body dto.LogoutRequest false "登出信息（refresh_token 可选）"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
 	userID := authmiddleware.GetUserID(c)
@@ -102,8 +108,10 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 // @Description 获取当前登录用户的详细信息（含角色和权限）
 // @Tags 认证
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Success 200 {object} response.Response{data=dto.UserInfo}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /auth/me [get]
 func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 	userID := authmiddleware.GetUserID(c)
@@ -123,9 +131,11 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 // @Tags 认证
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param request body dto.ChangePasswordRequest true "密码信息"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /auth/password [put]
 func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	userID := authmiddleware.GetUserID(c)
@@ -151,7 +161,10 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 // @Tags 认证
 // @Produce json
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /auth/wechat/qrcode [post]
+// @Security BearerAuth
 func (h *AuthHandler) WechatQRCode(c *gin.Context) {
 	response.NotImplemented(c, "微信扫码登录功能暂未开通")
 }
@@ -164,7 +177,10 @@ func (h *AuthHandler) WechatQRCode(c *gin.Context) {
 // @Produce json
 // @Param request body dto.WechatLoginRequest true "微信授权码"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /auth/wechat/callback [post]
+// @Security BearerAuth
 func (h *AuthHandler) WechatCallback(c *gin.Context) {
 	response.NotImplemented(c, "微信登录回调功能暂未开通")
 }
@@ -178,7 +194,10 @@ func (h *AuthHandler) WechatCallback(c *gin.Context) {
 // @Param provider path string true "OAuth 提供者（github/google 等）"
 // @Param request body dto.OAuthLoginRequest true "OAuth 授权码"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /auth/oauth/{provider} [post]
+// @Security BearerAuth
 func (h *AuthHandler) OAuthLogin(c *gin.Context) {
 	provider := c.Param("provider")
 	if provider == "" {

@@ -8,9 +8,11 @@ import (
 
 // DurationStats 时长统计
 // @Summary 时长统计
+// @Description 时长统计
 // @Tags 实习
 // @Produce json
 // @Router /internships/stats/duration [get]
+// @Security BearerAuth
 func (h *InternshipHandler) DurationStats(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -32,9 +34,11 @@ func (h *InternshipHandler) DurationStats(c *gin.Context) {
 
 // Ranking 实习排行榜
 // @Summary 实习排行榜
+// @Description 实习排行榜
 // @Tags 实习
 // @Produce json
 // @Router /internships/stats/ranking [get]
+// @Security BearerAuth
 func (h *InternshipHandler) Ranking(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -56,9 +60,11 @@ func (h *InternshipHandler) Ranking(c *gin.Context) {
 
 // DepartmentStats 部门统计
 // @Summary 部门统计
+// @Description 部门统计
 // @Tags 实习
 // @Produce json
 // @Router /internships/stats/department [get]
+// @Security BearerAuth
 func (h *InternshipHandler) DepartmentStats(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {

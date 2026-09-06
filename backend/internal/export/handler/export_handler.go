@@ -20,10 +20,61 @@ func NewExportHandler(svc service.ExportService) *ExportHandler {
 	return &ExportHandler{svc: svc}
 }
 
+// ExportExcel 导出 Excel
+// @Summary 导出 Excel
+// @Description 将表格数据导出为 xlsx
+// @Tags 导出
+// @Accept json
+// @Produce json
+// @Param request body dto.TableExportRequest true "表格数据"
+// @Success 200 {object} response.Response{data=dto.ExportTaskResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /export/excel [post]
+// @Security BearerAuth
 func (h *ExportHandler) ExportExcel(c *gin.Context) { h.exportTable(c, "excel") }
-func (h *ExportHandler) ExportCSV(c *gin.Context)   { h.exportTable(c, "csv") }
-func (h *ExportHandler) ExportPDF(c *gin.Context)   { h.exportTable(c, "pdf") }
-func (h *ExportHandler) ExportJSON(c *gin.Context)  { h.exportTable(c, "json") }
+
+// ExportCSV 导出 CSV
+// @Summary 导出 CSV
+// @Description 将表格数据导出为 csv
+// @Tags 导出
+// @Accept json
+// @Produce json
+// @Param request body dto.TableExportRequest true "表格数据"
+// @Success 200 {object} response.Response{data=dto.ExportTaskResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /export/csv [post]
+// @Security BearerAuth
+func (h *ExportHandler) ExportCSV(c *gin.Context) { h.exportTable(c, "csv") }
+
+// ExportPDF 导出 PDF
+// @Summary 导出 PDF
+// @Description 将表格数据导出为 pdf
+// @Tags 导出
+// @Accept json
+// @Produce json
+// @Param request body dto.TableExportRequest true "表格数据"
+// @Success 200 {object} response.Response{data=dto.ExportTaskResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /export/pdf [post]
+// @Security BearerAuth
+func (h *ExportHandler) ExportPDF(c *gin.Context) { h.exportTable(c, "pdf") }
+
+// ExportJSON 导出 JSON
+// @Summary 导出 JSON
+// @Description 将表格数据导出为 json
+// @Tags 导出
+// @Accept json
+// @Produce json
+// @Param request body dto.TableExportRequest true "表格数据"
+// @Success 200 {object} response.Response{data=dto.ExportTaskResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /export/json [post]
+// @Security BearerAuth
+func (h *ExportHandler) ExportJSON(c *gin.Context) { h.exportTable(c, "json") }
 
 func (h *ExportHandler) exportTable(c *gin.Context, format string) {
 	var req dto.TableExportRequest
@@ -39,6 +90,19 @@ func (h *ExportHandler) exportTable(c *gin.Context, format string) {
 	response.OK(c, out)
 }
 
+// ExportTemplate 按模板导出
+// @Summary 按模板导出
+// @Description 使用内置 HTML 模板生成导出文件
+// @Tags 导出
+// @Accept json
+// @Produce json
+// @Param template_id path string true "模板 ID"
+// @Param request body dto.TemplateExportRequest false "模板变量"
+// @Success 200 {object} response.Response{data=dto.ExportTaskResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /export/template/{template_id} [post]
+// @Security BearerAuth
 func (h *ExportHandler) ExportTemplate(c *gin.Context) {
 	templateID := strings.TrimSpace(c.Param("template_id"))
 	if templateID == "" {
@@ -58,6 +122,17 @@ func (h *ExportHandler) ExportTemplate(c *gin.Context) {
 	response.OK(c, out)
 }
 
+// GetTask 导出任务状态
+// @Summary 导出任务状态
+// @Description 查询异步导出任务进度与结果文件
+// @Tags 导出
+// @Produce json
+// @Param task_id path string true "任务 ID"
+// @Success 200 {object} response.Response{data=dto.ExportTaskResponse}
+// @Failure 401 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /export/tasks/{task_id} [get]
+// @Security BearerAuth
 func (h *ExportHandler) GetTask(c *gin.Context) {
 	id := strings.TrimSpace(c.Param("task_id"))
 	if id == "" {
@@ -72,10 +147,31 @@ func (h *ExportHandler) GetTask(c *gin.Context) {
 	response.OK(c, out)
 }
 
+// ListTemplates 导出模板列表
+// @Summary 导出模板列表
+// @Description 列出内置打印/导出模板
+// @Tags 导出
+// @Produce json
+// @Success 200 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /export/templates [get]
+// @Security BearerAuth
 func (h *ExportHandler) ListTemplates(c *gin.Context) {
 	response.OK(c, h.svc.ListTemplates())
 }
 
+// Download 下载导出文件
+// @Summary 下载导出文件
+// @Description 默认返回预签名信息；stream=1 时直接输出字节流
+// @Tags 导出
+// @Produce json
+// @Param file_id path string true "文件 ID"
+// @Param stream query int false "1 表示直接下载字节流"
+// @Success 200 {object} response.Response{data=dto.DownloadInfo}
+// @Failure 401 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /export/download/{file_id} [get]
+// @Security BearerAuth
 func (h *ExportHandler) Download(c *gin.Context) {
 	id := strings.TrimSpace(c.Param("file_id"))
 	if id == "" {

@@ -8,12 +8,16 @@ import (
 
 // CreateMeeting 创建会议
 // @Summary 创建会议
+// @Description 创建会议
 // @Tags 会议
 // @Accept json
 // @Produce json
 // @Param request body dto.CreateMeetingRequest true "会议"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /meetings [post]
+// @Security BearerAuth
 func (h *MeetingHandler) CreateMeeting(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -35,10 +39,14 @@ func (h *MeetingHandler) CreateMeeting(c *gin.Context) {
 
 // ListMeetings 会议列表
 // @Summary 会议列表
+// @Description 会议列表
 // @Tags 会议
 // @Produce json
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /meetings [get]
+// @Security BearerAuth
 func (h *MeetingHandler) ListMeetings(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -61,11 +69,15 @@ func (h *MeetingHandler) ListMeetings(c *gin.Context) {
 
 // GetMeeting 会议详情
 // @Summary 会议详情
+// @Description 会议详情
 // @Tags 会议
 // @Produce json
 // @Param id path string true "会议ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /meetings/{id} [get]
+// @Security BearerAuth
 func (h *MeetingHandler) GetMeeting(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -82,8 +94,10 @@ func (h *MeetingHandler) GetMeeting(c *gin.Context) {
 
 // UpdateMeeting 更新会议
 // @Summary 更新会议
+// @Description 更新会议
 // @Tags 会议
 // @Router /meetings/{id} [put]
+// @Security BearerAuth
 func (h *MeetingHandler) UpdateMeeting(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -105,8 +119,10 @@ func (h *MeetingHandler) UpdateMeeting(c *gin.Context) {
 
 // DeleteMeeting 删除会议
 // @Summary 删除会议
+// @Description 删除会议
 // @Tags 会议
 // @Router /meetings/{id} [delete]
+// @Security BearerAuth
 func (h *MeetingHandler) DeleteMeeting(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -122,8 +138,10 @@ func (h *MeetingHandler) DeleteMeeting(c *gin.Context) {
 
 // StartMeeting 开始会议
 // @Summary 开始会议
+// @Description 开始会议
 // @Tags 会议
 // @Router /meetings/{id}/start [post]
+// @Security BearerAuth
 func (h *MeetingHandler) StartMeeting(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -140,8 +158,10 @@ func (h *MeetingHandler) StartMeeting(c *gin.Context) {
 
 // EndMeeting 结束会议
 // @Summary 结束会议
+// @Description 结束会议
 // @Tags 会议
 // @Router /meetings/{id}/end [post]
+// @Security BearerAuth
 func (h *MeetingHandler) EndMeeting(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -158,8 +178,10 @@ func (h *MeetingHandler) EndMeeting(c *gin.Context) {
 
 // CancelMeeting 取消会议
 // @Summary 取消会议
+// @Description 取消会议
 // @Tags 会议
 // @Router /meetings/{id}/cancel [post]
+// @Security BearerAuth
 func (h *MeetingHandler) CancelMeeting(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -178,8 +200,10 @@ func (h *MeetingHandler) CancelMeeting(c *gin.Context) {
 
 // UpdateMinutes 更新纪要
 // @Summary 更新纪要
+// @Description 更新纪要
 // @Tags 会议
 // @Router /meetings/{id}/minutes [put]
+// @Security BearerAuth
 func (h *MeetingHandler) UpdateMinutes(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -201,8 +225,10 @@ func (h *MeetingHandler) UpdateMinutes(c *gin.Context) {
 
 // MeetingQRCode 签到二维码
 // @Summary 获取签到二维码
+// @Description 获取签到二维码
 // @Tags 会议
 // @Router /meetings/{id}/qrcode [get]
+// @Security BearerAuth
 func (h *MeetingHandler) MeetingQRCode(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {

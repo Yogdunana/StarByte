@@ -10,10 +10,14 @@ import (
 
 // ListProfiles 档案列表
 // @Summary 档案列表
+// @Description 档案列表
 // @Tags 会员
 // @Produce json
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /member/profiles [get]
+// @Security BearerAuth
 func (h *MemberHandler) ListProfiles(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -41,11 +45,15 @@ func (h *MemberHandler) ListProfiles(c *gin.Context) {
 
 // GetProfile 档案详情
 // @Summary 档案详情
+// @Description 档案详情
 // @Tags 会员
 // @Produce json
 // @Param id path string true "档案ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /member/profiles/{id} [get]
+// @Security BearerAuth
 func (h *MemberHandler) GetProfile(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -67,13 +75,17 @@ func (h *MemberHandler) GetProfile(c *gin.Context) {
 
 // UpdateProfile 更新档案
 // @Summary 更新档案
+// @Description 更新档案
 // @Tags 会员
 // @Accept json
 // @Produce json
 // @Param id path string true "档案ID"
 // @Param request body dto.UpdateProfileRequest true "档案"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /member/profiles/{id} [put]
+// @Security BearerAuth
 func (h *MemberHandler) UpdateProfile(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -100,11 +112,15 @@ func (h *MemberHandler) UpdateProfile(c *gin.Context) {
 
 // ProfileHistory 档案变更历史
 // @Summary 档案变更历史
+// @Description 档案变更历史
 // @Tags 会员
 // @Produce json
 // @Param id path string true "档案ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /member/profiles/{id}/history [get]
+// @Security BearerAuth
 func (h *MemberHandler) ProfileHistory(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -126,13 +142,17 @@ func (h *MemberHandler) ProfileHistory(c *gin.Context) {
 
 // UpdateProfileStatus 变更档案状态
 // @Summary 变更档案状态
+// @Description 变更档案状态
 // @Tags 会员
 // @Accept json
 // @Produce json
 // @Param id path string true "档案ID"
 // @Param request body dto.UpdateProfileStatusRequest true "状态"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /member/profiles/{id}/status [put]
+// @Security BearerAuth
 func (h *MemberHandler) UpdateProfileStatus(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -159,10 +179,14 @@ func (h *MemberHandler) UpdateProfileStatus(c *gin.Context) {
 
 // ExportProfiles 导出档案 PDF
 // @Summary 导出档案 PDF
+// @Description 导出档案 PDF
 // @Tags 会员
 // @Produce application/pdf
 // @Success 200 {file} file
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /member/profiles/export [get]
+// @Security BearerAuth
 func (h *MemberHandler) ExportProfiles(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
