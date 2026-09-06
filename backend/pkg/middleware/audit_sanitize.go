@@ -1,6 +1,11 @@
 package middleware
 
-import "github.com/Yogdunana/StarByte/backend/pkg/audit"
+import (
+	"strings"
+	"unicode/utf8"
+
+	"github.com/Yogdunana/StarByte/backend/pkg/audit"
+)
 
 var sensitivePaths = map[string]bool{
 	"/api/v1/auth/login":    true,
@@ -18,5 +23,21 @@ func sanitizeRequestBody(path, body string) string {
 }
 
 func sanitizeResponseBody(body string) string {
+	if body == "" {
+		return ""
+	}
+	if looksBinaryResponse(body) {
+		return "[binary response omitted]"
+	}
 	return audit.DesensitizeJSON(body)
+}
+
+func looksBinaryResponse(body string) bool {
+	if !utf8.ValidString(body) || strings.ContainsRune(body, 0) {
+		return true
+	}
+	if strings.HasPrefix(body, "%PDF") || strings.HasPrefix(body, "PK\x03\x04") {
+		return true
+	}
+	return false
 }

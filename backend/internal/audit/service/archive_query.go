@@ -15,7 +15,9 @@ import (
 	"github.com/google/uuid"
 )
 
-const maxArchiveDecode = 32 * 1024 * 1024
+const defaultArchiveDecodeLimit = 32 * 1024 * 1024
+
+var archiveDecodeLimit = defaultArchiveDecodeLimit
 
 func (s *auditService) ListArchives(ctx context.Context, req *dto.ArchiveListRequest) ([]dto.ArchiveListItem, int64, error) {
 	if req == nil {
@@ -95,13 +97,12 @@ func (s *auditService) downloadObject(ctx context.Context, objectName string) ([
 		return nil, err
 	}
 	defer func() { _ = rc.Close() }()
-	return io.ReadAll(io.LimitReader(rc, maxArchiveDecode+1))
+	return io.ReadAll(io.LimitReader(rc, int64(archiveDecodeLimit)+1))
 }
 
 func decodeArchiveLogs(raw []byte) ([]model.AuditLog, bool, error) {
-	if len(raw) > maxArchiveDecode {
-		return nil, true, fmt.Errorf("归档对象过大")
-	}
+	limit := archiveDecodeLimit
+	truncated := false
 	payload := raw
 	if len(raw) >= 2 && raw[0] == 0x1f && raw[1] == 0x8b {
 		zr, err := gzip.NewReader(bytes.NewReader(raw))
@@ -109,20 +110,58 @@ func decodeArchiveLogs(raw []byte) ([]model.AuditLog, bool, error) {
 			return nil, false, err
 		}
 		defer func() { _ = zr.Close() }()
-		decoded, err := io.ReadAll(io.LimitReader(zr, maxArchiveDecode+1))
-		if err != nil {
+		decoded, err := io.ReadAll(io.LimitReader(zr, int64(limit)+1))
+		if err != nil && len(decoded) == 0 {
 			return nil, false, err
 		}
-		if len(decoded) > maxArchiveDecode {
-			return nil, true, fmt.Errorf("解压后超过上限")
+		if err != nil || len(decoded) > limit {
+			truncated = true
+			if len(decoded) > limit {
+				decoded = decoded[:limit]
+			}
 		}
 		payload = decoded
+	} else if len(raw) > limit {
+		truncated = true
+		payload = raw[:limit]
 	}
-	var logs []model.AuditLog
-	if err := json.Unmarshal(payload, &logs); err != nil {
+	logs, err := unmarshalAuditLogs(payload)
+	if err == nil {
+		return logs, truncated, nil
+	}
+	if !truncated {
 		return nil, false, err
 	}
-	return logs, false, nil
+	return decodeCompleteAuditLogs(payload), true, nil
+}
+
+func unmarshalAuditLogs(payload []byte) ([]model.AuditLog, error) {
+	var logs []model.AuditLog
+	if err := json.Unmarshal(payload, &logs); err != nil {
+		return nil, err
+	}
+	return logs, nil
+}
+
+func decodeCompleteAuditLogs(payload []byte) []model.AuditLog {
+	dec := json.NewDecoder(bytes.NewReader(payload))
+	tok, err := dec.Token()
+	if err != nil {
+		return nil
+	}
+	delim, ok := tok.(json.Delim)
+	if !ok || delim != '[' {
+		return nil
+	}
+	logs := make([]model.AuditLog, 0)
+	for dec.More() {
+		var log model.AuditLog
+		if err := dec.Decode(&log); err != nil {
+			break
+		}
+		logs = append(logs, log)
+	}
+	return logs
 }
 
 func filterArchiveLogs(logs []model.AuditLog, keyword string) []model.AuditLog {

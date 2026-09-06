@@ -48,6 +48,7 @@ func TestFillTraceFields_UsesSnapshot(t *testing.T) {
 	c.Params = gin.Params{{Key: "id", Value: "11111111-1111-1111-1111-111111111111"}}
 	SetAuditSnapshot(c, "user", "11111111-1111-1111-1111-111111111111", map[string]any{
 		"real_name": "旧",
+		"username":  "keep",
 		"password":  "secret123",
 	})
 
@@ -57,7 +58,38 @@ func TestFillTraceFields_UsesSnapshot(t *testing.T) {
 	assert.Equal(t, "11111111-1111-1111-1111-111111111111", entry.EntityID)
 	assert.NotContains(t, entry.BeforeJSON, "secret123")
 	assert.Contains(t, entry.AfterJSON, "新")
+	assert.Contains(t, entry.AfterJSON, "keep")
 	require.Contains(t, entry.DiffJSON, "real_name")
+	assert.NotContains(t, entry.DiffJSON, "username")
+}
+
+func TestFillTraceFields_PrefersResponseAfter(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPut, "/api/v1/users/11111111-1111-1111-1111-111111111111", nil)
+	c.Params = gin.Params{{Key: "id", Value: "11111111-1111-1111-1111-111111111111"}}
+	SetAuditSnapshot(c, "user", "11111111-1111-1111-1111-111111111111", map[string]any{
+		"real_name": "旧",
+		"username":  "keep",
+	})
+	entry := &AuditLogEntry{Method: "PUT", Path: "/api/v1/users/11111111-1111-1111-1111-111111111111"}
+	fillTraceFields(c, entry, `{"real_name":"新"}`, `{"code":0,"data":{"id":"11111111-1111-1111-1111-111111111111","real_name":"新","username":"keep"}}`)
+	assert.Contains(t, entry.AfterJSON, `"username":"keep"`)
+	assert.NotContains(t, entry.DiffJSON, `"path":"username"`)
+}
+
+func TestFillTraceFields_CreateEntityIDFromResponse(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/users", strings.NewReader(`{"username":"newuser"}`))
+	entry := &AuditLogEntry{Method: "POST", Path: "/api/v1/users"}
+	created := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+	fillTraceFields(c, entry, `{"username":"newuser"}`, `{"code":0,"data":{"id":"`+created+`","username":"newuser"}}`)
+	assert.Equal(t, "user", entry.EntityType)
+	assert.Equal(t, created, entry.EntityID)
+	assert.Contains(t, entry.AfterJSON, created)
 }
 
 func TestFillTraceFields_ExportAction(t *testing.T) {

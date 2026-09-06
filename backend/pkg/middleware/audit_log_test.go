@@ -197,6 +197,13 @@ func TestSanitizeRequestBody_NoSensitiveData(t *testing.T) {
 	assert.Contains(t, result, "age")
 }
 
+func TestSanitizeResponseBody_BinaryOmitted(t *testing.T) {
+	assert.Equal(t, "[binary response omitted]", sanitizeResponseBody(string([]byte{0xff, 0xfe, 0x00, 0x01})))
+	assert.Equal(t, "[binary response omitted]", sanitizeResponseBody("%PDF-1.4\n%binary"))
+	assert.Equal(t, "[binary response omitted]", sanitizeResponseBody("PK\x03\x04xlsx"))
+	assert.Contains(t, sanitizeResponseBody(`{"ok":true}`), "ok")
+}
+
 func TestSanitizeRequestBody_MultipleSensitiveFields(t *testing.T) {
 	body := `{"old_password":"old123","new_password":"new456","secret":"abc"}`
 	result := sanitizeRequestBody("/api/v1/user/profile", body)

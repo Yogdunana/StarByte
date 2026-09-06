@@ -182,11 +182,11 @@ func fillTraceFields(c *gin.Context, entry *AuditLogEntry, reqBody, respBody str
 			id = pid
 		}
 	}
-	after := sanitizeRequestBody(entry.Path, reqBody)
-	if strings.TrimSpace(after) == "" || after == "[redacted: sensitive endpoint]" {
-		if extracted := extractDataJSON(respBody); extracted != "" {
-			after = extracted
-		}
+	reqAfter := sanitizeRequestBody(entry.Path, reqBody)
+	respAfter := extractDataJSON(respBody)
+	after := resolveAfterJSON(before, reqAfter, respAfter)
+	if id == "" {
+		id = extractJSONID(respAfter)
 	}
 	if id == "" {
 		id = extractJSONID(after)
@@ -207,4 +207,42 @@ func fillTraceFields(c *gin.Context, entry *AuditLogEntry, reqBody, respBody str
 	if isExportPath(entry.Path) && strings.EqualFold(entry.Method, "GET") {
 		entry.Action = "EXPORT"
 	}
+}
+
+func resolveAfterJSON(before, reqAfter, respAfter string) string {
+	if strings.TrimSpace(respAfter) != "" {
+		return respAfter
+	}
+	if strings.TrimSpace(reqAfter) == "" || reqAfter == "[redacted: sensitive endpoint]" {
+		return reqAfter
+	}
+	if strings.TrimSpace(before) != "" {
+		return overlayJSON(before, reqAfter)
+	}
+	return reqAfter
+}
+
+// overlayJSON 用 after 的顶层键覆盖 before，避免部分请求体把快照字段标成删除。
+func overlayJSON(before, after string) string {
+	if strings.TrimSpace(before) == "" {
+		return after
+	}
+	if strings.TrimSpace(after) == "" {
+		return before
+	}
+	var baseMap, overlayMap map[string]any
+	if err := json.Unmarshal([]byte(before), &baseMap); err != nil || baseMap == nil {
+		return after
+	}
+	if err := json.Unmarshal([]byte(after), &overlayMap); err != nil || overlayMap == nil {
+		return after
+	}
+	for k, v := range overlayMap {
+		baseMap[k] = v
+	}
+	out, err := json.Marshal(baseMap)
+	if err != nil {
+		return after
+	}
+	return string(out)
 }

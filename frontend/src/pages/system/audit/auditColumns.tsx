@@ -16,6 +16,7 @@ export const actionColorMap: Record<string, string> = {
   UPDATE: 'blue',
   DELETE: 'red',
   EXPORT: 'gold',
+  LOGIN: 'cyan',
   LOGOUT: 'default',
 };
 
