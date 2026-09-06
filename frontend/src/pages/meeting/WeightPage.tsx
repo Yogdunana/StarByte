@@ -7,7 +7,7 @@ const fields = [
   { key: 'president', label: '社长' },
   { key: 'vice_president', label: '副社长' },
   { key: 'minister', label: '部长' },
-  { key: 'deputy', label: '副部长' },
+  { key: 'vice_minister', label: '副部长' },
   { key: 'officer', label: '干事' },
 ];
 
@@ -22,6 +22,7 @@ const WeightPage: React.FC = () => {
         form.setFieldsValue({
           default_weight: cfg.default_weight,
           ...cfg.weights,
+          vice_minister: cfg.weights?.vice_minister ?? cfg.weights?.deputy,
         });
       })
       .finally(() => setLoading(false));
@@ -29,7 +30,7 @@ const WeightPage: React.FC = () => {
 
   return (
     <Card title="投票权重配置" loading={loading}>
-      <p>加权投票按职务读取此处配置，不硬编码。社长可用系统配置权限修改。</p>
+      <p>加权投票按职务读取此处配置，不硬编码。副部长（vice_minister）为系统预留岗，章程未单列。社长可用系统配置权限修改。</p>
       <Form
         form={form}
         layout="vertical"
@@ -37,7 +38,7 @@ const WeightPage: React.FC = () => {
         onFinish={async (values) => {
           const weights: Record<string, number> = {};
           fields.forEach((f) => { weights[f.key] = Number(values[f.key]); });
-          weights.vice_minister = weights.deputy;
+          weights.deputy = weights.vice_minister;
           await updateVoteWeightConfig({
             weights,
             default_weight: Number(values.default_weight),

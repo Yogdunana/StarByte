@@ -19,7 +19,7 @@ var seedRolesData = []namedCode{
 	{Name: "社长", Code: "president", Description: "协会社长", Sort: 1, IsSystem: true},
 	{Name: "副社长", Code: "vice_president", Description: "协会副社长", Sort: 2},
 	{Name: "部长", Code: "minister", Description: "部门部长", Sort: 3},
-	{Name: "副部长", Code: "vice_minister", Description: "部门副部长", Sort: 4},
+	{Name: "副部长", Code: "vice_minister", Description: "部门副部长（章程未单列，系统预留）", Sort: 4},
 	{Name: "干事", Code: "officer", Description: "部门干事", Sort: 5},
 	{Name: "会员", Code: "member", Description: "普通会员", Sort: 6},
 }

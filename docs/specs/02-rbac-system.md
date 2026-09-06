@@ -341,7 +341,7 @@ type ConfigService interface {
 | `president` | 会长 | 协会最高权限，可管理所有模块 |
 | `vice_president` | 副会长 | 协助会长，权限仅次于会长 |
 | `minister` | 部长 | 可管理本部门成员和事务 |
-| `vice_minister` | 副部长 | 协助部长 |
+| `vice_minister` | 副部长 | 协助部长。章程未单列此岗，系统仍预留，后续部门扩编可直接任命 |
 | `secretary` | 干事 | 普通干事权限 |
 | `member` | 会员 | 普通会员，仅可查看个人信息和申请 |
 

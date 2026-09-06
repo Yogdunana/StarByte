@@ -106,7 +106,7 @@ const ListPage: React.FC = () => {
             <Switch checked={config.allow_student_edit} onChange={(v) => {
               void updateInternshipConfig({ allow_student_edit: v }).then(setConfig);
             }} />
-            <span>部长可改</span>
+            <span>部长/副部长可改</span>
             <Switch checked={config.allow_minister_edit} onChange={(v) => {
               void updateInternshipConfig({ allow_minister_edit: v }).then(setConfig);
             }} />
