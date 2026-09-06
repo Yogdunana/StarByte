@@ -43,6 +43,7 @@ const InternshipListPage = lazy(() => import('@/pages/internship/ListPage'));
 const InternshipMyPage = lazy(() => import('@/pages/internship/MyPage'));
 const InternshipStatsPage = lazy(() => import('@/pages/internship/StatsPage'));
 const WorkflowDesigner = lazy(() => import('@/pages/workflow/designer/DesignerPage'));
+const StatsOverviewPage = lazy(() => import('@/pages/stats/OverviewPage'));
 const Forbidden = lazy(() => import('@/pages/error/Forbidden'));
 const NotFound = lazy(() => import('@/pages/error/NotFound'));
 
@@ -286,8 +287,8 @@ const routes: AppRouteObject[] = [
         children: [
           {
             path: 'overview',
-            element: <div style={{ padding: 24 }}>统计概览（开发中）</div>,
-            meta: { title: '统计概览' },
+            element: lazyGuarded(StatsOverviewPage, 'stats:read'),
+            meta: { title: '统计概览', permission: 'stats:read' },
           },
         ],
       },
