@@ -83,6 +83,15 @@ import (
 	"go.uber.org/zap"
 )
 
+// @title StarByte API
+// @version 1.0
+// @description 高校计算机协会一体化管理平台
+// @host localhost:8080
+// @BasePath /api/v1
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description 输入 Bearer {token}
 func main() {
 	// 1. 加载配置
 	configPath := "configs/config.yaml"
@@ -157,6 +166,7 @@ func main() {
 	// 8. 健康检查端点（不受限流影响，供 K8s/负载均衡探活使用）
 	r.GET("/health", middleware.HealthCheck())
 	r.GET("/health/ready", middleware.ReadinessCheck(database.DB(), redis.Client()))
+	registerSwagger(r)
 
 	// 9. 初始化业务模块
 	// 用户模块（共享 repo）

@@ -7,7 +7,7 @@ POSTGRES_PORT     ?= 5432
 DATABASE_URL      ?= postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)?sslmode=disable
 MIGRATE_PATH      ?= backend/migrations
 
-.PHONY: help migrate-up migrate-down migrate-create seed backend-test frontend-lint
+.PHONY: help migrate-up migrate-down migrate-create seed backend-test frontend-lint swagger
 
 help:
 	@echo "make migrate-up              执行全部数据库迁移"
@@ -16,6 +16,7 @@ help:
 	@echo "make seed                    写入幂等种子数据（可重复执行）"
 	@echo "make backend-test            运行后端单测"
 	@echo "make frontend-lint           前端 lint"
+	@echo "make swagger                 从 Handler 注释生成 Swagger 文档"
 
 migrate-up:
 	migrate -path $(MIGRATE_PATH) -database "$(DATABASE_URL)" up
@@ -35,3 +36,6 @@ backend-test:
 
 frontend-lint:
 	cd frontend && npm run lint
+
+swagger:
+	cd backend && bash scripts/swagger.sh
