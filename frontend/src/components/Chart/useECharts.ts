@@ -16,6 +16,8 @@ export function useECharts(
     if (!el) {
       return undefined;
     }
+    const old = echarts.getInstanceByDom(el);
+    old?.dispose();
     const chart = echarts.init(el, theme === 'dark' ? 'dark' : undefined);
     chartRef.current = chart;
     const onResize = () => {

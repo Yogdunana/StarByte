@@ -68,13 +68,13 @@ export function useDashboardStats(refreshMs?: number): DashboardStatsState {
     }
     const next: Partial<Record<StatsProviderCode, StatsResult>> = {};
     const errs: Partial<Record<StatsProviderCode, string>> = {};
-    await Promise.all(DASHBOARD_PROVIDERS.map(async (code) => {
+    for (const code of DASHBOARD_PROVIDERS) {
       try {
         next[code] = await getStats(code);
       } catch (e) {
         errs[code] = e instanceof Error ? e.message : '加载失败';
       }
-    }));
+    }
     setCharts(next);
     setErrors(errs);
     setUpdatedAt(new Date());
