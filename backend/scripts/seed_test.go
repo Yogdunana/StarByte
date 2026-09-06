@@ -100,10 +100,26 @@ func TestVicePresident_ExcludesConfigWrites(t *testing.T) {
 	for _, c := range vicePresidentExcludedPerms() {
 		excluded[c] = true
 	}
-	for _, need := range []string{"system:config", "config:create", "config:update", "config:delete"} {
+	for _, need := range []string{
+		"system:config", "config:create", "config:update", "config:delete",
+		"cache:delete", "cache:manage",
+	} {
 		assert.True(t, excluded[need], "vice_president must not inherit %s", need)
 	}
 	assert.False(t, excluded["config:read"])
+	assert.False(t, excluded["cache:read"])
+}
+
+func TestAllSeedPermissions_IncludesCache(t *testing.T) {
+	seen := map[string]bool{}
+	for _, p := range allSeedPermissions() {
+		seen[p.Code] = true
+	}
+	for _, need := range []string{"cache:read", "cache:delete", "cache:manage"} {
+		assert.True(t, seen[need], "missing permission %s", need)
+	}
+	assert.False(t, seen["cache:create"])
+	assert.False(t, seen["cache:update"])
 }
 
 func TestSeedDicts_SystemTypes(t *testing.T) {
