@@ -1,6 +1,7 @@
 package circuitbreaker
 
 import (
+	"math"
 	"sync"
 	"time"
 )
@@ -180,9 +181,12 @@ func percentile(lats []time.Duration, p float64) time.Duration {
 			j--
 		}
 	}
-	idx := int(float64(len(cp)-1) * p)
+	idx := int(math.Ceil(p*float64(len(cp)))) - 1
 	if idx < 0 {
 		idx = 0
+	}
+	if idx >= len(cp) {
+		idx = len(cp) - 1
 	}
 	return cp[idx]
 }
