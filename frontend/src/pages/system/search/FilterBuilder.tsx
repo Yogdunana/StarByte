@@ -148,3 +148,6 @@ export function pruneGroup(g: SearchGroup): SearchGroup | undefined {
   if (!conditions.length && !groups.length) return undefined;
   return { logic: g.logic, conditions, groups };
 }
+
+export { emptyCond };
+export default FilterBuilder;
