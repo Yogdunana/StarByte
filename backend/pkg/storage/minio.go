@@ -114,3 +114,12 @@ func (m *MinIO) PresignedURL(ctx context.Context, objectName string, expiry time
 	}
 	return u.String(), nil
 }
+
+// Ping checks that the MinIO API and configured bucket are reachable.
+func (m *MinIO) Ping(ctx context.Context) error {
+	_, err := m.client.BucketExists(ctx, m.bucket)
+	if err != nil {
+		return fmt.Errorf("ping MinIO: %w", err)
+	}
+	return nil
+}

@@ -7,7 +7,6 @@ import (
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	gormlogger "gorm.io/gorm/logger"
 )
 
 var db *gorm.DB
@@ -21,7 +20,7 @@ func Init(cfg *config.DatabaseConfig) error {
 	)
 
 	gormCfg := &gorm.Config{
-		Logger: gormlogger.Default.LogMode(gormlogger.Warn),
+		Logger: newSlowQueryLogger(),
 	}
 
 	var err error

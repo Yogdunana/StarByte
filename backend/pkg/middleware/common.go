@@ -23,6 +23,7 @@ func RequestID() gin.HandlerFunc {
 		}
 		c.Set("request_id", requestID)
 		c.Header("X-Request-Id", requestID)
+		c.Request = c.Request.WithContext(logger.WithRequestID(c.Request.Context(), requestID))
 		c.Next()
 	}
 }
@@ -43,7 +44,7 @@ func Logger() gin.HandlerFunc {
 		clientIP := c.ClientIP()
 		userID := auth.GetUserID(c)
 
-		logger.Info("request",
+		fields := []zap.Field{
 			zap.String("method", method),
 			zap.String("path", path),
 			zap.Int("status", status),
@@ -51,7 +52,13 @@ func Logger() gin.HandlerFunc {
 			zap.String("request_id", requestID),
 			zap.String("client_ip", clientIP),
 			zap.String("user_id", userID),
-		)
+		}
+		if latency >= time.Second {
+			fields = append(fields, zap.Bool("slow_request", true))
+			logger.Warn("slow request", fields...)
+			return
+		}
+		logger.Info("request", fields...)
 	}
 }
 

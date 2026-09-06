@@ -26,6 +26,7 @@ import (
 //
 //	r.Use(middleware.RequestID())
 //	r.Use(middleware.Logger())
+//	r.Use(middleware.Metrics())
 //	r.Use(middleware.ErrorHandler())
 //	r.Use(middleware.CORS())
 //
