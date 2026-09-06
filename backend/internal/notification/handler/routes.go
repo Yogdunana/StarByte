@@ -1,6 +1,8 @@
 package handler
 
 import (
+	rbacService "github.com/Yogdunana/StarByte/backend/internal/rbac/service"
+	"github.com/Yogdunana/StarByte/backend/pkg/middleware"
 	"github.com/gin-gonic/gin"
 )
 
@@ -14,6 +16,8 @@ func RegisterRoutes(
 	notificationHandler *NotificationHandler,
 	templateHandler *TemplateHandler,
 	wsHandler *WSHandler,
+	emailHandler *EmailHandler,
+	cacheService rbacService.PermissionCacheService,
 ) {
 	// 用户通知路由（登录即可访问）
 	if protected != nil {
@@ -24,6 +28,12 @@ func RegisterRoutes(
 			notifications.POST("/:id/read", notificationHandler.MarkAsRead)
 			notifications.POST("/read-all", notificationHandler.MarkAllAsRead)
 			notifications.DELETE("/:id", notificationHandler.Delete)
+		}
+		if emailHandler != nil {
+			email := withPermission(protected.Group("/notifications/email"), "notification:send", cacheService)
+			email.POST("/send", emailHandler.SendEmail)
+			email.POST("/batch", emailHandler.SendEmailBatch)
+			email.GET("/logs", emailHandler.ListEmailLogs)
 		}
 	}
 
@@ -54,4 +64,11 @@ func RegisterRoutes(
 // RegisterWSRoute 在根路由组注册 WebSocket 路由
 func RegisterWSRoute(r *gin.Engine, wsHandler *WSHandler) {
 	r.GET("/ws/notifications", wsHandler.HandleConnection)
+}
+
+func withPermission(group *gin.RouterGroup, permCode string, cacheService rbacService.PermissionCacheService) *gin.RouterGroup {
+	g := group.Group("")
+	g.Use(middleware.RequirePermission(permCode))
+	g.Use(middleware.PermissionRequired(cacheService))
+	return g
 }
