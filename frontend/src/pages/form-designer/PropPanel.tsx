@@ -16,12 +16,40 @@ const operators: { value: VisibleOperator; label: string }[] = [
   { value: 'in', label: '包含于' },
 ];
 
+function parseFieldOptions(text: string): { label: string; value: string | number }[] {
+  const chunks: string[] = [];
+  for (const line of text.split('\n')) {
+    const parts = line.split(/[,，;；]+/).map((s) => s.trim()).filter(Boolean);
+    if (parts.length > 1 && parts.every((p) => p.includes('='))) {
+      chunks.push(...parts);
+    } else if (parts.length === 1) {
+      chunks.push(parts[0]);
+    } else if (line.trim()) {
+      chunks.push(line.trim());
+    }
+  }
+  return chunks.map((line) => {
+    const idx = line.indexOf('=');
+    const label = (idx >= 0 ? line.slice(0, idx) : line).trim();
+    const raw = idx >= 0 ? line.slice(idx + 1).trim() : label;
+    if (!label) return null;
+    const num = Number(raw);
+    return { label, value: raw !== '' && !Number.isNaN(num) && String(num) === raw ? num : raw };
+  }).filter((x): x is { label: string; value: string | number } => x !== null);
+}
+
 const PropPanel: React.FC<Props> = ({ field, allNames, onChange }) => {
+  const fieldName = field?.name ?? '';
+  const serializedOptions = (field?.options || []).map((o) => `${o.label}=${String(o.value)}`).join('\n');
+  const [optionsDraft, setOptionsDraft] = React.useState({ fieldName, text: serializedOptions });
+  if (optionsDraft.fieldName !== fieldName) {
+    setOptionsDraft({ fieldName, text: serializedOptions });
+  }
+
   if (!field) {
     return <div style={{ color: '#999' }}>选择一个字段以编辑属性</div>;
   }
   const needsOptions = ['select', 'radio', 'checkbox', 'cascader'].includes(field.type);
-  const optionsText = (field.options || []).map((o) => `${o.label}=${String(o.value)}`).join('\n');
 
   return (
     <Form layout="vertical" size="small">
@@ -36,18 +64,11 @@ const PropPanel: React.FC<Props> = ({ field, allNames, onChange }) => {
         <Form.Item label="选项（每行一项，或用逗号分隔：大一=1,大二=2）">
           <Input.TextArea
             rows={4}
-            value={optionsText}
+            value={optionsDraft.text}
             onChange={(e) => {
-              const chunks = e.target.value.split(/[\n,，;；]+/).map((s) => s.trim()).filter(Boolean);
-              const options = chunks.map((line) => {
-                const idx = line.indexOf('=');
-                const label = (idx >= 0 ? line.slice(0, idx) : line).trim();
-                const raw = idx >= 0 ? line.slice(idx + 1).trim() : label;
-                if (!label) return null;
-                const num = Number(raw);
-                return { label, value: raw !== '' && !Number.isNaN(num) && String(num) === raw ? num : raw };
-              }).filter((x): x is { label: string; value: string | number } => x !== null);
-              onChange({ options });
+              const text = e.target.value;
+              setOptionsDraft({ fieldName, text });
+              onChange({ options: parseFieldOptions(text) });
             }}
           />
         </Form.Item>
