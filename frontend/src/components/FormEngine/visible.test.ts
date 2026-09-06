@@ -46,7 +46,7 @@ describe('fieldRules', () => {
       required: true,
       validation: { min_length: 2, max_length: 8, pattern: '^[a-z]+$' },
     });
-    expect(rules.some((r) => r.required)).toBe(true);
+    expect(rules.some((r) => 'required' in r && Boolean(r.required))).toBe(true);
     expect(rules.length).toBeGreaterThan(1);
   });
 
