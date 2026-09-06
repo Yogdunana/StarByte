@@ -18,6 +18,9 @@ import (
 	cfgstoreHandler "github.com/Yogdunana/StarByte/backend/internal/configstore/handler"
 	cfgstoreRepo "github.com/Yogdunana/StarByte/backend/internal/configstore/repo"
 	cfgstoreService "github.com/Yogdunana/StarByte/backend/internal/configstore/service"
+	dictHandler "github.com/Yogdunana/StarByte/backend/internal/dict/handler"
+	dictRepo "github.com/Yogdunana/StarByte/backend/internal/dict/repo"
+	dictService "github.com/Yogdunana/StarByte/backend/internal/dict/service"
 	fileHandler "github.com/Yogdunana/StarByte/backend/internal/file/handler"
 	fileRepo "github.com/Yogdunana/StarByte/backend/internal/file/repo"
 	fileService "github.com/Yogdunana/StarByte/backend/internal/file/service"
@@ -259,6 +262,11 @@ func main() {
 	taskReminder := taskService.NewReminderScheduler(tkSvc)
 	taskReminder.Start()
 
+	// 数据字典
+	dictR := dictRepo.NewDictRepository(database.DB())
+	dictSvc := dictService.NewDictService(dictR, dictService.NewRedisCache(redis.Client()))
+	dictH := dictHandler.NewDictHandler(dictSvc, cacheService)
+
 	// 审计日志模块
 	auditR := auditRepo.NewAuditRepo(database.DB())
 	auditSvc := auditService.NewAuditService(auditR, &cfg.MinIO)
@@ -335,6 +343,9 @@ func main() {
 
 		// 运行时配置（/system/configs）
 		cfgstoreHandler.RegisterRoutes(protected, cfgH, cacheService)
+
+		// 数据字典（/system/dicts，dict:read/create/update/delete；公开读启用项只需登录）
+		dictHandler.RegisterRoutes(protected, dictH, cacheService)
 
 		// 审计日志模块路由（/system/audit-logs，audit:read / audit:export / audit:archive）
 		auditHandler.RegisterRoutes(protected, auditH, cacheService)

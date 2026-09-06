@@ -1,0 +1,43 @@
+.dict-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  margin-bottom: 16px;
+  border-radius: 16px;
+  color: #fff;
+  background: linear-gradient(135deg, #0f766e 0%, #2563eb 55%, #7c3aed 100%);
+  box-shadow: 0 12px 32px rgba(15, 118, 110, 0.18);
+}
+
+.dict-hero h2 {
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.dict-hero p {
+  margin: 0;
+  opacity: 0.88;
+}
+
+.dict-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(420px, 1.2fr);
+  gap: 16px;
+}
+
+.dict-card {
+  border-radius: 16px !important;
+}
+
+.dict-preview {
+  margin-top: 16px;
+}
+
+@media (max-width: 960px) {
+  .dict-layout {
+    grid-template-columns: 1fr;
+  }
+}

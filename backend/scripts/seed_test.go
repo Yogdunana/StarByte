@@ -106,6 +106,27 @@ func TestVicePresident_ExcludesConfigWrites(t *testing.T) {
 	assert.False(t, excluded["config:read"])
 }
 
+func TestSeedDicts_SystemTypes(t *testing.T) {
+	codes := map[string]bool{}
+	for _, typ := range seedDictTypesData {
+		codes[typ.Code] = true
+		assert.NotEmpty(t, typ.Items)
+	}
+	for _, need := range []string{"applicant_type", "interview_result", "task_status", "task_priority", "internship_status", "internship_type", "meeting_status"} {
+		assert.True(t, codes[need], "missing dict type %s", need)
+	}
+}
+
+func TestAllSeedPermissions_IncludesDict(t *testing.T) {
+	seen := map[string]bool{}
+	for _, p := range allSeedPermissions() {
+		seen[p.Code] = true
+	}
+	for _, need := range []string{"dict:read", "dict:create", "dict:update", "dict:delete"} {
+		assert.True(t, seen[need], "missing permission %s", need)
+	}
+}
+
 func TestOfficerAndMemberPerms_NonEmpty(t *testing.T) {
 	assert.GreaterOrEqual(t, len(officerPermCodes()), 8)
 	assert.GreaterOrEqual(t, len(memberPermCodes()), 5)

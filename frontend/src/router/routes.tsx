@@ -18,6 +18,7 @@ const TemplateList = lazy(() => import('@/pages/notification/TemplateList'));
 const AuditList = lazy(() => import('@/pages/system/audit/AuditList'));
 const DepartmentPage = lazy(() => import('@/pages/system/department/DepartmentPage'));
 const ConfigPage = lazy(() => import('@/pages/system/config/ConfigPage'));
+const DictPage = lazy(() => import('@/pages/system/dict/DictPage'));
 const FileList = lazy(() => import('@/pages/file/FileList'));
 const ApplicationPage = lazy(() => import('@/pages/member/application/ApplicationPage'));
 const ProfilePage = lazy(() => import('@/pages/member/profile/ProfilePage'));
@@ -313,6 +314,11 @@ const routes: AppRouteObject[] = [
             path: 'audit',
             element: lazyGuarded(AuditList, 'audit:read'),
             meta: { title: '审计日志', permission: 'audit:read' },
+          },
+          {
+            path: 'dict',
+            element: lazyGuarded(DictPage, 'dict:read'),
+            meta: { title: '数据字典', permission: 'dict:read' },
           },
           {
             path: 'config',

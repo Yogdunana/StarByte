@@ -76,6 +76,7 @@ func allSeedPermissions() []seedPerm {
 	perms = append(perms, moduleCRUD("internship", "实习")...)
 	perms = append(perms, seedPerm{Name: "实习评价", Code: "internship:evaluate", Resource: "internship", Action: "evaluate"})
 	perms = append(perms, moduleCRUD("workflow", "流程")...)
+	perms = append(perms, moduleCRUD("dict", "字典")...)
 	perms = append(perms,
 		seedPerm{Name: "权限查看", Code: "permission:read", Resource: "permission", Action: "read"},
 		seedPerm{Name: "统计查看", Code: "stats:read", Resource: "stats", Action: "read"},

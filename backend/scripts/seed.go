@@ -73,6 +73,9 @@ func SeedAll(db *gorm.DB) error {
 		if err := seedRuntimeConfigs(tx); err != nil {
 			return fmt.Errorf("seed runtime configs: %w", err)
 		}
+		if err := seedDicts(tx); err != nil {
+			return fmt.Errorf("seed dicts: %w", err)
+		}
 		return nil
 	})
 }
