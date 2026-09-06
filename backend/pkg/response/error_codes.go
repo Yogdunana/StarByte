@@ -23,11 +23,13 @@ package response
 //	16000-16999 Session management (#50)
 //	17000-17999 Export / print engine (#71)
 //	18000-18999 Cache management (#72)
+//	19000-19999 Scheduler (#73)
 //
 //	Note: issue #71 asked for 9000-9499, but that range is already owned by
 //	the task module (9000-9999). Export therefore uses 17000-17999 (after
 //	session 16000). Issue #72 asked for 9500-9699, also inside the task
-//	range; cache management uses 18000-18999.
+//	range; cache management uses 18000-18999. Issue #73 asked for 9700-9899,
+//	also inside the task range; the scheduler uses 19000-19999.
 
 const (
 	// ===== Success =====
@@ -185,6 +187,15 @@ const (
 	CodeCacheRedisDown      = 18003 // Redis 不可用
 	CodeCacheWarmupFail     = 18004 // 缓存预热失败
 	CodeCacheInvalidKey     = 18005 // 缓存键不合法
+
+	// ===== Scheduler (#73, 19000-19999) =====
+	// Issue #73 listed 9700-9899; that range is the task module. Use 19000+.
+	CodeSchedulerNotFound    = 19001 // 定时任务不存在
+	CodeSchedulerInvalidCron = 19002 // Cron 表达式无效
+	CodeSchedulerCodeExists  = 19003 // 任务编码已存在
+	CodeSchedulerBadHandler  = 19004 // 未知处理器
+	CodeSchedulerPaused      = 19005 // 任务状态不允许该操作
+	CodeSchedulerBusy        = 19006 // 调度引擎忙或未启动
 )
 
 // ModuleRanges maps each module name to its error-code range [min, max].
@@ -208,4 +219,5 @@ var ModuleRanges = map[string][2]int{
 	"session":      {16000, 16999},
 	"export":       {17000, 17999},
 	"cache":        {18000, 18999},
+	"scheduler":    {19000, 19999},
 }

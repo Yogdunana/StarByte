@@ -48,6 +48,9 @@ import (
 	rbacHandler "github.com/Yogdunana/StarByte/backend/internal/rbac/handler"
 	rbacRepo "github.com/Yogdunana/StarByte/backend/internal/rbac/repo"
 	rbacService "github.com/Yogdunana/StarByte/backend/internal/rbac/service"
+	schedHandler "github.com/Yogdunana/StarByte/backend/internal/scheduler/handler"
+	schedRepo "github.com/Yogdunana/StarByte/backend/internal/scheduler/repo"
+	schedService "github.com/Yogdunana/StarByte/backend/internal/scheduler/service"
 	taskHandler "github.com/Yogdunana/StarByte/backend/internal/task/handler"
 	taskRepo "github.com/Yogdunana/StarByte/backend/internal/task/repo"
 	taskService "github.com/Yogdunana/StarByte/backend/internal/task/service"
@@ -287,6 +290,12 @@ func main() {
 	archiveScheduler := auditService.NewArchiveScheduler(auditSvc)
 	archiveScheduler.Start()
 
+	// 定时任务调度引擎（#73）
+	schedR := schedRepo.New(database.DB())
+	schedEng := schedService.NewEngine(schedR, redis.Client(), schedService.NewNotifAlerter(notifSvc))
+	schedSvc := schedService.NewService(schedR, schedEng)
+	schedEng.Start()
+
 	// 10. API 路由组
 	api := r.Group("/api/v1")
 	// API 组限流：全局 1000 req/s
@@ -365,6 +374,10 @@ func main() {
 		cacheAdminH := cacheadminHandler.NewCacheHandler(cacheAdminSvc)
 		cacheadminHandler.RegisterRoutes(protected, cacheAdminH, cacheService)
 
+		// 定时任务调度（/system/scheduler，#73）
+		schedH := schedHandler.NewSchedulerHandler(schedSvc)
+		schedHandler.RegisterRoutes(protected, schedH, cacheService)
+
 		// 审计日志模块路由（/system/audit-logs，audit:read / audit:export / audit:archive）
 		auditHandler.RegisterRoutes(protected, auditH, cacheService)
 	}
@@ -413,6 +426,7 @@ func main() {
 	// 停止审计日志归档定时任务
 	archiveScheduler.Stop()
 	taskReminder.Stop()
+	schedEng.Stop()
 
 	logger.Info("server exited")
 }

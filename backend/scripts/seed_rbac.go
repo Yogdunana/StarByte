@@ -103,6 +103,14 @@ func allSeedPermissions() []seedPerm {
 		seedPerm{Name: "缓存清除", Code: "cache:delete", Resource: "cache", Action: "delete"},
 		seedPerm{Name: "缓存预热", Code: "cache:manage", Resource: "cache", Action: "manage"},
 	)
+	perms = append(perms,
+		seedPerm{Name: "调度查看", Code: "scheduler:read", Resource: "scheduler", Action: "read"},
+		seedPerm{Name: "调度创建", Code: "scheduler:create", Resource: "scheduler", Action: "create"},
+		seedPerm{Name: "调度更新", Code: "scheduler:update", Resource: "scheduler", Action: "update"},
+		seedPerm{Name: "调度删除", Code: "scheduler:delete", Resource: "scheduler", Action: "delete"},
+		seedPerm{Name: "调度执行", Code: "scheduler:run", Resource: "scheduler", Action: "run"},
+		seedPerm{Name: "调度启停", Code: "scheduler:manage", Resource: "scheduler", Action: "manage"},
+	)
 	return perms
 }
 
@@ -170,7 +178,7 @@ func seedRolePermissions(db *gorm.DB) error {
 		SELECT uuid_generate_v4(), r.id, p.id, 'all'
 		FROM roles r CROSS JOIN permissions p
 		WHERE r.code = 'vice_president'
-		  AND p.code NOT IN ('system:config', 'config:create', 'config:update', 'config:delete', 'cache:delete', 'cache:manage')
+		  AND p.code NOT IN ('system:config', 'config:create', 'config:update', 'config:delete', 'cache:delete', 'cache:manage', 'scheduler:create', 'scheduler:update', 'scheduler:delete', 'scheduler:run', 'scheduler:manage')
 		ON CONFLICT (role_id, permission_id) DO NOTHING
 	`).Error; err != nil {
 		return fmt.Errorf("assign vice_president perms: %w", err)
@@ -180,7 +188,7 @@ func seedRolePermissions(db *gorm.DB) error {
 		USING roles r, permissions p
 		WHERE rp.role_id = r.id AND rp.permission_id = p.id
 		  AND r.code = 'vice_president'
-		  AND p.code IN ('config:create', 'config:update', 'config:delete', 'cache:delete', 'cache:manage')
+		  AND p.code IN ('config:create', 'config:update', 'config:delete', 'cache:delete', 'cache:manage', 'scheduler:create', 'scheduler:update', 'scheduler:delete', 'scheduler:run', 'scheduler:manage')
 	`).Error; err != nil {
 		return fmt.Errorf("revoke vice_president config writes: %w", err)
 	}
@@ -249,6 +257,7 @@ func vicePresidentExcludedPerms() []string {
 	return []string{
 		"system:config", "config:create", "config:update", "config:delete",
 		"cache:delete", "cache:manage",
+		"scheduler:create", "scheduler:update", "scheduler:delete", "scheduler:run", "scheduler:manage",
 	}
 }
 

@@ -1323,3 +1323,82 @@ export interface CacheWarmupResult {
   keys: string[];
 }
 
+export interface SchedulerTask {
+  id: string;
+  name: string;
+  code: string;
+  cron_expr: string;
+  run_at?: string | null;
+  timezone: string;
+  handler_key: string;
+  payload: string;
+  depends_on: string[];
+  shard_key: string;
+  status: number;
+  max_retries: number;
+  timeout_sec: number;
+  retry_count: number;
+  next_run_at?: string | null;
+  last_run_at?: string | null;
+  last_status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SchedulerHandlerInfo {
+  key: string;
+  description: string;
+}
+
+export interface CreateSchedulerTaskParams {
+  name: string;
+  code: string;
+  cron_expr?: string;
+  run_at?: string;
+  timezone?: string;
+  handler_key: string;
+  payload?: string;
+  depends_on?: string[];
+  shard_key?: string;
+  max_retries?: number;
+  timeout_sec?: number;
+}
+
+export interface UpdateSchedulerTaskParams {
+  name?: string;
+  cron_expr?: string;
+  run_at?: string;
+  timezone?: string;
+  handler_key?: string;
+  payload?: string;
+  depends_on?: string[];
+  shard_key?: string;
+  max_retries?: number;
+  timeout_sec?: number;
+}
+
+export interface SchedulerRun {
+  id: string;
+  task_id: string;
+  scheduled_at: string;
+  started_at?: string | null;
+  finished_at?: string | null;
+  status: string;
+  attempt: number;
+  worker_id: string;
+  error_text: string;
+  output: string;
+}
+
+export interface SchedulerLogLine {
+  id: string;
+  level: string;
+  line: string;
+  created_at: string;
+}
+
+export interface SchedulerLogs {
+  runs: SchedulerRun[];
+  logs: SchedulerLogLine[];
+}
+

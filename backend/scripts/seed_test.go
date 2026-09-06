@@ -111,11 +111,13 @@ func TestVicePresident_ExcludesConfigWrites(t *testing.T) {
 	for _, need := range []string{
 		"system:config", "config:create", "config:update", "config:delete",
 		"cache:delete", "cache:manage",
+		"scheduler:create", "scheduler:update", "scheduler:delete", "scheduler:run", "scheduler:manage",
 	} {
 		assert.True(t, excluded[need], "vice_president must not inherit %s", need)
 	}
 	assert.False(t, excluded["config:read"])
 	assert.False(t, excluded["cache:read"])
+	assert.False(t, excluded["scheduler:read"])
 }
 
 func TestAllSeedPermissions_IncludesCache(t *testing.T) {
@@ -128,6 +130,19 @@ func TestAllSeedPermissions_IncludesCache(t *testing.T) {
 	}
 	assert.False(t, seen["cache:create"])
 	assert.False(t, seen["cache:update"])
+}
+
+func TestAllSeedPermissions_IncludesScheduler(t *testing.T) {
+	seen := map[string]bool{}
+	for _, p := range allSeedPermissions() {
+		seen[p.Code] = true
+	}
+	for _, need := range []string{
+		"scheduler:read", "scheduler:create", "scheduler:update",
+		"scheduler:delete", "scheduler:run", "scheduler:manage",
+	} {
+		assert.True(t, seen[need], "missing permission %s", need)
+	}
 }
 
 func TestSeedDicts_SystemTypes(t *testing.T) {
