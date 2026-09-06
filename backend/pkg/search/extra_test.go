@@ -100,6 +100,16 @@ func TestLikeNeedsString(t *testing.T) {
 	require.ErrorIs(t, err, ErrInvalidQuery)
 }
 
+func TestSkipEmptyFilter(t *testing.T) {
+	stmt, err := Compile(demoSchema(), Query{Filters: &Group{Conditions: []Condition{
+		{Field: "id", Operator: "eq", Value: ""},
+		{Field: "status", Operator: "eq", Value: 1},
+	}}})
+	require.NoError(t, err)
+	assert.NotContains(t, stmt.SQL, `t."id" =`)
+	assert.Contains(t, stmt.SQL, `t."status"`)
+}
+
 func TestInTooLong(t *testing.T) {
 	vals := make([]any, MaxINValues+1)
 	for i := range vals {

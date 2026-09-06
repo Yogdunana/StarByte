@@ -27,7 +27,9 @@ func compileGroup(schema Schema, g *Group, args *[]any, depth int) (string, erro
 		if err != nil {
 			return "", err
 		}
-		parts = append(parts, p)
+		if p != "" {
+			parts = append(parts, p)
+		}
 	}
 	for i := range g.Groups {
 		p, err := compileGroup(schema, &g.Groups[i], args, depth+1)
@@ -52,6 +54,9 @@ func compileCond(schema Schema, c Condition, args *[]any) (string, error) {
 	op := strings.ToLower(strings.TrimSpace(c.Operator))
 	if !allowedOp(f, op) {
 		return "", fmt.Errorf("%w: %s on %s", ErrInvalidOp, c.Operator, c.Field)
+	}
+	if skipEmpty(op, c.Value) {
+		return "", nil
 	}
 	col, err := schema.colRef(f)
 	if err != nil {
@@ -125,6 +130,22 @@ func cmpOp(op string) (string, bool) {
 		return "<=", true
 	}
 	return "", false
+}
+
+func skipEmpty(op string, v any) bool {
+	if op == OpIsNull || op == OpNotNull || op == OpIn {
+		return false
+	}
+	if v == nil {
+		return true
+	}
+	if s, ok := v.(string); ok && strings.TrimSpace(s) == "" {
+		return true
+	}
+	if sl, err := asSlice(v); err == nil && len(sl) == 0 {
+		return true
+	}
+	return false
 }
 
 func escapeLike(s string) string {

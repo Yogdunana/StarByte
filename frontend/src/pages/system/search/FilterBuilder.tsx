@@ -134,5 +134,17 @@ const FilterBuilder: React.FC<Props> = ({ group, fields, onChange, nested }) => 
   );
 };
 
-export default FilterBuilder;
-export { emptyCond };
+export function pruneGroup(g: SearchGroup): SearchGroup | undefined {
+  const conditions = g.conditions.filter((c) => {
+    if (!c.field) return false;
+    if (c.operator === 'is_null' || c.operator === 'not_null') return true;
+    if (c.value === '' || c.value == null) return false;
+    if (Array.isArray(c.value) && c.value.length === 0) return false;
+    return true;
+  });
+  const groups = (g.groups || [])
+    .map((child) => pruneGroup(child))
+    .filter((child): child is SearchGroup => Boolean(child));
+  if (!conditions.length && !groups.length) return undefined;
+  return { logic: g.logic, conditions, groups };
+}

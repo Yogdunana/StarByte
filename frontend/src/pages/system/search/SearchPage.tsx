@@ -6,7 +6,7 @@ import { getSearchResources, runSearchQuery } from '@/api/search';
 import type {
   SearchAggRow, SearchField, SearchGroup, SearchResource, SearchResult, SearchSort,
 } from '@/types/api';
-import FilterBuilder, { emptyCond } from './FilterBuilder';
+import FilterBuilder, { emptyCond, pruneGroup } from './FilterBuilder';
 import './search.css';
 
 function safeHeadline(html: string): string {
@@ -70,7 +70,7 @@ const SearchPage: React.FC = () => {
       const res = await runSearchQuery({
         resource: code,
         keyword: keyword.trim() || undefined,
-        filters,
+        filters: pruneGroup(filters),
         sorts,
         page: 1,
         page_size: 10,
