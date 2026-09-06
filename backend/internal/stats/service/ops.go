@@ -118,6 +118,11 @@ func (p *internshipProvider) GetChartConfig() *dto.ChartConfig {
 
 func (p *internshipProvider) GetStats(ctx context.Context, params *dto.StatsQuery) (*dto.StatsResult, error) {
 	q := toQuery(params)
+	hidden, err := p.repo.RankingHidden(ctx)
+	if err != nil {
+		return nil, err
+	}
+	q.HideRanking = hidden && !q.AllScope
 	rank, err := p.repo.InternshipRanking(ctx, q)
 	if err != nil {
 		return nil, err

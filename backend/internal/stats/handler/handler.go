@@ -7,6 +7,7 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/stats/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/stats/service"
+	"github.com/Yogdunana/StarByte/backend/pkg/middleware"
 	"github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/gin-gonic/gin"
@@ -76,7 +77,7 @@ func (h *StatsHandler) serve(c *gin.Context, code string) {
 		response.Error(c, err)
 		return
 	}
-	res, err := h.svc.GetStats(c.Request.Context(), code, q)
+	res, err := h.svc.GetStats(c.Request.Context(), code, applyScope(c, q))
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -100,7 +101,7 @@ func (h *StatsHandler) Export(c *gin.Context) {
 		return
 	}
 	format := c.DefaultQuery("format", "excel")
-	data, filename, err := h.svc.Export(c.Request.Context(), c.Param("provider"), format, q)
+	data, filename, err := h.svc.Export(c.Request.Context(), c.Param("provider"), format, applyScope(c, q))
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -134,6 +135,45 @@ func bindQuery(c *gin.Context) (*dto.StatsQuery, error) {
 		q.DepartmentID = &id
 	}
 	return q, nil
+}
+
+func applyScope(c *gin.Context, q *dto.StatsQuery) *dto.StatsQuery {
+	if q == nil {
+		q = &dto.StatsQuery{}
+	}
+	scope := middleware.GetDataScopeFromContext(c)
+	if scope == nil || scope.IsEmpty() {
+		q.AllScope = true
+		return q
+	}
+	q.AllScope = false
+	if scope.Query == "1 = 0" {
+		q.Denied = true
+		return q
+	}
+	q.ScopeDeptIDs = extractScopeDeptIDs(scope.Args)
+	return q
+}
+
+func extractScopeDeptIDs(args []interface{}) []uuid.UUID {
+	out := make([]uuid.UUID, 0)
+	for _, arg := range args {
+		switch v := arg.(type) {
+		case uuid.UUID:
+			out = append(out, v)
+		case *uuid.UUID:
+			if v != nil {
+				out = append(out, *v)
+			}
+		case []uuid.UUID:
+			out = append(out, v...)
+		case string:
+			if id, err := uuid.Parse(v); err == nil {
+				out = append(out, id)
+			}
+		}
+	}
+	return out
 }
 
 func parseDate(raw string, endOfDay bool) (*time.Time, error) {

@@ -8,12 +8,15 @@ import (
 
 // StatsQuery 统一查询参数。
 type StatsQuery struct {
-	StartDate    *time.Time `form:"start_date" json:"start_date"`
-	EndDate      *time.Time `form:"end_date" json:"end_date"`
-	DepartmentID *uuid.UUID `form:"department_id" json:"department_id"`
-	GroupBy      string     `form:"group_by" json:"group_by"`
-	Granularity  string     `form:"granularity" json:"granularity"`
-	Format       string     `form:"format" json:"format"`
+	StartDate    *time.Time  `form:"start_date" json:"start_date"`
+	EndDate      *time.Time  `form:"end_date" json:"end_date"`
+	DepartmentID *uuid.UUID  `form:"department_id" json:"department_id"`
+	GroupBy      string      `form:"group_by" json:"group_by"`
+	Granularity  string      `form:"granularity" json:"granularity"`
+	Format       string      `form:"format" json:"format"`
+	Denied       bool        `json:"-"`
+	AllScope     bool        `json:"-"`
+	ScopeDeptIDs []uuid.UUID `json:"-"`
 }
 
 // ProviderInfo 注册中心对外描述。

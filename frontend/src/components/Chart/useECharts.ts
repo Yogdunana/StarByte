@@ -36,6 +36,9 @@ export function useECharts(option: EChartsOption | undefined, loading: boolean) 
     chart.hideLoading();
     if (option) {
       chart.setOption(option, true);
+      requestAnimationFrame(() => {
+        chart.resize();
+      });
     }
   }, [option, loading]);
 

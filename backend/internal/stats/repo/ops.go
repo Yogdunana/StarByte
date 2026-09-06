@@ -12,7 +12,7 @@ func (r *statsRepo) MeetingAttendanceTrend(ctx context.Context, q Query) ([]Buck
 		Select(expr + ` AS k, ` + expr + ` AS l,
 			CASE WHEN COUNT(a.id) = 0 THEN 0
 			ELSE 100.0 * COUNT(*) FILTER (WHERE a.attended) / COUNT(a.id) END AS v`)
-	db = applyDept(db, "p.department_id", q.DepartmentID)
+	db = applyDept(db, "p.department_id", q)
 	db = applyRange(db, "m.start_time", q)
 	return scanBuckets(db.Group("k, l").Order("k"))
 }
@@ -22,7 +22,7 @@ func (r *statsRepo) MeetingByDepartment(ctx context.Context, q Query) ([]Bucket,
 		Joins("LEFT JOIN member_profiles p ON p.user_id = m.organizer_id").
 		Joins("LEFT JOIN departments d ON d.id = p.department_id").
 		Select("COALESCE(p.department_id::text, 'none') AS k, COALESCE(d.name, '未分配') AS l, COUNT(*)::float AS v")
-	db = applyDept(db, "p.department_id", q.DepartmentID)
+	db = applyDept(db, "p.department_id", q)
 	db = applyRange(db, "m.start_time", q)
 	return scanBuckets(db.Group("p.department_id, d.name").Order("v DESC"))
 }
@@ -31,7 +31,7 @@ func (r *statsRepo) MeetingCalendar(ctx context.Context, q Query) ([]Bucket, err
 	db := r.db.WithContext(ctx).Table("meetings AS m").
 		Joins("LEFT JOIN member_profiles p ON p.user_id = m.organizer_id").
 		Select("to_char(m.start_time::date, 'YYYY-MM-DD') AS k, to_char(m.start_time::date, 'YYYY-MM-DD') AS l, COUNT(*)::float AS v")
-	db = applyDept(db, "p.department_id", q.DepartmentID)
+	db = applyDept(db, "p.department_id", q)
 	db = applyRange(db, "m.start_time", q)
 	return scanBuckets(db.Group("k, l").Order("k"))
 }
@@ -39,7 +39,7 @@ func (r *statsRepo) MeetingCalendar(ctx context.Context, q Query) ([]Bucket, err
 func (r *statsRepo) TaskByStatus(ctx context.Context, q Query) ([]Bucket, error) {
 	db := r.db.WithContext(ctx).Table("tasks").
 		Select("status::text AS k, CASE status WHEN 0 THEN '待处理' WHEN 1 THEN '进行中' WHEN 2 THEN '已完成' WHEN 3 THEN '已取消' WHEN 4 THEN '已挂起' ELSE status::text END AS l, COUNT(*)::float AS v")
-	db = applyDept(db, "department_id", q.DepartmentID)
+	db = applyDept(db, "department_id", q)
 	db = applyRange(db, "created_at", q)
 	return scanBuckets(db.Group("status").Order("status"))
 }
@@ -51,7 +51,7 @@ func (r *statsRepo) TaskOnTimeRate(ctx context.Context, q Query) (float64, error
 	}
 	var row agg
 	db := r.db.WithContext(ctx).Table("tasks").Where("status = 2")
-	db = applyDept(db, "department_id", q.DepartmentID)
+	db = applyDept(db, "department_id", q)
 	db = applyRange(db, "created_at", q)
 	err := db.Select("COUNT(*) AS done, COUNT(*) FILTER (WHERE due_date IS NULL OR completed_at IS NULL OR completed_at <= due_date) AS on_time").Scan(&row).Error
 	if err != nil || row.Done == 0 {
@@ -64,7 +64,7 @@ func (r *statsRepo) TaskTrend(ctx context.Context, q Query) ([]string, map[strin
 	expr := truncExpr("created_at", q.Granularity)
 	db := r.db.WithContext(ctx).Table("tasks").
 		Select(expr + " AS k, " + expr + " AS l, status::text AS s, COUNT(*)::float AS v")
-	db = applyDept(db, "department_id", q.DepartmentID)
+	db = applyDept(db, "department_id", q)
 	db = applyRange(db, "created_at", q)
 	var rows []struct {
 		K string  `gorm:"column:k"`

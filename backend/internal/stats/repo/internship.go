@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/stats/dto"
@@ -9,11 +10,14 @@ import (
 )
 
 func (r *statsRepo) InternshipRanking(ctx context.Context, q Query) ([]Bucket, error) {
+	if q.HideRanking {
+		return []Bucket{}, nil
+	}
 	db := r.db.WithContext(ctx).Table("internships AS i").
 		Joins("JOIN users u ON u.id = i.user_id").
 		Select("u.id::text AS k, COALESCE(NULLIF(u.real_name, ''), u.username) AS l, SUM(GREATEST(0, (COALESCE(i.end_date, CURRENT_DATE) - i.start_date)))::float AS v")
-	db = applyDept(db, "i.department_id", q.DepartmentID)
-	db = applyRange(db, "i.start_date", q)
+	db = applyDept(db, "i.department_id", q)
+	db = applyOverlap(db, "i.start_date", "i.end_date", q)
 	return scanBuckets(db.Group("u.id, u.real_name, u.username").Order("v DESC").Limit(15))
 }
 
@@ -21,8 +25,8 @@ func (r *statsRepo) InternshipDeptAvg(ctx context.Context, q Query) ([]Bucket, e
 	db := r.db.WithContext(ctx).Table("internships AS i").
 		Joins("LEFT JOIN departments d ON d.id = i.department_id").
 		Select("COALESCE(i.department_id::text, 'none') AS k, COALESCE(d.name, '未分配') AS l, AVG(GREATEST(0, (COALESCE(i.end_date, CURRENT_DATE) - i.start_date)))::float AS v")
-	db = applyDept(db, "i.department_id", q.DepartmentID)
-	db = applyRange(db, "i.start_date", q)
+	db = applyDept(db, "i.department_id", q)
+	db = applyOverlap(db, "i.start_date", "i.end_date", q)
 	return scanBuckets(db.Group("i.department_id, d.name").Order("v DESC"))
 }
 
@@ -30,9 +34,27 @@ func (r *statsRepo) InternshipTrend(ctx context.Context, q Query) ([]Bucket, err
 	expr := truncExpr("i.start_date", q.Granularity)
 	db := r.db.WithContext(ctx).Table("internships AS i").
 		Select(expr + " AS k, " + expr + " AS l, SUM(GREATEST(0, (COALESCE(i.end_date, CURRENT_DATE) - i.start_date)))::float AS v")
-	db = applyDept(db, "i.department_id", q.DepartmentID)
-	db = applyRange(db, "i.start_date", q)
+	db = applyDept(db, "i.department_id", q)
+	db = applyOverlap(db, "i.start_date", "i.end_date", q)
 	return scanBuckets(db.Group("k, l").Order("k"))
+}
+
+func (r *statsRepo) RankingHidden(ctx context.Context) (bool, error) {
+	var raw string
+	err := r.db.WithContext(ctx).Table("configs").Select("config_value").Where("config_key = ?", "internship_config").Limit(1).Scan(&raw).Error
+	if err != nil {
+		return false, err
+	}
+	if raw == "" {
+		return false, nil
+	}
+	var cfg struct {
+		RankingVisible *bool `json:"ranking_visible"`
+	}
+	if err := json.Unmarshal([]byte(raw), &cfg); err != nil || cfg.RankingVisible == nil {
+		return false, nil
+	}
+	return !*cfg.RankingVisible, nil
 }
 
 func (r *statsRepo) Overview(ctx context.Context, userID uuid.UUID) (*dto.OverviewResponse, error) {
@@ -45,7 +67,7 @@ func (r *statsRepo) Overview(ctx context.Context, userID uuid.UUID) (*dto.Overvi
 	if err := r.db.WithContext(ctx).Table("member_profiles").Where("status = 0").Count(&out.TotalMembers).Error; err != nil {
 		return nil, err
 	}
-	if err := r.db.WithContext(ctx).Table("meetings").Where("start_time >= ?", monthStart).Count(&out.TotalMeetingsThisMonth).Error; err != nil {
+	if err := r.db.WithContext(ctx).Table("meetings").Where("start_time >= ? AND start_time < ?", monthStart, monthStart.AddDate(0, 1, 0)).Count(&out.TotalMeetingsThisMonth).Error; err != nil {
 		return nil, err
 	}
 	if err := r.db.WithContext(ctx).Table("tasks").Where("status = 1").Count(&out.TotalTasksInProgress).Error; err != nil {

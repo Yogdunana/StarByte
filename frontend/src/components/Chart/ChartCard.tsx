@@ -66,11 +66,14 @@ const ChartCard: React.FC<ChartCardProps> = ({
   return (
     <Card title={title} extra={extra} size="small">
       {error ? <Alert type="error" message={error} showIcon style={{ marginBottom: 12 }} /> : null}
-      {empty && !loading && !error ? <Empty description="暂无数据" /> : null}
-      <div
-        ref={ref}
-        style={{ width: '100%', height, display: hideChart ? 'none' : 'block' }}
-      />
+      <div style={{ position: 'relative', height }}>
+        {empty && !loading && !error ? (
+          <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff' }}>
+            <Empty description="暂无数据" />
+          </div>
+        ) : null}
+        <div ref={ref} style={{ width: '100%', height, visibility: error ? 'hidden' : 'visible' }} />
+      </div>
     </Card>
   );
 };

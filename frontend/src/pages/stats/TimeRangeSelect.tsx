@@ -2,6 +2,9 @@ import React from 'react';
 import { DatePicker, Radio, Space } from 'antd';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
+import 'dayjs/locale/zh-cn';
+
+dayjs.locale('zh-cn');
 
 export type TimePreset = 'today' | 'week' | 'month' | 'semester' | 'custom';
 
@@ -17,8 +20,12 @@ interface TimeRangeSelectProps {
 }
 
 function semesterRange(now: Dayjs): [Dayjs, Dayjs] {
-  if (now.month() >= 7) {
+  const month = now.month();
+  if (month >= 7) {
     return [now.month(7).date(1).startOf('day'), now.add(1, 'year').month(0).date(31).endOf('day')];
+  }
+  if (month === 0) {
+    return [now.subtract(1, 'year').month(7).date(1).startOf('day'), now.month(0).date(31).endOf('day')];
   }
   return [now.month(1).date(1).startOf('day'), now.month(6).date(31).endOf('day')];
 }

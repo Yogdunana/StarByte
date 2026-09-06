@@ -92,4 +92,8 @@ func TestRepoQueries(t *testing.T) {
 	require.NoError(t, err)
 	_, err = r.Overview(ctx, uuid.New())
 	require.NoError(t, err)
+	_, err = r.RankingHidden(ctx)
+	require.NoError(t, err)
+	_, err = r.InternshipRanking(ctx, Query{HideRanking: true})
+	require.NoError(t, err)
 }

@@ -13,7 +13,11 @@ type Query struct {
 	Start        *time.Time
 	End          *time.Time
 	DepartmentID *uuid.UUID
+	DeptIDs      []uuid.UUID
 	Granularity  string
+	Denied       bool
+	AllScope     bool
+	HideRanking  bool
 }
 
 // Bucket 分组桶。
@@ -45,11 +49,27 @@ func applyRange(db *gorm.DB, col string, q Query) *gorm.DB {
 	return db
 }
 
-func applyDept(db *gorm.DB, col string, id *uuid.UUID) *gorm.DB {
-	if id == nil {
-		return db
+func applyDept(db *gorm.DB, col string, q Query) *gorm.DB {
+	if q.Denied {
+		return db.Where("1 = 0")
 	}
-	return db.Where(col+" = ?", *id)
+	if q.DepartmentID != nil {
+		db = db.Where(col+" = ?", *q.DepartmentID)
+	}
+	if len(q.DeptIDs) > 0 {
+		db = db.Where(col+" IN ?", q.DeptIDs)
+	}
+	return db
+}
+
+func applyOverlap(db *gorm.DB, startCol, endCol string, q Query) *gorm.DB {
+	if q.Start != nil {
+		db = db.Where("("+endCol+" IS NULL OR "+endCol+" >= ?)", *q.Start)
+	}
+	if q.End != nil {
+		db = db.Where(startCol+" <= ?", *q.End)
+	}
+	return db
 }
 
 func scanBuckets(db *gorm.DB) ([]Bucket, error) {

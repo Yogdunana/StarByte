@@ -27,6 +27,7 @@ type StatsRepo interface {
 	InternshipRanking(ctx context.Context, q Query) ([]Bucket, error)
 	InternshipDeptAvg(ctx context.Context, q Query) ([]Bucket, error)
 	InternshipTrend(ctx context.Context, q Query) ([]Bucket, error)
+	RankingHidden(ctx context.Context) (bool, error)
 	Overview(ctx context.Context, userID uuid.UUID) (*dto.OverviewResponse, error)
 }
 

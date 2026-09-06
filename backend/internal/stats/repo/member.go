@@ -9,16 +9,16 @@ import (
 
 func (r *statsRepo) MemberSummary(ctx context.Context, q Query) (total, active, newMonth int64, err error) {
 	base := r.db.WithContext(ctx).Table("member_profiles")
-	base = applyDept(base, "department_id", q.DepartmentID)
-	if err = applyRange(base, "created_at", q).Count(&total).Error; err != nil {
+	base = applyDept(base, "department_id", q)
+	if err = base.Count(&total).Error; err != nil {
 		return
 	}
-	if err = applyRange(applyDept(r.db.WithContext(ctx).Table("member_profiles").Where("status = 0"), "department_id", q.DepartmentID), "created_at", q).Count(&active).Error; err != nil {
+	if err = applyDept(r.db.WithContext(ctx).Table("member_profiles").Where("status = 0"), "department_id", q).Count(&active).Error; err != nil {
 		return
 	}
 	start := time.Now().AddDate(0, 0, -time.Now().Day()+1)
 	start = time.Date(start.Year(), start.Month(), 1, 0, 0, 0, 0, start.Location())
-	if err = applyDept(r.db.WithContext(ctx).Table("member_profiles").Where("created_at >= ?", start), "department_id", q.DepartmentID).Count(&newMonth).Error; err != nil {
+	if err = applyDept(r.db.WithContext(ctx).Table("member_profiles").Where("created_at >= ?", start), "department_id", q).Count(&newMonth).Error; err != nil {
 		return
 	}
 	return
@@ -28,16 +28,14 @@ func (r *statsRepo) MemberByDepartment(ctx context.Context, q Query) ([]Bucket, 
 	db := r.db.WithContext(ctx).Table("member_profiles AS p").
 		Select("COALESCE(p.department_id::text, 'none') AS k, COALESCE(d.name, '未分配') AS l, COUNT(*)::float AS v").
 		Joins("LEFT JOIN departments d ON d.id = p.department_id")
-	db = applyDept(db, "p.department_id", q.DepartmentID)
-	db = applyRange(db, "p.created_at", q)
+	db = applyDept(db, "p.department_id", q)
 	return scanBuckets(db.Group("p.department_id, d.name").Order("v DESC"))
 }
 
 func (r *statsRepo) MemberByGrade(ctx context.Context, q Query) ([]Bucket, error) {
 	db := r.db.WithContext(ctx).Table("member_profiles").
 		Select("COALESCE(NULLIF(grade, ''), '未填写') AS k, COALESCE(NULLIF(grade, ''), '未填写') AS l, COUNT(*)::float AS v")
-	db = applyDept(db, "department_id", q.DepartmentID)
-	db = applyRange(db, "created_at", q)
+	db = applyDept(db, "department_id", q)
 	return scanBuckets(db.Group("k, l").Order("k"))
 }
 
@@ -45,7 +43,7 @@ func (r *statsRepo) MemberTrend(ctx context.Context, q Query) ([]Bucket, error) 
 	expr := truncExpr("created_at", q.Granularity)
 	db := r.db.WithContext(ctx).Table("member_profiles").
 		Select(expr + " AS k, " + expr + " AS l, COUNT(*)::float AS v")
-	db = applyDept(db, "department_id", q.DepartmentID)
+	db = applyDept(db, "department_id", q)
 	db = applyRange(db, "created_at", q)
 	return scanBuckets(db.Group("k, l").Order("k"))
 }
@@ -74,7 +72,7 @@ func (r *statsRepo) InterviewSummary(ctx context.Context, q Query) (total int64,
 func (r *statsRepo) ivJoin(ctx context.Context, q Query) *gorm.DB {
 	db := r.db.WithContext(ctx).Table("interviews AS i").
 		Joins("LEFT JOIN member_applications a ON a.id = i.application_id")
-	db = applyDept(db, "a.department_id", q.DepartmentID)
+	db = applyDept(db, "a.department_id", q)
 	db = applyRange(db, "COALESCE(i.scheduled_at, i.created_at)", q)
 	return db
 }

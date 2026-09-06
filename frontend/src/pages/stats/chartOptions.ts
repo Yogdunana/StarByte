@@ -71,8 +71,13 @@ export function gaugeOption(series: StatsSeries): EChartsOption {
 export function calendarOption(series: StatsSeries): EChartsOption {
   const values = series.data.map((d) => d.value);
   const max = values.length ? Math.max(...values) : 1;
-  const years = series.data.map((d) => d.label.slice(0, 4)).filter(Boolean);
-  const year = years[0] || String(new Date().getFullYear());
+  const labels = series.data.map((d) => d.label).filter(Boolean).sort();
+  const year = String(new Date().getFullYear());
+  const calRange: string | [string, string] = labels.length
+    ? (labels[0].slice(0, 4) === labels[labels.length - 1].slice(0, 4)
+      ? labels[0].slice(0, 4)
+      : [labels[0], labels[labels.length - 1]])
+    : year;
   return {
     tooltip: {
       formatter: (params: unknown) => {
@@ -81,7 +86,7 @@ export function calendarOption(series: StatsSeries): EChartsOption {
       },
     },
     visualMap: { min: 0, max, orient: 'horizontal', left: 'center', bottom: 0, calculable: true },
-    calendar: { range: year, left: 48, right: 16, top: 32, bottom: 48, cellSize: ['auto', 16] },
+    calendar: { range: calRange, left: 48, right: 16, top: 32, bottom: 48, cellSize: ['auto', 16] },
     series: [
       {
         type: 'heatmap',

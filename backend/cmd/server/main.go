@@ -400,7 +400,7 @@ func main() {
 		// 数据统计（/stats，#11）
 		statsSvc := statsService.NewStatsService(statsRepo.NewStatsRepo(database.DB()))
 		statsH := statsHandler.NewStatsHandler(statsSvc)
-		statsHandler.RegisterRoutes(protected, statsH, cacheService)
+		statsHandler.RegisterRoutes(protected, statsH, cacheService, database.DB(), deptRepo)
 
 		// 审计日志模块路由（/system/audit-logs，audit:read / audit:export / audit:archive / audit:report）
 		auditHandler.RegisterRoutes(protected, auditH, cacheService)

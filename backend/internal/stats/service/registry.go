@@ -66,5 +66,12 @@ func (r *StatsRegistry) GetStats(ctx context.Context, provider string, params *d
 	if params == nil {
 		params = &dto.StatsQuery{}
 	}
-	return p.GetStats(ctx, params)
+	res, err := p.GetStats(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+	if res != nil {
+		res.Series = filterSeries(params.GroupBy, res.Series)
+	}
+	return res, nil
 }
