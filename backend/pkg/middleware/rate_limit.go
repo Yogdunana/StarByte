@@ -37,6 +37,8 @@ var (
 	}
 
 	// PerIPRateLimit: 100 req/min per client IP.
+	// Kept for #14 compatibility and tests. Live /api/v1 IP limiting uses
+	// pkg/middleware/ratelimit token buckets (#75).
 	PerIPRateLimit = RateLimitConfig{
 		Rate:   100,
 		Window: 60,
