@@ -101,4 +101,12 @@ func TestApplyScope_departmentAndAudit(t *testing.T) {
 
 	open := applyScope(tasks, &rbacModel.DataScopeCondition{}, viewer)
 	assert.Equal(t, tasks.ExtraWhere, open.ExtraWhere)
+
+	self := applyScope(tasks, &rbacModel.DataScopeCondition{Query: "1 = 0", IsSelf: true}, viewer)
+	assert.Contains(t, self.ExtraWhere, `t."creator_id" = ?`)
+	assert.Equal(t, []any{viewer, viewer}, self.ExtraArgs)
+
+	denied := applyScope(tasks, &rbacModel.DataScopeCondition{Query: "1 = 0"}, viewer)
+	assert.Equal(t, "1 = 0", denied.ExtraWhere)
+	assert.Empty(t, denied.ExtraArgs)
 }

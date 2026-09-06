@@ -71,7 +71,7 @@ func applyScope(sch search.Schema, scope *rbacModel.DataScopeCondition, viewer u
 	if scope == nil || scope.IsEmpty() {
 		return sch
 	}
-	return sch.ApplyDataScope(scope.Query, scope.Args, viewer)
+	return sch.ApplyDataScope(scope.Query, scope.Args, viewer, scope.IsSelf)
 }
 
 func wrapSearchErr(err error) error {

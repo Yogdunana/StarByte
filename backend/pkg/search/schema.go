@@ -68,15 +68,16 @@ func allowedOp(f Field, op string) bool {
 
 // ApplyDataScope ANDs a data-range predicate onto ExtraWhere.
 // Empty where is a no-op (super-admin / all). Tables without ScopeColumn
-// fail closed unless SelfSQL can express "only me".
-func (s Schema) ApplyDataScope(where string, args []any, userID any) Schema {
+// fail closed unless isSelf and SelfSQL can express "only me".
+// A "1 = 0" predicate is deny-all unless isSelf is true.
+func (s Schema) ApplyDataScope(where string, args []any, userID any, isSelf bool) Schema {
 	where = strings.TrimSpace(where)
 	if where == "" {
 		return s
 	}
 	var extraArgs []any
 	switch {
-	case where == "1 = 0" && strings.TrimSpace(s.SelfSQL) != "":
+	case isSelf && strings.TrimSpace(s.SelfSQL) != "":
 		where = s.SelfSQL
 		n := strings.Count(s.SelfSQL, "?")
 		extraArgs = make([]any, n)

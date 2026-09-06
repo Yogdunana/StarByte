@@ -148,19 +148,24 @@ func TestApplyDataScope(t *testing.T) {
 	base.SelfSQL = `t."creator_id" = ? OR t."assignee_id" = ?`
 	base.ExtraWhere = "deleted_at IS NULL"
 
-	open := base.ApplyDataScope("", nil, "me")
+	open := base.ApplyDataScope("", nil, "me", false)
 	assert.Equal(t, "deleted_at IS NULL", open.ExtraWhere)
 
-	dept := base.ApplyDataScope("department_id = ?", []any{"d1"}, "me")
+	dept := base.ApplyDataScope("department_id = ?", []any{"d1"}, "me", false)
 	assert.Contains(t, dept.ExtraWhere, `t."department_id" = ?`)
 	assert.Equal(t, []any{"d1"}, dept.ExtraArgs)
 
-	self := base.ApplyDataScope("1 = 0", nil, "me")
+	self := base.ApplyDataScope("1 = 0", nil, "me", true)
 	assert.Contains(t, self.ExtraWhere, `t."creator_id" = ?`)
 	assert.Equal(t, []any{"me", "me"}, self.ExtraArgs)
 
+	denied := base.ApplyDataScope("1 = 0", nil, "me", false)
+	assert.Contains(t, denied.ExtraWhere, "1 = 0")
+	assert.NotContains(t, denied.ExtraWhere, `t."creator_id"`)
+	assert.Empty(t, denied.ExtraArgs)
+
 	audit := Schema{Code: "audit_logs", Table: "audit_logs"}
-	closed := audit.ApplyDataScope("department_id = ?", []any{"d1"}, "me")
+	closed := audit.ApplyDataScope("department_id = ?", []any{"d1"}, "me", false)
 	assert.Equal(t, "1 = 0", closed.ExtraWhere)
 	assert.Empty(t, closed.ExtraArgs)
 }
