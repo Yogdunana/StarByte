@@ -33,6 +33,11 @@ func TestQueryFlags(t *testing.T) {
 	assert.Equal(t, []uuid.UUID{id}, q.DeptIDs)
 	assert.True(t, q.HideRanking)
 	assert.Contains(t, clippedDaysSQL(q), "2026-01-01")
-	assert.Contains(t, clippedDaysSQL(q), "2026-01-31")
-	assert.Equal(t, "GREATEST(0, (COALESCE(i.end_date, CURRENT_DATE) - i.start_date))", clippedDaysSQL(Query{}))
+	assert.Contains(t, clippedDaysSQL(q), "2026-02-01")
+	assert.NotContains(t, clippedDaysSQL(q), "DATE '2026-01-31'")
+	endOfDay := time.Date(2026, 1, 31, 23, 59, 59, 999999999, time.UTC)
+	today := time.Date(2026, 9, 6, 23, 59, 59, 999999999, time.Local)
+	assert.Contains(t, clippedDaysSQL(Query{Start: &endOfDay, End: &endOfDay}), "2026-02-01")
+	assert.Contains(t, clippedDaysSQL(Query{Start: &today, End: &today}), "2026-09-07")
+	assert.Equal(t, "GREATEST(0, ((COALESCE(i.end_date, CURRENT_DATE) + 1) - i.start_date))", clippedDaysSQL(Query{}))
 }

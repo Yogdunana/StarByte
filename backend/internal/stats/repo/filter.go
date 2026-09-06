@@ -76,6 +76,15 @@ func dateLit(t time.Time) string {
 	return t.Format("2006-01-02")
 }
 
+func exclusiveDate(t time.Time) time.Time {
+	d := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+	return d.AddDate(0, 0, 1)
+}
+
+func internEndExclusiveSQL() string {
+	return "(COALESCE(i.end_date, CURRENT_DATE) + 1)"
+}
+
 func clipStartSQL(q Query) string {
 	if q.Start == nil {
 		return "i.start_date"
@@ -84,10 +93,11 @@ func clipStartSQL(q Query) string {
 }
 
 func clipEndSQL(q Query) string {
+	intern := internEndExclusiveSQL()
 	if q.End == nil {
-		return "COALESCE(i.end_date, CURRENT_DATE)"
+		return intern
 	}
-	return "LEAST(COALESCE(i.end_date, CURRENT_DATE), DATE '" + dateLit(*q.End) + "')"
+	return "LEAST(" + intern + ", DATE '" + dateLit(exclusiveDate(*q.End)) + "')"
 }
 
 func clippedDaysSQL(q Query) string {
