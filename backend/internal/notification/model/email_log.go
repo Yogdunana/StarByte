@@ -17,7 +17,7 @@ const (
 type EmailLog struct {
 	ID             uuid.UUID  `gorm:"type:uuid;primaryKey"`
 	UserID         *uuid.UUID `gorm:"type:uuid"`
-	ToAddress      string     `gorm:"type:varchar(200);not null"`
+	ToAddress      string     `gorm:"type:text;not null"`
 	Subject        string     `gorm:"type:varchar(500);not null"`
 	TemplateCode   string     `gorm:"type:varchar(100)"`
 	Status         int16      `gorm:"type:smallint;not null;default:0"`
@@ -26,7 +26,7 @@ type EmailLog struct {
 	CreatedAt      time.Time
 	NotificationID *uuid.UUID `gorm:"type:uuid"`
 	RetryCount     int16      `gorm:"type:smallint;not null;default:0"`
-	CC             string     `gorm:"type:varchar(1000)"`
+	CC             string     `gorm:"type:text"`
 	IsHTML         bool       `gorm:"not null;default:false"`
 }
 

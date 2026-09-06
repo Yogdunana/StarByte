@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/notification/model"
@@ -17,8 +18,14 @@ var errEmailQueueFull = errors.New("email queue is full")
 
 const emailQueueSize = 64
 const emailMaxAttempts = 3
+const rateRetryDelay = 200 * time.Millisecond
 
 var defaultEmailBackoff = []time.Duration{time.Minute, 5 * time.Minute, 15 * time.Minute}
+
+type delayedJob struct {
+	job MailJob
+	at  time.Time
+}
 
 type EmailWorker struct {
 	sender  MIMESender
@@ -26,9 +33,10 @@ type EmailWorker struct {
 	attach  *attachmentLoader
 	limiter *minuteLimiter
 	backoff []time.Duration
-	sleep   func(time.Duration)
 	jobs    chan MailJob
 	now     func() time.Time
+	delayMu sync.Mutex
+	delayed []delayedJob
 }
 
 func NewEmailWorker(sender MIMESender, logs repo.EmailLogRepo, attach *attachmentLoader, limiter *minuteLimiter) *EmailWorker {
@@ -38,23 +46,38 @@ func NewEmailWorker(sender MIMESender, logs repo.EmailLogRepo, attach *attachmen
 		attach:  attach,
 		limiter: limiter,
 		backoff: defaultEmailBackoff,
-		sleep:   time.Sleep,
 		jobs:    make(chan MailJob, emailQueueSize),
 		now:     time.Now,
 	}
 }
 
 func (w *EmailWorker) Start(ctx context.Context) {
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case job := <-w.jobs:
-				w.process(ctx, job)
-			}
+	go w.loop(ctx)
+	go w.delayLoop(ctx)
+}
+
+func (w *EmailWorker) loop(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case job := <-w.jobs:
+			w.process(ctx, job)
 		}
-	}()
+	}
+}
+
+func (w *EmailWorker) delayLoop(ctx context.Context) {
+	tick := time.NewTicker(rateRetryDelay)
+	defer tick.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+			w.flushDue()
+		}
+	}
 }
 
 func (w *EmailWorker) Enqueue(ctx context.Context, job MailJob) (uuid.UUID, error) {
@@ -65,50 +88,81 @@ func (w *EmailWorker) Enqueue(ctx context.Context, job MailJob) (uuid.UUID, erro
 		}
 		job.LogID = row.ID
 	}
+	if err := w.push(ctx, job); err != nil {
+		return job.LogID, err
+	}
+	return job.LogID, nil
+}
+
+func (w *EmailWorker) push(ctx context.Context, job MailJob) error {
 	select {
 	case w.jobs <- job:
-		return job.LogID, nil
+		return nil
 	default:
-		_ = w.mark(ctx, job.LogID, model.EmailFailed, "queue is full", 0)
-		return job.LogID, errEmailQueueFull
+		_ = w.mark(ctx, job.LogID, model.EmailFailed, "queue is full", int16(job.Attempts))
+		return errEmailQueueFull
+	}
+}
+
+func (w *EmailWorker) schedule(job MailJob, d time.Duration) {
+	if d <= 0 {
+		_ = w.push(context.Background(), job)
+		return
+	}
+	w.delayMu.Lock()
+	w.delayed = append(w.delayed, delayedJob{job: job, at: w.now().Add(d)})
+	w.delayMu.Unlock()
+}
+
+func (w *EmailWorker) flushDue() {
+	now := w.now()
+	w.delayMu.Lock()
+	keep := w.delayed[:0]
+	due := make([]MailJob, 0)
+	for _, item := range w.delayed {
+		if !item.at.After(now) {
+			due = append(due, item.job)
+		} else {
+			keep = append(keep, item)
+		}
+	}
+	w.delayed = keep
+	w.delayMu.Unlock()
+	for _, job := range due {
+		_ = w.push(context.Background(), job)
 	}
 }
 
 func (w *EmailWorker) process(ctx context.Context, job MailJob) {
+	if w.limiter != nil && !w.limiter.Allow() {
+		w.schedule(job, rateRetryDelay)
+		return
+	}
 	var files []MailAttachment
 	var err error
 	if len(job.AttachmentIDs) > 0 && w.attach != nil {
 		files, err = w.attach.Load(ctx, job.AttachmentIDs)
 		if err != nil {
-			_ = w.mark(ctx, job.LogID, model.EmailFailed, err.Error(), 0)
+			_ = w.mark(ctx, job.LogID, model.EmailFailed, err.Error(), int16(job.Attempts))
 			return
 		}
 	}
-	for attempt := 1; attempt <= emailMaxAttempts; attempt++ {
-		for w.limiter != nil && !w.limiter.Allow() {
-			w.sleep(200 * time.Millisecond)
-			if ctx.Err() != nil {
-				return
-			}
-		}
-		err = w.sender.SendMIME(ctx, job, files)
-		if err == nil {
-			_ = w.mark(ctx, job.LogID, model.EmailSent, "", int16(attempt-1))
-			return
-		}
-		status := model.EmailRetrying
-		if attempt == emailMaxAttempts {
-			status = model.EmailFailed
-		}
-		_ = w.mark(ctx, job.LogID, status, err.Error(), int16(attempt))
-		if attempt == emailMaxAttempts {
-			return
-		}
-		wait := w.backoff[attempt-1]
-		if wait > 0 {
-			w.sleep(wait)
-		}
+	err = w.sender.SendMIME(ctx, job, files)
+	if err == nil {
+		_ = w.mark(ctx, job.LogID, model.EmailSent, "", int16(job.Attempts))
+		return
 	}
+	job.Attempts++
+	if job.Attempts >= emailMaxAttempts {
+		_ = w.mark(ctx, job.LogID, model.EmailFailed, err.Error(), int16(job.Attempts))
+		return
+	}
+	_ = w.mark(ctx, job.LogID, model.EmailRetrying, err.Error(), int16(job.Attempts))
+	wait := rateRetryDelay
+	if i := job.Attempts - 1; i >= 0 && i < len(w.backoff) {
+		wait = w.backoff[i]
+	}
+	w.schedule(job, wait)
 }
 
 func (w *EmailWorker) newLog(job MailJob) *model.EmailLog {

@@ -33,6 +33,7 @@ type MailJob struct {
 	TemplateCode   string
 	UserID         *uuid.UUID
 	LogID          uuid.UUID
+	Attempts       int
 }
 
 type MailDispatcher interface {

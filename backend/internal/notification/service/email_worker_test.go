@@ -87,17 +87,27 @@ func TestMinuteLimiterCapsAt50(t *testing.T) {
 	assert.True(t, l.Allow())
 }
 
+func processQueued(t *testing.T, w *EmailWorker, ctx context.Context) {
+	t.Helper()
+	select {
+	case job := <-w.jobs:
+		w.process(ctx, job)
+	default:
+		t.Fatal("email queue empty")
+	}
+}
+
 func TestEmailWorkerRetriesThenFails(t *testing.T) {
 	sender := &stubMIME{fail: 5}
 	logs := newMemLogs()
 	w := NewEmailWorker(sender, logs, nil, newMinuteLimiter(50, time.Now))
 	w.backoff = []time.Duration{0, 0, 0}
-	w.sleep = func(time.Duration) {}
 	ctx := context.Background()
 	id, err := w.Enqueue(ctx, MailJob{To: []string{"a@b.c"}, Subject: "s", Body: "b"})
 	require.NoError(t, err)
-	job := <-w.jobs
-	w.process(ctx, job)
+	for i := 0; i < emailMaxAttempts; i++ {
+		processQueued(t, w, ctx)
+	}
 	row, err := logs.GetByID(ctx, id)
 	require.NoError(t, err)
 	assert.Equal(t, model.EmailFailed, row.Status)
@@ -110,16 +120,73 @@ func TestEmailWorkerSucceedsAfterRetry(t *testing.T) {
 	logs := newMemLogs()
 	w := NewEmailWorker(sender, logs, nil, newMinuteLimiter(50, time.Now))
 	w.backoff = []time.Duration{0, 0, 0}
-	w.sleep = func(time.Duration) {}
 	ctx := context.Background()
 	id, err := w.Enqueue(ctx, MailJob{To: []string{"a@b.c"}, Subject: "s", Body: "b"})
 	require.NoError(t, err)
-	job := <-w.jobs
-	w.process(ctx, job)
+	processQueued(t, w, ctx)
+	processQueued(t, w, ctx)
 	row, err := logs.GetByID(ctx, id)
 	require.NoError(t, err)
 	assert.Equal(t, model.EmailSent, row.Status)
 	assert.Equal(t, 2, sender.calls)
+}
+
+type failToMIME struct {
+	mu    sync.Mutex
+	fail  map[string]bool
+	order []string
+}
+
+func (s *failToMIME) SendMIME(_ context.Context, job MailJob, _ []MailAttachment) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	to := ""
+	if len(job.To) > 0 {
+		to = job.To[0]
+	}
+	s.order = append(s.order, to)
+	if s.fail[to] {
+		return fmt.Errorf("smtp down")
+	}
+	return nil
+}
+
+func TestEmailWorkerDoesNotBlockOnRetryBackoff(t *testing.T) {
+	sender := &failToMIME{fail: map[string]bool{"fail@x.test": true}}
+	logs := newMemLogs()
+	w := NewEmailWorker(sender, logs, nil, newMinuteLimiter(50, time.Now))
+	w.backoff = []time.Duration{time.Hour, time.Hour, time.Hour}
+	ctx := context.Background()
+	failID, err := w.Enqueue(ctx, MailJob{To: []string{"fail@x.test"}, Subject: "s", Body: "b"})
+	require.NoError(t, err)
+	okID, err := w.Enqueue(ctx, MailJob{To: []string{"ok@x.test"}, Subject: "s", Body: "b"})
+	require.NoError(t, err)
+	processQueued(t, w, ctx)
+	processQueued(t, w, ctx)
+	assert.Equal(t, []string{"fail@x.test", "ok@x.test"}, sender.order)
+	failed, err := logs.GetByID(ctx, failID)
+	require.NoError(t, err)
+	ok, err := logs.GetByID(ctx, okID)
+	require.NoError(t, err)
+	assert.Equal(t, model.EmailRetrying, failed.Status)
+	assert.Equal(t, model.EmailSent, ok.Status)
+	assert.Len(t, w.delayed, 1)
+}
+
+func TestEmailWorkerStoresLongRecipientList(t *testing.T) {
+	logs := newMemLogs()
+	w := NewEmailWorker(&stubMIME{}, logs, nil, newMinuteLimiter(50, time.Now))
+	to := make([]string, 20)
+	for i := range to {
+		to[i] = fmt.Sprintf("user%02d@example.test", i)
+	}
+	ctx := context.Background()
+	id, err := w.Enqueue(ctx, MailJob{To: to, Subject: "s", Body: "b"})
+	require.NoError(t, err)
+	row, err := logs.GetByID(ctx, id)
+	require.NoError(t, err)
+	assert.Greater(t, len(row.ToAddress), 200)
+	assert.Contains(t, row.ToAddress, "user19@example.test")
 }
 
 type stubEngine struct{}
@@ -135,7 +202,6 @@ func (stubEngine) Validate(context.Context, string, map[string]interface{}) erro
 func TestEmailServiceBatchLimit(t *testing.T) {
 	logs := newMemLogs()
 	w := NewEmailWorker(&stubMIME{}, logs, nil, newMinuteLimiter(50, time.Now))
-	w.sleep = func(time.Duration) {}
 	svc := NewEmailService(w, stubEngine{}, logs)
 	recs := make([]dto.BatchRecipient, 51)
 	for i := range recs {
@@ -148,7 +214,6 @@ func TestEmailServiceBatchLimit(t *testing.T) {
 func TestEmailServiceSendQueues(t *testing.T) {
 	logs := newMemLogs()
 	w := NewEmailWorker(&stubMIME{}, logs, nil, newMinuteLimiter(50, time.Now))
-	w.sleep = func(time.Duration) {}
 	svc := NewEmailService(w, stubEngine{}, logs)
 	res, err := svc.Send(context.Background(), &dto.SendEmailRequest{
 		To: []string{"a@b.c"}, Subject: "hello", Body: "world",
