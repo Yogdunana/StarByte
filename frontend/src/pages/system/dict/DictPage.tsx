@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, Select, Space, Tag } from 'antd';
 import { getDictItems, getDictTypes, type DictItem, type DictType } from '@/api/dict';
 import { useDict, invalidateDict } from '@/hooks/useDict';
@@ -16,40 +16,58 @@ const DictPage: React.FC = () => {
   const [selected, setSelected] = useState<DictType>();
   const [typeLoading, setTypeLoading] = useState(false);
   const [itemLoading, setItemLoading] = useState(false);
-  const preview = useDict(selected?.code || 'task_priority');
+  const preview = useDict(selected?.code ?? '');
+  const itemReqRef = useRef(0);
 
-  const loadTypes = useCallback(async () => {
+  const loadTypes = useCallback(async (): Promise<DictType[]> => {
     setTypeLoading(true);
     try {
       const list = await getDictTypes();
       setTypes(list);
       setSelected((prev) => list.find((row) => row.id === prev?.id) || list[0]);
+      return list;
     } finally {
       setTypeLoading(false);
     }
   }, []);
 
   const loadItems = useCallback(async (type?: DictType) => {
+    const req = itemReqRef.current + 1;
+    itemReqRef.current = req;
     if (!type) {
       setItems([]);
+      setItemLoading(false);
       return;
     }
     setItemLoading(true);
     try {
-      setItems(await getDictItems(type.code, true));
+      const list = await getDictItems(type.code, true);
+      if (req === itemReqRef.current) {
+        setItems(list);
+      }
     } finally {
-      setItemLoading(false);
+      if (req === itemReqRef.current) {
+        setItemLoading(false);
+      }
     }
   }, []);
 
-  useEffect(() => { void loadTypes(); }, [loadTypes]);
-  useEffect(() => { void loadItems(selected); }, [selected, loadItems]);
+  useEffect(() => {
+    void loadTypes();
+  }, [loadTypes]);
+  useEffect(() => {
+    void loadItems(selected);
+  }, [selected, loadItems]);
 
   const afterChange = () => {
-    invalidateDict(selected?.code);
-    void loadTypes();
-    void loadItems(selected);
-    void preview.reload();
+    const current = selected;
+    invalidateDict(current?.code);
+    void loadTypes().then((list) => {
+      if (current && list.some((row) => row.id === current.id)) {
+        void loadItems(current);
+        void preview.reload();
+      }
+    });
   };
 
   return (

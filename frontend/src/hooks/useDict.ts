@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getDictItems, type DictItem } from '@/api/dict';
 import type { Option } from '@/types/api';
 
@@ -14,26 +14,42 @@ export function invalidateDict(typeCode?: string): void {
 
 export function useDict(typeCode: string) {
   const [items, setItems] = useState<DictItem[]>(() => cache.get(typeCode) ?? []);
-  const [loading, setLoading] = useState(!cache.has(typeCode));
+  const [loading, setLoading] = useState(Boolean(typeCode) && !cache.has(typeCode));
+  const requestIdRef = useRef(0);
 
   const reload = useCallback(async () => {
     if (!typeCode) {
+      requestIdRef.current += 1;
       setItems([]);
       setLoading(false);
       return;
     }
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
     setLoading(true);
     try {
       const list = await getDictItems(typeCode);
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
       cache.set(typeCode, list);
       setItems(list);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [typeCode]);
 
   useEffect(() => {
+    if (!typeCode) {
+      requestIdRef.current += 1;
+      setItems([]);
+      setLoading(false);
+      return;
+    }
     if (cache.has(typeCode)) {
+      requestIdRef.current += 1;
       setItems(cache.get(typeCode) ?? []);
       setLoading(false);
       return;
