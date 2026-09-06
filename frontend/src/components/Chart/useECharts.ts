@@ -2,7 +2,12 @@ import { useEffect, useRef } from 'react';
 import * as echarts from 'echarts';
 import type { EChartsOption } from 'echarts';
 
-export function useECharts(option: EChartsOption | undefined, loading: boolean) {
+export function useECharts(
+  option: EChartsOption | undefined,
+  loading: boolean,
+  theme: 'light' | 'dark' = 'light',
+  autoResize = true,
+) {
   const ref = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
 
@@ -11,18 +16,26 @@ export function useECharts(option: EChartsOption | undefined, loading: boolean) 
     if (!el) {
       return undefined;
     }
-    const chart = echarts.init(el);
+    const chart = echarts.init(el, theme === 'dark' ? 'dark' : undefined);
     chartRef.current = chart;
     const onResize = () => {
       chart.resize();
     };
-    window.addEventListener('resize', onResize);
+    let observer: ResizeObserver | undefined;
+    if (autoResize) {
+      window.addEventListener('resize', onResize);
+      observer = new ResizeObserver(onResize);
+      observer.observe(el);
+    }
     return () => {
-      window.removeEventListener('resize', onResize);
+      observer?.disconnect();
+      if (autoResize) {
+        window.removeEventListener('resize', onResize);
+      }
       chart.dispose();
       chartRef.current = null;
     };
-  }, []);
+  }, [theme, autoResize]);
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -40,7 +53,7 @@ export function useECharts(option: EChartsOption | undefined, loading: boolean) 
         chart.resize();
       });
     }
-  }, [option, loading]);
+  }, [option, loading, theme]);
 
   return { ref, chart: chartRef };
 }
