@@ -13,29 +13,35 @@ func (r *statsRepo) InternshipRanking(ctx context.Context, q Query) ([]Bucket, e
 	if q.HideRanking {
 		return []Bucket{}, nil
 	}
+	days := clippedDaysSQL(q)
 	db := r.db.WithContext(ctx).Table("internships AS i").
 		Joins("JOIN users u ON u.id = i.user_id").
-		Select("u.id::text AS k, COALESCE(NULLIF(u.real_name, ''), u.username) AS l, SUM(GREATEST(0, (COALESCE(i.end_date, CURRENT_DATE) - i.start_date)))::float AS v")
+		Select("u.id::text AS k, COALESCE(NULLIF(u.real_name, ''), u.username) AS l, SUM(" + days + ")::float AS v")
 	db = applyDept(db, "i.department_id", q)
 	db = applyOverlap(db, "i.start_date", "i.end_date", q)
-	return scanBuckets(db.Group("u.id, u.real_name, u.username").Order("v DESC").Limit(15))
+	return scanBuckets(db.Group("u.id, u.real_name, u.username").Having("SUM(" + days + ") > 0").Order("v DESC").Limit(15))
 }
 
 func (r *statsRepo) InternshipDeptAvg(ctx context.Context, q Query) ([]Bucket, error) {
+	days := clippedDaysSQL(q)
 	db := r.db.WithContext(ctx).Table("internships AS i").
 		Joins("LEFT JOIN departments d ON d.id = i.department_id").
-		Select("COALESCE(i.department_id::text, 'none') AS k, COALESCE(d.name, '未分配') AS l, AVG(GREATEST(0, (COALESCE(i.end_date, CURRENT_DATE) - i.start_date)))::float AS v")
+		Select("COALESCE(i.department_id::text, 'none') AS k, COALESCE(d.name, '未分配') AS l, AVG(" + days + ")::float AS v")
 	db = applyDept(db, "i.department_id", q)
 	db = applyOverlap(db, "i.start_date", "i.end_date", q)
 	return scanBuckets(db.Group("i.department_id, d.name").Order("v DESC"))
 }
 
 func (r *statsRepo) InternshipTrend(ctx context.Context, q Query) ([]Bucket, error) {
-	expr := truncExpr("i.start_date", q.Granularity)
-	db := r.db.WithContext(ctx).Table("internships AS i").
-		Select(expr + " AS k, " + expr + " AS l, SUM(GREATEST(0, (COALESCE(i.end_date, CURRENT_DATE) - i.start_date)))::float AS v")
+	clipS := clipStartSQL(q)
+	clipE := clipEndSQL(q)
+	expr := truncExpr("gs", q.Granularity)
+	table := "internships AS i CROSS JOIN LATERAL generate_series(" + clipS + ", (" + clipE + ") - 1, interval '1 day') AS gs"
+	db := r.db.WithContext(ctx).Table(table).
+		Select(expr + " AS k, " + expr + " AS l, COUNT(*)::float AS v")
 	db = applyDept(db, "i.department_id", q)
 	db = applyOverlap(db, "i.start_date", "i.end_date", q)
+	db = db.Where(clipE + " > " + clipS)
 	return scanBuckets(db.Group("k, l").Order("k"))
 }
 

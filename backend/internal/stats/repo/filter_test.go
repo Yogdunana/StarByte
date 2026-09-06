@@ -25,11 +25,14 @@ func TestTruncExpr(t *testing.T) {
 
 func TestQueryFlags(t *testing.T) {
 	id := uuid.New()
-	q := Query{Denied: true, DepartmentID: &id, DeptIDs: []uuid.UUID{id}, AllScope: false, HideRanking: true}
-	assert.True(t, q.Denied)
-	assert.True(t, q.HideRanking)
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC)
-	overlap := Query{Start: &start, End: &end}
-	assert.False(t, overlap.End.Before(*overlap.Start))
+	q := Query{Denied: true, DepartmentID: &id, DeptIDs: []uuid.UUID{id}, HideRanking: true, Start: &start, End: &end}
+	assert.True(t, q.Denied)
+	assert.Equal(t, id, *q.DepartmentID)
+	assert.Equal(t, []uuid.UUID{id}, q.DeptIDs)
+	assert.True(t, q.HideRanking)
+	assert.Contains(t, clippedDaysSQL(q), "2026-01-01")
+	assert.Contains(t, clippedDaysSQL(q), "2026-01-31")
+	assert.Equal(t, "GREATEST(0, (COALESCE(i.end_date, CURRENT_DATE) - i.start_date))", clippedDaysSQL(Query{}))
 }

@@ -190,29 +190,6 @@ func TestRegistryRegisterNil(t *testing.T) {
 	assert.Empty(t, r.ListProviders())
 }
 
-func TestFilterSeriesGroupBy(t *testing.T) {
-	series := []dto.DataSeries{
-		{Name: "部门分布", Type: "pie"},
-		{Name: "年级分布", Type: "bar"},
-		{Name: "增长趋势", Type: "line"},
-		{Name: "待处理", Type: "bar"},
-	}
-	dept := filterSeries("department", series)
-	require.Len(t, dept, 1)
-	assert.Equal(t, "部门分布", dept[0].Name)
-	grade := filterSeries("grade", series)
-	require.Len(t, grade, 1)
-	assert.Equal(t, "年级分布", grade[0].Name)
-	date := filterSeries("date", series)
-	require.Len(t, date, 1)
-	assert.Equal(t, "增长趋势", date[0].Name)
-	status := filterSeries("status", series)
-	require.Len(t, status, 1)
-	assert.Equal(t, "待处理", status[0].Name)
-	assert.Equal(t, series, filterSeries("", series))
-	assert.Equal(t, series, filterSeries("type", series))
-}
-
 func TestInternshipHidesRankingWhenConfigured(t *testing.T) {
 	svc := NewStatsService(hideRankRepo{})
 	res, err := svc.GetStats(context.Background(), "internship-duration", &dto.StatsQuery{})

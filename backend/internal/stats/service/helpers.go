@@ -22,42 +22,6 @@ func toQuery(p *dto.StatsQuery) repo.Query {
 	}
 }
 
-func filterSeries(groupBy string, series []dto.DataSeries) []dto.DataSeries {
-	g := strings.ToLower(strings.TrimSpace(groupBy))
-	if g == "" || len(series) == 0 {
-		return series
-	}
-	out := make([]dto.DataSeries, 0, len(series))
-	for _, s := range series {
-		switch g {
-		case "department":
-			if strings.Contains(s.Name, "部门") {
-				out = append(out, s)
-			}
-		case "grade":
-			if strings.Contains(s.Name, "年级") {
-				out = append(out, s)
-			}
-		case "date":
-			if s.Type == "line" || s.Type == "calendar" {
-				out = append(out, s)
-			}
-		case "status":
-			if strings.Contains(s.Name, "状态") || s.Name == "待处理" || s.Name == "进行中" || s.Name == "已完成" || s.Name == "已取消" || s.Name == "已挂起" {
-				out = append(out, s)
-			}
-		case "type":
-			if strings.Contains(s.Name, "类型") {
-				out = append(out, s)
-			}
-		}
-	}
-	if len(out) == 0 {
-		return series
-	}
-	return out
-}
-
 func toSeries(name, typ string, buckets []repo.Bucket) dto.DataSeries {
 	data := make([]dto.DataPoint, 0, len(buckets))
 	x := make([]string, 0, len(buckets))

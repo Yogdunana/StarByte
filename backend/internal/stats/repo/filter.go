@@ -72,6 +72,28 @@ func applyOverlap(db *gorm.DB, startCol, endCol string, q Query) *gorm.DB {
 	return db
 }
 
+func dateLit(t time.Time) string {
+	return t.Format("2006-01-02")
+}
+
+func clipStartSQL(q Query) string {
+	if q.Start == nil {
+		return "i.start_date"
+	}
+	return "GREATEST(i.start_date, DATE '" + dateLit(*q.Start) + "')"
+}
+
+func clipEndSQL(q Query) string {
+	if q.End == nil {
+		return "COALESCE(i.end_date, CURRENT_DATE)"
+	}
+	return "LEAST(COALESCE(i.end_date, CURRENT_DATE), DATE '" + dateLit(*q.End) + "')"
+}
+
+func clippedDaysSQL(q Query) string {
+	return "GREATEST(0, (" + clipEndSQL(q) + " - " + clipStartSQL(q) + "))"
+}
+
 func scanBuckets(db *gorm.DB) ([]Bucket, error) {
 	var rows []struct {
 		K string  `gorm:"column:k"`

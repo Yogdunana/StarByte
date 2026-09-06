@@ -28,7 +28,6 @@ const OverviewPage: React.FC = () => {
   const canExport = usePermission('stats:export');
   const [range, setRange] = useState<TimeRangeValue>({ preset: 'month' });
   const [departmentId, setDepartmentId] = useState<string>();
-  const [groupBy, setGroupBy] = useState<string | undefined>();
   const [granularity, setGranularity] = useState('month');
   const [departments, setDepartments] = useState<MemberDepartmentOption[]>([]);
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
@@ -41,10 +40,9 @@ const OverviewPage: React.FC = () => {
     return {
       ...dates,
       department_id: departmentId,
-      group_by: groupBy,
       granularity,
     };
-  }, [range, departmentId, groupBy, granularity]);
+  }, [range, departmentId, granularity]);
 
   useEffect(() => {
     void getMemberDepartments().then(setDepartments).catch(() => undefined);
@@ -111,20 +109,6 @@ const OverviewPage: React.FC = () => {
               { value: 'day', label: '按日' },
               { value: 'week', label: '按周' },
               { value: 'month', label: '按月' },
-            ]}
-          />
-          <Select
-            allowClear
-            placeholder="分组"
-            style={{ width: 120 }}
-            value={groupBy}
-            onChange={setGroupBy}
-            options={[
-              { value: 'department', label: '部门' },
-              { value: 'date', label: '日期' },
-              { value: 'status', label: '状态' },
-              { value: 'grade', label: '年级' },
-              { value: 'type', label: '类型' },
             ]}
           />
         </Space>
