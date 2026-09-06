@@ -14,8 +14,8 @@ func applyAPITraffic(api *gin.RouterGroup, rdb *redis.Client, cfg ratelimit.Conf
 	api.Use(ratelimit.Middleware(rdb, cfg))
 }
 
-// applyProtectedTraffic runs after JWT: user token bucket then per-route breaker.
+// applyProtectedTraffic runs after JWT: fail-fast circuit, then user token bucket.
 func applyProtectedTraffic(protected *gin.RouterGroup, rdb *redis.Client, cfg ratelimit.Config, br *circuitbreaker.Breaker) {
-	protected.Use(ratelimit.UserMiddleware(rdb, cfg))
 	protected.Use(circuitbreaker.Middleware(br, nil))
+	protected.Use(ratelimit.UserMiddleware(rdb, cfg))
 }

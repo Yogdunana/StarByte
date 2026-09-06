@@ -329,8 +329,8 @@ func main() {
 	}
 
 	// 10b. 需要鉴权的路由
-	// 中间件链: AuditLog → JWTAuth → 用户令牌桶 → 熔断（#75）
-	// 熔断只挂鉴权组，避免未登录慢请求把共享断路器打开
+	// 中间件链: AuditLog → JWTAuth → 熔断 → 用户令牌桶（#75）
+	// 熔断在用户桶之前：打开时直接 21002，不消耗 rl:uid 配额
 	// AuditLog 在 JWTAuth 之前以捕获失败认证尝试
 	protected := api.Group("")
 	protected.Use(middleware.AuditLog(database.DB()))
