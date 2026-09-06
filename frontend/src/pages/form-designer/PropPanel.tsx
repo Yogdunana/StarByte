@@ -33,17 +33,19 @@ const PropPanel: React.FC<Props> = ({ field, allNames, onChange }) => {
       <Form.Item label="占位提示"><Input value={field.placeholder} onChange={(e) => onChange({ placeholder: e.target.value })} /></Form.Item>
       <Form.Item label="必填"><Switch checked={Boolean(field.required)} onChange={(required) => onChange({ required })} /></Form.Item>
       {needsOptions ? (
-        <Form.Item label="选项（每行 标签=值）">
+        <Form.Item label="选项（每行一项，或用逗号分隔：大一=1,大二=2）">
           <Input.TextArea
             rows={4}
             value={optionsText}
             onChange={(e) => {
-              const options = e.target.value.split('\n').map((line) => {
-                const [label, raw] = line.split('=');
-                if (!label?.trim()) return null;
-                const value = raw === undefined ? label.trim() : raw.trim();
-                const num = Number(value);
-                return { label: label.trim(), value: value !== '' && !Number.isNaN(num) && String(num) === value ? num : value };
+              const chunks = e.target.value.split(/[\n,，;；]+/).map((s) => s.trim()).filter(Boolean);
+              const options = chunks.map((line) => {
+                const idx = line.indexOf('=');
+                const label = (idx >= 0 ? line.slice(0, idx) : line).trim();
+                const raw = idx >= 0 ? line.slice(idx + 1).trim() : label;
+                if (!label) return null;
+                const num = Number(raw);
+                return { label, value: raw !== '' && !Number.isNaN(num) && String(num) === raw ? num : raw };
               }).filter((x): x is { label: string; value: string | number } => x !== null);
               onChange({ options });
             }}
