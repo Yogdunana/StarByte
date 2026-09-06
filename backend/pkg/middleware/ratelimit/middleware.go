@@ -41,6 +41,12 @@ func Middleware(rdb *redis.Client, cfg Config) gin.HandlerFunc {
 func UserMiddleware(rdb *redis.Client, cfg Config) gin.HandlerFunc {
 	store := NewStore(rdb)
 	return func(c *gin.Context) {
+		// ACL first: whitelist is a rate-limit bypass, not a blacklist bypass.
+		if deniedByACL(c, cfg) {
+			response.Error(c, response.NewError(response.CodeBlacklisted, "访问已被限制"))
+			c.Abort()
+			return
+		}
 		if skipLimit(c, cfg) {
 			c.Next()
 			return
@@ -48,11 +54,6 @@ func UserMiddleware(rdb *redis.Client, cfg Config) gin.HandlerFunc {
 		uid := viewerID(c)
 		if uid == "" {
 			c.Next()
-			return
-		}
-		if inSet(cfg.UserBlacklist, uid) {
-			response.Error(c, response.NewError(response.CodeBlacklisted, "访问已被限制"))
-			c.Abort()
 			return
 		}
 		if !allowOrAbort(c, store, "rl:uid:"+uid, cfg.User, int(cfg.User.Burst)) {

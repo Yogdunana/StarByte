@@ -21,19 +21,33 @@ func Middleware(b *Breaker, degrade Degrade) gin.HandlerFunc {
 			name = c.Request.Method + ":" + c.Request.URL.Path
 		}
 		if !b.Allow(name) {
-			if degrade != nil && degrade(c) {
+			if degrade != nil {
+				// Header must be set before degrade writes the body; after
+				// c.JSON the real HTTP writer has already flushed headers.
 				c.Header("X-Degraded", "1")
-				c.Abort()
-				return
+				if degrade(c) {
+					c.Abort()
+					return
+				}
+				c.Writer.Header().Del("X-Degraded")
 			}
 			response.Error(c, response.NewError(response.CodeCircuitOpen, "服务繁忙，请稍后重试"))
 			c.Abort()
 			return
 		}
 		start := time.Now()
+		defer func() {
+			failed := c.Writer.Status() >= 500
+			if r := recover(); r != nil {
+				// Panic-driven 500s must count as failures; re-raise so
+				// engine-level ErrorHandler can still recover and write 500.
+				failed = true
+				b.Record(name, failed, time.Since(start))
+				panic(r)
+			}
+			b.Record(name, failed, time.Since(start))
+		}()
 		c.Next()
-		failed := c.Writer.Status() >= 500
-		b.Record(name, failed, time.Since(start))
 	}
 }
 

@@ -109,6 +109,43 @@ func TestMiddleware_PingDegrade(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "21004")
 	assert.Contains(t, w.Body.String(), "pong")
+	assert.Equal(t, "1", w.Header().Get("X-Degraded"))
+}
+
+func TestMiddleware_PingDegradeDeclinesOtherRoutes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	b := New(Settings{MinRequests: 2, ErrorRate: 0.5, Window: 8, OpenFor: time.Hour, P99: time.Hour})
+	r := gin.New()
+	r.Use(func(c *gin.Context) { c.Set("request_id", "rid"); c.Next() })
+	r.Use(Middleware(b, PingDegrade))
+	r.GET("/boom", func(c *gin.Context) { c.Status(http.StatusBadGateway) })
+	for i := 0; i < 2; i++ {
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/boom", nil))
+		assert.Equal(t, http.StatusBadGateway, w.Code)
+	}
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/boom", nil))
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+	assert.Empty(t, w.Header().Get("X-Degraded"))
+	assert.Contains(t, w.Body.String(), "21002")
+}
+
+func TestMiddleware_PanicCountsAsFailure(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	b := New(Settings{MinRequests: 2, ErrorRate: 0.5, Window: 8, OpenFor: time.Hour, P99: time.Hour})
+	r := gin.New()
+	r.Use(gin.CustomRecovery(func(c *gin.Context, _ any) {
+		c.Status(http.StatusInternalServerError)
+	}))
+	r.Use(Middleware(b, nil))
+	r.GET("/boom", func(c *gin.Context) { panic("boom") })
+	for i := 0; i < 2; i++ {
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/boom", nil))
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	}
+	assert.Equal(t, StateOpen, b.State("GET:/boom"))
 }
 
 func TestBreaker_HalfOpenProbesExhausted(t *testing.T) {

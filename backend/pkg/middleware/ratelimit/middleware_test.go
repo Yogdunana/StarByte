@@ -140,6 +140,25 @@ func TestUserMiddleware_Blacklist(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "21003")
 }
 
+func TestUserMiddleware_BlacklistBeatsIPWhitelist(t *testing.T) {
+	_, rdb := testRedis(t)
+	cfg := DefaultConfig()
+	cfg.IPWhitelist = map[string]struct{}{"192.0.2.1": {}}
+	cfg.UserBlacklist = map[string]struct{}{"u-bad": {}}
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("request_id", "rid")
+		c.Set("user_id", "u-bad")
+		c.Next()
+	})
+	r.Use(UserMiddleware(rdb, cfg))
+	r.GET("/me", func(c *gin.Context) { c.String(200, "ok") })
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/me", nil))
+	assert.Equal(t, http.StatusForbidden, w.Code)
+	assert.Contains(t, w.Body.String(), "21003")
+}
+
 func TestMiddleware_CIDRBlacklist(t *testing.T) {
 	_, rdb := testRedis(t)
 	cfg := DefaultConfig()
