@@ -19,6 +19,7 @@ package response
 //	12000-12999 Notification module
 //	13000-13999 File module (reserved; #18 type/size checks use 1001)
 //	14000-14999 Runtime configstore (#47)
+//	15000-15999 Data dictionary (#48)
 
 const (
 	// ===== Success =====
@@ -148,6 +149,13 @@ const (
 	CodeConfigInvalidValue = 14004 // 配置值与类型不匹配
 	CodeConfigProtected    = 14005 // 业务占用配置不可删除
 	CodeConfigInvalidKey   = 14006 // 配置键格式不合法
+
+	// ===== Data dictionary (15000-15999) =====
+	CodeDictTypeNotFound = 15001 // 字典类型不存在
+	CodeDictTypeExists   = 15002 // 字典类型编码已存在
+	CodeDictItemNotFound = 15003 // 字典项不存在
+	CodeDictItemExists   = 15004 // 字典项值已存在
+	CodeDictSystemLocked = 15005 // 系统字典类型不可删除
 )
 
 // ModuleRanges maps each module name to its error-code range [min, max].
@@ -167,4 +175,5 @@ var ModuleRanges = map[string][2]int{
 	"notification": {12000, 12999},
 	"file":         {13000, 13999},
 	"configstore":  {14000, 14999},
+	"dict":         {15000, 15999},
 }
