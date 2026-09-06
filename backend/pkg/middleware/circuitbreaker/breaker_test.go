@@ -153,6 +153,37 @@ func TestMiddleware_PanicCountsAsFailure(t *testing.T) {
 	assert.Equal(t, StateOpen, b.State("GET:/boom"))
 }
 
+func TestMiddleware_ClientErrorsDoNotPadWindow(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	b := New(Settings{MinRequests: 2, ErrorRate: 0.5, Window: 10, OpenFor: time.Hour, P99: time.Hour})
+	r := gin.New()
+	r.Use(func(c *gin.Context) { c.Set("request_id", "rid"); c.Next() })
+	r.Use(Middleware(b, nil))
+	r.GET("/x", func(c *gin.Context) {
+		switch c.Query("mode") {
+		case "deny":
+			c.Status(http.StatusTooManyRequests)
+		case "boom":
+			c.Status(http.StatusBadGateway)
+		default:
+			c.Status(http.StatusOK)
+		}
+	})
+	ok := httptest.NewRecorder()
+	r.ServeHTTP(ok, httptest.NewRequest(http.MethodGet, "/x", nil))
+	assert.Equal(t, 200, ok.Code)
+	for i := 0; i < 8; i++ {
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/x?mode=deny", nil))
+		assert.Equal(t, http.StatusTooManyRequests, w.Code)
+	}
+	assert.Equal(t, StateClosed, b.State("GET:/x"))
+	boom := httptest.NewRecorder()
+	r.ServeHTTP(boom, httptest.NewRequest(http.MethodGet, "/x?mode=boom", nil))
+	assert.Equal(t, http.StatusBadGateway, boom.Code)
+	assert.Equal(t, StateOpen, b.State("GET:/x"))
+}
+
 func TestBreaker_HalfOpenProbesExhausted(t *testing.T) {
 	b := New(Settings{MinRequests: 2, ErrorRate: 0.5, Window: 10, OpenFor: time.Millisecond, HalfOpenProbes: 1, P99: time.Hour})
 	assert.True(t, b.Allow("z"))

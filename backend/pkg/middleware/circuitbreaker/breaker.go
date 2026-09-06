@@ -135,6 +135,17 @@ func (b *Breaker) Record(name string, failed bool, took time.Duration) {
 	}
 }
 
+// Skip drops a non-backend outcome (ACL 403 / rate-limit 429). Refunds a
+// half-open probe so 4xx cannot close the circuit or exhaust trial slots.
+func (b *Breaker) Skip(name string) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	p := b.get(name)
+	if p.state == StateHalfOpen && p.halfLeft < b.settings.HalfOpenProbes {
+		p.halfLeft++
+	}
+}
+
 func (b *Breaker) trip(p *probe) {
 	p.state = StateOpen
 	p.openedAt = b.now()

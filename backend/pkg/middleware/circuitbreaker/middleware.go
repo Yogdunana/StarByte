@@ -37,15 +37,17 @@ func Middleware(b *Breaker, degrade Degrade) gin.HandlerFunc {
 		}
 		start := time.Now()
 		defer func() {
-			failed := c.Writer.Status() >= 500
 			if r := recover(); r != nil {
-				// Panic-driven 500s must count as failures; re-raise so
-				// engine-level ErrorHandler can still recover and write 500.
-				failed = true
-				b.Record(name, failed, time.Since(start))
+				b.Record(name, true, time.Since(start))
 				panic(r)
 			}
-			b.Record(name, failed, time.Since(start))
+			status := c.Writer.Status()
+			// 4xx from ACL / user buckets / handlers are not backend probes.
+			if status >= 400 && status < 500 {
+				b.Skip(name)
+				return
+			}
+			b.Record(name, status >= 500, time.Since(start))
 		}()
 		c.Next()
 	}
