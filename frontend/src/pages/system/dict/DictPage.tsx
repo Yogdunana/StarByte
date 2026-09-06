@@ -18,6 +18,8 @@ const DictPage: React.FC = () => {
   const [itemLoading, setItemLoading] = useState(false);
   const preview = useDict(selected?.code ?? '');
   const itemReqRef = useRef(0);
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
 
   const loadTypes = useCallback(async (): Promise<DictType[]> => {
     setTypeLoading(true);
@@ -63,7 +65,11 @@ const DictPage: React.FC = () => {
     const current = selected;
     invalidateDict(current?.code);
     void loadTypes().then((list) => {
-      if (current && list.some((row) => row.id === current.id)) {
+      if (
+        current &&
+        selectedRef.current?.id === current.id &&
+        list.some((row) => row.id === current.id)
+      ) {
         void loadItems(current);
         void preview.reload();
       }

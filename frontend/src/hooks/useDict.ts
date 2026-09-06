@@ -16,6 +16,8 @@ export function useDict(typeCode: string) {
   const [items, setItems] = useState<DictItem[]>(() => cache.get(typeCode) ?? []);
   const [loading, setLoading] = useState(Boolean(typeCode) && !cache.has(typeCode));
   const requestIdRef = useRef(0);
+  const typeCodeRef = useRef(typeCode);
+  typeCodeRef.current = typeCode;
 
   const reload = useCallback(async () => {
     if (!typeCode) {
@@ -24,12 +26,15 @@ export function useDict(typeCode: string) {
       setLoading(false);
       return;
     }
+    if (typeCodeRef.current !== typeCode) {
+      return;
+    }
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
     setLoading(true);
     try {
       const list = await getDictItems(typeCode);
-      if (requestId !== requestIdRef.current) {
+      if (requestId !== requestIdRef.current || typeCodeRef.current !== typeCode) {
         return;
       }
       cache.set(typeCode, list);
