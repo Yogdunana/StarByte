@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -24,16 +25,16 @@ func TestHealthCheck_ReturnsOK(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	require.NoError(t, err)
 	assert.Equal(t, "ok", resp["status"])
-	// Verify no response envelope fields are present.
+	assert.NotEmpty(t, resp["uptime"])
+	assert.NotEmpty(t, resp["version"])
+	assert.NotEmpty(t, resp["go_version"])
 	_, hasCode := resp["code"]
 	assert.False(t, hasCode, "health check should not include envelope 'code' field")
-	_, hasMessage := resp["message"]
-	assert.False(t, hasMessage, "health check should not include envelope 'message' field")
 }
 
-func TestReadinessCheck_NilDB_NilRedis_Returns503(t *testing.T) {
+func TestReadinessCheck_NilDeps_Returns503(t *testing.T) {
 	r := setupTestRouter()
-	r.GET("/health/ready", ReadinessCheck(nil, nil))
+	r.GET("/health/ready", ReadinessCheck(nil, nil, nil))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/health/ready", nil)
@@ -41,29 +42,26 @@ func TestReadinessCheck_NilDB_NilRedis_Returns503(t *testing.T) {
 
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
 
-	body := w.Body.String()
-	assert.Contains(t, body, "not ready")
-	assert.Contains(t, body, "db")
-	assert.Contains(t, body, "redis")
+	var resp map[string]interface{}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, "not_ready", resp["status"])
+	checks, ok := resp["checks"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Contains(t, checks, "database")
+	assert.Contains(t, checks, "redis")
+	assert.Contains(t, checks, "minio")
+	_, hasCode := resp["code"]
+	assert.False(t, hasCode)
 }
 
-func TestReadinessCheck_ResponseFormat(t *testing.T) {
+func TestReadinessCheck_MinioOKOthersFail(t *testing.T) {
 	r := setupTestRouter()
-	r.GET("/health/ready", ReadinessCheck(nil, nil))
+	r.GET("/health/ready", ReadinessCheck(nil, nil, func(ctx context.Context) error { return nil }))
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/health/ready", nil)
 	r.ServeHTTP(w, req)
-
-	require.Equal(t, http.StatusServiceUnavailable, w.Code)
-
-	// Verify the response is plain JSON without envelope.
-	var resp map[string]interface{}
-	err := json.Unmarshal(w.Body.Bytes(), &resp)
-	require.NoError(t, err)
-	assert.Equal(t, "not ready", resp["status"])
-	assert.NotNil(t, resp["checks"])
-	// Verify no response envelope fields are present.
-	_, hasCode := resp["code"]
-	assert.False(t, hasCode, "readiness check should not include envelope 'code' field")
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+	assert.Contains(t, w.Body.String(), `"minio"`)
+	assert.Contains(t, w.Body.String(), `"ok"`)
 }

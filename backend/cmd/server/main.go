@@ -72,6 +72,7 @@ import (
 	"github.com/Yogdunana/StarByte/backend/pkg/database"
 	"github.com/Yogdunana/StarByte/backend/pkg/events"
 	"github.com/Yogdunana/StarByte/backend/pkg/logger"
+	"github.com/Yogdunana/StarByte/backend/pkg/metrics"
 	"github.com/Yogdunana/StarByte/backend/pkg/middleware"
 	authmiddleware "github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/Yogdunana/StarByte/backend/pkg/middleware/circuitbreaker"
@@ -80,6 +81,7 @@ import (
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/Yogdunana/StarByte/backend/pkg/storage"
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
@@ -162,10 +164,18 @@ func main() {
 	r.Use(middleware.Logger())
 	r.Use(middleware.ErrorHandler())
 	r.Use(middleware.CORSWithConfig(cfg.CORS))
+	r.Use(middleware.Metrics())
 
-	// 8. 健康检查端点（不受限流影响，供 K8s/负载均衡探活使用）
+	// 8. 健康检查与 metrics（不受 API 限流影响）
+	var pingMinio middleware.MinioPinger
 	r.GET("/health", middleware.HealthCheck())
-	r.GET("/health/ready", middleware.ReadinessCheck(database.DB(), redis.Client()))
+	r.GET("/health/ready", middleware.ReadinessCheck(database.DB(), redis.Client(), func(ctx context.Context) error {
+		if pingMinio == nil {
+			return fmt.Errorf("minio not configured")
+		}
+		return pingMinio(ctx)
+	}))
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	registerSwagger(r)
 
 	// 9. 初始化业务模块
@@ -213,6 +223,7 @@ func main() {
 		logger.Error("init MinIO client failed", zap.Error(err))
 	} else {
 		objectStore = minioStore
+		pingMinio = minioStore.Ping
 		if err := objectStore.EnsureBucket(context.Background()); err != nil {
 			logger.Error("ensure MinIO bucket failed", zap.Error(err))
 		}
@@ -444,6 +455,10 @@ func main() {
 	})
 
 	// 12. 启动服务器
+	collectCtx, collectCancel := context.WithCancel(context.Background())
+	defer collectCancel()
+	metrics.StartCollectors(collectCtx, database.DB(), redis.Client())
+
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Server.Port),
 		Handler:      r,
