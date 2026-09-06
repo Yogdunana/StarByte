@@ -92,6 +92,27 @@ func TestEngine_UnknownHandlerDefers(t *testing.T) {
 	assert.True(t, got.NextRunAt.After(now))
 }
 
+func TestEngine_ManualSkipKeepsSchedule(t *testing.T) {
+	mem := newMemRepo()
+	eng := NewEngine(mem, nil, nil)
+	ctx := context.Background()
+	now := time.Now()
+	eng.now = func() time.Time { return now }
+	later := now.Add(time.Hour)
+	dep := uuid.New()
+	task := &model.Task{
+		ID: uuid.New(), Name: "child", Code: "child", HandlerKey: "noop",
+		DependsOn: encodeDepends([]string{dep.String()}),
+		Status:    model.StatusActive, TimeoutSec: 5, NextRunAt: &later,
+	}
+	require.NoError(t, mem.CreateTask(ctx, task))
+	eng.dispatch(*task, true)
+	got, err := mem.GetTask(ctx, task.ID)
+	require.NoError(t, err)
+	require.NotNil(t, got.NextRunAt)
+	assert.True(t, got.NextRunAt.Equal(later))
+}
+
 func TestEngine_SuccessDoesNotRevivePaused(t *testing.T) {
 	mem := newMemRepo()
 	eng := NewEngine(mem, nil, nil)
@@ -115,6 +136,34 @@ func TestEngine_SuccessDoesNotRevivePaused(t *testing.T) {
 	got, err := mem.GetTask(ctx, task.ID)
 	require.NoError(t, err)
 	assert.Equal(t, model.StatusPaused, got.Status)
+	assert.Nil(t, got.NextRunAt)
+	assert.Equal(t, model.RunSuccess, got.LastStatus)
+}
+
+func TestEngine_PausedOneShotFinishes(t *testing.T) {
+	mem := newMemRepo()
+	eng := NewEngine(mem, nil, nil)
+	ctx := context.Background()
+	now := time.Now()
+	eng.now = func() time.Time { return now }
+	runAt := now.Add(-time.Minute)
+	task := &model.Task{
+		ID: uuid.New(), Name: "once", Code: "once", HandlerKey: "noop",
+		Status: model.StatusActive, TimeoutSec: 5, RunAt: &runAt, NextRunAt: &runAt,
+		CreatedAt: now, UpdatedAt: now,
+	}
+	require.NoError(t, mem.CreateTask(ctx, task))
+	stale := *task
+	run := &model.Run{ID: uuid.New(), TaskID: task.ID, Status: model.RunRunning}
+	require.NoError(t, mem.CreateRun(ctx, run))
+	paused := *task
+	paused.Status = model.StatusPaused
+	paused.NextRunAt = nil
+	require.NoError(t, mem.UpdateTask(ctx, &paused))
+	eng.onSuccess(ctx, &stale, run)
+	got, err := mem.GetTask(ctx, task.ID)
+	require.NoError(t, err)
+	assert.Equal(t, model.StatusFinished, got.Status)
 	assert.Nil(t, got.NextRunAt)
 	assert.Equal(t, model.RunSuccess, got.LastStatus)
 }

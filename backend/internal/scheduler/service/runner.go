@@ -25,13 +25,17 @@ func (e *Engine) runLocked(ctx context.Context, task model.Task, manual bool, _ 
 		return
 	}
 	if !e.depsReady(ctx, &task) {
-		e.shiftNextRun(ctx, task.ID, 5*time.Second)
+		if !manual {
+			e.shiftNextRun(ctx, task.ID, 5*time.Second)
+		}
 		return
 	}
 	fn, ok := lookupHandler(task.HandlerKey)
 	if !ok {
 		logger.Warn("scheduler unknown handler", zap.String("handler", task.HandlerKey))
-		e.shiftNextRun(ctx, task.ID, 5*time.Second)
+		if !manual {
+			e.shiftNextRun(ctx, task.ID, 5*time.Second)
+		}
 		return
 	}
 	if !manual {
@@ -147,11 +151,11 @@ func (e *Engine) persistAfterRun(ctx context.Context, task *model.Task) {
 	fresh.LastStatus = task.LastStatus
 	fresh.RetryCount = task.RetryCount
 	fresh.UpdatedAt = task.UpdatedAt
-	if fresh.Status == model.StatusActive {
+	if task.Status == model.StatusFinished && fresh.Status != model.StatusDeleted {
+		fresh.Status = model.StatusFinished
+		fresh.NextRunAt = nil
+	} else if fresh.Status == model.StatusActive {
 		fresh.NextRunAt = task.NextRunAt
-		if task.Status == model.StatusFinished {
-			fresh.Status = model.StatusFinished
-		}
 	}
 	_ = e.repo.UpdateTask(ctx, fresh)
 }
