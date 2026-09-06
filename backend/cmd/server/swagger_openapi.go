@@ -87,7 +87,7 @@ func convertPaths(raw any) any {
 		converted := map[string]any{}
 		for method, op := range ops {
 			if method == "parameters" {
-				converted[method] = rewriteRefs(op)
+				converted[method] = convertParameterList(op)
 				continue
 			}
 			converted[method] = convertOperation(op)
@@ -127,7 +127,7 @@ func convertOperation(raw any) any {
 		case "formData":
 			formParams = append(formParams, pm)
 		default:
-			kept = append(kept, rewriteRefs(pm))
+			kept = append(kept, convertNonBodyParameter(pm))
 		}
 	}
 	if len(kept) > 0 {

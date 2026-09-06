@@ -24,6 +24,16 @@ func TestSwagger2ToOpenAPI3(t *testing.T) {
 					"parameters":[{"in":"body","name":"body","required":true,"schema":{"$ref":"#/definitions/dto.LoginRequest"}}],
 					"responses":{"200":{"description":"ok","schema":{"$ref":"#/definitions/response.Response"}}}
 				}
+			},
+			"/stats/{provider}":{
+				"parameters":[{"type":"string","name":"provider","in":"path","required":true}],
+				"get":{
+					"parameters":[
+						{"type":"string","enum":["csv","excel"],"name":"format","in":"query"},
+						{"type":"integer","default":1,"name":"page","in":"query"}
+					],
+					"responses":{"200":{"description":"ok"}}
+				}
 			}
 		},
 		"definitions":{
@@ -48,6 +58,29 @@ func TestSwagger2ToOpenAPI3(t *testing.T) {
 	content := rb["content"].(map[string]any)["application/json"].(map[string]any)
 	schema := content["schema"].(map[string]any)
 	require.Equal(t, "#/components/schemas/dto.LoginRequest", schema["$ref"])
+	stats := paths["/stats/{provider}"].(map[string]any)
+	pathParams := stats["parameters"].([]any)
+	require.Len(t, pathParams, 1)
+	provider := pathParams[0].(map[string]any)
+	require.Equal(t, "path", provider["in"])
+	require.Equal(t, "provider", provider["name"])
+	require.Nil(t, provider["type"])
+	require.Equal(t, "string", provider["schema"].(map[string]any)["type"])
+	getStats := stats["get"].(map[string]any)
+	queryParams := getStats["parameters"].([]any)
+	require.Len(t, queryParams, 2)
+	format := queryParams[0].(map[string]any)
+	require.Nil(t, format["type"])
+	require.Nil(t, format["enum"])
+	formatSchema := format["schema"].(map[string]any)
+	require.Equal(t, "string", formatSchema["type"])
+	require.Equal(t, []any{"csv", "excel"}, formatSchema["enum"])
+	page := queryParams[1].(map[string]any)
+	require.Nil(t, page["type"])
+	require.Nil(t, page["default"])
+	pageSchema := page["schema"].(map[string]any)
+	require.Equal(t, "integer", pageSchema["type"])
+	require.Equal(t, float64(1), pageSchema["default"])
 	comps := spec["components"].(map[string]any)
 	require.Contains(t, comps["schemas"].(map[string]any), "dto.LoginRequest")
 	require.Contains(t, comps["securitySchemes"].(map[string]any), "BearerAuth")
@@ -77,4 +110,18 @@ func TestRegisterSwaggerDevServesOpenAPI3(t *testing.T) {
 	var spec map[string]any
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &spec))
 	require.Equal(t, "3.0.0", spec["openapi"])
+	paths, ok := spec["paths"].(map[string]any)
+	require.True(t, ok)
+	me := paths["/auth/sessions/{user_id}"].(map[string]any)["get"].(map[string]any)
+	params := me["parameters"].([]any)
+	found := false
+	for _, raw := range params {
+		p := raw.(map[string]any)
+		if p["name"] == "user_id" {
+			require.Nil(t, p["type"])
+			require.Equal(t, "string", p["schema"].(map[string]any)["type"])
+			found = true
+		}
+	}
+	require.True(t, found)
 }
