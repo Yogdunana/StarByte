@@ -116,10 +116,13 @@ func (s *departmentService) GetTree(ctx context.Context) ([]dto.DepartmentTreeRe
 		return nil, fmt.Errorf("list departments: %w", err)
 	}
 
-	// 按 parent_id 分组子部门
+	// 按 parent_id 分组子部门（停用节点不进树，避免旧部残留冒充根中心）
 	childrenMap := make(map[uuid.UUID][]*model.Department)
 	for i := range depts {
 		dept := &depts[i]
+		if dept.Status != model.DepartmentStatusEnabled {
+			continue
+		}
 		if dept.ParentID != nil {
 			childrenMap[*dept.ParentID] = append(childrenMap[*dept.ParentID], dept)
 		}
@@ -139,7 +142,7 @@ func (s *departmentService) GetTree(ctx context.Context) ([]dto.DepartmentTreeRe
 	tree := make([]dto.DepartmentTreeResponse, 0)
 	for i := range depts {
 		dept := &depts[i]
-		if dept.ParentID == nil {
+		if dept.ParentID == nil && dept.Status == model.DepartmentStatusEnabled {
 			tree = append(tree, *buildDepartmentTree(dept, childrenMap))
 		}
 	}

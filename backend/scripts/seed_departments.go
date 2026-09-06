@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -46,7 +47,10 @@ func seedDepartments(db *gorm.DB) error {
 	if err := remapLegacyDepartments(db); err != nil {
 		return err
 	}
-	return upsertSeedDepartments(db)
+	if err := upsertSeedDepartments(db); err != nil {
+		return err
+	}
+	return retireOrphanLegacyDepartments(db)
 }
 
 func upsertSeedCenters(db *gorm.DB) error {
@@ -119,6 +123,81 @@ func upsertSeedDepartments(db *gorm.DB) error {
 			d.Name, d.Code, d.Description, d.Sort, d.ParentCode,
 		).Error; err != nil {
 			return fmt.Errorf("upsert department %s: %w", d.Code, err)
+		}
+	}
+	return nil
+}
+
+// departmentRefTables 业务表上的 department_id。旧四部与新编码并存时先迁引用再删残留行。
+var departmentRefTables = []string{
+	"users",
+	"member_applications",
+	"member_profiles",
+	"tasks",
+	"interview_sessions",
+	"internships",
+	"internship_records",
+	"finance_budgets",
+	"finance_records",
+}
+
+func lookupDeptID(db *gorm.DB, code string) (string, error) {
+	var id string
+	err := db.Raw(`SELECT id::text FROM departments WHERE code = ?`, code).Scan(&id).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", nil
+		}
+		return "", err
+	}
+	return id, nil
+}
+
+func retireOrphanLegacyDepartments(db *gorm.DB) error {
+	for _, m := range seedLegacyDeptRemaps {
+		oldID, err := lookupDeptID(db, m.Old)
+		if err != nil {
+			return fmt.Errorf("lookup leftover %s: %w", m.Old, err)
+		}
+		if oldID == "" {
+			continue
+		}
+		newID, err := lookupDeptID(db, m.New)
+		if err != nil {
+			return fmt.Errorf("lookup target %s: %w", m.New, err)
+		}
+		if newID == "" {
+			continue
+		}
+		if err := reassignDepartmentRefs(db, oldID, newID); err != nil {
+			return fmt.Errorf("reassign %s -> %s: %w", m.Old, m.New, err)
+		}
+		if err := db.Exec(`DELETE FROM departments WHERE id = ?`, oldID).Error; err != nil {
+			return fmt.Errorf("delete leftover %s: %w", m.Old, err)
+		}
+	}
+	return nil
+}
+
+func reassignDepartmentRefs(db *gorm.DB, oldID, newID string) error {
+	if err := db.Exec(`
+		DELETE FROM role_data_scopes a
+		USING role_data_scopes b
+		WHERE a.department_id = ?::uuid
+		  AND b.department_id = ?::uuid
+		  AND a.role_permission_id = b.role_permission_id`, oldID, newID).Error; err != nil {
+		return fmt.Errorf("role_data_scopes overlap: %w", err)
+	}
+	if err := db.Exec(
+		`UPDATE role_data_scopes SET department_id = ?::uuid WHERE department_id = ?::uuid`,
+		newID, oldID,
+	).Error; err != nil {
+		return fmt.Errorf("role_data_scopes: %w", err)
+	}
+	for _, table := range departmentRefTables {
+		q := fmt.Sprintf(`UPDATE %s SET department_id = ?::uuid WHERE department_id = ?::uuid`, table)
+		if err := db.Exec(q, newID, oldID).Error; err != nil {
+			return fmt.Errorf("%s: %w", table, err)
 		}
 	}
 	return nil
