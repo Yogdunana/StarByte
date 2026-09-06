@@ -12,6 +12,11 @@ func waitTicketLeaseKey(queue, ticket string) string {
 	return queue + ":" + ticket
 }
 
+// cleanupCtx ignores caller cancel/timeout so ticket/lock cleanup cannot leak.
+func cleanupCtx() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), 2*time.Second)
+}
+
 func dropWaitTicket(ctx context.Context, rdb *redis.Client, queue, ticket string) error {
 	if err := rdb.LRem(ctx, queue, 1, ticket).Err(); err != nil {
 		return err
@@ -43,7 +48,9 @@ func AcquireFair(ctx context.Context, rdb *redis.Client, name, owner string, ttl
 		return nil, err
 	}
 	if err := rdb.RPush(ctx, queue, ticket).Err(); err != nil {
-		_ = rdb.Del(ctx, waitTicketLeaseKey(queue, ticket)).Err()
+		c, cancel := cleanupCtx()
+		_ = rdb.Del(c, waitTicketLeaseKey(queue, ticket)).Err()
+		cancel()
 		return nil, err
 	}
 	qTTL := wait + ttl + time.Minute
@@ -55,14 +62,18 @@ func AcquireFair(ctx context.Context, rdb *redis.Client, name, owner string, ttl
 	for time.Now().Before(deadline) {
 		head, err := rdb.LIndex(ctx, queue, 0).Result()
 		if err != nil && err != redis.Nil {
-			_ = dropWaitTicket(ctx, rdb, queue, ticket)
+			c, cancel := cleanupCtx()
+			_ = dropWaitTicket(c, rdb, queue, ticket)
+			cancel()
 			return nil, err
 		}
 		for head != "" && head != ticket {
 			reclaimStaleHead(ctx, rdb, queue, head)
 			next, nerr := rdb.LIndex(ctx, queue, 0).Result()
 			if nerr != nil && nerr != redis.Nil {
-				_ = dropWaitTicket(ctx, rdb, queue, ticket)
+				c, cancel := cleanupCtx()
+				_ = dropWaitTicket(c, rdb, queue, ticket)
+				cancel()
 				return nil, nerr
 			}
 			if next == head {
@@ -72,25 +83,39 @@ func AcquireFair(ctx context.Context, rdb *redis.Client, name, owner string, ttl
 		}
 		if head == ticket {
 			lk, aerr := Acquire(ctx, rdb, name, owner, ttl)
+			c, cancel := cleanupCtx()
 			if aerr == nil {
-				if err := dropWaitTicket(ctx, rdb, queue, ticket); err != nil {
-					_ = lk.Unlock(ctx)
+				if err := dropWaitTicket(c, rdb, queue, ticket); err != nil {
+					_ = lk.Unlock(c)
+					cancel()
 					return nil, err
 				}
+				if ctx.Err() != nil {
+					_ = lk.Unlock(c)
+					cancel()
+					return nil, ctx.Err()
+				}
+				cancel()
 				return lk, nil
 			}
 			if aerr != ErrLockBusy {
-				_ = dropWaitTicket(ctx, rdb, queue, ticket)
+				_ = dropWaitTicket(c, rdb, queue, ticket)
+				cancel()
 				return nil, aerr
 			}
+			cancel()
 		}
 		select {
 		case <-ctx.Done():
-			_ = dropWaitTicket(ctx, rdb, queue, ticket)
+			c, cancel := cleanupCtx()
+			_ = dropWaitTicket(c, rdb, queue, ticket)
+			cancel()
 			return nil, ctx.Err()
 		case <-time.After(40 * time.Millisecond):
 		}
 	}
-	_ = dropWaitTicket(ctx, rdb, queue, ticket)
+	c, cancel := cleanupCtx()
+	_ = dropWaitTicket(c, rdb, queue, ticket)
+	cancel()
 	return nil, ErrLockBusy
 }

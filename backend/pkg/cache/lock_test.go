@@ -99,6 +99,31 @@ func TestLock_FairReclaimsStaleHead(t *testing.T) {
 	require.NoError(t, lk.Unlock(ctx))
 }
 
+func TestLock_FairCanceledDoesNotLeak(t *testing.T) {
+	_, rdb := testRedis(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	held, err := Acquire(context.Background(), rdb, "cx", "first", time.Second)
+	require.NoError(t, err)
+
+	done := make(chan error, 1)
+	go func() {
+		_, aerr := AcquireFair(ctx, rdb, "cx", "second", time.Second, 800*time.Millisecond)
+		done <- aerr
+	}()
+	time.Sleep(80 * time.Millisecond)
+	cancel()
+	require.NoError(t, held.Unlock(context.Background()))
+	select {
+	case aerr := <-done:
+		assert.Error(t, aerr)
+	case <-time.After(time.Second):
+		t.Fatal("fair lock did not return after cancel")
+	}
+	n, err := rdb.Exists(context.Background(), lockKey("cx")).Result()
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), n)
+}
+
 func TestLock_ReenterUnlocked(t *testing.T) {
 	_, rdb := testRedis(t)
 	lk, err := Acquire(context.Background(), rdb, "x", "o", time.Second)
