@@ -72,6 +72,14 @@ func TestSeedDepartments_CharterLayout(t *testing.T) {
 		assert.False(t, seenOld[m.Old], "duplicate legacy code %s", m.Old)
 		seenOld[m.Old] = true
 	}
+
+	assert.NotEmpty(t, departmentRefTables)
+	seenTbl := map[string]bool{}
+	for _, tbl := range departmentRefTables {
+		assert.NotEmpty(t, tbl)
+		assert.False(t, seenTbl[tbl], "duplicate ref table %s", tbl)
+		seenTbl[tbl] = true
+	}
 }
 
 func TestSeedRoles_OnlyTopRolesAreSystem(t *testing.T) {

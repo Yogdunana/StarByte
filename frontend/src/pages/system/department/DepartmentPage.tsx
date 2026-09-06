@@ -9,7 +9,14 @@ import './department.css';
 const { Paragraph, Text } = Typography;
 
 function isCenter(node: Department): boolean {
-  return !node.parent_id;
+  return node.code.startsWith('center_');
+}
+
+function charterTree(nodes: Department[]): Department[] {
+  return nodes.filter(isCenter).map((n) => ({
+    ...n,
+    children: (n.children || []).filter((c) => !isCenter(c)),
+  }));
 }
 
 function flattenLeaves(nodes: Department[]): Department[] {
@@ -73,7 +80,7 @@ const DepartmentPage: React.FC = () => {
     setLoading(true);
     void getDepartmentTree()
       .then((rows) => {
-        const list = rows || [];
+        const list = charterTree(rows || []);
         setTree(list);
         setExpandedKeys(allKeys(list));
         setSelectedId((cur) => cur ?? list[0]?.id);
