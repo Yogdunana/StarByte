@@ -113,7 +113,7 @@ const FormDrawer: React.FC<Props> = ({ open, editing, onClose, onSubmit }) => {
           <Input placeholder="例如：StarByte 后端开发实习" />
         </Form.Item>
         <Form.Item name="organization" label="实习单位" rules={[{ required: true, max: 200 }]}>
-          <Input placeholder="例如：计算机协会技术部" />
+          <Input placeholder="例如：计算机协会项目开发部" />
         </Form.Item>
         <Form.Item name="range" label="实习时间" rules={[{ required: true, message: '请选择开始日期' }]}>
           <DatePicker.RangePicker allowEmpty={[false, true]} style={{ width: '100%' }} />

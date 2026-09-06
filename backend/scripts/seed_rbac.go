@@ -24,13 +24,6 @@ var seedRolesData = []namedCode{
 	{Name: "会员", Code: "member", Description: "普通会员", Sort: 6},
 }
 
-var seedDepartmentsData = []namedCode{
-	{Name: "技术部", Code: "tech", Sort: 1},
-	{Name: "活动部", Code: "activity", Sort: 2},
-	{Name: "宣传部", Code: "publicity", Sort: 3},
-	{Name: "外联部", Code: "liaison", Sort: 4},
-}
-
 var seedPositionsData = []namedCode{
 	{Name: "社长", Code: "president", Sort: 1},
 	{Name: "副社长", Code: "vice_president", Sort: 2},
@@ -118,20 +111,6 @@ func seedPermissions(db *gorm.DB) error {
 			VALUES (uuid_generate_v4(), ?, ?, ?, ?, ?, 3, true, 0)
 			ON CONFLICT (code) DO NOTHING`,
 			p.Name, p.Code, p.Resource, p.Action, p.Name,
-		).Error; err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func seedDepartments(db *gorm.DB) error {
-	for _, d := range seedDepartmentsData {
-		if err := db.Exec(`
-			INSERT INTO departments (id, name, code, sort_order, status)
-			VALUES (uuid_generate_v4(), ?, ?, ?, 0)
-			ON CONFLICT (code) DO NOTHING`,
-			d.Name, d.Code, d.Sort,
 		).Error; err != nil {
 			return err
 		}
