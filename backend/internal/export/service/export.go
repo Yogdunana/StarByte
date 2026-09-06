@@ -73,7 +73,9 @@ func (s *exportService) ExportTable(ctx context.Context, format, userID string, 
 		return nil, response.NewError(response.CodeInternalError, "创建导出任务失败")
 	}
 	if len(copied.Rows) > asyncRowThreshold {
-		go s.runTableJob(context.Background(), task.ID, format, userID, copied)
+		go func() {
+			_ = s.runTableJob(context.Background(), task.ID, format, userID, copied)
+		}()
 		return toTaskDTO(task), nil
 	}
 	if err := s.runTableJob(ctx, task.ID, format, userID, copied); err != nil {
