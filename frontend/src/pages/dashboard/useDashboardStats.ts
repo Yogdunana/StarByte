@@ -7,6 +7,7 @@ import {
   type StatsResult,
   type StatsSeries,
 } from '@/api/stats';
+import { isCanceledError } from '@/api/error';
 import { usePermission } from '@/hooks/usePermission';
 
 export const DASHBOARD_PROVIDERS: StatsProviderCode[] = [
@@ -44,10 +45,6 @@ export interface DashboardStatsState {
   reload: () => Promise<void>;
 }
 
-function isAbortError(e: unknown): boolean {
-  return typeof e === 'object' && e !== null && 'code' in e && (e as { code?: string }).code === 'ERR_CANCELED';
-}
-
 export function useDashboardStats(refreshMs?: number): DashboardStatsState {
   const canReadCharts = usePermission('stats:read');
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
@@ -65,7 +62,7 @@ export function useDashboardStats(refreshMs?: number): DashboardStatsState {
       const ov = await getStatsOverview(signal);
       setOverview(ov);
     } catch (e) {
-      if (isAbortError(e)) return;
+      if (isCanceledError(e)) return;
       if (!loaded.current) {
         setOverview(null);
       }
@@ -83,7 +80,7 @@ export function useDashboardStats(refreshMs?: number): DashboardStatsState {
       try {
         next[code] = await getStats(code, undefined, signal);
       } catch (e) {
-        if (isAbortError(e)) return;
+        if (isCanceledError(e)) return;
         errs[code] = e instanceof Error ? e.message : '加载失败';
       }
     }
