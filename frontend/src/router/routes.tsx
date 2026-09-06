@@ -20,6 +20,7 @@ const DepartmentPage = lazy(() => import('@/pages/system/department/DepartmentPa
 const ConfigPage = lazy(() => import('@/pages/system/config/ConfigPage'));
 const DictPage = lazy(() => import('@/pages/system/dict/DictPage'));
 const SessionPage = lazy(() => import('@/pages/system/session/SessionPage'));
+const ExportPage = lazy(() => import('@/pages/system/export/ExportPage'));
 const FileList = lazy(() => import('@/pages/file/FileList'));
 const ApplicationPage = lazy(() => import('@/pages/member/application/ApplicationPage'));
 const ProfilePage = lazy(() => import('@/pages/member/profile/ProfilePage'));
@@ -330,6 +331,11 @@ const routes: AppRouteObject[] = [
             path: 'sessions',
             element: lazyGuarded(SessionPage, 'session:read'),
             meta: { title: '在线会话', permission: 'session:read' },
+          },
+          {
+            path: 'export',
+            element: lazyGuarded(ExportPage, 'export:read'),
+            meta: { title: '打印导出', permission: 'export:read' },
           },
         ],
       },

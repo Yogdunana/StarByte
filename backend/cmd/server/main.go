@@ -21,6 +21,9 @@ import (
 	dictHandler "github.com/Yogdunana/StarByte/backend/internal/dict/handler"
 	dictRepo "github.com/Yogdunana/StarByte/backend/internal/dict/repo"
 	dictService "github.com/Yogdunana/StarByte/backend/internal/dict/service"
+	exportHandler "github.com/Yogdunana/StarByte/backend/internal/export/handler"
+	exportRepo "github.com/Yogdunana/StarByte/backend/internal/export/repo"
+	exportService "github.com/Yogdunana/StarByte/backend/internal/export/service"
 	fileHandler "github.com/Yogdunana/StarByte/backend/internal/file/handler"
 	fileRepo "github.com/Yogdunana/StarByte/backend/internal/file/repo"
 	fileService "github.com/Yogdunana/StarByte/backend/internal/file/service"
@@ -267,6 +270,11 @@ func main() {
 	dictSvc := dictService.NewDictService(dictR, dictService.NewRedisCache(redis.Client()))
 	dictH := dictHandler.NewDictHandler(dictSvc, cacheService)
 
+	// 打印 / 报表导出（#71，Redis 任务 + MinIO 临时文件）
+	expRepo := exportRepo.NewRedisRepo(redis.Client())
+	expSvc := exportService.NewExportService(expRepo, objectStore, exportService.NewNotifReady(notifSvc))
+	expH := exportHandler.NewExportHandler(expSvc)
+
 	// 审计日志模块
 	auditR := auditRepo.NewAuditRepo(database.DB())
 	auditSvc := auditService.NewAuditService(auditR, &cfg.MinIO)
@@ -346,6 +354,9 @@ func main() {
 
 		// 数据字典（/system/dicts，dict:read/create/update/delete；公开读启用项只需登录）
 		dictHandler.RegisterRoutes(protected, dictH, cacheService)
+
+		// 打印 / 报表导出（/export）
+		exportHandler.RegisterRoutes(protected, expH, cacheService)
 
 		// 审计日志模块路由（/system/audit-logs，audit:read / audit:export / audit:archive）
 		auditHandler.RegisterRoutes(protected, auditH, cacheService)

@@ -21,6 +21,11 @@ package response
 //	14000-14999 Runtime configstore (#47)
 //	15000-15999 Data dictionary (#48)
 //	16000-16999 Session management (#50)
+//	17000-17999 Export / print engine (#71)
+//
+//	Note: issue #71 asked for 9000-9499, but that range is already owned by
+//	the task module (9000-9999). Export therefore uses 17000-17999 (after
+//	session 16000).
 
 const (
 	// ===== Success =====
@@ -161,6 +166,15 @@ const (
 	// ===== Session management (#50, 16000-16999) =====
 	CodeSessionNotFound    = 16001 // 会话不存在或已失效
 	CodeSessionUserOffline = 16002 // 该用户当前没有在线会话
+
+	// ===== Export / print engine (#71, 17000-17999) =====
+	// Issue #71 listed 9000-9499; that range is the task module. Use 17000+.
+	CodeExportInvalidFormat = 17001 // 不支持的导出格式
+	CodeExportTplNotFound   = 17002 // 导出模板不存在
+	CodeExportTaskNotFound  = 17003 // 导出任务不存在
+	CodeExportFileExpired   = 17004 // 导出文件已过期
+	CodeExportTooManyRows   = 17005 // 数据量过大且无法异步导出
+	CodeExportEmptyData     = 17006 // 导出数据为空
 )
 
 // ModuleRanges maps each module name to its error-code range [min, max].
@@ -182,4 +196,5 @@ var ModuleRanges = map[string][2]int{
 	"configstore":  {14000, 14999},
 	"dict":         {15000, 15999},
 	"session":      {16000, 16999},
+	"export":       {17000, 17999},
 }

@@ -1237,3 +1237,48 @@ export interface PieChartData {
   value: number;
   color?: string;
 }
+
+export type ExportFormat = 'excel' | 'csv' | 'pdf' | 'json';
+
+export type ExportTaskStatus = 'pending' | 'running' | 'done' | 'failed';
+
+export interface ExportTableRequest {
+  filename: string;
+  title: string;
+  columns: string[];
+  rows: string[][];
+  sheet?: string;
+  delimiter?: string;
+}
+
+export interface ExportTemplateRequest {
+  filename?: string;
+  watermark?: string;
+  vars: Record<string, string>;
+}
+
+export interface ExportTask {
+  task_id: string;
+  status: ExportTaskStatus;
+  progress: number;
+  file_id?: string;
+  error?: string;
+  filename?: string;
+  format?: string;
+  created_at?: string;
+}
+
+export interface ExportTemplateInfo {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface ExportDownloadInfo {
+  file_id: string;
+  filename: string;
+  content_type: string;
+  url?: string;
+  expires_in?: number;
+}
+
