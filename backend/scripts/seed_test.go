@@ -95,6 +95,17 @@ func TestSeedRuntimeConfigs_Keys(t *testing.T) {
 	}
 }
 
+func TestVicePresident_ExcludesConfigWrites(t *testing.T) {
+	excluded := map[string]bool{}
+	for _, c := range vicePresidentExcludedPerms() {
+		excluded[c] = true
+	}
+	for _, need := range []string{"system:config", "config:create", "config:update", "config:delete"} {
+		assert.True(t, excluded[need], "vice_president must not inherit %s", need)
+	}
+	assert.False(t, excluded["config:read"])
+}
+
 func TestOfficerAndMemberPerms_NonEmpty(t *testing.T) {
 	assert.GreaterOrEqual(t, len(officerPermCodes()), 8)
 	assert.GreaterOrEqual(t, len(memberPermCodes()), 5)

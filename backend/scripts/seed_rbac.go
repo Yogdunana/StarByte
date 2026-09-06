@@ -145,15 +145,25 @@ func seedRolePermissions(db *gorm.DB) error {
 		return fmt.Errorf("assign all perms to president: %w", err)
 	}
 
-	// 副社长：除系统配置外的全部权限
+	// 副社长：可读运行时配置，但不能改/删（与 system:config 对齐，避免绕过实习/投票开关）
 	if err := db.Exec(`
 		INSERT INTO role_permissions (id, role_id, permission_id, data_scope)
 		SELECT uuid_generate_v4(), r.id, p.id, 'all'
 		FROM roles r CROSS JOIN permissions p
-		WHERE r.code = 'vice_president' AND p.code <> 'system:config'
+		WHERE r.code = 'vice_president'
+		  AND p.code NOT IN ('system:config', 'config:create', 'config:update', 'config:delete')
 		ON CONFLICT (role_id, permission_id) DO NOTHING
 	`).Error; err != nil {
 		return fmt.Errorf("assign vice_president perms: %w", err)
+	}
+	if err := db.Exec(`
+		DELETE FROM role_permissions rp
+		USING roles r, permissions p
+		WHERE rp.role_id = r.id AND rp.permission_id = p.id
+		  AND r.code = 'vice_president'
+		  AND p.code IN ('config:create', 'config:update', 'config:delete')
+	`).Error; err != nil {
+		return fmt.Errorf("revoke vice_president config writes: %w", err)
 	}
 
 	// 部长：全部 read + 业务 create/update
@@ -213,6 +223,10 @@ func memberPermCodes() []string {
 		"user:read", "member:read", "meeting:read", "task:read",
 		"file:read", "file:create", "internship:read", "internship:create", "internship:update", "internship:delete",
 	}
+}
+
+func vicePresidentExcludedPerms() []string {
+	return []string{"system:config", "config:create", "config:update", "config:delete"}
 }
 
 func assignPermCodes(db *gorm.DB, roleCode, dataScope string, codes []string) error {
