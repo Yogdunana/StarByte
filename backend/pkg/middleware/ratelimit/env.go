@@ -48,6 +48,26 @@ func overlayBucket(b *Bucket, rateKey, burstKey string) {
 	}
 }
 
+// TrustedProxiesFromEnv returns CIDRs/IPs allowed to set X-Forwarded-For.
+// Empty / unset means trust none (ClientIP uses the socket peer).
+func TrustedProxiesFromEnv() []string {
+	v := os.Getenv("TRUSTED_PROXIES")
+	if v == "" {
+		return nil
+	}
+	var out []string
+	for _, p := range strings.Split(v, ",") {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 func parseSet(csv string) map[string]struct{} {
 	out := make(map[string]struct{})
 	for _, p := range strings.Split(csv, ",") {

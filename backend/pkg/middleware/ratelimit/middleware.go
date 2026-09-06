@@ -24,7 +24,7 @@ func Middleware(rdb *redis.Client, cfg Config) gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		if !allowOrAbort(c, store, "rl:ip:"+c.ClientIP(), cfg.IP, int(cfg.IP.Burst)) {
+		if !allowOrAbort(c, store, "rl:ip:"+clientIP(c), cfg.IP, int(cfg.IP.Burst)) {
 			return
 		}
 		rk := routeKey(c)

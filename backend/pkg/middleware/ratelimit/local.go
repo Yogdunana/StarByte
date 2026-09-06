@@ -6,14 +6,17 @@ import (
 	"golang.org/x/time/rate"
 )
 
+const defaultMaxLocalBuckets = 4096
+
 // localLimiter is the in-process token bucket used when Redis is down (#75).
 type localLimiter struct {
-	mu sync.Mutex
-	m  map[string]*rate.Limiter
+	mu  sync.Mutex
+	m   map[string]*rate.Limiter
+	max int
 }
 
 func newLocalLimiter() *localLimiter {
-	return &localLimiter{m: make(map[string]*rate.Limiter)}
+	return &localLimiter{m: make(map[string]*rate.Limiter), max: defaultMaxLocalBuckets}
 }
 
 func (l *localLimiter) allow(key string, b Bucket) Result {
@@ -27,6 +30,13 @@ func (l *localLimiter) allow(key string, b Bucket) Result {
 	l.mu.Lock()
 	lim, ok := l.m[key]
 	if !ok {
+		if l.max > 0 && len(l.m) >= l.max {
+			// Bound memory: evict one arbitrary entry instead of growing forever.
+			for k := range l.m {
+				delete(l.m, k)
+				break
+			}
+		}
 		lim = rate.NewLimiter(rate.Limit(b.Rate), burst)
 		l.m[key] = lim
 	}

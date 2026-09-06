@@ -128,3 +128,67 @@ func TestInSet(t *testing.T) {
 	assert.False(t, inSet(map[string]struct{}{"a": {}}, ""))
 	assert.True(t, inSet(map[string]struct{}{"a": {}}, "a"))
 }
+
+func TestClientIPNil(t *testing.T) {
+	assert.Equal(t, "", clientIP(nil))
+}
+
+func TestTrustedProxiesFromEnv(t *testing.T) {
+	t.Setenv("TRUSTED_PROXIES", "")
+	assert.Nil(t, TrustedProxiesFromEnv())
+	t.Setenv("TRUSTED_PROXIES", "10.0.0.1, 10.0.0.0/8")
+	assert.Equal(t, []string{"10.0.0.1", "10.0.0.0/8"}, TrustedProxiesFromEnv())
+}
+
+func TestLocalLimiterCapsKeys(t *testing.T) {
+	l := newLocalLimiter()
+	l.max = 2
+	b := Bucket{Rate: 100, Burst: 100}
+	l.allow("a", b)
+	l.allow("b", b)
+	l.allow("c", b)
+	l.mu.Lock()
+	n := len(l.m)
+	l.mu.Unlock()
+	assert.LessOrEqual(t, n, 2)
+}
+
+func TestForwardedForCannotBypassBlacklist(t *testing.T) {
+	_, rdb := testRedis(t)
+	cfg := DefaultConfig()
+	cfg.IPBlacklist = map[string]struct{}{"192.0.2.1": {}}
+	r := gin.New()
+	require.NoError(t, r.SetTrustedProxies(nil))
+	r.Use(func(c *gin.Context) { c.Set("request_id", "rid"); c.Next() })
+	r.Use(Middleware(rdb, cfg))
+	r.GET("/x", func(c *gin.Context) { c.String(200, "ok") })
+	req := httptest.NewRequest(http.MethodGet, "/x", nil)
+	req.Header.Set("X-Forwarded-For", "8.8.8.8")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestForwardedForCannotSkipViaWhitelist(t *testing.T) {
+	_, rdb := testRedis(t)
+	cfg := DefaultConfig()
+	cfg.IP = Bucket{Rate: 1, Burst: 1}
+	cfg.Route = Bucket{Rate: 100, Burst: 100}
+	cfg.IPWhitelist = map[string]struct{}{"8.8.8.8": {}}
+	r := gin.New()
+	require.NoError(t, r.SetTrustedProxies(nil))
+	r.Use(func(c *gin.Context) { c.Set("request_id", "rid"); c.Next() })
+	r.Use(Middleware(rdb, cfg))
+	r.GET("/x", func(c *gin.Context) { c.String(200, "ok") })
+	mk := func() *http.Request {
+		req := httptest.NewRequest(http.MethodGet, "/x", nil)
+		req.Header.Set("X-Forwarded-For", "8.8.8.8")
+		return req
+	}
+	w1 := httptest.NewRecorder()
+	r.ServeHTTP(w1, mk())
+	assert.Equal(t, 200, w1.Code)
+	w2 := httptest.NewRecorder()
+	r.ServeHTTP(w2, mk())
+	assert.Equal(t, http.StatusTooManyRequests, w2.Code)
+}

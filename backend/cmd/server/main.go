@@ -134,6 +134,11 @@ func main() {
 
 	// 6. 创建 Gin 引擎
 	r := gin.New()
+	// Default Gin trusts 0.0.0.0/0, so X-Forwarded-For is spoofable. Trust none
+	// unless TRUSTED_PROXIES lists the load-balancer CIDRs (#75 security review).
+	if err := r.SetTrustedProxies(ratelimit.TrustedProxiesFromEnv()); err != nil {
+		logger.Fatal("invalid TRUSTED_PROXIES", zap.Error(err))
+	}
 
 	// 7. 注册全局中间件
 	// 顺序: RequestID → Logger → ErrorHandler → CORS

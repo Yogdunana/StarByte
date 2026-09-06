@@ -35,7 +35,7 @@ func paintTraffic(c *gin.Context, cfg Config) {
 		color = "prod"
 		seed := viewerID(c)
 		if seed == "" {
-			seed = c.ClientIP()
+			seed = clientIP(c)
 		}
 		if grayByPercent(seed, cfg.GrayPercent) || inSet(cfg.GrayAllow, c.GetHeader(cfg.GrayHeader)) {
 			color = "gray"
@@ -61,11 +61,21 @@ func grayByPercent(seed string, pct int) bool {
 }
 
 func deniedByACL(c *gin.Context, cfg Config) bool {
-	return ipListed(cfg.IPBlacklist, c.ClientIP()) || inSet(cfg.UserBlacklist, viewerID(c))
+	return ipListed(cfg.IPBlacklist, clientIP(c)) || inSet(cfg.UserBlacklist, viewerID(c))
 }
 
 func skipLimit(c *gin.Context, cfg Config) bool {
-	return ipListed(cfg.IPWhitelist, c.ClientIP()) || inSet(cfg.UserWhitelist, viewerID(c))
+	return ipListed(cfg.IPWhitelist, clientIP(c)) || inSet(cfg.UserWhitelist, viewerID(c))
+}
+
+// clientIP uses gin.Context.ClientIP, which honors Engine trusted proxies.
+// Production must call SetTrustedProxies(nil) unless TRUSTED_PROXIES is set;
+// otherwise Gin v1.9 defaults to trusting 0.0.0.0/0 and X-Forwarded-For is spoofable.
+func clientIP(c *gin.Context) string {
+	if c == nil {
+		return ""
+	}
+	return c.ClientIP()
 }
 
 func ipListed(set map[string]struct{}, ip string) bool {
