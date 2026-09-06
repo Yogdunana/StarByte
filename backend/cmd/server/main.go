@@ -29,6 +29,9 @@ import (
 	fileHandler "github.com/Yogdunana/StarByte/backend/internal/file/handler"
 	fileRepo "github.com/Yogdunana/StarByte/backend/internal/file/repo"
 	fileService "github.com/Yogdunana/StarByte/backend/internal/file/service"
+	formHandler "github.com/Yogdunana/StarByte/backend/internal/form/handler"
+	formRepo "github.com/Yogdunana/StarByte/backend/internal/form/repo"
+	formService "github.com/Yogdunana/StarByte/backend/internal/form/service"
 	internshipHandler "github.com/Yogdunana/StarByte/backend/internal/internship/handler"
 	internshipRepo "github.com/Yogdunana/StarByte/backend/internal/internship/repo"
 	internshipService "github.com/Yogdunana/StarByte/backend/internal/internship/service"
@@ -412,6 +415,11 @@ func main() {
 		statsSvc := statsService.NewStatsService(statsRepo.NewStatsRepo(database.DB()))
 		statsH := statsHandler.NewStatsHandler(statsSvc)
 		statsHandler.RegisterRoutes(protected, statsH, cacheService, database.DB(), deptRepo)
+
+		// 动态表单（/forms，#28）
+		formSvc := formService.New(formRepo.New(database.DB()))
+		formH := formHandler.NewFormHandler(formSvc, cacheService)
+		formHandler.RegisterRoutes(protected, formH, cacheService)
 
 		// 审计日志模块路由（/system/audit-logs，audit:read / audit:export / audit:archive / audit:report）
 		auditHandler.RegisterRoutes(protected, auditH, cacheService)

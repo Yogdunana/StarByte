@@ -213,6 +213,7 @@ func seedRolePermissions(db *gorm.DB) error {
 			OR (p.resource = 'internship' AND p.action = 'evaluate')
 			OR (p.resource = 'export' AND p.action IN ('excel','csv','pdf','json','template','download'))
 			OR (p.resource = 'stats' AND p.action = 'export')
+			OR (p.resource = 'form' AND p.action IN ('write', 'submit'))
 		)
 		ON CONFLICT (role_id, permission_id) DO NOTHING
 	`).Error; err != nil {
@@ -229,6 +230,7 @@ func seedRolePermissions(db *gorm.DB) error {
 			OR (p.resource IN ('member','interview','meeting','task','internship','file')
 			    AND p.action = 'create')
 			OR (p.resource = 'task' AND p.action IN ('update','comment'))
+			OR (p.resource = 'form' AND p.action IN ('write', 'submit'))
 		)
 		ON CONFLICT (role_id, permission_id) DO NOTHING
 	`).Error; err != nil {
@@ -248,6 +250,7 @@ func officerPermCodes() []string {
 		"task:read", "task:create", "task:update", "task:comment",
 		"file:read", "file:create",
 		"internship:read", "internship:create", "internship:update", "internship:delete",
+		"form:read", "form:submit",
 	}
 }
 
@@ -255,6 +258,7 @@ func memberPermCodes() []string {
 	return []string{
 		"user:read", "member:read", "meeting:read", "task:read",
 		"file:read", "file:create", "internship:read", "internship:create", "internship:update", "internship:delete",
+		"form:submit",
 	}
 }
 

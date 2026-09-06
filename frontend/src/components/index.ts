@@ -26,3 +26,6 @@ export type { FileUploadProps } from './FileUpload';
 
 export { Chart, ChartCard, PieChart, BarChart, LineChart, useECharts, CHART_COLORS } from './Chart';
 export type { ChartProps, ChartCardProps, PieChartProps, BarChartProps, LineChartProps } from './Chart';
+
+export { FormEngine, FormRenderer, FIELD_TYPE_LABELS, FIELD_TYPES } from './FormEngine';
+export type { FormEngineProps, FormSchema, FormField, FormFieldType } from './FormEngine';

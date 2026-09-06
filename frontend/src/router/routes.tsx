@@ -45,6 +45,10 @@ const InternshipMyPage = lazy(() => import('@/pages/internship/MyPage'));
 const InternshipStatsPage = lazy(() => import('@/pages/internship/StatsPage'));
 const WorkflowDesigner = lazy(() => import('@/pages/workflow/designer/DesignerPage'));
 const StatsOverviewPage = lazy(() => import('@/pages/stats/OverviewPage'));
+const FormListPage = lazy(() => import('@/pages/form-designer/ListPage'));
+const FormDesignerPage = lazy(() => import('@/pages/form-designer/DesignerPage'));
+const FormFillPage = lazy(() => import('@/pages/form-designer/FillPage'));
+const FormSubmissionsPage = lazy(() => import('@/pages/form-designer/SubmissionsPage'));
 const Forbidden = lazy(() => import('@/pages/error/Forbidden'));
 const NotFound = lazy(() => import('@/pages/error/NotFound'));
 
@@ -288,6 +292,37 @@ const routes: AppRouteObject[] = [
             path: 'stats',
             element: lazyGuarded(InternshipStatsPage, 'internship:read'),
             meta: { title: '实习统计', permission: 'internship:read' },
+          },
+        ],
+      },
+      {
+        path: 'forms',
+        meta: { title: '动态表单', icon: 'FormOutlined' },
+        children: [
+          {
+            index: true,
+            element: lazyWrap(FormListPage),
+            meta: { title: '表单列表' },
+          },
+          {
+            path: 'designer',
+            element: lazyGuarded(FormDesignerPage, 'form:write'),
+            meta: { title: '表单设计', permission: 'form:write', hidden: true },
+          },
+          {
+            path: 'designer/:id',
+            element: lazyGuarded(FormDesignerPage, 'form:write'),
+            meta: { title: '表单设计', permission: 'form:write', hidden: true },
+          },
+          {
+            path: ':id/fill',
+            element: lazyGuarded(FormFillPage, 'form:submit'),
+            meta: { title: '填写表单', permission: 'form:submit', hidden: true },
+          },
+          {
+            path: ':id/submissions',
+            element: lazyGuarded(FormSubmissionsPage, 'form:read'),
+            meta: { title: '提交记录', permission: 'form:read', hidden: true },
           },
         ],
       },
