@@ -88,7 +88,7 @@ func (h *ExportHandler) Download(c *gin.Context) {
 		return
 	}
 	stream := c.Query("stream") == "1"
-	if !stream && out.URL != "" {
+	if !stream {
 		response.OK(c, dto.DownloadInfo{
 			FileID:      out.FileID,
 			Filename:    out.Filename,

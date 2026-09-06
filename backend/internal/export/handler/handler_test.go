@@ -118,9 +118,20 @@ func TestDownload_Stream(t *testing.T) {
 	assert.Equal(t, "hi", w.Body.String())
 }
 
-func TestDownload_PresignedJSON(t *testing.T) {
+func TestDownload_JSONWithoutURL(t *testing.T) {
 	h := NewExportHandler(&stubSvc{dl: &dto.DownloadResult{
-		FileID: "f1", Filename: "a.xlsx", ContentType: "application/octet-stream", URL: "http://minio/x",
+		FileID: "f1", Filename: "a.csv", ContentType: "text/csv", Bytes: []byte("hi"),
+	}})
+	w := doJSON(h.Download, http.MethodGet, "/api/v1/export/download/f1", nil, gin.Params{{Key: "file_id", Value: "f1"}})
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp response.Response
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	assert.Equal(t, 0, resp.Code)
+}
+
+func TestDownload_JSONWithURL(t *testing.T) {
+	h := NewExportHandler(&stubSvc{dl: &dto.DownloadResult{
+		FileID: "f1", Filename: "a.xlsx", ContentType: "application/octet-stream", URL: "http://minio/x", Bytes: []byte("x"),
 	}})
 	w := doJSON(h.Download, http.MethodGet, "/api/v1/export/download/f1", nil, gin.Params{{Key: "file_id", Value: "f1"}})
 	assert.Equal(t, http.StatusOK, w.Code)
