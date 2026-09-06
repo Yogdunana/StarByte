@@ -139,6 +139,22 @@ func TestAllSeedPermissions_IncludesSession(t *testing.T) {
 	assert.False(t, seen["session:update"])
 }
 
+func TestAllSeedPermissions_IncludesExport(t *testing.T) {
+	seen := map[string]bool{}
+	for _, p := range allSeedPermissions() {
+		seen[p.Code] = true
+	}
+	for _, need := range []string{
+		"export:excel", "export:csv", "export:pdf", "export:json",
+		"export:template", "export:read", "export:download",
+	} {
+		assert.True(t, seen[need], "missing permission %s", need)
+	}
+	assert.False(t, seen["export:create"])
+	assert.False(t, seen["export:update"])
+	assert.False(t, seen["export:delete"])
+}
+
 func TestOfficerAndMemberPerms_NonEmpty(t *testing.T) {
 	assert.GreaterOrEqual(t, len(officerPermCodes()), 8)
 	assert.GreaterOrEqual(t, len(memberPermCodes()), 5)

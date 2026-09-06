@@ -293,6 +293,16 @@ func TestModuleRanges(t *testing.T) {
 
 	_, ok = ModuleRanges["nonexistent"]
 	assert.False(t, ok)
+
+	r, ok = ModuleRanges["export"]
+	assert.True(t, ok)
+	assert.Equal(t, 17000, r[0])
+	assert.Equal(t, 17999, r[1])
+	assert.Equal(t, 17001, CodeExportInvalidFormat)
+	assert.Equal(t, 17006, CodeExportEmptyData)
+	taskRange := ModuleRanges["task"]
+	assert.Equal(t, 9000, taskRange[0])
+	assert.True(t, r[0] > taskRange[1], "export must not collide with task 9000-9999")
 }
 
 // ========== TranslateGORMError tests ==========

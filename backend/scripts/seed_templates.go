@@ -96,6 +96,12 @@ var seedTemplatesData = []seedTemplate{
 		Body:   "任务「{{.title}}」已超过截止时间 {{.due_date}}。",
 		Schema: `{"title":"string","due_date":"string"}`,
 	},
+	{
+		Code: "export_ready", Name: "导出完成", Category: "system",
+		Title:  "导出已完成：{{.filename}}",
+		Body:   "文件「{{.filename}}」已生成，30 分钟内可下载。",
+		Schema: `{"filename":"string","file_id":"string"}`,
+	},
 }
 
 func seedTemplates(db *gorm.DB) error {
