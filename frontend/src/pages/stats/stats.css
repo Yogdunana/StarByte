@@ -1,0 +1,26 @@
+.stats-page {
+  padding: 0 0 24px;
+}
+
+.stats-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 20px 24px;
+  margin-bottom: 16px;
+  border-radius: 16px;
+  color: #fff;
+  background: linear-gradient(135deg, #1d4ed8 0%, #7c3aed 55%, #0f766e 100%);
+  box-shadow: 0 12px 32px rgba(29, 78, 216, 0.18);
+}
+
+.stats-kpis {
+  margin-bottom: 16px;
+}
+
+.stats-section {
+  margin-bottom: 16px;
+  border-radius: 12px !important;
+}

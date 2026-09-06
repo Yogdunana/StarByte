@@ -148,6 +148,8 @@ const (
 	// ===== Statistics module (11000-11999) =====
 	CodeStatsProviderNotFound = 11001 // 数据提供者不存在
 	CodeStatsInvalidParam     = 11002 // 统计参数无效
+	CodeStatsExportFormat     = 11003 // 导出格式不支持
+	CodeStatsTooLarge         = 11004 // 数据量过大
 
 	// ===== Notification module (12000-12999) =====
 	CodeNotificationNotFound    = 12001 // 通知不存在

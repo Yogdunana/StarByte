@@ -80,6 +80,7 @@ func allSeedPermissions() []seedPerm {
 	perms = append(perms,
 		seedPerm{Name: "权限查看", Code: "permission:read", Resource: "permission", Action: "read"},
 		seedPerm{Name: "统计查看", Code: "stats:read", Resource: "stats", Action: "read"},
+		seedPerm{Name: "统计导出", Code: "stats:export", Resource: "stats", Action: "export"},
 		seedPerm{Name: "系统配置", Code: "system:config", Resource: "system", Action: "config"},
 		seedPerm{Name: "通知模板查看", Code: "notification:template:read", Resource: "notification", Action: "read"},
 		seedPerm{Name: "发送通知", Code: "notification:send", Resource: "notification", Action: "create"},
@@ -211,6 +212,7 @@ func seedRolePermissions(db *gorm.DB) error {
 			OR (p.resource = 'task' AND p.action IN ('assign','transfer','comment'))
 			OR (p.resource = 'internship' AND p.action = 'evaluate')
 			OR (p.resource = 'export' AND p.action IN ('excel','csv','pdf','json','template','download'))
+			OR (p.resource = 'stats' AND p.action = 'export')
 		)
 		ON CONFLICT (role_id, permission_id) DO NOTHING
 	`).Error; err != nil {

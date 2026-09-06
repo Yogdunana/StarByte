@@ -53,6 +53,9 @@ import (
 	schedService "github.com/Yogdunana/StarByte/backend/internal/scheduler/service"
 	searchHandler "github.com/Yogdunana/StarByte/backend/internal/search/handler"
 	searchService "github.com/Yogdunana/StarByte/backend/internal/search/service"
+	statsHandler "github.com/Yogdunana/StarByte/backend/internal/stats/handler"
+	statsRepo "github.com/Yogdunana/StarByte/backend/internal/stats/repo"
+	statsService "github.com/Yogdunana/StarByte/backend/internal/stats/service"
 	taskHandler "github.com/Yogdunana/StarByte/backend/internal/task/handler"
 	taskRepo "github.com/Yogdunana/StarByte/backend/internal/task/repo"
 	taskService "github.com/Yogdunana/StarByte/backend/internal/task/service"
@@ -393,6 +396,11 @@ func main() {
 		searchSvc := searchService.NewSearchService(database.DB())
 		searchH := searchHandler.NewSearchHandler(searchSvc, database.DB(), deptRepo, cacheService)
 		searchHandler.RegisterRoutes(protected, searchH, cacheService)
+
+		// 数据统计（/stats，#11）
+		statsSvc := statsService.NewStatsService(statsRepo.NewStatsRepo(database.DB()))
+		statsH := statsHandler.NewStatsHandler(statsSvc)
+		statsHandler.RegisterRoutes(protected, statsH, cacheService)
 
 		// 审计日志模块路由（/system/audit-logs，audit:read / audit:export / audit:archive / audit:report）
 		auditHandler.RegisterRoutes(protected, auditH, cacheService)
