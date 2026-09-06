@@ -51,6 +51,9 @@ const RETRY_DELAY = 500;
 function shouldRetry(config: InternalAxiosRequestConfig, status?: number): boolean {
   if (config.method?.toUpperCase() !== 'GET') return false;
   const retryCount = (config as { _retryCount?: number })._retryCount ?? 0;
+  if (status === 429) {
+    return retryCount < 2;
+  }
   if (retryCount >= GET_RETRY_COUNT) return false;
   // 网络错误（无 status）或 5xx 服务端错误时重试
   return !status || status >= 500;
@@ -154,7 +157,8 @@ request.interceptors.response.use(
     if (shouldRetry(originalRequest, error.response?.status)) {
       const retryCount = (originalRequest as { _retryCount?: number })._retryCount ?? 0;
       (originalRequest as { _retryCount?: number })._retryCount = retryCount + 1;
-      await delay(RETRY_DELAY);
+      const wait = error.response?.status === 429 ? 1000 : RETRY_DELAY;
+      await delay(wait);
       return request(originalRequest);
     }
 

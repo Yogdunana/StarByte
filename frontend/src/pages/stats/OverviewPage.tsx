@@ -52,23 +52,21 @@ const OverviewPage: React.FC = () => {
 
   const load = useCallback(async () => {
     setLoading(true);
+    const next: Partial<Record<StatsProviderCode, StatsResult>> = {};
+    const errs: Partial<Record<StatsProviderCode, string>> = {};
     try {
       const ov = await getStatsOverview();
       setOverview(ov);
     } catch {
       setOverview(null);
     }
-    const next: Partial<Record<StatsProviderCode, StatsResult>> = {};
-    const errs: Partial<Record<StatsProviderCode, string>> = {};
-    await Promise.all(
-      PROVIDERS.map(async (p) => {
-        try {
-          next[p.code] = await getStats(p.code, query);
-        } catch (e) {
-          errs[p.code] = e instanceof Error ? e.message : '加载失败';
-        }
-      }),
-    );
+    for (const p of PROVIDERS) {
+      try {
+        next[p.code] = await getStats(p.code, query);
+      } catch (e) {
+        errs[p.code] = e instanceof Error ? e.message : '加载失败';
+      }
+    }
     setResults(next);
     setErrors(errs);
     setLoading(false);
