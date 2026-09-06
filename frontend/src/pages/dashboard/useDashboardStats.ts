@@ -44,6 +44,10 @@ export interface DashboardStatsState {
   reload: () => Promise<void>;
 }
 
+function isAbortError(e: unknown): boolean {
+  return typeof e === 'object' && e !== null && 'code' in e && (e as { code?: string }).code === 'ERR_CANCELED';
+}
+
 export function useDashboardStats(refreshMs?: number): DashboardStatsState {
   const canReadCharts = usePermission('stats:read');
   const [overview, setOverview] = useState<OverviewResponse | null>(null);
@@ -52,11 +56,12 @@ export function useDashboardStats(refreshMs?: number): DashboardStatsState {
   const [loading, setLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
-      setOverview(await getStatsOverview());
-    } catch {
+      setOverview(await getStatsOverview(signal));
+    } catch (e) {
+      if (isAbortError(e)) return;
       setOverview(null);
     }
     if (!canReadCharts) {
@@ -69,9 +74,11 @@ export function useDashboardStats(refreshMs?: number): DashboardStatsState {
     const next: Partial<Record<StatsProviderCode, StatsResult>> = {};
     const errs: Partial<Record<StatsProviderCode, string>> = {};
     for (const code of DASHBOARD_PROVIDERS) {
+      if (signal?.aborted) return;
       try {
-        next[code] = await getStats(code);
+        next[code] = await getStats(code, undefined, signal);
       } catch (e) {
+        if (isAbortError(e)) return;
         errs[code] = e instanceof Error ? e.message : '加载失败';
       }
     }
@@ -82,7 +89,9 @@ export function useDashboardStats(refreshMs?: number): DashboardStatsState {
   }, [canReadCharts]);
 
   useEffect(() => {
-    void reload();
+    const ac = new AbortController();
+    void reload(ac.signal);
+    return () => ac.abort();
   }, [reload]);
 
   useEffect(() => {

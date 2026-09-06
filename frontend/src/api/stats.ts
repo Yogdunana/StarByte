@@ -70,12 +70,12 @@ export function listStatsProviders(): Promise<ProviderInfo[]> {
   return request.get('/stats/providers');
 }
 
-export function getStatsOverview(): Promise<OverviewResponse> {
-  return request.get('/stats/overview');
+export function getStatsOverview(signal?: AbortSignal): Promise<OverviewResponse> {
+  return request.get('/stats/overview', { signal });
 }
 
-export function getStats(provider: string, params?: StatsQuery): Promise<StatsResult> {
-  return request.get(`/stats/${provider}`, { params });
+export function getStats(provider: string, params?: StatsQuery, signal?: AbortSignal): Promise<StatsResult> {
+  return request.get(`/stats/${provider}`, { params, signal });
 }
 
 function filenameFromDisposition(header: string | undefined, fallback: string): string {
