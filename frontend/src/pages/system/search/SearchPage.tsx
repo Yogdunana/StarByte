@@ -4,9 +4,9 @@ import type { ColumnsType } from 'antd/es/table';
 import { ReloadOutlined, SearchOutlined } from '@ant-design/icons';
 import { getSearchResources, runSearchQuery } from '@/api/search';
 import type {
-  SearchAggRow, SearchField, SearchGroup, SearchResource, SearchResult, SearchSort,
+  SearchAggRow, SearchGroup, SearchResource, SearchResult, SearchSort,
 } from '@/types/api';
-import FilterBuilder, { emptyCond, pruneGroup } from './FilterBuilder';
+import FilterBuilder, { pruneGroup } from './FilterBuilder';
 import './search.css';
 
 function safeHeadline(html: string): string {
@@ -17,9 +17,9 @@ function safeHeadline(html: string): string {
     .replace(/&lt;\/b&gt;/g, '</b>');
 }
 
-const emptyGroup = (fields: SearchField[]): SearchGroup => ({
+const emptyGroup = (): SearchGroup => ({
   logic: 'and',
-  conditions: fields.some((f) => f.filterable) ? [emptyCond(fields)] : [],
+  conditions: [],
 });
 
 const SearchPage: React.FC = () => {
@@ -51,7 +51,7 @@ const SearchPage: React.FC = () => {
   useEffect(() => {
     const cur = resources.find((r) => r.code === code);
     if (!cur) return;
-    setFilters(emptyGroup(cur.fields));
+    setFilters(emptyGroup());
     setSortField(cur.fields.find((f) => f.sortable && f.name === 'created_at')?.name
       || cur.fields.find((f) => f.sortable)?.name);
     setAggField(cur.fields.find((f) => f.agg && f.name === 'status')?.name);

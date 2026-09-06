@@ -382,7 +382,7 @@ func main() {
 
 		// 统一搜索（/system/search，#74）
 		searchSvc := searchService.NewSearchService(database.DB())
-		searchH := searchHandler.NewSearchHandler(searchSvc)
+		searchH := searchHandler.NewSearchHandler(searchSvc, database.DB(), deptRepo, cacheService)
 		searchHandler.RegisterRoutes(protected, searchH, cacheService)
 
 		// 审计日志模块路由（/system/audit-logs，audit:read / audit:export / audit:archive）

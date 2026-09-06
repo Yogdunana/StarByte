@@ -74,7 +74,13 @@ func TestCompile_ScalarAndTimeAgg(t *testing.T) {
 	}})
 	require.NoError(t, err)
 	assert.Contains(t, stmt.Aggs[0].SQL, "COUNT(*)")
+	assert.Equal(t, "scalar", stmt.Aggs[0].Kind)
 	assert.Contains(t, stmt.Aggs[1].SQL, "AVG(")
+	assert.NotContains(t, stmt.Aggs[1].SQL, "GROUP BY")
+	assert.Equal(t, "scalar", stmt.Aggs[1].Kind)
+	assert.NotContains(t, stmt.Aggs[2].SQL, "GROUP BY")
+	assert.NotContains(t, stmt.Aggs[3].SQL, "GROUP BY")
+	assert.NotContains(t, stmt.Aggs[4].SQL, "GROUP BY")
 
 	_, err = Compile(demoSchema(), Query{Aggregations: []AggRequest{
 		{Field: "created_at", Fn: "count", Interval: "hour"},
@@ -119,4 +125,42 @@ func TestInTooLong(t *testing.T) {
 		{Field: "status", Operator: "in", Value: vals},
 	}}})
 	require.ErrorIs(t, err, ErrInvalidQuery)
+}
+
+func TestCompile_ExtraArgsAndCountGroup(t *testing.T) {
+	sch := demoSchema()
+	sch.ExtraWhere = `t."department_id" = ?`
+	sch.ExtraArgs = []any{"dept-1"}
+	stmt, err := Compile(sch, Query{
+		Aggregations: []AggRequest{{Name: "by_status", Field: "status", Fn: "count"}},
+	})
+	require.NoError(t, err)
+	assert.Contains(t, stmt.CountSQL, `t."department_id" = ?`)
+	assert.Contains(t, stmt.CountArgs, "dept-1")
+	require.Len(t, stmt.Aggs, 1)
+	assert.Contains(t, stmt.Aggs[0].SQL, "GROUP BY")
+	assert.Equal(t, "group", stmt.Aggs[0].Kind)
+}
+
+func TestApplyDataScope(t *testing.T) {
+	base := demoSchema()
+	base.ScopeColumn = "department_id"
+	base.SelfSQL = `t."creator_id" = ? OR t."assignee_id" = ?`
+	base.ExtraWhere = "deleted_at IS NULL"
+
+	open := base.ApplyDataScope("", nil, "me")
+	assert.Equal(t, "deleted_at IS NULL", open.ExtraWhere)
+
+	dept := base.ApplyDataScope("department_id = ?", []any{"d1"}, "me")
+	assert.Contains(t, dept.ExtraWhere, `t."department_id" = ?`)
+	assert.Equal(t, []any{"d1"}, dept.ExtraArgs)
+
+	self := base.ApplyDataScope("1 = 0", nil, "me")
+	assert.Contains(t, self.ExtraWhere, `t."creator_id" = ?`)
+	assert.Equal(t, []any{"me", "me"}, self.ExtraArgs)
+
+	audit := Schema{Code: "audit_logs", Table: "audit_logs"}
+	closed := audit.ApplyDataScope("department_id = ?", []any{"d1"}, "me")
+	assert.Equal(t, "1 = 0", closed.ExtraWhere)
+	assert.Empty(t, closed.ExtraArgs)
 }

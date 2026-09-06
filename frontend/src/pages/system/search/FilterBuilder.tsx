@@ -82,7 +82,7 @@ const FilterBuilder: React.FC<Props> = ({ group, fields, onChange, nested }) => 
         </Button>
         <Button size="small" onClick={() => onChange({
           ...group,
-          groups: [...(group.groups || []), { logic: 'or', conditions: [emptyCond(filterable)] }],
+          groups: [...(group.groups || []), { logic: 'or', conditions: [] }],
         })}>
           子组
         </Button>

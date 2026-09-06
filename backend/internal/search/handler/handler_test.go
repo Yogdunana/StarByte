@@ -8,10 +8,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/search/dto"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/Yogdunana/StarByte/backend/pkg/search"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -25,8 +27,18 @@ type stubSvc struct {
 }
 
 func (s *stubSvc) Resources() []dto.ResourceInfo { return s.res }
-func (s *stubSvc) Query(context.Context, dto.QueryRequest) (*search.Result, error) {
+func (s *stubSvc) Lookup(code string) (search.Schema, bool) {
+	if code == "gone" {
+		return search.Schema{}, false
+	}
+	return search.Schema{Code: code, RBACResource: "task", ScopeColumn: "department_id"}, true
+}
+func (s *stubSvc) Query(context.Context, dto.QueryRequest, *rbacModel.DataScopeCondition, uuid.UUID) (*search.Result, error) {
 	return s.out, s.err
+}
+
+func newHandler(svc *stubSvc) *SearchHandler {
+	return NewSearchHandler(svc, nil, nil, nil)
 }
 
 func doJSON(h gin.HandlerFunc, body any) *httptest.ResponseRecorder {
@@ -44,7 +56,7 @@ func doJSON(h gin.HandlerFunc, body any) *httptest.ResponseRecorder {
 }
 
 func TestSearchHandler_Resources(t *testing.T) {
-	h := NewSearchHandler(&stubSvc{res: []dto.ResourceInfo{{Code: "tasks", Name: "任务"}}})
+	h := newHandler(&stubSvc{res: []dto.ResourceInfo{{Code: "tasks", Name: "任务"}}})
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/system/search/resources", nil)
@@ -55,19 +67,19 @@ func TestSearchHandler_Resources(t *testing.T) {
 
 func TestRegisterRoutes(t *testing.T) {
 	assert.NotPanics(t, func() {
-		RegisterRoutes(gin.New().Group("/api/v1"), NewSearchHandler(&stubSvc{}), nil)
+		RegisterRoutes(gin.New().Group("/api/v1"), newHandler(&stubSvc{}), nil)
 	})
 }
 
 func TestSearchHandler_Query(t *testing.T) {
-	h := NewSearchHandler(&stubSvc{out: &search.Result{List: []map[string]any{{"title": "a"}}, Total: 1, Page: 1, PageSize: 20}})
+	h := newHandler(&stubSvc{out: &search.Result{List: []map[string]any{{"title": "a"}}, Total: 1, Page: 1, PageSize: 20}})
 	w := doJSON(h.Query, dto.QueryRequest{Resource: "tasks", Keyword: "招新"})
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	w = doJSON(h.Query, "nope")
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
-	h = NewSearchHandler(&stubSvc{err: response.NewError(response.CodeSearchUnknownResource, "未知检索资源")})
+	h = newHandler(&stubSvc{err: response.NewError(response.CodeSearchUnknownResource, "未知检索资源")})
 	w = doJSON(h.Query, dto.QueryRequest{Resource: "gone"})
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	require.Contains(t, w.Body.String(), "20001")

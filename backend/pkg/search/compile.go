@@ -61,6 +61,7 @@ func compileWhere(schema Schema, q Query) (string, []any, []Sort, int, int, erro
 	var parts []string
 	if schema.ExtraWhere != "" {
 		parts = append(parts, "("+schema.ExtraWhere+")")
+		args = append(args, schema.ExtraArgs...)
 	}
 	if ts := ToTSQuery(q.Keyword); ts != "" && schema.FTSExpr != "" {
 		parts = append(parts, `to_tsvector('simple', `+schema.FTSExpr+`) @@ to_tsquery('simple', ?)`)

@@ -4,9 +4,11 @@ import (
 	"context"
 	"testing"
 
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/search/dto"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/Yogdunana/StarByte/backend/pkg/search"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -29,7 +31,7 @@ func TestSearchService_Resources(t *testing.T) {
 
 func TestSearchService_UnknownResourceAndKeyword(t *testing.T) {
 	svc := NewSearchService(nil)
-	_, err := svc.Query(context.Background(), dto.QueryRequest{Resource: "nope"})
+	_, err := svc.Query(context.Background(), dto.QueryRequest{Resource: "nope"}, nil, uuid.Nil)
 	require.Error(t, err)
 	var app *response.AppError
 	require.ErrorAs(t, err, &app)
@@ -39,7 +41,7 @@ func TestSearchService_UnknownResourceAndKeyword(t *testing.T) {
 	for i := range long {
 		long[i] = '招'
 	}
-	_, err = svc.Query(context.Background(), dto.QueryRequest{Resource: "tasks", Keyword: string(long)})
+	_, err = svc.Query(context.Background(), dto.QueryRequest{Resource: "tasks", Keyword: string(long)}, nil, uuid.Nil)
 	require.ErrorAs(t, err, &app)
 	assert.Equal(t, response.CodeSearchInvalidQuery, app.Code)
 }
@@ -71,4 +73,32 @@ func TestCatalogFTSTrusted(t *testing.T) {
 		_, err := search.Compile(sch, search.Query{Page: 1, PageSize: 5, Keyword: "招新"})
 		require.NoError(t, err, sch.Code)
 	}
+}
+
+func TestApplyScope_departmentAndAudit(t *testing.T) {
+	svc := NewSearchService(nil)
+	tasks, ok := svc.Lookup("tasks")
+	require.True(t, ok)
+	assert.Equal(t, "task", tasks.RBACResource)
+
+	deptID := uuid.New()
+	viewer := uuid.New()
+	scoped := applyScope(tasks, &rbacModel.DataScopeCondition{
+		Query: "department_id = ?",
+		Args:  []interface{}{deptID},
+	}, viewer)
+	assert.Contains(t, scoped.ExtraWhere, `t."department_id" = ?`)
+	require.Len(t, scoped.ExtraArgs, 1)
+
+	audit, ok := svc.Lookup("audit_logs")
+	require.True(t, ok)
+	assert.Equal(t, "audit", audit.RBACResource)
+	closed := applyScope(audit, &rbacModel.DataScopeCondition{
+		Query: "department_id = ?",
+		Args:  []interface{}{deptID},
+	}, viewer)
+	assert.Equal(t, "1 = 0", closed.ExtraWhere)
+
+	open := applyScope(tasks, &rbacModel.DataScopeCondition{}, viewer)
+	assert.Equal(t, tasks.ExtraWhere, open.ExtraWhere)
 }

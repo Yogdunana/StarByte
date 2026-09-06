@@ -51,14 +51,18 @@ type Field struct {
 
 // Schema describes a table that the engine may query.
 type Schema struct {
-	Code       string
-	Name       string
-	Table      string
-	IDColumn   string
-	FTSExpr    string
-	Headline   string
-	ExtraWhere string
-	Fields     []Field
+	Code         string
+	Name         string
+	Table        string
+	IDColumn     string
+	FTSExpr      string
+	Headline     string
+	ExtraWhere   string
+	ExtraArgs    []any
+	RBACResource string // user / task / member / audit
+	ScopeColumn  string // department_id when the table has one
+	SelfSQL      string // parameterized predicate replacing middleware self (1 = 0)
+	Fields       []Field
 }
 
 // Condition is one predicate. Value is JSON-decoded (number/string/bool/array).

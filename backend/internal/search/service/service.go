@@ -6,9 +6,11 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/search/dto"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/Yogdunana/StarByte/backend/pkg/search"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -16,7 +18,8 @@ const maxKeywordRunes = 200
 
 type SearchService interface {
 	Resources() []dto.ResourceInfo
-	Query(ctx context.Context, req dto.QueryRequest) (*search.Result, error)
+	Lookup(code string) (search.Schema, bool)
+	Query(ctx context.Context, req dto.QueryRequest, scope *rbacModel.DataScopeCondition, viewer uuid.UUID) (*search.Result, error)
 }
 
 type searchService struct {
@@ -43,7 +46,12 @@ func (s *searchService) Resources() []dto.ResourceInfo {
 	return out
 }
 
-func (s *searchService) Query(ctx context.Context, req dto.QueryRequest) (*search.Result, error) {
+func (s *searchService) Lookup(code string) (search.Schema, bool) {
+	sch, ok := s.byCode[strings.TrimSpace(code)]
+	return sch, ok
+}
+
+func (s *searchService) Query(ctx context.Context, req dto.QueryRequest, scope *rbacModel.DataScopeCondition, viewer uuid.UUID) (*search.Result, error) {
 	sch, ok := s.byCode[strings.TrimSpace(req.Resource)]
 	if !ok {
 		return nil, response.NewError(response.CodeSearchUnknownResource, "未知检索资源")
@@ -51,11 +59,19 @@ func (s *searchService) Query(ctx context.Context, req dto.QueryRequest) (*searc
 	if utf8.RuneCountInString(req.Keyword) > maxKeywordRunes {
 		return nil, response.NewError(response.CodeSearchInvalidQuery, "关键词过长")
 	}
+	sch = applyScope(sch, scope, viewer)
 	out, err := s.engine.Search(ctx, s.db, sch, req.ToQuery())
 	if err != nil {
 		return nil, wrapSearchErr(err)
 	}
 	return out, nil
+}
+
+func applyScope(sch search.Schema, scope *rbacModel.DataScopeCondition, viewer uuid.UUID) search.Schema {
+	if scope == nil || scope.IsEmpty() {
+		return sch
+	}
+	return sch.ApplyDataScope(scope.Query, scope.Args, viewer)
 }
 
 func wrapSearchErr(err error) error {

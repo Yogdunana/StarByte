@@ -28,9 +28,12 @@ func catalogs() []search.Schema {
 	return []search.Schema{
 		{
 			Code: "users", Name: "用户", Table: "users", IDColumn: "id",
-			FTSExpr:    fts("username", "real_name", "email", "phone"),
-			Headline:   headline("username", "real_name", "email"),
-			ExtraWhere: "deleted_at IS NULL",
+			FTSExpr:      fts("username", "real_name", "email", "phone"),
+			Headline:     headline("username", "real_name", "email"),
+			ExtraWhere:   "deleted_at IS NULL",
+			RBACResource: "user",
+			ScopeColumn:  "department_id",
+			SelfSQL:      `t."id" = ?`,
 			Fields: []search.Field{
 				{Name: "id", Column: "id", Kind: search.KindString, Label: "ID", Sortable: true, Filterable: true},
 				{Name: "username", Column: "username", Kind: search.KindString, Label: "用户名", Searchable: true, Filterable: true, Sortable: true},
@@ -43,8 +46,11 @@ func catalogs() []search.Schema {
 		},
 		{
 			Code: "tasks", Name: "任务", Table: "tasks", IDColumn: "id",
-			FTSExpr:  fts("title", "description", "tags"),
-			Headline: headline("title", "description"),
+			FTSExpr:      fts("title", "description", "tags"),
+			Headline:     headline("title", "description"),
+			RBACResource: "task",
+			ScopeColumn:  "department_id",
+			SelfSQL:      `t."creator_id" = ? OR t."assignee_id" = ?`,
 			Fields: []search.Field{
 				{Name: "id", Column: "id", Kind: search.KindString, Label: "ID", Sortable: true, Filterable: true},
 				{Name: "title", Column: "title", Kind: search.KindString, Label: "标题", Searchable: true, Filterable: true, Sortable: true},
@@ -58,8 +64,9 @@ func catalogs() []search.Schema {
 		},
 		{
 			Code: "audit_logs", Name: "审计日志", Table: "audit_logs", IDColumn: "id",
-			FTSExpr:  fts("operation", "path", "username", "real_name", "module"),
-			Headline: headline("operation", "path", "username"),
+			FTSExpr:      fts("operation", "path", "username", "real_name", "module"),
+			Headline:     headline("operation", "path", "username"),
+			RBACResource: "audit",
 			Fields: []search.Field{
 				{Name: "id", Column: "id", Kind: search.KindString, Label: "ID", Sortable: true, Filterable: true},
 				{Name: "username", Column: "username", Kind: search.KindString, Label: "用户名", Searchable: true, Filterable: true, Sortable: true},
@@ -76,8 +83,11 @@ func catalogs() []search.Schema {
 		},
 		{
 			Code: "member_applications", Name: "入会申请", Table: "member_applications", IDColumn: "id",
-			FTSExpr:  fts("reason", "current_stage"),
-			Headline: headline("reason", "current_stage"),
+			FTSExpr:      fts("reason", "current_stage"),
+			Headline:     headline("reason", "current_stage"),
+			RBACResource: "member",
+			ScopeColumn:  "department_id",
+			SelfSQL:      `t."user_id" = ?`,
 			Fields: []search.Field{
 				{Name: "id", Column: "id", Kind: search.KindString, Label: "ID", Sortable: true, Filterable: true},
 				{Name: "type", Column: "type", Kind: search.KindNumber, Label: "类型", Filterable: true, Sortable: true, Agg: true},

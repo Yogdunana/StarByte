@@ -66,6 +66,44 @@ func allowedOp(f Field, op string) bool {
 	return false
 }
 
+// ApplyDataScope ANDs a data-range predicate onto ExtraWhere.
+// Empty where is a no-op (super-admin / all). Tables without ScopeColumn
+// fail closed unless SelfSQL can express "only me".
+func (s Schema) ApplyDataScope(where string, args []any, userID any) Schema {
+	where = strings.TrimSpace(where)
+	if where == "" {
+		return s
+	}
+	var extraArgs []any
+	switch {
+	case where == "1 = 0" && strings.TrimSpace(s.SelfSQL) != "":
+		where = s.SelfSQL
+		n := strings.Count(s.SelfSQL, "?")
+		extraArgs = make([]any, n)
+		for i := range extraArgs {
+			extraArgs[i] = userID
+		}
+	case s.ScopeColumn == "":
+		where, extraArgs = "1 = 0", nil
+	default:
+		col, err := quoteIdent(s.ScopeColumn)
+		if err != nil {
+			where, extraArgs = "1 = 0", nil
+			break
+		}
+		where = strings.ReplaceAll(where, "department_id", "t."+col)
+		extraArgs = append([]any{}, args...)
+	}
+	out := s
+	if out.ExtraWhere != "" {
+		out.ExtraWhere = "(" + out.ExtraWhere + ") AND (" + where + ")"
+	} else {
+		out.ExtraWhere = where
+	}
+	out.ExtraArgs = append(append([]any{}, s.ExtraArgs...), extraArgs...)
+	return out
+}
+
 func (s Schema) PublicFields() []map[string]any {
 	out := make([]map[string]any, 0, len(s.Fields))
 	for _, f := range s.Fields {

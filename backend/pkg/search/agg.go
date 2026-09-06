@@ -82,9 +82,10 @@ func groupAgg(schema Schema, name, fn string, r AggRequest, tbl, where string, w
 	if err != nil {
 		return AggStatement{}, err
 	}
-	if r.Field == "" && fn == FnCount {
+	args := append([]any{}, whereArgs...)
+	if fn != FnCount || r.Field == "" {
 		sql := "SELECT " + expr + " AS value FROM " + tbl + " WHERE " + where
-		return AggStatement{Name: name, SQL: sql, Args: append([]any{}, whereArgs...), Kind: "scalar"}, nil
+		return AggStatement{Name: name, SQL: sql, Args: args, Kind: "scalar"}, nil
 	}
 	f, ok := schema.field(r.Field)
 	if !ok {
@@ -95,7 +96,7 @@ func groupAgg(schema Schema, name, fn string, r AggRequest, tbl, where string, w
 		return AggStatement{}, err
 	}
 	sql := "SELECT " + col + " AS key, " + expr + " AS value FROM " + tbl + " WHERE " + where + " GROUP BY " + col + " ORDER BY " + col
-	return AggStatement{Name: name, SQL: sql, Args: append([]any{}, whereArgs...), Kind: "group"}, nil
+	return AggStatement{Name: name, SQL: sql, Args: args, Kind: "group"}, nil
 }
 
 func timeAgg(schema Schema, name, fn string, r AggRequest, tbl, where string, whereArgs []any) (AggStatement, error) {
