@@ -8,13 +8,17 @@ import (
 
 // SubmitEvaluations 提交评分
 // @Summary 提交评分
+// @Description 提交评分
 // @Tags 面试
 // @Accept json
 // @Produce json
 // @Param id path string true "面试ID"
 // @Param request body dto.SubmitEvaluationsRequest true "评分"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews/{id}/evaluations [post]
+// @Security BearerAuth
 func (h *InterviewHandler) SubmitEvaluations(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -41,10 +45,14 @@ func (h *InterviewHandler) SubmitEvaluations(c *gin.Context) {
 
 // GetEvaluations 查看评分汇总
 // @Summary 查看评分
+// @Description 查看评分
 // @Tags 面试
 // @Param id path string true "面试ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews/{id}/evaluations [get]
+// @Security BearerAuth
 func (h *InterviewHandler) GetEvaluations(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -61,11 +69,15 @@ func (h *InterviewHandler) GetEvaluations(c *gin.Context) {
 
 // UpdateEvaluation 更新评分
 // @Summary 更新评分
+// @Description 更新评分
 // @Tags 面试
 // @Param id path string true "面试ID"
 // @Param eid path string true "评分ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews/{id}/evaluations/{eid} [put]
+// @Security BearerAuth
 func (h *InterviewHandler) UpdateEvaluation(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -97,10 +109,14 @@ func (h *InterviewHandler) UpdateEvaluation(c *gin.Context) {
 
 // SubmitResult 提交面试结果
 // @Summary 提交面试结果
+// @Description 提交面试结果
 // @Tags 面试
 // @Param id path string true "面试ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews/{id}/result [post]
+// @Security BearerAuth
 func (h *InterviewHandler) SubmitResult(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -127,9 +143,13 @@ func (h *InterviewHandler) SubmitResult(c *gin.Context) {
 
 // ListDimensions 维度列表
 // @Summary 评分维度列表
+// @Description 评分维度列表
 // @Tags 面试
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews/dimensions [get]
+// @Security BearerAuth
 func (h *InterviewHandler) ListDimensions(c *gin.Context) {
 	out, err := h.svc.ListDimensions(c.Request.Context())
 	if err != nil {
@@ -141,9 +161,13 @@ func (h *InterviewHandler) ListDimensions(c *gin.Context) {
 
 // CreateDimension 创建维度
 // @Summary 创建评分维度
+// @Description 创建评分维度
 // @Tags 面试
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews/dimensions [post]
+// @Security BearerAuth
 func (h *InterviewHandler) CreateDimension(c *gin.Context) {
 	var req dto.CreateDimensionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -160,9 +184,13 @@ func (h *InterviewHandler) CreateDimension(c *gin.Context) {
 
 // UpdateDimension 更新维度
 // @Summary 更新评分维度
+// @Description 更新评分维度
 // @Tags 面试
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews/dimensions/{id} [put]
+// @Security BearerAuth
 func (h *InterviewHandler) UpdateDimension(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -184,9 +212,13 @@ func (h *InterviewHandler) UpdateDimension(c *gin.Context) {
 
 // DeleteDimension 删除维度
 // @Summary 删除评分维度
+// @Description 删除评分维度
 // @Tags 面试
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews/dimensions/{id} [delete]
+// @Security BearerAuth
 func (h *InterviewHandler) DeleteDimension(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -202,9 +234,13 @@ func (h *InterviewHandler) DeleteDimension(c *gin.Context) {
 
 // Stats 面试统计
 // @Summary 面试统计
+// @Description 面试统计
 // @Tags 面试
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews/stats [get]
+// @Security BearerAuth
 func (h *InterviewHandler) Stats(c *gin.Context) {
 	var q dto.StatsQuery
 	if err := c.ShouldBindQuery(&q); err != nil {

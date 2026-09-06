@@ -29,10 +29,31 @@ func NewSearchHandler(
 	return &SearchHandler{svc: svc, db: db, dept: dept, cache: cache}
 }
 
+// Resources 可检索资源目录
+// @Summary 可检索资源目录
+// @Description 列出全局搜索支持的资源类型与字段
+// @Tags 搜索
+// @Produce json
+// @Success 200 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /system/search/resources [get]
+// @Security BearerAuth
 func (h *SearchHandler) Resources(c *gin.Context) {
 	response.OK(c, h.svc.Resources())
 }
 
+// Query 全局检索
+// @Summary 全局检索
+// @Description 按资源类型、关键词、过滤与排序检索数据
+// @Tags 搜索
+// @Accept json
+// @Produce json
+// @Param request body object true "检索条件"
+// @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /system/search/query [post]
+// @Security BearerAuth
 func (h *SearchHandler) Query(c *gin.Context) {
 	var req dto.QueryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

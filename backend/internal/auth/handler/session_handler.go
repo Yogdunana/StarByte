@@ -31,6 +31,17 @@ func registerSessionRoutes(
 }
 
 // ListSessions handles GET /api/v1/auth/sessions
+// @Summary 在线会话列表
+// @Description 管理员查看当前在线 Access Token 会话，可按关键词或用户筛选
+// @Tags 认证
+// @Produce json
+// @Param keyword query string false "关键词"
+// @Param user_id query string false "用户 ID"
+// @Success 200 {object} response.Response{data=dto.SessionListResponse}
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /auth/sessions [get]
+// @Security BearerAuth
 func (h *AuthHandler) ListSessions(c *gin.Context) {
 	result, err := h.authService.ListSessions(c.Request.Context(), c.Query("keyword"), c.Query("user_id"))
 	if err != nil {
@@ -41,6 +52,17 @@ func (h *AuthHandler) ListSessions(c *gin.Context) {
 }
 
 // GetUserSessions handles GET /api/v1/auth/sessions/:user_id
+// @Summary 指定用户的在线会话
+// @Description 查看某一用户当前全部在线会话
+// @Tags 认证
+// @Produce json
+// @Param user_id path string true "用户 ID"
+// @Success 200 {object} response.Response{data=dto.UserSessionsResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /auth/sessions/{user_id} [get]
+// @Security BearerAuth
 func (h *AuthHandler) GetUserSessions(c *gin.Context) {
 	userID := c.Param("user_id")
 	if userID == "" {
@@ -56,6 +78,17 @@ func (h *AuthHandler) GetUserSessions(c *gin.Context) {
 }
 
 // KickSession handles DELETE /api/v1/auth/sessions/:token
+// @Summary 踢出单个会话
+// @Description 按 token 标识强制下线一个会话
+// @Tags 认证
+// @Produce json
+// @Param token path string true "会话 token 标识"
+// @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /auth/sessions/{token} [delete]
+// @Security BearerAuth
 func (h *AuthHandler) KickSession(c *gin.Context) {
 	tokenID := c.Param("token")
 	if tokenID == "" || tokenID == "user" {
@@ -70,6 +103,17 @@ func (h *AuthHandler) KickSession(c *gin.Context) {
 }
 
 // KickUserSessions handles DELETE /api/v1/auth/sessions/user/:user_id
+// @Summary 踢出用户全部会话
+// @Description 强制下线指定用户的全部在线会话
+// @Tags 认证
+// @Produce json
+// @Param user_id path string true "用户 ID"
+// @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /auth/sessions/user/{user_id} [delete]
+// @Security BearerAuth
 func (h *AuthHandler) KickUserSessions(c *gin.Context) {
 	userID := c.Param("user_id")
 	if userID == "" {

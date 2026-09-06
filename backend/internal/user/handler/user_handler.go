@@ -21,8 +21,6 @@ func NewUserHandler(userService service.UserService) *UserHandler {
 	return &UserHandler{userService: userService}
 }
 
-// ========== 认证相关接口 ==========
-
 // Register 注册
 // @Summary 用户注册
 // @Description 新用户注册
@@ -31,6 +29,7 @@ func NewUserHandler(userService service.UserService) *UserHandler {
 // @Produce json
 // @Param request body dto.RegisterRequest true "注册信息"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
 // @Router /auth/register [post]
 func (h *UserHandler) Register(c *gin.Context) {
 	var req dto.RegisterRequest
@@ -51,15 +50,15 @@ func (h *UserHandler) Register(c *gin.Context) {
 	})
 }
 
-// ========== 当前用户相关接口 ==========
-
 // GetCurrentUser 获取当前用户信息
 // @Summary 获取当前用户信息
 // @Description 获取当前登录用户的详细信息
 // @Tags 用户
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Success 200 {object} response.Response{data=dto.UserInfoResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /user/me [get]
 func (h *UserHandler) GetCurrentUser(c *gin.Context) {
 	userID := authmiddleware.GetUserID(c)
@@ -79,9 +78,11 @@ func (h *UserHandler) GetCurrentUser(c *gin.Context) {
 // @Tags 用户
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param request body dto.UpdateProfileRequest true "个人信息"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /user/profile [put]
 func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	userID := authmiddleware.GetUserID(c)
@@ -107,9 +108,11 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 // @Tags 用户
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param request body dto.ChangePasswordRequest true "密码信息"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /user/password [put]
 func (h *UserHandler) ChangePassword(c *gin.Context) {
 	userID := authmiddleware.GetUserID(c)
@@ -129,20 +132,20 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 	response.OKWithoutData(c)
 }
 
-// ========== 用户管理接口（管理员） ==========
-
 // ListUser 用户列表
 // @Summary 获取用户列表
 // @Description 分页查询用户列表
 // @Tags 用户管理
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param page query int false "页码" default(1)
 // @Param page_size query int false "每页数量" default(10)
 // @Param keyword query string false "关键词"
 // @Param status query int false "状态"
 // @Param department_id query string false "部门ID"
 // @Success 200 {object} response.Response{data=response.PageResponse{list=[]dto.UserListResponse}}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /users [get]
 func (h *UserHandler) ListUser(c *gin.Context) {
 	var req dto.ListUserRequest
@@ -165,9 +168,11 @@ func (h *UserHandler) ListUser(c *gin.Context) {
 // @Description 根据ID获取用户详细信息
 // @Tags 用户管理
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "用户ID"
 // @Success 200 {object} response.Response{data=dto.UserInfoResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /users/{id} [get]
 func (h *UserHandler) GetUser(c *gin.Context) {
 	idStr := c.Param("id")
@@ -192,9 +197,11 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 // @Tags 用户管理
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param request body dto.CreateUserRequest true "用户信息"
 // @Success 200 {object} response.Response{data=dto.UserInfoResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /users [post]
 func (h *UserHandler) CreateUser(c *gin.Context) {
 	var req dto.CreateUserRequest
@@ -224,10 +231,12 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 // @Tags 用户管理
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "用户ID"
 // @Param request body dto.UpdateUserRequest true "用户信息"
 // @Success 200 {object} response.Response{data=dto.UserInfoResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /users/{id} [put]
 func (h *UserHandler) UpdateUser(c *gin.Context) {
 	idStr := c.Param("id")
@@ -259,9 +268,11 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 // @Description 删除指定用户
 // @Tags 用户管理
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "用户ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /users/{id} [delete]
 func (h *UserHandler) DeleteUser(c *gin.Context) {
 	idStr := c.Param("id")

@@ -24,9 +24,11 @@ func NewTemplateHandler(templateService service.TemplateService) *TemplateHandle
 // @Tags 系统管理-通知模板
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param request body dto.CreateTemplateRequest true "模板信息"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/notification-templates [post]
 func (h *TemplateHandler) Create(c *gin.Context) {
 	var req dto.CreateTemplateRequest
@@ -49,9 +51,11 @@ func (h *TemplateHandler) Create(c *gin.Context) {
 // @Description 获取通知模板详情
 // @Tags 系统管理-通知模板
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "模板 ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/notification-templates/{id} [get]
 func (h *TemplateHandler) Get(c *gin.Context) {
 	idStr := c.Param("id")
@@ -75,11 +79,13 @@ func (h *TemplateHandler) Get(c *gin.Context) {
 // @Description 获取通知模板列表（分页）
 // @Tags 系统管理-通知模板
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param page query int false "页码"
 // @Param page_size query int false "每页条数"
 // @Param keyword query string false "关键词"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/notification-templates [get]
 func (h *TemplateHandler) List(c *gin.Context) {
 	var req dto.ListTemplatesRequest
@@ -103,10 +109,12 @@ func (h *TemplateHandler) List(c *gin.Context) {
 // @Tags 系统管理-通知模板
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "模板 ID"
 // @Param request body dto.UpdateTemplateRequest true "更新内容"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/notification-templates/{id} [put]
 func (h *TemplateHandler) Update(c *gin.Context) {
 	idStr := c.Param("id")
@@ -136,9 +144,11 @@ func (h *TemplateHandler) Update(c *gin.Context) {
 // @Description 删除通知模板
 // @Tags 系统管理-通知模板
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "模板 ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/notification-templates/{id} [delete]
 func (h *TemplateHandler) Delete(c *gin.Context) {
 	idStr := c.Param("id")
@@ -162,10 +172,12 @@ func (h *TemplateHandler) Delete(c *gin.Context) {
 // @Tags 系统管理-通知模板
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "模板 ID"
 // @Param request body dto.TestTemplateRequest true "测试变量"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/notification-templates/{id}/test [post]
 func (h *TemplateHandler) Test(c *gin.Context) {
 	idStr := c.Param("id")

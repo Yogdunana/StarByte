@@ -24,10 +24,13 @@ func NewStatsHandler(svc service.StatsService) *StatsHandler {
 
 // Providers 统计提供者列表
 // @Summary 列出统计提供者
+// @Description 列出统计提供者
 // @Tags 数据统计
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Success 200 {object} response.Response{data=[]dto.ProviderInfo}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /stats/providers [get]
 func (h *StatsHandler) Providers(c *gin.Context) {
 	response.OK(c, h.svc.ListProviders())
@@ -35,10 +38,13 @@ func (h *StatsHandler) Providers(c *gin.Context) {
 
 // Overview 首页概览
 // @Summary 获取统计概览
+// @Description 获取统计概览
 // @Tags 数据统计
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Success 200 {object} response.Response{data=dto.OverviewResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /stats/overview [get]
 func (h *StatsHandler) Overview(c *gin.Context) {
 	uid, _ := uuid.Parse(auth.GetUserID(c))
@@ -52,9 +58,10 @@ func (h *StatsHandler) Overview(c *gin.Context) {
 
 // Get 按提供者查询统计
 // @Summary 获取指定提供者的统计数据
+// @Description 获取指定提供者的统计数据
 // @Tags 数据统计
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param provider path string true "提供者名称"
 // @Param start_date query string false "开始日期 YYYY-MM-DD"
 // @Param end_date query string false "结束日期 YYYY-MM-DD"
@@ -62,6 +69,8 @@ func (h *StatsHandler) Overview(c *gin.Context) {
 // @Param group_by query string false "分组 date/department/type/status/grade"
 // @Param granularity query string false "粒度 day/week/month"
 // @Success 200 {object} response.Response{data=dto.StatsResult}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /stats/{provider} [get]
 func (h *StatsHandler) Get(c *gin.Context) {
 	h.serve(c, c.Param("provider"))
@@ -87,12 +96,15 @@ func (h *StatsHandler) serve(c *gin.Context, code string) {
 
 // Export 导出统计数据
 // @Summary 导出统计数据 CSV/Excel
+// @Description 导出统计数据 CSV/Excel
 // @Tags 数据统计
 // @Produce application/octet-stream
-// @Security Bearer
+// @Security BearerAuth
 // @Param provider path string true "提供者名称"
 // @Param format query string false "csv 或 excel" Enums(csv, excel)
 // @Success 200 {file} file "导出文件"
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /stats/export/{provider} [get]
 func (h *StatsHandler) Export(c *gin.Context) {
 	q, err := bindQuery(c)

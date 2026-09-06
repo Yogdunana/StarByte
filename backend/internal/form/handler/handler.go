@@ -59,6 +59,19 @@ func (h *FormHandler) hasPerm(c *gin.Context, code string) (bool, error) {
 	return false, nil
 }
 
+// List 表单列表
+// @Summary 表单列表
+// @Description 列出表单定义；无 form:read 时仅返回已发布表单
+// @Tags 表单
+// @Produce json
+// @Param page query int false "页码"
+// @Param page_size query int false "每页条数"
+// @Param keyword query string false "关键词"
+// @Param status query int false "状态 0草稿 1已发布 2已停用"
+// @Success 200 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /forms [get]
+// @Security BearerAuth
 func (h *FormHandler) List(c *gin.Context) {
 	var q dto.ListQuery
 	if err := c.ShouldBindQuery(&q); err != nil {
@@ -78,6 +91,16 @@ func (h *FormHandler) List(c *gin.Context) {
 	response.Page(c, list, total, page, size)
 }
 
+// Get 表单定义
+// @Summary 表单定义
+// @Description 按 ID 获取表单字段定义
+// @Tags 表单
+// @Produce json
+// @Param id path string true "表单 ID"
+// @Success 200 {object} response.Response{data=dto.FormDetail}
+// @Failure 404 {object} response.Response
+// @Router /forms/{id} [get]
+// @Security BearerAuth
 func (h *FormHandler) Get(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -97,6 +120,17 @@ func (h *FormHandler) Get(c *gin.Context) {
 	response.OK(c, out)
 }
 
+// Create 创建表单
+// @Summary 创建表单
+// @Description 创建动态表单定义，需要 form:write
+// @Tags 表单
+// @Accept json
+// @Produce json
+// @Param body body dto.CreateFormRequest true "表单"
+// @Success 200 {object} response.Response{data=dto.FormDetail}
+// @Failure 400 {object} response.Response
+// @Router /forms [post]
+// @Security BearerAuth
 func (h *FormHandler) Create(c *gin.Context) {
 	userID, err := currentUser(c)
 	if err != nil {
@@ -116,6 +150,18 @@ func (h *FormHandler) Create(c *gin.Context) {
 	response.OK(c, out)
 }
 
+// Update 更新表单
+// @Summary 更新表单
+// @Description 更新表单定义或状态，需要 form:write
+// @Tags 表单
+// @Accept json
+// @Produce json
+// @Param id path string true "表单 ID"
+// @Param body body dto.UpdateFormRequest true "更新内容"
+// @Success 200 {object} response.Response{data=dto.FormDetail}
+// @Failure 400 {object} response.Response
+// @Router /forms/{id} [put]
+// @Security BearerAuth
 func (h *FormHandler) Update(c *gin.Context) {
 	userID, err := currentUser(c)
 	if err != nil {
@@ -140,6 +186,18 @@ func (h *FormHandler) Update(c *gin.Context) {
 	response.OK(c, out)
 }
 
+// Submit 提交表单
+// @Summary 提交表单
+// @Description 提交已发布表单的填写数据，需要 form:submit
+// @Tags 表单
+// @Accept json
+// @Produce json
+// @Param id path string true "表单 ID"
+// @Param body body object true "字段值"
+// @Success 200 {object} response.Response{data=dto.SubmitResponse}
+// @Failure 400 {object} response.Response
+// @Router /forms/{id}/submit [post]
+// @Security BearerAuth
 func (h *FormHandler) Submit(c *gin.Context) {
 	userID, err := currentUser(c)
 	if err != nil {
@@ -164,6 +222,18 @@ func (h *FormHandler) Submit(c *gin.Context) {
 	response.OK(c, out)
 }
 
+// ListSubmissions 提交记录
+// @Summary 提交记录
+// @Description 列出某表单的提交记录，需要 form:read
+// @Tags 表单
+// @Produce json
+// @Param id path string true "表单 ID"
+// @Param page query int false "页码"
+// @Param page_size query int false "每页条数"
+// @Success 200 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /forms/{id}/submissions [get]
+// @Security BearerAuth
 func (h *FormHandler) ListSubmissions(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {

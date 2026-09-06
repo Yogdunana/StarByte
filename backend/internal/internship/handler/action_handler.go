@@ -8,13 +8,17 @@ import (
 
 // CompleteInternship 完成实习
 // @Summary 完成实习
+// @Description 完成实习
 // @Tags 实习
 // @Accept json
 // @Produce json
 // @Param id path string true "实习ID"
 // @Param request body dto.CompleteRequest true "报告与成果"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /internships/{id}/complete [post]
+// @Security BearerAuth
 func (h *InternshipHandler) CompleteInternship(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -38,13 +42,17 @@ func (h *InternshipHandler) CompleteInternship(c *gin.Context) {
 
 // SubmitReport 提交实习报告
 // @Summary 提交实习报告
+// @Description 提交实习报告
 // @Tags 实习
 // @Accept json
 // @Produce json
 // @Param id path string true "实习ID"
 // @Param request body dto.ReportRequest true "报告"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /internships/{id}/report [post]
+// @Security BearerAuth
 func (h *InternshipHandler) SubmitReport(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -71,13 +79,17 @@ func (h *InternshipHandler) SubmitReport(c *gin.Context) {
 
 // MentorComment 指导老师评价
 // @Summary 指导老师评价
+// @Description 指导老师评价
 // @Tags 实习
 // @Accept json
 // @Produce json
 // @Param id path string true "实习ID"
 // @Param request body dto.MentorCommentRequest true "评价"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /internships/{id}/mentor-comment [post]
+// @Security BearerAuth
 func (h *InternshipHandler) MentorComment(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -104,10 +116,14 @@ func (h *InternshipHandler) MentorComment(c *gin.Context) {
 
 // GetConfig 获取实习配置
 // @Summary 获取实习配置
+// @Description 获取实习配置
 // @Tags 实习
 // @Produce json
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/internship-config [get]
+// @Security BearerAuth
 func (h *InternshipHandler) GetConfig(c *gin.Context) {
 	out, err := h.svc.GetConfig(c.Request.Context())
 	if err != nil {
@@ -119,12 +135,16 @@ func (h *InternshipHandler) GetConfig(c *gin.Context) {
 
 // UpdateConfig 更新实习配置
 // @Summary 更新实习配置
+// @Description 更新实习配置
 // @Tags 实习
 // @Accept json
 // @Produce json
 // @Param request body dto.InternshipConfigRequest true "配置"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/internship-config [put]
+// @Security BearerAuth
 func (h *InternshipHandler) UpdateConfig(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {

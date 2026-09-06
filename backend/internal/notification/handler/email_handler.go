@@ -17,12 +17,15 @@ func NewEmailHandler(svc service.EmailService) *EmailHandler {
 
 // SendEmail POST /api/v1/notifications/email/send
 // @Summary 发送邮件
+// @Description 发送邮件
 // @Tags 通知
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param request body dto.SendEmailRequest true "发送参数"
 // @Success 200 {object} response.Response{data=dto.SendEmailResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /notifications/email/send [post]
 func (h *EmailHandler) SendEmail(c *gin.Context) {
 	var req dto.SendEmailRequest
@@ -40,12 +43,15 @@ func (h *EmailHandler) SendEmail(c *gin.Context) {
 
 // SendEmailBatch POST /api/v1/notifications/email/batch
 // @Summary 批量发送邮件
+// @Description 批量发送邮件
 // @Tags 通知
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param request body dto.BatchSendEmailRequest true "批量发送"
 // @Success 200 {object} response.Response{data=dto.BatchSendEmailResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /notifications/email/batch [post]
 func (h *EmailHandler) SendEmailBatch(c *gin.Context) {
 	var req dto.BatchSendEmailRequest
@@ -63,13 +69,16 @@ func (h *EmailHandler) SendEmailBatch(c *gin.Context) {
 
 // ListEmailLogs GET /api/v1/notifications/email/logs
 // @Summary 邮件发送记录
+// @Description 邮件发送记录
 // @Tags 通知
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param page query int false "页码"
 // @Param page_size query int false "每页条数"
 // @Param status query string false "queued/sent/failed/retrying"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /notifications/email/logs [get]
 func (h *EmailHandler) ListEmailLogs(c *gin.Context) {
 	var req dto.ListEmailLogsRequest

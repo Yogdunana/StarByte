@@ -24,7 +24,7 @@ func NewAuditHandler(auditService service.AuditService) *AuditHandler {
 // @Description 分页查询审计日志，支持时间、用户、动作、模块、关键词、IP 筛选
 // @Tags 审计日志
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param page query int false "页码" default(1)
 // @Param page_size query int false "每页数量" default(20)
 // @Param start_time query string false "开始时间(RFC3339)"
@@ -36,6 +36,8 @@ func NewAuditHandler(auditService service.AuditService) *AuditHandler {
 // @Param keyword query string false "关键词"
 // @Param ip_address query string false "IP"
 // @Success 200 {object} response.Response{data=response.PageResponse{list=[]dto.AuditLogListResponse}}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/audit-logs [get]
 func (h *AuditHandler) List(c *gin.Context) {
 	var req dto.ListAuditLogRequest
@@ -53,11 +55,14 @@ func (h *AuditHandler) List(c *gin.Context) {
 
 // GetByID 审计日志详情
 // @Summary 获取审计日志详情
+// @Description 获取审计日志详情
 // @Tags 审计日志
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "审计日志ID"
 // @Success 200 {object} response.Response{data=dto.AuditLogResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/audit-logs/{id} [get]
 func (h *AuditHandler) GetByID(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
@@ -78,9 +83,11 @@ func (h *AuditHandler) GetByID(c *gin.Context) {
 // @Description 导出 CSV 或 Excel，最多 10000 条
 // @Tags 审计日志
 // @Produce application/octet-stream
-// @Security Bearer
+// @Security BearerAuth
 // @Param format query string true "导出格式" Enums(csv, excel)
 // @Success 200 {file} file "导出文件"
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/audit-logs/export [get]
 func (h *AuditHandler) Export(c *gin.Context) {
 	var req dto.ExportAuditLogRequest
@@ -100,12 +107,15 @@ func (h *AuditHandler) Export(c *gin.Context) {
 
 // TriggerArchive 手动触发归档
 // @Summary 手动触发归档
+// @Description 手动触发归档
 // @Tags 审计日志
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param request body dto.ArchiveRequest false "归档参数"
 // @Success 200 {object} response.Response{data=dto.ArchiveResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/audit-logs/archive [post]
 func (h *AuditHandler) TriggerArchive(c *gin.Context) {
 	var req dto.ArchiveRequest

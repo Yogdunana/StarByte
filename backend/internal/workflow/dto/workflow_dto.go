@@ -160,7 +160,7 @@ type TaskResponse struct {
 	Status      int             `json:"status"`
 	Action      string          `json:"action"`
 	Comment     string          `json:"comment"`
-	FormData    json.RawMessage `json:"form_data"`
+	FormData    json.RawMessage `json:"form_data" swaggertype:"object"`
 	DueDate     *time.Time      `json:"due_date"`
 	ClaimedAt   *time.Time      `json:"claimed_at"`
 	CompletedAt *time.Time      `json:"completed_at"`

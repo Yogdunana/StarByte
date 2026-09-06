@@ -23,8 +23,10 @@ func NewDepartmentHandler(deptService service.DepartmentService) *DepartmentHand
 // @Description 获取完整的部门树形结构
 // @Tags 部门管理
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Success 200 {object} response.Response{data=[]dto.DepartmentTreeResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/departments [get]
 func (h *DepartmentHandler) GetTree(c *gin.Context) {
 	tree, err := h.deptService.GetTree(c.Request.Context())
@@ -41,9 +43,11 @@ func (h *DepartmentHandler) GetTree(c *gin.Context) {
 // @Description 根据ID获取部门详细信息
 // @Tags 部门管理
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "部门ID"
 // @Success 200 {object} response.Response{data=dto.DepartmentResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/departments/{id} [get]
 func (h *DepartmentHandler) GetByID(c *gin.Context) {
 	idStr := c.Param("id")
@@ -68,9 +72,11 @@ func (h *DepartmentHandler) GetByID(c *gin.Context) {
 // @Tags 部门管理
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param request body dto.CreateDepartmentRequest true "部门信息"
 // @Success 200 {object} response.Response{data=dto.DepartmentResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/departments [post]
 func (h *DepartmentHandler) Create(c *gin.Context) {
 	var req dto.CreateDepartmentRequest
@@ -107,10 +113,12 @@ func (h *DepartmentHandler) Create(c *gin.Context) {
 // @Tags 部门管理
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "部门ID"
 // @Param request body dto.UpdateDepartmentRequest true "部门信息"
 // @Success 200 {object} response.Response{data=dto.DepartmentResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/departments/{id} [put]
 func (h *DepartmentHandler) Update(c *gin.Context) {
 	idStr := c.Param("id")
@@ -151,9 +159,11 @@ func (h *DepartmentHandler) Update(c *gin.Context) {
 // @Description 删除指定部门
 // @Tags 部门管理
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "部门ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /system/departments/{id} [delete]
 func (h *DepartmentHandler) Delete(c *gin.Context) {
 	idStr := c.Param("id")

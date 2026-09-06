@@ -12,8 +12,14 @@ import (
 
 // ListComments 评论列表
 // @Summary 任务评论列表
+// @Description 列出任务下的评论
 // @Tags 任务
+// @Produce json
+// @Param id path string true "任务 ID"
+// @Success 200 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /tasks/{id}/comments [get]
+// @Security BearerAuth
 func (h *TaskHandler) ListComments(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -35,8 +41,16 @@ func (h *TaskHandler) ListComments(c *gin.Context) {
 
 // AddComment 添加评论
 // @Summary 添加任务评论
+// @Description 在任务下新增一条评论
 // @Tags 任务
+// @Accept json
+// @Produce json
+// @Param id path string true "任务 ID"
+// @Param request body dto.CommentRequest true "评论"
+// @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
 // @Router /tasks/{id}/comments [post]
+// @Security BearerAuth
 func (h *TaskHandler) AddComment(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -63,8 +77,17 @@ func (h *TaskHandler) AddComment(c *gin.Context) {
 
 // UpdateComment 更新评论
 // @Summary 更新任务评论
+// @Description 修改一条任务评论
 // @Tags 任务
+// @Accept json
+// @Produce json
+// @Param id path string true "任务 ID"
+// @Param cid path string true "评论 ID"
+// @Param request body dto.CommentRequest true "评论"
+// @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
 // @Router /tasks/{id}/comments/{cid} [put]
+// @Security BearerAuth
 func (h *TaskHandler) UpdateComment(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -96,8 +119,15 @@ func (h *TaskHandler) UpdateComment(c *gin.Context) {
 
 // DeleteComment 删除评论
 // @Summary 删除任务评论
+// @Description 删除一条任务评论
 // @Tags 任务
+// @Produce json
+// @Param id path string true "任务 ID"
+// @Param cid path string true "评论 ID"
+// @Success 200 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /tasks/{id}/comments/{cid} [delete]
+// @Security BearerAuth
 func (h *TaskHandler) DeleteComment(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -123,8 +153,14 @@ func (h *TaskHandler) DeleteComment(c *gin.Context) {
 
 // ListAttachments 附件列表
 // @Summary 任务附件列表
+// @Description 列出任务附件
 // @Tags 任务
+// @Produce json
+// @Param id path string true "任务 ID"
+// @Success 200 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /tasks/{id}/attachments [get]
+// @Security BearerAuth
 func (h *TaskHandler) ListAttachments(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -146,8 +182,16 @@ func (h *TaskHandler) ListAttachments(c *gin.Context) {
 
 // UploadAttachment 上传附件
 // @Summary 上传任务附件
+// @Description 为任务上传附件文件
 // @Tags 任务
+// @Accept multipart/form-data
+// @Produce json
+// @Param id path string true "任务 ID"
+// @Param file formData file true "文件"
+// @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
 // @Router /tasks/{id}/attachments [post]
+// @Security BearerAuth
 func (h *TaskHandler) UploadAttachment(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -174,8 +218,15 @@ func (h *TaskHandler) UploadAttachment(c *gin.Context) {
 
 // DownloadAttachment 下载附件
 // @Summary 下载任务附件
+// @Description 下载任务附件文件
 // @Tags 任务
+// @Produce octet-stream
+// @Param id path string true "任务 ID"
+// @Param aid path string true "附件 ID"
+// @Success 200 {file} file
+// @Failure 401 {object} response.Response
 // @Router /tasks/{id}/attachments/{aid} [get]
+// @Security BearerAuth
 func (h *TaskHandler) DownloadAttachment(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -209,8 +260,15 @@ func (h *TaskHandler) DownloadAttachment(c *gin.Context) {
 
 // DeleteAttachment 删除附件
 // @Summary 删除任务附件
+// @Description 删除一条任务附件
 // @Tags 任务
+// @Produce json
+// @Param id path string true "任务 ID"
+// @Param aid path string true "附件 ID"
+// @Success 200 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /tasks/{id}/attachments/{aid} [delete]
+// @Security BearerAuth
 func (h *TaskHandler) DeleteAttachment(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -233,47 +291,3 @@ func (h *TaskHandler) DeleteAttachment(c *gin.Context) {
 	}
 	response.OK(c, nil)
 }
-
-func (h *TaskHandler) myKind(c *gin.Context, kind string) {
-	userID, err := getUserID(c)
-	if err != nil {
-		response.Error(c, err)
-		return
-	}
-	var req dto.MyTaskRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
-		response.BadRequest(c, "参数错误: "+err.Error())
-		return
-	}
-	list, total, err := h.svc.ListMy(c.Request.Context(), userID, kind, &req)
-	if err != nil {
-		response.Error(c, err)
-		return
-	}
-	page, size := defaultPage(req.Page, req.PageSize)
-	response.Page(c, list, total, page, size)
-}
-
-// MyTodo 我的待办
-// @Summary 我的待办
-// @Tags 任务
-// @Router /tasks/my/todo [get]
-func (h *TaskHandler) MyTodo(c *gin.Context) { h.myKind(c, "todo") }
-
-// MyDone 我的已办
-// @Summary 我的已办
-// @Tags 任务
-// @Router /tasks/my/done [get]
-func (h *TaskHandler) MyDone(c *gin.Context) { h.myKind(c, "done") }
-
-// MyCreated 我创建的
-// @Summary 我创建的任务
-// @Tags 任务
-// @Router /tasks/my/created [get]
-func (h *TaskHandler) MyCreated(c *gin.Context) { h.myKind(c, "created") }
-
-// MyOverdue 我的超期
-// @Summary 我的超期任务
-// @Tags 任务
-// @Router /tasks/my/overdue [get]
-func (h *TaskHandler) MyOverdue(c *gin.Context) { h.myKind(c, "overdue") }

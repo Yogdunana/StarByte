@@ -8,8 +8,10 @@ import (
 
 // CreateVote 创建投票
 // @Summary 创建投票
+// @Description 创建投票
 // @Tags 会议
 // @Router /meetings/{id}/votes [post]
+// @Security BearerAuth
 func (h *MeetingHandler) CreateVote(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -31,8 +33,10 @@ func (h *MeetingHandler) CreateVote(c *gin.Context) {
 
 // ListVotes 投票列表
 // @Summary 投票列表
+// @Description 投票列表
 // @Tags 会议
 // @Router /meetings/{id}/votes [get]
+// @Security BearerAuth
 func (h *MeetingHandler) ListVotes(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -54,8 +58,10 @@ func (h *MeetingHandler) ListVotes(c *gin.Context) {
 
 // GetVote 投票详情
 // @Summary 投票详情
+// @Description 投票详情
 // @Tags 会议
 // @Router /votes/{id} [get]
+// @Security BearerAuth
 func (h *MeetingHandler) GetVote(c *gin.Context) {
 	userID, _ := getUserID(c)
 	id, err := parseID(c)
@@ -73,8 +79,10 @@ func (h *MeetingHandler) GetVote(c *gin.Context) {
 
 // CastVote 投票
 // @Summary 投票
+// @Description 投票
 // @Tags 会议
 // @Router /votes/{id}/cast [post]
+// @Security BearerAuth
 func (h *MeetingHandler) CastVote(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -100,8 +108,10 @@ func (h *MeetingHandler) CastVote(c *gin.Context) {
 
 // VoteResult 投票结果
 // @Summary 投票结果
+// @Description 投票结果
 // @Tags 会议
 // @Router /votes/{id}/result [get]
+// @Security BearerAuth
 func (h *MeetingHandler) VoteResult(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -118,8 +128,10 @@ func (h *MeetingHandler) VoteResult(c *gin.Context) {
 
 // CloseVote 关闭投票
 // @Summary 关闭投票
+// @Description 关闭投票
 // @Tags 会议
 // @Router /votes/{id}/close [post]
+// @Security BearerAuth
 func (h *MeetingHandler) CloseVote(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -136,8 +148,10 @@ func (h *MeetingHandler) CloseVote(c *gin.Context) {
 
 // MyVote 我的投票记录
 // @Summary 我的投票记录
+// @Description 我的投票记录
 // @Tags 会议
 // @Router /votes/{id}/my [get]
+// @Security BearerAuth
 func (h *MeetingHandler) MyVote(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -159,8 +173,10 @@ func (h *MeetingHandler) MyVote(c *gin.Context) {
 
 // GetWeightConfig 获取权重配置
 // @Summary 获取权重配置
+// @Description 获取权重配置
 // @Tags 会议
 // @Router /system/vote-weight-config [get]
+// @Security BearerAuth
 func (h *MeetingHandler) GetWeightConfig(c *gin.Context) {
 	out, err := h.svc.GetWeightConfig(c.Request.Context())
 	if err != nil {
@@ -172,8 +188,10 @@ func (h *MeetingHandler) GetWeightConfig(c *gin.Context) {
 
 // UpdateWeightConfig 更新权重配置
 // @Summary 更新权重配置
+// @Description 更新权重配置
 // @Tags 会议
 // @Router /system/vote-weight-config [put]
+// @Security BearerAuth
 func (h *MeetingHandler) UpdateWeightConfig(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {

@@ -8,39 +8,51 @@ import (
 
 // Approve 审核通过
 // @Summary 审核通过
+// @Description 审核通过
 // @Tags 会员
 // @Accept json
 // @Produce json
 // @Param id path string true "申请ID"
 // @Param request body dto.ReviewCommentRequest true "意见"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /member/applications/{id}/approve [post]
+// @Security BearerAuth
 func (h *MemberHandler) Approve(c *gin.Context) {
 	h.review(c, "approve")
 }
 
 // Reject 审核拒绝
 // @Summary 审核拒绝
+// @Description 审核拒绝
 // @Tags 会员
 // @Accept json
 // @Produce json
 // @Param id path string true "申请ID"
 // @Param request body dto.ReviewCommentRequest true "意见"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /member/applications/{id}/reject [post]
+// @Security BearerAuth
 func (h *MemberHandler) Reject(c *gin.Context) {
 	h.review(c, "reject")
 }
 
 // Supplement 要求补充材料
 // @Summary 要求补充材料
+// @Description 要求补充材料
 // @Tags 会员
 // @Accept json
 // @Produce json
 // @Param id path string true "申请ID"
 // @Param request body dto.SupplementRequest true "补充要求"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /member/applications/{id}/supplement [post]
+// @Security BearerAuth
 func (h *MemberHandler) Supplement(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {

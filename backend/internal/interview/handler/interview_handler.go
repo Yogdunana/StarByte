@@ -8,12 +8,16 @@ import (
 
 // CreateInterview 创建面试记录
 // @Summary 创建面试记录
+// @Description 创建面试记录
 // @Tags 面试
 // @Accept json
 // @Produce json
 // @Param request body dto.CreateInterviewRequest true "面试"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews [post]
+// @Security BearerAuth
 func (h *InterviewHandler) CreateInterview(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -35,10 +39,14 @@ func (h *InterviewHandler) CreateInterview(c *gin.Context) {
 
 // ListInterviews 面试列表
 // @Summary 面试列表
+// @Description 面试列表
 // @Tags 面试
 // @Produce json
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews [get]
+// @Security BearerAuth
 func (h *InterviewHandler) ListInterviews(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -61,10 +69,14 @@ func (h *InterviewHandler) ListInterviews(c *gin.Context) {
 
 // GetInterview 面试详情
 // @Summary 面试详情
+// @Description 面试详情
 // @Tags 面试
 // @Param id path string true "面试ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews/{id} [get]
+// @Security BearerAuth
 func (h *InterviewHandler) GetInterview(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -81,10 +93,14 @@ func (h *InterviewHandler) GetInterview(c *gin.Context) {
 
 // AssignEvaluators 分配面试官
 // @Summary 分配面试官
+// @Description 分配面试官
 // @Tags 面试
 // @Param id path string true "面试ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews/{id}/assign [post]
+// @Security BearerAuth
 func (h *InterviewHandler) AssignEvaluators(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -106,10 +122,14 @@ func (h *InterviewHandler) AssignEvaluators(c *gin.Context) {
 
 // Checkin 签到
 // @Summary 面试签到
+// @Description 面试签到
 // @Tags 面试
 // @Param id path string true "面试ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews/{id}/checkin [post]
+// @Security BearerAuth
 func (h *InterviewHandler) Checkin(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -133,10 +153,14 @@ func (h *InterviewHandler) Checkin(c *gin.Context) {
 
 // StartInterview 开始面试
 // @Summary 开始面试
+// @Description 开始面试
 // @Tags 面试
 // @Param id path string true "面试ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews/{id}/start [post]
+// @Security BearerAuth
 func (h *InterviewHandler) StartInterview(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -158,10 +182,14 @@ func (h *InterviewHandler) StartInterview(c *gin.Context) {
 
 // EndInterview 结束面试
 // @Summary 结束面试
+// @Description 结束面试
 // @Tags 面试
 // @Param id path string true "面试ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews/{id}/end [post]
+// @Security BearerAuth
 func (h *InterviewHandler) EndInterview(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -183,10 +211,14 @@ func (h *InterviewHandler) EndInterview(c *gin.Context) {
 
 // MyInterviews 我的面试
 // @Summary 我的面试
+// @Description 我的面试
 // @Tags 面试
 // @Produce json
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews/my [get]
+// @Security BearerAuth
 func (h *InterviewHandler) MyInterviews(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {

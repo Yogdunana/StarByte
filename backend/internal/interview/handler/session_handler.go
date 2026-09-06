@@ -8,12 +8,16 @@ import (
 
 // CreateSession 创建面试场次
 // @Summary 创建面试场次
+// @Description 创建面试场次
 // @Tags 面试
 // @Accept json
 // @Produce json
 // @Param request body dto.CreateSessionRequest true "场次"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews/sessions [post]
+// @Security BearerAuth
 func (h *InterviewHandler) CreateSession(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -35,10 +39,14 @@ func (h *InterviewHandler) CreateSession(c *gin.Context) {
 
 // ListSessions 场次列表
 // @Summary 场次列表
+// @Description 场次列表
 // @Tags 面试
 // @Produce json
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews/sessions [get]
+// @Security BearerAuth
 func (h *InterviewHandler) ListSessions(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
@@ -61,11 +69,15 @@ func (h *InterviewHandler) ListSessions(c *gin.Context) {
 
 // GetSession 场次详情
 // @Summary 场次详情
+// @Description 场次详情
 // @Tags 面试
 // @Produce json
 // @Param id path string true "场次ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews/sessions/{id} [get]
+// @Security BearerAuth
 func (h *InterviewHandler) GetSession(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -82,12 +94,16 @@ func (h *InterviewHandler) GetSession(c *gin.Context) {
 
 // UpdateSession 更新场次
 // @Summary 更新场次
+// @Description 更新场次
 // @Tags 面试
 // @Accept json
 // @Produce json
 // @Param id path string true "场次ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews/sessions/{id} [put]
+// @Security BearerAuth
 func (h *InterviewHandler) UpdateSession(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -109,10 +125,14 @@ func (h *InterviewHandler) UpdateSession(c *gin.Context) {
 
 // DeleteSession 删除场次
 // @Summary 删除场次
+// @Description 删除场次
 // @Tags 面试
 // @Param id path string true "场次ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews/sessions/{id} [delete]
+// @Security BearerAuth
 func (h *InterviewHandler) DeleteSession(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -128,10 +148,14 @@ func (h *InterviewHandler) DeleteSession(c *gin.Context) {
 
 // StartSession 开始场次
 // @Summary 开始场次
+// @Description 开始场次
 // @Tags 面试
 // @Param id path string true "场次ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews/sessions/{id}/start [post]
+// @Security BearerAuth
 func (h *InterviewHandler) StartSession(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -148,10 +172,14 @@ func (h *InterviewHandler) StartSession(c *gin.Context) {
 
 // EndSession 结束场次
 // @Summary 结束场次
+// @Description 结束场次
 // @Tags 面试
 // @Param id path string true "场次ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews/sessions/{id}/end [post]
+// @Security BearerAuth
 func (h *InterviewHandler) EndSession(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -168,10 +196,14 @@ func (h *InterviewHandler) EndSession(c *gin.Context) {
 
 // SessionQRCode 签到二维码
 // @Summary 获取签到二维码
+// @Description 获取签到二维码
 // @Tags 面试
 // @Param id path string true "场次ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /interviews/sessions/{id}/qrcode [get]
+// @Security BearerAuth
 func (h *InterviewHandler) SessionQRCode(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {

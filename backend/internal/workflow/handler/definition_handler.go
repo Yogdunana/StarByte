@@ -25,13 +25,15 @@ func NewDefinitionHandler(defService service.DefinitionService) *DefinitionHandl
 // @Tags 流程定义
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param page query int false "页码" default(1)
 // @Param page_size query int false "每页数量" default(10)
 // @Param keyword query string false "关键词"
 // @Param category query string false "分类"
 // @Param status query int false "状态"
 // @Success 200 {object} response.Response{data=response.PageResponse{list=[]dto.DefinitionResponse}}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /workflow/definitions [get]
 func (h *DefinitionHandler) List(c *gin.Context) {
 	page, pageSize := parsePagination(c)
@@ -65,9 +67,11 @@ func (h *DefinitionHandler) List(c *gin.Context) {
 // @Description 根据ID获取流程定义详细信息
 // @Tags 流程定义
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "流程定义ID"
 // @Success 200 {object} response.Response{data=dto.DefinitionResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /workflow/definitions/{id} [get]
 func (h *DefinitionHandler) GetByID(c *gin.Context) {
 	id, err := parseUUIDParam(c, "id", "无效的流程定义ID")
@@ -91,9 +95,11 @@ func (h *DefinitionHandler) GetByID(c *gin.Context) {
 // @Tags 流程定义
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param request body dto.CreateDefinitionRequest true "流程定义信息"
 // @Success 200 {object} response.Response{data=dto.DefinitionResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /workflow/definitions [post]
 func (h *DefinitionHandler) Create(c *gin.Context) {
 	var req dto.CreateDefinitionRequest
@@ -123,10 +129,12 @@ func (h *DefinitionHandler) Create(c *gin.Context) {
 // @Tags 流程定义
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "流程定义ID"
 // @Param request body dto.UpdateDefinitionRequest true "流程定义信息"
 // @Success 200 {object} response.Response{data=dto.DefinitionResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /workflow/definitions/{id} [put]
 func (h *DefinitionHandler) Update(c *gin.Context) {
 	id, err := parseUUIDParam(c, "id", "无效的流程定义ID")
@@ -161,9 +169,11 @@ func (h *DefinitionHandler) Update(c *gin.Context) {
 // @Description 删除指定流程定义
 // @Tags 流程定义
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "流程定义ID"
 // @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /workflow/definitions/{id} [delete]
 func (h *DefinitionHandler) Delete(c *gin.Context) {
 	id, err := parseUUIDParam(c, "id", "无效的流程定义ID")
@@ -186,10 +196,12 @@ func (h *DefinitionHandler) Delete(c *gin.Context) {
 // @Tags 流程定义
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "流程定义ID"
 // @Param request body dto.PublishDefinitionRequest true "流程图数据"
 // @Success 200 {object} response.Response{data=dto.VersionResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /workflow/definitions/{id}/publish [post]
 func (h *DefinitionHandler) Publish(c *gin.Context) {
 	id, err := parseUUIDParam(c, "id", "无效的流程定义ID")
@@ -225,10 +237,12 @@ func (h *DefinitionHandler) Publish(c *gin.Context) {
 // @Tags 流程定义
 // @Accept json
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "流程定义ID"
 // @Param request body dto.SaveDraftRequest true "草稿流程图数据"
 // @Success 200 {object} response.Response{data=dto.DefinitionResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /workflow/definitions/{id}/draft [put]
 func (h *DefinitionHandler) SaveDraft(c *gin.Context) {
 	id, err := parseUUIDParam(c, "id", "无效的流程定义ID")
@@ -263,9 +277,11 @@ func (h *DefinitionHandler) SaveDraft(c *gin.Context) {
 // @Description 获取指定流程定义的所有版本
 // @Tags 流程定义
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "流程定义ID"
 // @Success 200 {object} response.Response{data=[]dto.VersionResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /workflow/definitions/{id}/versions [get]
 func (h *DefinitionHandler) ListVersions(c *gin.Context) {
 	id, err := parseUUIDParam(c, "id", "无效的流程定义ID")
@@ -293,10 +309,12 @@ func (h *DefinitionHandler) ListVersions(c *gin.Context) {
 // @Description 根据版本ID获取流程定义版本详情，并校验版本归属
 // @Tags 流程定义
 // @Produce json
-// @Security Bearer
+// @Security BearerAuth
 // @Param id path string true "流程定义ID"
 // @Param versionId path string true "版本ID"
 // @Success 200 {object} response.Response{data=dto.VersionResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
 // @Router /workflow/definitions/{id}/versions/{versionId} [get]
 func (h *DefinitionHandler) GetVersionByID(c *gin.Context) {
 	defID, err := parseUUIDParam(c, "id", "无效的流程定义ID")

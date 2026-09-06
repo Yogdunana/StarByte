@@ -37,6 +37,20 @@ func currentUser(c *gin.Context) (uuid.UUID, error) {
 	return id, nil
 }
 
+// List 定时任务列表
+// @Summary 定时任务列表
+// @Description 分页查询系统定时任务
+// @Tags 调度
+// @Produce json
+// @Param page query int false "页码"
+// @Param page_size query int false "每页条数"
+// @Param keyword query string false "关键词"
+// @Param status query int false "状态"
+// @Success 200 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /system/scheduler/tasks [get]
+// @Security BearerAuth
 func (h *SchedulerHandler) List(c *gin.Context) {
 	var q dto.ListQuery
 	if err := c.ShouldBindQuery(&q); err != nil {
@@ -51,6 +65,17 @@ func (h *SchedulerHandler) List(c *gin.Context) {
 	response.Page(c, list, total, page, size)
 }
 
+// Get 定时任务详情
+// @Summary 定时任务详情
+// @Description 按 ID 获取定时任务配置
+// @Tags 调度
+// @Produce json
+// @Param id path string true "任务 ID"
+// @Success 200 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /system/scheduler/tasks/{id} [get]
+// @Security BearerAuth
 func (h *SchedulerHandler) Get(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -65,10 +90,31 @@ func (h *SchedulerHandler) Get(c *gin.Context) {
 	response.OK(c, out)
 }
 
+// Handlers 可注册的任务处理器
+// @Summary 可注册的任务处理器
+// @Description 列出调度器已注册的 handler_key
+// @Tags 调度
+// @Produce json
+// @Success 200 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /system/scheduler/handlers [get]
+// @Security BearerAuth
 func (h *SchedulerHandler) Handlers(c *gin.Context) {
 	response.OK(c, h.svc.Handlers())
 }
 
+// Create 创建定时任务
+// @Summary 创建定时任务
+// @Description 创建 cron 或一次性调度任务
+// @Tags 调度
+// @Accept json
+// @Produce json
+// @Param request body object true "定时任务"
+// @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /system/scheduler/tasks [post]
+// @Security BearerAuth
 func (h *SchedulerHandler) Create(c *gin.Context) {
 	userID, err := currentUser(c)
 	if err != nil {
@@ -88,6 +134,19 @@ func (h *SchedulerHandler) Create(c *gin.Context) {
 	response.OK(c, out)
 }
 
+// Update 更新定时任务
+// @Summary 更新定时任务
+// @Description 更新定时任务配置
+// @Tags 调度
+// @Accept json
+// @Produce json
+// @Param id path string true "任务 ID"
+// @Param request body object true "更新内容"
+// @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /system/scheduler/tasks/{id} [put]
+// @Security BearerAuth
 func (h *SchedulerHandler) Update(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -107,6 +166,17 @@ func (h *SchedulerHandler) Update(c *gin.Context) {
 	response.OK(c, out)
 }
 
+// Delete 删除定时任务
+// @Summary 删除定时任务
+// @Description 删除定时任务及其运行记录
+// @Tags 调度
+// @Produce json
+// @Param id path string true "任务 ID"
+// @Success 200 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /system/scheduler/tasks/{id} [delete]
+// @Security BearerAuth
 func (h *SchedulerHandler) Delete(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
