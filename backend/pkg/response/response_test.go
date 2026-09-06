@@ -310,6 +310,13 @@ func TestModuleRanges(t *testing.T) {
 	assert.Equal(t, 18999, r[1])
 	assert.Equal(t, 18001, CodeCacheKeyNotFound)
 	assert.True(t, r[0] > taskRange[1], "cache must not collide with task 9000-9999")
+
+	r, ok = ModuleRanges["scheduler"]
+	assert.True(t, ok)
+	assert.Equal(t, 19000, r[0])
+	assert.Equal(t, 19999, r[1])
+	assert.Equal(t, 19001, CodeSchedulerNotFound)
+	assert.True(t, r[0] > taskRange[1], "scheduler must not collide with task 9000-9999")
 }
 
 // ========== TranslateGORMError tests ==========

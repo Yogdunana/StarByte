@@ -22,6 +22,7 @@ const DictPage = lazy(() => import('@/pages/system/dict/DictPage'));
 const SessionPage = lazy(() => import('@/pages/system/session/SessionPage'));
 const ExportPage = lazy(() => import('@/pages/system/export/ExportPage'));
 const CachePage = lazy(() => import('@/pages/system/cache/CachePage'));
+const SchedulerPage = lazy(() => import('@/pages/system/scheduler/SchedulerPage'));
 const FileList = lazy(() => import('@/pages/file/FileList'));
 const ApplicationPage = lazy(() => import('@/pages/member/application/ApplicationPage'));
 const ProfilePage = lazy(() => import('@/pages/member/profile/ProfilePage'));
@@ -342,6 +343,11 @@ const routes: AppRouteObject[] = [
             path: 'cache',
             element: lazyGuarded(CachePage, 'cache:read'),
             meta: { title: '缓存管理', permission: 'cache:read' },
+          },
+          {
+            path: 'scheduler',
+            element: lazyGuarded(SchedulerPage, 'scheduler:read'),
+            meta: { title: '定时任务', permission: 'scheduler:read' },
           },
         ],
       },

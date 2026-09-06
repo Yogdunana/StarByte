@@ -1,0 +1,59 @@
+.sched-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  margin-bottom: 16px;
+  border-radius: 16px;
+  color: #fff;
+  background: linear-gradient(135deg, #4338ca 0%, #7c3aed 50%, #db2777 100%);
+  box-shadow: 0 12px 32px rgba(67, 56, 202, 0.2);
+}
+
+.sched-hero h2 {
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.sched-hero p {
+  margin: 0;
+  opacity: 0.88;
+}
+
+.sched-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 960px) {
+  .sched-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.sched-shell {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.sched-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.sched-log {
+  max-height: 240px;
+  overflow: auto;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+}

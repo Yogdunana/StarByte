@@ -102,6 +102,12 @@ var seedTemplatesData = []seedTemplate{
 		Body:   "文件「{{.filename}}」已生成，30 分钟内可下载。",
 		Schema: `{"filename":"string","file_id":"string"}`,
 	},
+	{
+		Code: "scheduler_task_failed", Name: "定时任务失败", Category: "system",
+		Title:  "定时任务失败：{{.task_name}}",
+		Body:   "任务「{{.task_name}}」已进入死信：{{.error}}",
+		Schema: `{"task_name":"string","error":"string"}`,
+	},
 }
 
 func seedTemplates(db *gorm.DB) error {
