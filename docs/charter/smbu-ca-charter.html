@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>深圳北理莫斯科大学计算机协会章程</title>
+<style>
+:root {
+  --bg: #ffffff;
+  --bg2: #f7f8fa;
+  --ink: #1a1a2e;
+  --muted: #6b7280;
+  --rule: #e2e8f0;
+  --accent: #1a3a5c;
+  --accent2: #2d6a9f;
+  --success: #1dc981;
+  --warn: #f59e0b;
+  --danger: #ef4444;
+}
+@font-face {
+  font-family: 'NotoSerifSC';
+  src: url('./_shared/fonts/NotoSerifSC-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'NotoSerifSC';
+  src: url('./_shared/fonts/NotoSerifSC-Bold.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Noto Serif SC', 'Noto Serif CJK SC', 'Source Han Serif SC', 'Songti SC', serif;
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.9;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+.container {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 2rem 2.5rem 4rem;
+}
+/* Cover */
+.cover {
+  text-align: center;
+  padding: 4rem 0 3rem;
+  border-bottom: 3px double var(--accent);
+  margin-bottom: 3rem;
+}
+.cover h1 {
+  font-size: 1.75rem;
+  font-weight: bold;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+.cover .subtitle {
+  font-size: 1.1rem;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+}
+.cover .version {
+  font-size: 0.9rem;
+  color: var(--accent2);
+  font-weight: bold;
+}
+.cover .meta {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 1rem;
+}
+/* TOC */
+.toc {
+  background: var(--bg2);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 1.5rem 2rem;
+  margin-bottom: 3rem;
+}
+.toc h2 {
+  font-size: 1rem;
+  color: var(--accent);
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 0.5rem;
+}
+.toc ol {
+  list-style: none;
+  counter-reset: toc;
+}
+.toc ol li {
+  counter-increment: toc;
+  padding: 0.2rem 0;
+  font-size: 0.92rem;
+}
+.toc ol li::before {
+  content: counter(toc, cjk-ideographic) "、";
+  font-weight: bold;
+  color: var(--accent);
+  margin-right: 0.3rem;
+}
+.toc ol li a {
+  text-decoration: none;
+  color: var(--ink);
+}
+.toc ol li a:hover { color: var(--accent2); }
+/* Chapter */
+.chapter {
+  margin-bottom: 3rem;
+}
+.chapter h2 {
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: var(--accent);
+  text-align: center;
+  margin-bottom: 2rem;
+  letter-spacing: 0.1em;
+  padding-bottom: 0.8rem;
+  border-bottom: 2px solid var(--accent);
+}
+/* Section */
+.section {
+  margin-bottom: 2rem;
+}
+.section h3 {
+  font-size: 1.05rem;
+  font-weight: bold;
+  color: var(--accent2);
+  margin-bottom: 1.2rem;
+  padding-left: 0.8rem;
+  border-left: 4px solid var(--accent2);
+}
+/* Article */
+.article {
+  margin-bottom: 1.2rem;
+  text-indent: 0;
+}
+.article .art-num {
+  font-weight: bold;
+  color: var(--accent);
+  display: inline;
+}
+.article p {
+  display: inline;
+}
+.article .art-body {
+  display: block;
+  margin-top: 0.3rem;
+}
+.article ol, .article ul {
+  list-style: none;
+  counter-reset: item;
+  margin-left: 1.5rem;
+  margin-top: 0.3rem;
+}
+.article ol li {
+  counter-increment: item;
+  margin-bottom: 0.3rem;
+  position: relative;
+  padding-left: 2.8rem;
+  text-indent: 0;
+}
+.article ol li::before {
+  content: "（" counter(item, cjk-ideographic) "）";
+  position: absolute;
+  left: 0;
+  color: var(--ink);
+  min-width: 2.2rem;
+}
+/* Tables */
+.table-wrap {
+  overflow-x: auto;
+  margin: 1.5rem 0;
+  border-radius: 6px;
+  border: 1px solid var(--rule);
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+thead th {
+  background: var(--accent);
+  color: #fff;
+  font-weight: bold;
+  padding: 0.6rem 0.8rem;
+  text-align: center;
+  border: 1px solid var(--accent);
+}
+tbody td {
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--rule);
+  text-align: center;
+}
+tbody tr:nth-child(even) { background: var(--bg2); }
+tbody tr:hover { background: rgba(45,106,159,0.06); }
+/* Callout */
+.callout {
+  background: var(--bg2);
+  border-left: 4px solid var(--accent2);
+  border-radius: 0 6px 6px 0;
+  padding: 1rem 1.5rem;
+  margin: 1.5rem 0;
+}
+.callout .label {
+  font-weight: bold;
+  color: var(--accent2);
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+.callout p {
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+/* Page break */
+.page-break {
+  page-break-after: always;
+  border-top: 1px dashed var(--rule);
+  margin: 3rem 0;
+  text-align: center;
+}
+.page-break::after {
+  content: "— 页 —";
+  display: block;
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-top: -0.5rem;
+}
+/* Print */
+@media print {
+  .container { max-width: none; padding: 0; }
+  .cover { page-break-after: always; }
+  .chapter { page-break-inside: auto; }
+}
+/* Mobile */
+@media (max-width: 600px) {
+  .container { padding: 1rem 1.2rem 2rem; }
+  .cover h1 { font-size: 1.3rem; }
+  .chapter h2 { font-size: 1.1rem; }
+}
+/* Status badge */
+.badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: bold;
+}
+.badge.new { background: rgba(29,201,129,0.12); color: var(--success); }
+.badge.rev { background: rgba(245,158,11,0.12); color: var(--warn); }
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- ===== 封面 ===== -->
+<div class="cover">
+  <h1>深圳北理莫斯科大学计算机协会章程</h1>
+</div>
+
+<!-- ===== 目录 ===== -->
+<nav class="toc" id="toc-nav">
+  <h2>目 录</h2>
+  <ol>
+    <li><a href="#ch1">总则</a></li>
+    <li><a href="#ch2">成员</a></li>
+    <li><a href="#ch3">组织管理制度</a></li>
+    <li><a href="#ch4">决策与表决制度</a></li>
+    <li><a href="#ch5">负责人产生程序</a></li>
+    <li><a href="#ch6">财务制度</a></li>
+    <li><a href="#ch7">任务流转制度</a></li>
+    <li><a href="#ch8">对外协作与商业项目</a></li>
+    <li><a href="#ch9">技术资产与知识产权</a></li>
+    <li><a href="#ch10">社团终止</a></li>
+    <li><a href="#ch11">章程修改程序</a></li>
+    <li><a href="#ch12">附则</a></li>
+  </ol>
+</nav>
+
+<!-- ===== 第一章 总则 ===== -->
+<section class="chapter" id="ch1">
+<h2>第一章 总则</h2>
+
+<div class="article">
+  <span class="art-num">第一条</span>
+  <p>本协会名称为"深圳北理莫斯科大学计算机协会"，简称"深北莫计协"或"计协"；英文名称：Shenzhen MSU-BIT University Computer Association，简称"SMBU-CA"或"SMBUCA"；俄文名称：Компьютерная ассоциация Университета МГУ-ППИ в Шэньчжэне，简称"КА МГУ-ППИ"。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第二条</span>
+  <p>社团简介：本协会是由深圳北理莫斯科大学在校学生自愿组成的学术科技类学生社团组织，归属工程系。协会以服务学校信息化建设、培养计算机技术人才为使命，常态化开展编程培训、技术讲座、项目实践、竞赛组织、课程开发等活动。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第三条</span>
+  <p>本协会类别为学术科技类，层次为院系级，归属工程系。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第四条</span>
+  <p>本协会的指导单位为深圳北理莫斯科大学学生工作部（校团委）和工程系，负责协会的思想引领、注册登记、年审考核、换届审批等管理工作。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第五条</span>
+  <p>本协会的合作单位为条件保障部信息化中心（以下简称"IT中心"）。双方基于平等协商、优势互补的原则开展协作，协作范围包括但不限于：校内信息化项目的技术支持、学生技术人才的培养与推荐、技术交流活动等。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第六条</span>
+  <p>本协会的宗旨是：服务学校信息化建设与数字化转型，搭建校内计算机技术交流与实践平台，培养具有工程实践能力的技术人才。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第七条</span>
+  <p>本协会的基本任务：</p>
+  <ol>
+    <li>开展技术交流与培训活动，提升成员技术水平；</li>
+    <li>承接校内信息化相关项目，培养成员实践能力；</li>
+    <li>组织技术竞赛与学术交流，营造校园学术氛围；</li>
+    <li>为各类组织提供课程支持，开发系列实操课程；</li>
+    <li>发挥政治引领作用，培养德才兼备的技术人才。</li>
+  </ol>
+</div>
+</section>
+
+<!-- ===== 第二章 成员 ===== -->
+<section class="chapter" id="ch2">
+<h2>第二章 成员</h2>
+
+<div class="section">
+<h3>第一节 成员资格</h3>
+
+<div class="article">
+  <span class="art-num">第八条</span>
+  <p>本协会成员分为候补成员（T7）、正式成员（T6）和干事（T5）三个层级。候补成员为入会审核通过后未满一个月的成员；正式成员为候补期满后转正、不隶属任何部门的会员；干事为隶属各部门、参与日常运营的成员。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第九条</span>
+  <p>入会条件：</p>
+  <ol>
+    <li>深圳北理莫斯科大学具有正式学籍的全日制在读本科生或与莫大联合培养的研究生；</li>
+    <li>拥护中国共产党领导，理想信念坚定；</li>
+    <li>对计算机技术有兴趣或有一定基础；</li>
+    <li>遵守本协会章程，愿意履行成员义务。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第十条</span>
+  <p>入会程序：</p>
+  <ol>
+    <li>提交入会申请，填写申请表单（含姓名、学号、年级、专业、联系方式、技能特长、意向部门等信息）；</li>
+    <li>参加协会组织的招新活动或面试；</li>
+    <li>经部门负责人初审、中心主任复审，由常务委员会审批通过；</li>
+    <li>登记注册，成为候补成员（T7）；</li>
+    <li>入会满一个月后，经直属部长确认转正，转为正式干事（T5）或正式成员（T6）。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第十一条</span>
+  <p>每名学生最多加入2个学生社团。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第十二条</span>
+  <p>申请类型区分：申请时须选择"会员"或"干事"通道。选择"会员"者不隶属任何部门，意向部门字段为非必填；选择"干事"者意向部门为必填项。会员不参与日常部门运营，但可参与课程和活动。</p>
+</div>
+</div>
+
+<div class="section">
+<h3>第二节 成员权利</h3>
+
+<div class="article">
+  <span class="art-num">第十三条</span>
+  <p>正式成员（T6）及干事（T5）享有以下权利：</p>
+  <ol>
+    <li>参加协会组织的各项活动；</li>
+    <li>对协会工作提出建议和批评；</li>
+    <li>选举权和被选举权；</li>
+    <li>优先参与协会项目实践；</li>
+    <li>获得协会提供的培训资源；</li>
+    <li>监督协会财务和管理工作；</li>
+    <li>自愿退出协会。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第十四条</span>
+  <p>候补成员（T7）享有以下权利：</p>
+  <ol>
+    <li>参加协会组织的各项活动；</li>
+    <li>对协会工作提出建议；</li>
+    <li>获得协会提供的培训资源；</li>
+    <li>自愿退出协会。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第十五条</span>
+  <p>候补成员不享有选举权、被选举权和表决权。入会满一学期的正式成员方可参选协会干部。</p>
+</div>
+</div>
+
+<div class="section">
+<h3>第三节 成员义务</h3>
+
+<div class="article">
+  <span class="art-num">第十六条</span>
+  <p>成员应履行以下义务：</p>
+  <ol>
+    <li>遵守协会章程和各项制度；</li>
+    <li>执行协会决议，完成协会交办的工作；</li>
+    <li>积极参加协会活动，维护协会声誉；</li>
+    <li>按规定缴纳会费（如收取）；</li>
+    <li>保守协会秘密，不得泄露协会内部信息。参与涉及保密协议项目的成员，须签署保密协议。</li>
+  </ol>
+</div>
+</div>
+
+<div class="section">
+<h3>第四节 退出与除名</h3>
+
+<div class="article">
+  <span class="art-num">第十七条</span>
+  <p>成员退出：</p>
+  <ol>
+    <li>成员可自愿退出，须提交书面申请；</li>
+    <li>毕业离校者自动失去成员资格；</li>
+    <li>退出后须结清相关事项，交回协会资产（如有），移交所持有的协会技术资产。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第十八条</span>
+  <p>成员除名：</p>
+  <ol>
+    <li>连续一个学期不参加协会活动者，视为自动退会；</li>
+    <li>违反协会章程、损害协会声誉者，经常务委员会讨论决定，予以除名；</li>
+    <li>被学校处以纪律处分者，自动失去成员资格。</li>
+  </ol>
+</div>
+</div>
+
+</section>
+
+<!-- ===== 第三章 组织管理制度 ===== -->
+<section class="chapter" id="ch3">
+<h2>第三章 组织管理制度</h2>
+
+<div class="section">
+<h3>第一节 组织架构</h3>
+
+<div class="article">
+  <span class="art-num">第十九条</span>
+  <p>本协会设社团主要负责人、中心负责人及职能部门，组织架构如下：</p>
+  <div class="callout">
+    <div class="label">架构总览</div>
+    <p>社长（1名）→ 副社长（4名，可增至5-7名）→ 三大中心主任（由副社长兼任）→ 七大职能部门（每部1-3名负责人，可增至5-7名）+ 两大技术团队群（非部门编制，项目制运行）</p>
+  </div>
+</div>
+
+<div class="article">
+  <span class="art-num">第二十条</span>
+  <p>本协会设社团主要负责人、中心负责人及职能部门：</p>
+  <ol>
+    <li>社团主要负责人：社长（会长）1名；副社长（副会长）4名（成员人数超过100人时可增至5-7名）。</li>
+    <li>中心负责人（与副社长同级）：技术研发中心主任1名、运营管理中心主任1名、对外合作中心主任1名。中心主任由副社长兼任或担任，确保职级对齐。</li>
+    <li>职能部门7个，各部门设负责人1-3名（部门人数超过20人时可酌情增至5-7名）。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第二十一条</span>
+  <p>七大职能部门及其核心职能如下：</p>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>部门名称</th><th>所属中心</th><th>核心职能</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>创新创业部</td><td>技术研发中心</td><td>大创等赛事组织、项目孵化、竞赛培训</td></tr>
+      <tr><td>项目开发部</td><td>技术研发中心</td><td>软件系统设计开发、代码规范、技术资产管理</td></tr>
+      <tr><td>课程研发部</td><td>技术研发中心</td><td>课程体系规划开发、教学实施、课程库建设</td></tr>
+      <tr><td>综合行政部</td><td>运营管理中心</td><td>成员招新、档案管理、换届组织、内部协调</td></tr>
+      <tr><td>品牌传播部</td><td>运营管理中心</td><td>品牌建设、新媒体运营、宣传物料制作</td></tr>
+      <tr><td>战略关系部</td><td>对外合作中心</td><td>对外合作、赞助拓展、厂商对接、项目承接</td></tr>
+      <tr><td>赛事运营部</td><td>对外合作中心</td><td>竞赛组织、活动策划、赛事执行、学术交流</td></tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="article">
+  <span class="art-num">第二十二条</span>
+  <p>岗位设置如下：</p>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>层级</th><th>岗位</th><th>人数</th><th>产生方式</th><th>任期</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>决策层</td><td>社长</td><td>1名</td><td>常委会提名，会员大会确认</td><td>1学年</td></tr>
+      <tr><td>决策层</td><td>副社长</td><td>4名（可增至7名）</td><td>常委会提名，会员大会确认</td><td>1学年</td></tr>
+      <tr><td>管理层</td><td>中心主任</td><td>3名</td><td>由副社长兼任或担任</td><td>1学年</td></tr>
+      <tr><td>执行层</td><td>部门负责人</td><td>每部1-3名（可增至5-7名）</td><td>竞聘选拔，常委会任命</td><td>1学年</td></tr>
+      <tr><td>执行层</td><td>团队间接负责人（管理归属）</td><td>—</td><td>系统默认项目开发部部长，离职自动升级</td><td>随职务</td></tr>
+      <tr><td>执行层</td><td>团队直接负责人（队长）</td><td>每团队1名</td><td>部长及以上级别任命</td><td>灵活</td></tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+</div>
+
+<div class="section">
+<h3>第二节 技术团队</h3>
+
+<div class="article">
+  <span class="art-num">第二十三条</span>
+  <p>技术团队为协会下设的兼职技术团队，非部门编制，独立运行，成员以项目制参与工作，获得相应劳务报酬。</p>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>团队名称</th><th>定位</th><th>核心职能</th><th>协作模式</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>内核开发团队群</td><td>对内</td><td>与IT中心协作，承接校内信息化项目，负责核心技术攻关</td><td>项目制，按项目结算</td></tr>
+      <tr><td>业务交付团队群</td><td>对外</td><td>承接校外商业定制开发项目，负责项目交付</td><td>项目制，按项目结算</td></tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="article">
+  <span class="art-num">第二十四条</span>
+  <p>技术团队实行双负责人制，设置间接负责人（管理归属）和直接负责人（队长）两个角色，共同覆盖团队管理的"行政监督"和"日常运营"两个维度。</p>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>维度</th><th>管理归属（间接负责人）</th><th>队长（直接负责人）</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>角色性质</td><td>行政监督，间接管理</td><td>日常运营，直接管理</td></tr>
+      <tr><td>默认/任命方式</td><td>系统默认为项目开发部部长</td><td>由部长及以上级别主动任命</td></tr>
+      <tr><td>继承机制</td><td>自动升级链路：部长→中心主任→社长</td><td>无自动继承，需重新任命</td></tr>
+      <tr><td>主要职责</td><td>资源协调、跨部门对接、监督审批</td><td>任务分配、进度推进、团队日常管理</td></tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="article">
+  <span class="art-num">第二十四条之一</span>
+  <p>管理归属（间接负责人）机制：</p>
+  <ol>
+    <li>管理归属默认指向项目开发部部长，主要负责跨部门资源协调、团队审批事项签字（如任务交接审批、晋升审批中的签字节点）、监督团队整体运作，不参与日常任务分配；</li>
+    <li>当部长离职时，系统自动按升级链路查找当前有效的管理归属：部长→技术研发中心主任→社长，无需重新任命；</li>
+    <li>系统定期检测管理归属字段指向的人员状态，若状态为"离职"或"卸任"，自动按链路查找下一级在职人员并更新字段值，同时记录变更日志；</li>
+    <li>若链路全员离职，系统触发预警，通知常委会处理。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第二十四条之二</span>
+  <p>队长（直接负责人）机制：</p>
+  <ol>
+    <li>队长由项目开发部部长及以上级别（中心主任、社长）主动任命，从团队成员中选拔，不限于部长级别；</li>
+    <li>队长主要负责团队日常任务分配与进度推进、组织团队会议与协作、向管理归属（间接负责人）汇报团队状态；</li>
+    <li>任命时系统记录任命人（部长/中心主任/社长）和任命时间，用于追溯任命来源和权限验证；</li>
+    <li>仅原任命人及以上级别方可更改队长人选；</li>
+    <li>队长离职时需重新任命，无自动继承机制。系统检测到队长状态变更后，通知管理归属（间接负责人），由间接负责人通知任命人重新任命。</li>
+  </ol>
+  <div class="callout">
+    <div class="label">核心区别</div>
+    <p>间接负责人 = 系统自动继承（部长不在中心主任上，中心主任不在社长上）；直接负责人 = 人为任命（队长离职后必须重新选拔，不会自动由上级顶上）。</p>
+  </div>
+</div>
+
+<div class="article">
+  <span class="art-num">第二十四条之三</span>
+  <p>技术团队其他运行机制：</p>
+  <ol>
+    <li>团队成员以兼职身份参与，不占用部门编制；</li>
+    <li>团队承接技术项目，成员按贡献获得劳务报酬；</li>
+    <li>项目收益扣除成员劳务后的剩余部分纳入协会公共发展资金；</li>
+    <li>内核开发团队与IT中心建立常态化协作机制，优先承接校内信息化需求。</li>
+  </ol>
+</div>
+</div>
+
+<div class="section">
+<h3>第三节 部门职能详解</h3>
+
+<div class="article">
+  <span class="art-num">第二十五条</span>
+  <p>创新创业部职能：</p>
+  <ol>
+    <li>负责组织大学生创新创业训练计划（大创）等赛事；</li>
+    <li>开展项目孵化、创业辅导、商业计划书撰写培训；</li>
+    <li>对接校内外创新创业资源；</li>
+    <li>组织创新创业类讲座和交流活动。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第二十六条</span>
+  <p>项目开发部职能：</p>
+  <ol>
+    <li>负责软件系统的设计、开发与维护；</li>
+    <li>制定代码规范，组织代码评审；</li>
+    <li>管理协会代码仓库与技术资产；</li>
+    <li>承接校内信息化项目的技术实现；</li>
+    <li>为技术团队提供技术支持。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第二十七条</span>
+  <p>课程研发部职能：</p>
+  <ol>
+    <li>负责课程体系的规划与开发；</li>
+    <li>为各类组织提供课程支持，开发系列实操课程；</li>
+    <li>组织课程讲师的遴选与培训；</li>
+    <li>负责课程的教学实施与质量评估；</li>
+    <li>沉淀课程资源，建立课程库。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第二十八条</span>
+  <p>综合行政部职能：</p>
+  <ol>
+    <li>负责成员招新、档案管理、信息统计；</li>
+    <li>组织换届选举、干部培训、考核评优；</li>
+    <li>管理协会文件、印章、资产；</li>
+    <li>协调各部门工作，组织内部会议；</li>
+    <li>对接指导单位的行政事务。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第二十九条</span>
+  <p>品牌传播部职能：</p>
+  <ol>
+    <li>负责协会品牌形象建设与维护；</li>
+    <li>运营协会新媒体平台，制作宣传内容；</li>
+    <li>设计活动海报、宣传物料、文创产品；</li>
+    <li>记录协会活动，撰写新闻稿件；</li>
+    <li>对外发布协会动态，提升协会影响力。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第三十条</span>
+  <p>战略关系部职能：</p>
+  <ol>
+    <li>负责对外合作关系的建立与维护；</li>
+    <li>拓展赞助资源，争取活动经费与物资支持；</li>
+    <li>对接腾讯云、Icon等厂商合作；</li>
+    <li>为业务交付团队拓展外部项目资源；</li>
+    <li>维护与其他高校技术社团的联系。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第三十一条</span>
+  <p>赛事运营部职能：</p>
+  <ol>
+    <li>组织校内技术竞赛、编程比赛、黑客松等活动；</li>
+    <li>承办或协办校级以上技术赛事；</li>
+    <li>组织学术交流、技术沙龙、企业参访；</li>
+    <li>负责活动策划、执行、总结的全流程管理；</li>
+    <li>对接竞赛资源，为成员提供参赛支持。</li>
+  </ol>
+</div>
+</div>
+
+<div class="section">
+<h3>第四节 常务委员会</h3>
+
+<div class="article">
+  <span class="art-num">第三十二条</span>
+  <p>常务委员会（以下简称"常委会"）是协会的决策执行机构，由社长、副社长、各部部长组成。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第三十三条</span>
+  <p>常委会职权：</p>
+  <ol>
+    <li>制定和修改章程（提交会员大会确认）；</li>
+    <li>制定年度工作计划；</li>
+    <li>提名社长、副社长候选人；</li>
+    <li>任命部门负责人；</li>
+    <li>授权任命技术团队队长（直接负责人），管理归属（间接负责人）由系统自动设定；</li>
+    <li>管理协会财务与资产；</li>
+    <li>决定协会日常重大事项；</li>
+    <li>审议成员提案；</li>
+    <li>在会员大会闭会期间，行使会员大会授予的其他职权。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第三十四条</span>
+  <p>常委会会议：</p>
+  <ol>
+    <li>常委会实行圆桌会议制度，由社长召集和主持；</li>
+    <li>重大事项须经常委会讨论决定；</li>
+    <li>常委会决议须经出席会议的三分之二以上成员同意方可通过。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第三十五条</span>
+  <p>社长职权：统筹协会全面工作、对外代表协会、召集和主持常委会会议、兼任功能型团支部书记。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第三十六条</span>
+  <p>副社长职权：协助社长工作，按分工分管相应领域，可兼任中心主任。设第一副社长为运营管理中心主任，在社长缺位期间负责召集常委会会议和日常事务协调。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第三十七条</span>
+  <p>社长缺位应急机制：社长因请假、出国交流、生病等暂时无法履职时，<strong>不设"代社长"角色</strong>。所有决策权移交常委会集体行使。第一副社长在社长缺位期间负责召集常委会会议和日常事务协调，但不拥有社长的单项审批权（如500元以下支出审批、任命权等），这些权限须经常委会集体决议行使。社长恢复履职后，系统自动恢复其全部权限。社长缺位期间由常委会做出的决策记录保留，不因社长恢复而变更。</p>
+</div>
+</div>
+
+<div class="section">
+<h3>第五节 会员大会</h3>
+
+<div class="article">
+  <span class="art-num">第三十八条</span>
+  <p>会员大会是协会的审议确认机构，行使以下职权：</p>
+  <ol>
+    <li>审议和批准章程及章程修改；</li>
+    <li>审议和批准协会年度工作报告；</li>
+    <li>对常委会提名的社长、副社长候选人进行确认（同意或否决）；</li>
+    <li>审议和批准协会年度财务预决算；</li>
+    <li>应当由会员大会行使的其他职权。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第三十九条</span>
+  <p>会员大会须有三分之二以上成员出席方能召开。决议须经出席成员过半数通过。章程的修改须经出席成员三分之二以上同意。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第四十条</span>
+  <p>会员大会每学期至少召开一次。经常委会提议或五分之一以上成员提议，可临时召开会员大会。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第四十一条</span>
+  <p>成员提案：</p>
+  <ol>
+    <li>成员可向常委会提交提案；</li>
+    <li>常委会应在收到提案后15个工作日内予以答复；</li>
+    <li>重大提案由常委会讨论决定是否提交会员大会审议。</li>
+  </ol>
+</div>
+</div>
+
+<div class="section">
+<h3>第六节 技术顾问委员会</h3>
+
+<div class="article">
+  <span class="art-num">第四十二条</span>
+  <p>协会设技术顾问委员会，由指导教师、IT中心技术骨干、校外技术专家组成，为协会技术发展提供咨询建议。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第四十三条</span>
+  <p>技术顾问委员会职责：</p>
+  <ol>
+    <li>为协会技术发展方向提供建议；</li>
+    <li>指导重大技术项目的方案评审；</li>
+    <li>为技术团队提供技术指导；</li>
+    <li>推荐技术资源和合作机会。</li>
+  </ol>
+</div>
+</div>
+
+<div class="section">
+<h3>第七节 指导教师</h3>
+
+<div class="article">
+  <span class="art-num">第四十四条</span>
+  <p>协会设指导教师1-2名，由学生工作部（团委）和工程系协商确定。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第四十五条</span>
+  <p>指导教师职责：</p>
+  <ol>
+    <li>指导协会制定年度工作计划及活动方案；</li>
+    <li>审核活动内容的专业性与合规性；</li>
+    <li>参与协会重要会议及关键活动；</li>
+    <li>对协会发展方向、成员培养提出建议；</li>
+    <li>监督协会经费使用，防范活动安全风险。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第四十六条</span>
+  <p>指导教师在系统中的角色定位：指导教师拥有独立系统账号，但<strong>不属于T1-T7任何层级</strong>，不参与日常运营管理。其权限仅限于特定审批节点的会签：500-1000元支出审批（与社长会签）、换届选举校团委审批环节的代录。指导教师可在系统内直接完成签字，也可线下签字后由社长代为录入系统（系统记录"线下签字·社长代录"标记）。</p>
+</div>
+</div>
+
+<div class="section">
+<h3>第八节 功能型团支部</h3>
+
+<div class="article">
+  <span class="art-num">第四十七条</span>
+  <p>本协会应成立功能型团支部，名称规范为"XX年度共青团深圳北理莫斯科大学计算机协会支部委员会"。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第四十八条</span>
+  <p>功能型团支部设置：</p>
+  <ol>
+    <li>团支部委员会由3-5人组成，不超过7人；</li>
+    <li>设团支部书记1人，由协会社长兼任；</li>
+    <li>设组织委员1人、宣传委员1-2人，由团支部委员会选举产生。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第四十九条</span>
+  <p>功能型团支部职责：</p>
+  <ol>
+    <li>组织团员开展政治理论学习，每学年不少于6次；</li>
+    <li>对协会重要事项进行政治把关，不干预具体业务决策；</li>
+    <li>服务成员成长需求，关注思想动态；</li>
+    <li>定期向学生工作部（团委）报告工作。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第五十条</span>
+  <p>功能型团支部与协会业务的关系：</p>
+  <ol>
+    <li>功能型团支部负责政治引领和思想政治教育；</li>
+    <li>协会具体业务由常委会决策，技术团队执行；</li>
+    <li>团支部对业务事项的政治合规性进行监督，不参与业务决策；</li>
+    <li>团支部书记（社长）协调政治要求与业务发展的关系。</li>
+  </ol>
+</div>
+</div>
+
+<div class="section">
+<h3>第九节 纪律监察委员会</h3>
+
+<div class="article">
+  <span class="art-num">第五十一条</span>
+  <p>协会设纪律监察委员会（以下简称"纪监委"），为协会的纪律监督机构。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第五十二条</span>
+  <p>纪监委组成：</p>
+  <ol>
+    <li>常委会全体成员为纪监委当然委员；</li>
+    <li>另设团员代表2-3名，由全体团员选举产生；</li>
+    <li>纪监委设主任1人，由常委会指定；</li>
+    <li>纪监委总人数不超过10人。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第五十三条</span>
+  <p>纪监委职责：</p>
+  <ol>
+    <li>监督协会章程和各项制度的执行情况；</li>
+    <li>受理对协会成员违纪行为的举报和申诉；</li>
+    <li>对违纪事件进行调查，提出处理建议；</li>
+    <li>监督协会财务收支情况；</li>
+    <li>对常委会和各部门工作进行监督。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第五十四条</span>
+  <p>纪监委委员任期与社团主要负责人同步，随换届同步调整。团员代表任期为一学年，可连选连任。</p>
+</div>
+</div>
+</section>
+
+<!-- ===== 第四章 决策与表决制度 ===== -->
+<section class="chapter" id="ch4">
+<h2>第四章 决策与表决制度</h2>
+
+<div class="section">
+<h3>第一节 角色层级与权限模型</h3>
+
+<div class="article">
+  <span class="art-num">第五十五条</span>
+  <p>协会采用RBAC（基于角色的访问控制）多角色叠加机制。一个用户可同时拥有多个角色标签，有效权限为所有角色权限的并集（OR逻辑）。这一设计直接映射章程中普遍存在的一人多职情况。</p>
+  <div class="callout">
+    <div class="label">核心示例</div>
+    <p>某用户同时担任社长、团支部书记、纪监委委员、技顾委委员四个角色。其有效权限 = 社长权限 ∪ 团支部书记权限 ∪ 纪监委委员权限 ∪ 技顾委委员权限，而非仅取社长权限。</p>
+  </div>
+</div>
+
+<div class="article">
+  <span class="art-num">第五十六条</span>
+  <p>角色层级定义如下：</p>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>层级</th><th>角色名称</th><th>决策权重</th><th>对应人员</th><th>决策层</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>T1</td><td>常委会</td><td>—</td><td>社长+副社长+各部长（集体）</td><td>是</td></tr>
+      <tr><td>T2</td><td>社长</td><td>2</td><td>协会最高负责人</td><td>是</td></tr>
+      <tr><td>T3</td><td>副社长/中心主任</td><td>1</td><td>三大中心负责人+副社长4名</td><td>是</td></tr>
+      <tr><td>T4</td><td>部门负责人</td><td>0.5</td><td>各部部长</td><td>是</td></tr>
+      <tr><td>T5</td><td>干事</td><td>0.25</td><td>各部门基层成员</td><td>否</td></tr>
+      <tr><td>T6</td><td>正式成员</td><td>0</td><td>不隶属部门的正式会员</td><td>否</td></tr>
+      <tr><td>T7</td><td>候补成员</td><td>0</td><td>候补期未满的新成员</td><td>否</td></tr>
+      <tr><td>特殊</td><td>指导教师</td><td>0</td><td>非层级，特定审批会签</td><td>否</td></tr>
+      <tr><td>特殊</td><td>课程访客</td><td>0</td><td>非会员，仅课程选课</td><td>否</td></tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="article">
+  <span class="art-num">第五十七条</span>
+  <p>决策层定义：T4（部门负责人）及以上级别（T1-T4）均属于决策层，有权参与协会级决策。T5及以下不参与协会级决策。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第五十八条</span>
+  <p>权重用于加权投票制中的计票。社长权重为2，副社长/中心主任为1，部长为0.5，干事为0.25。权重为零的角色不参与加权投票。未投票者的权重不计入总权重。</p>
+</div>
+</div>
+
+<div class="section">
+<h3>第二节 三种决策模式</h3>
+
+<div class="article">
+  <span class="art-num">第五十九条</span>
+  <p>协会决策采用三种模式，由决策发起人根据事项性质选择：</p>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>模式</th><th>计票方式</th><th>通过条件</th><th>出席率要求</th><th>适用场景</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>签字制</td><td>顺序流转，每人有否决权</td><td>全部签字通过</td><td>不适用</td><td>面试审批、晋升审批、任务交接、支出审批</td></tr>
+      <tr><td>等权投票制</td><td>一人一票</td><td>赞成率 ≥ 2/3</td><td>出席率 ≥ 2/3</td><td>常规议案、章程修改、换届确认</td></tr>
+      <tr><td>加权投票制</td><td>按角色权重计票</td><td>赞成权重 ÷ 总权重 ≥ 2/3</td><td>不要求出席率</td><td>紧急决策、1000元以上支出审批</td></tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="article">
+  <span class="art-num">第六十条</span>
+  <p>等权投票制细则：</p>
+  <ol>
+    <li>表决主体为常务委员会时，表决权为全体委员；表决主体为会员大会时，表决权为全体干事（不含普通会员）；</li>
+    <li>出席率 = 实际投票人数 ÷ 应出席人数，须 ≥ 2/3 方为有效表决；</li>
+    <li>赞成率 = 赞成票数 ÷ 实际投票人数，须 ≥ 2/3 方为通过；</li>
+    <li>弃权票计入出席人数（已投票），但不计入赞成也不计入反对；</li>
+    <li>出席率不足时，表决结果为"无效"。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第六十一条</span>
+  <p>加权投票制细则：</p>
+  <ol>
+    <li>按角色权重计票，总权重 = 实际投票人的角色权重之和（含弃权票权重）；</li>
+    <li>赞成率 = 赞成权重 ÷ 总权重，须 ≥ 2/3 方为通过；</li>
+    <li>弃权票的权重计入总权重，但不计入赞成权重；</li>
+    <li>加权投票制不要求出席率，适用于紧急决策时缩小参与范围；</li>
+    <li>参与范围可设定为：全体有表决权成员、T3及以上、T2及以上。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第六十二条</span>
+  <p>签字制细则：</p>
+  <ol>
+    <li>签字采用顺序流转：低层级先签 → 高层级后签；</li>
+    <li>每个签字环节设24小时超时，超时后自动升级至上一级；</li>
+    <li>超时升级后低层级仍可补签，但不阻塞流程；</li>
+    <li>签字人须在查看前序评语后做出判断；</li>
+    <li>评语内容不向被审批人公开，仅供审批链路人员查看。</li>
+  </ol>
+</div>
+</div>
+
+<div class="section">
+<h3>第三节 投票记录</h3>
+
+<div class="article">
+  <span class="art-num">第六十三条</span>
+  <p>所有投票表决须留存完整记录，包括：议案标题、议案内容、表决主体、表决模式、参与范围、发起人、应出席人数、实际投票人数、赞成票数/权重、反对票数/权重、弃权票数/权重、出席率、赞成率、表决结果、投票截止时间、发起时间。每位投票人的投票选项、角色权重和时间戳须记入投票记录子表。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第六十四条</span>
+  <p>表决结果分为：通过、未通过、无效（出席率不足）、进行中。投票截止时间到达后系统自动计票并判定结果。</p>
+</div>
+</div>
+</section>
+
+<!-- ===== 第五章 负责人产生程序 ===== -->
+<section class="chapter" id="ch5">
+<h2>第五章 负责人产生程序</h2>
+
+<div class="section">
+<h3>第一节 任职条件</h3>
+
+<div class="article">
+  <span class="art-num">第六十五条</span>
+  <p>本协会社长须为共青团员（含中共党员、中共预备党员），功能型团支部书记须为共青团员（含中共党员、中共预备党员）。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第六十六条</span>
+  <p>社团主要负责人任职条件：</p>
+  <ol>
+    <li>本协会正式成员，入会满一学期；</li>
+    <li>拥护中国共产党领导，理想信念坚定，政治素养过硬，积极弘扬和践行社会主义核心价值观，道德品行端正，奉献意识突出；</li>
+    <li>具有较强的组织管理能力、沟通协调能力和与社团发展相关的业务能力，能够创造性地开展工作；</li>
+    <li>具有较好的群众基础和威信，热心社团工作，乐于为同学服务；</li>
+    <li>在校期间无违反校纪校规行为，未受过纪律处分；</li>
+    <li>应为深圳北理莫斯科大学具有正式学籍的全日制在读本科生或与莫大联合培养的研究生；</li>
+    <li>具有至少一学期及以上学生社团工作经历；</li>
+    <li>必须为共青团员（含中共党员、中共预备党员）。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第六十七条</span>
+  <p>部门负责人任职条件：</p>
+  <ol>
+    <li>本协会正式成员，入会满一学期；</li>
+    <li>拥护中国共产党领导，理想信念坚定；</li>
+    <li>具有较强的业务能力和组织协调能力；</li>
+    <li>学习成绩良好，无违纪记录。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第六十八条</span>
+  <p>每名学生最多加入2个学生社团，不得同时担任两个社团的主要负责人。</p>
+</div>
+</div>
+
+<div class="section">
+<h3>第二节 产生程序</h3>
+
+<div class="article">
+  <span class="art-num">第六十九条</span>
+  <p>社团主要负责人任期为一学年，任期届满应进行换届。因特殊情况需提前或延期换届的，须经指导单位批准，延期最长不超过3个月。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第七十条</span>
+  <p>社团主要负责人产生程序：</p>
+  <ol>
+    <li>提名：由现任常委会综合评估后，提名社长、副社长候选人；</li>
+    <li>审议：常委会对候选人进行审议，形成提名方案；</li>
+    <li>确认：召开会员大会，由会员大会对提名候选人进行确认（同意或否决）；</li>
+    <li>公示：确认通过后，在全校范围内公示，公示期不少于5个工作日；</li>
+    <li>任命：报校团委审批后正式任命。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第七十一条</span>
+  <p>会员大会否决的处理：</p>
+  <ol>
+    <li>如会员大会否决提名候选人，常委会应重新提名；</li>
+    <li>重新提名后再次提交会员大会确认；</li>
+    <li>连续两次否决的，由常委会与指导单位协商处理。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第七十二条</span>
+  <p>部门负责人产生：</p>
+  <ol>
+    <li>由竞聘选拔或常委会提名；</li>
+    <li>经常委会讨论决定；</li>
+    <li>任期与社团主要负责人同步。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第七十三条</span>
+  <p>晋升至部长及以上职务的申请，须经常委会终审；晋升至干事的申请仅需面试签字制，不涉及决策层审批。晋升审批流程：部门负责人初审 → 中心主任复审 → 常委会终审（如涉及决策层职务）。每级审批可选择通过或驳回，驳回需填写驳回理由。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第七十四条</span>
+  <p>技术团队双负责人产生：</p>
+  <ol>
+    <li>管理归属（间接负责人）：系统默认为项目开发部部长，部长离职时按升级链路自动继承（部长→中心主任→社长），无需人工任命；</li>
+    <li>队长（直接负责人）：由项目开发部部长及以上级别（中心主任、社长）从团队成员中选拔任命，不限于部长级别，不占用部门编制；</li>
+    <li>任命时系统记录任命人和任命时间，仅任命人及以上级别可更改队长人选；</li>
+    <li>队长离职后需重新任命，无自动继承机制；</li>
+    <li>队长接受管理归属（间接负责人）的监督，并向其汇报团队状态。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第七十五条</span>
+  <p>工作交接：换届结束后7个工作日内完成工作交接，交接内容包括财务账目、档案资料、资产清单、活动计划、技术资产、项目进展等，交接双方须在交接清单上签字确认。</p>
+</div>
+</div></section>
+
+<!-- ===== 第六章 财务制度 ===== -->
+<section class="chapter" id="ch6">
+<h2>第六章 财务制度</h2>
+
+<div class="article">
+  <span class="art-num">第七十六条</span>
+  <p>协会经费来源：</p>
+  <ol>
+    <li>学校拨款；</li>
+    <li>社会赞助（须报指导单位审批后接受）；</li>
+    <li>技术团队项目收益（扣除成员劳务后的剩余部分）；</li>
+    <li>会费收入（如收取，须经会员大会确认并报校团委审批）；</li>
+    <li>其他合法收入。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第七十七条</span>
+  <p>协会经费必须用于协会集体活动，任何单位和个人严禁侵占、私分或挪用。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第七十八条</span>
+  <p>预算管理：</p>
+  <ol>
+    <li>每年年初编制年度经费预算，经常委会审议通过后报指导单位备案；</li>
+    <li>预算调整须经常委会批准，大幅调整（超过原预算20%）须报指导单位审批。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第七十九条</span>
+  <p>支出审批权限按金额分级：</p>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>金额范围</th><th>审批角色</th><th>审批方式</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>500元以下</td><td>社长（T2）</td><td>单人审批</td></tr>
+      <tr><td>500-1000元</td><td>社长 + 指导教师</td><td>双人会签</td></tr>
+      <tr><td>1000元以上</td><td>常委会（T1）</td><td>集体决策。默认等权投票制（出席率≥2/3 + 赞成率≥2/3）；社长可选择加权投票制（T3及以上参与），加权投票制不要求出席率</td></tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="article">
+  <span class="art-num">第八十条</span>
+  <p>技术团队收益分配：</p>
+  <ol>
+    <li>项目收益优先保障参与成员劳务报酬；</li>
+    <li>成员劳务报酬根据项目贡献度协商确定；</li>
+    <li>扣除成员劳务后的剩余部分纳入协会公共发展资金；</li>
+    <li>收益分配方案须经常委会审议，报指导教师知晓。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第八十一条</span>
+  <p>财务公开：</p>
+  <ol>
+    <li>每学期向全体成员公布一次经费使用情况；</li>
+    <li>在协会公众号或公告栏公示；</li>
+    <li>会员有权查阅协会财务账目。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第八十二条</span>
+  <p>财务监督：</p>
+  <ol>
+    <li>常委会对财务工作进行内部监督；</li>
+    <li>接受全体成员的监督；</li>
+    <li>接受指导单位的审计和检查。</li>
+  </ol>
+</div>
+</section>
+
+<!-- ===== 第七章 任务流转制度 ===== -->
+<section class="chapter" id="ch7">
+<h2>第七章 任务流转制度</h2>
+
+<div class="section">
+<h3>第一节 任务生命周期</h3>
+
+<div class="article">
+  <span class="art-num">第八十三条</span>
+  <p>协会实行OA式任务流转管理，覆盖任务发起、审核、分配、执行、验收、归档全流程。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第八十四条</span>
+  <p>任务状态流转：</p>
+  <ol>
+    <li>发起 → 待审核 → 审核通过/驳回 → 待分配 → 已分配 → 执行中；</li>
+    <li>执行中如需跨部门转交，进入待并签流程；</li>
+    <li>部门内任务直接提交验收；</li>
+    <li>并签通过/并签驳回 → 待验收 → 验收通过/驳回 → 已归档；</li>
+    <li>并签驳回退回原执行人。</li>
+  </ol>
+</div>
+</div>
+
+<div class="section">
+<h3>第二节 权限规则</h3>
+
+<div class="article">
+  <span class="art-num">第八十五条</span>
+  <p>任务权限按层级分配：</p>
+  <ol>
+    <li>T5（干事）：可领取任务、更新进度、上传附件、添加评论；</li>
+    <li>T4（部门负责人）：可分配任务、初审、参与协会级决策；</li>
+    <li>T3（副社长/中心主任）：可跨部门调度、终审。</li>
+  </ol>
+</div>
+</div>
+
+<div class="section">
+<h3>第三节 跨部门并签</h3>
+
+<div class="article">
+  <span class="art-num">第八十六条</span>
+  <p>并签适用场景：</p>
+  <ol>
+    <li>跨部门转交任务：发起方部门负责人 + 接收方部门负责人并签确认；</li>
+    <li>跨中心转交任务：增加双方中心主任审核；</li>
+    <li>多部门协同任务：涉及的所有相关部门负责人会签确认。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第八十七条</span>
+  <p>部门内转交、任务交接（离职/繁忙场景）不适用并签，走直属上级审批流程。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第八十七条之一</span>
+  <p>技术团队任务分配特殊规则：</p>
+  <ol>
+    <li>分配给技术团队的任务，默认发送给团队队长（直接负责人）而非部门部长；</li>
+    <li>队长可将任务进一步分配给团队成员；</li>
+    <li>技术团队的任务交接审批，由管理归属（间接负责人）签字确认；</li>
+    <li>当队长字段为空时，系统提示管理归属（间接负责人）尽快任命队长，在此期间任务暂存待分配状态。</li>
+  </ol>
+</div>
+</div>
+
+<div class="section">
+<h3>第四节 超时自动升级</h3>
+
+<div class="article">
+  <span class="art-num">第八十八条</span>
+  <p>任务超时处理：</p>
+  <ol>
+    <li>任务超过截止日期后，系统自动通知执行人的直属上级；</li>
+    <li>超时48小时再升级至更上一级；</li>
+    <li>升级链路：执行人 → 部门负责人 → 中心主任/副社长 → 社长 → 常委会（集体决策）；</li>
+    <li>防止任务搁置无人处理。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第八十九条</span>
+  <p>上级自动查找机制：系统通过人员档案表 → 部门表 → 层级关系自动解析直属上级，无需手动指定审批人。干事→所属部门负责人；部门负责人→所属中心主任；中心主任/副社长→社长；社长→常委会（集体决策）。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第九十条</span>
+  <p>签字超时规则适用于所有采用签字制的工作流：面试签字、晋升审批、任务交接、跨部门并签等。每个签字环节设24小时超时，超时后自动升级至上一级。超时升级后低层级仍可补签，但不阻塞流程。</p>
+</div>
+</div>
+</section>
+
+<!-- ===== 第八章 对外协作与商业项目 ===== -->
+<section class="chapter" id="ch8">
+<h2>第八章 对外协作与商业项目</h2>
+
+<div class="article">
+  <span class="art-num">第九十一条</span>
+  <p>与IT中心的协作：</p>
+  <ol>
+    <li>协会与IT中心基于平等协商、优势互补的原则开展协作；</li>
+    <li>协作范围包括：校内信息化项目的技术支持、学生技术人才的培养与推荐、技术交流活动等；</li>
+    <li>内核开发团队优先承接IT中心委托的项目；</li>
+    <li>具体协作事项由双方根据实际需求协商确定，可签订书面协作协议；</li>
+    <li>协会承接IT中心项目，须经常委会审议并报指导教师知晓。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第九十二条</span>
+  <p>对外商业项目：</p>
+  <ol>
+    <li>协会可通过战略关系部承接校外商业定制开发项目；</li>
+    <li>商业项目须由业务交付团队执行，部门成员可自愿参与；</li>
+    <li>承接商业项目须经常委会审议通过，报指导单位审批；</li>
+    <li>商业项目合同须经指导教师审核，重大合同须经指导单位审批；</li>
+    <li>商业项目收益分配按本章程第八十条规定执行。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第九十三条</span>
+  <p>对外合作与赞助：</p>
+  <ol>
+    <li>协会与其他高校学生组织、企业、社会机构的合作，须经常委会审议通过；</li>
+    <li>接受社会赞助须报指导单位审批，任何个人不得私自接受赞助；</li>
+    <li>对外合作不得损害学校和协会声誉，不得从事违法违规活动。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第九十四条</span>
+  <p>课程开发与教学：</p>
+  <ol>
+    <li>课程研发部负责为各类组织提供课程支持；</li>
+    <li>开发系列实操课程，涵盖AI工具应用、Office进阶、学业辅导、公文写作等方向；</li>
+    <li>课程开发须经常委会审议，报指导教师审核；</li>
+    <li>课程讲师可从技术团队中遴选，给予相应劳务报酬；</li>
+    <li>涉及保密内容的课程项目，参与成员须签署保密协议。</li>
+  </ol>
+</div>
+
+</section>
+
+<!-- ===== 第九章 技术资产与知识产权 ===== -->
+<section class="chapter" id="ch9">
+<h2>第九章 技术资产与知识产权</h2>
+
+<div class="article">
+  <span class="art-num">第九十五条</span>
+  <p>协会技术资产包括但不限于：代码仓库、技术文档、项目成果、培训资料、设计作品、课程资源等。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第九十六条</span>
+  <p>技术资产管理：</p>
+  <ol>
+    <li>项目开发部负责代码仓库管理；</li>
+    <li>课程研发部负责课程资源管理；</li>
+    <li>品牌传播部负责设计作品管理；</li>
+    <li>建立技术资产清单，定期更新；</li>
+    <li>技术资产归协会所有，成员不得擅自对外披露。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第九十七条</span>
+  <p>知识产权归属：</p>
+  <ol>
+    <li>协会成员在参与协会项目期间产生的技术成果，其知识产权归属由协会与相关方协商确定；</li>
+    <li>技术团队承接商业项目产生的知识产权，按合同约定处理；</li>
+    <li>协会自有项目的知识产权归协会所有。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第九十八条</span>
+  <p>技术资产移交：</p>
+  <ol>
+    <li>成员退出协会时，须移交所持有的协会技术资产；</li>
+    <li>换届交接时，技术资产须完整移交，并更新资产清单；</li>
+    <li>项目结束时，项目资料须归档保存。</li>
+  </ol>
+</div>
+
+</section>
+
+<!-- ===== 第十章 社团终止 ===== -->
+<section class="chapter" id="ch10">
+<h2>第十章 社团终止</h2>
+
+<div class="article">
+  <span class="art-num">第九十九条</span>
+  <p>协会有下列情形之一的，应当终止：</p>
+  <ol>
+    <li>完成协会宗旨或自行解散的；</li>
+    <li>会员大会决议解散的；</li>
+    <li>被学校注销的；</li>
+    <li>由于其他原因终止的。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第一百条</span>
+  <p>协会终止的决议须经会员大会出席成员三分之二以上通过，报指导单位批准。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第一百零一条</span>
+  <p>协会终止前，须成立清算组进行清算。清算组由社团主要负责人、指导教师及相关人员组成。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第一百零二条</span>
+  <p>清算组职责：</p>
+  <ol>
+    <li>清理协会债权债务；</li>
+    <li>处理协会剩余财产；</li>
+    <li>移交技术资产和档案资料；</li>
+    <li>办理协会注销手续。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第一百零三条</span>
+  <p>协会终止后的剩余财产，按照学校有关规定处理，任何单位和个人不得侵占或私分。协会终止后的档案资料和技术资产，按学校档案管理规定移交指导单位保存。</p>
+</div>
+
+</section>
+
+<!-- ===== 第十一章 章程修改程序 ===== -->
+<section class="chapter" id="ch11">
+<h2>第十一章 章程修改程序</h2>
+
+<div class="article">
+  <span class="art-num">第一百零四条</span>
+  <p>章程修改的提议：</p>
+  <ol>
+    <li>常委会认为必要时，可提出章程修改议案；</li>
+    <li>成员可向常委会提交章程修改提案；</li>
+    <li>指导单位认为必要时，可建议修改章程。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第一百零五条</span>
+  <p>章程修改的程序：</p>
+  <ol>
+    <li>提出修改议案或提案，说明修改理由和内容；</li>
+    <li>常委会审议议案，形成修改草案；</li>
+    <li>功能型团支部对修改草案进行政治把关；</li>
+    <li>将修改草案提交会员大会确认；</li>
+    <li>会员大会须有三分之二以上成员出席，经出席成员三分之二以上同意方可通过；</li>
+    <li>修改后的章程报校团委批准后生效。</li>
+  </ol>
+</div>
+
+<div class="article">
+  <span class="art-num">第一百零六条</span>
+  <p>章程修改后，应及时向全体成员公布，并报指导单位备案。</p>
+</div>
+
+</section>
+
+<!-- ===== 第十二章 附则 ===== -->
+<section class="chapter" id="ch12">
+<h2>第十二章 附则</h2>
+
+<div class="article">
+  <span class="art-num">第一百零七条</span>
+  <p>本章程未尽事宜，按照国家法律法规、学校规章制度及相关上级文件执行。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第一百零八条</span>
+  <p>本章程与国家法律法规、学校规章制度相抵触的，以国家法律法规和学校规章制度为准。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第一百零九条</span>
+  <p>本章程的解释权归深圳北理莫斯科大学计算机协会常委会所有。章程条款的具体解释由常委会负责，重大解释事项须报指导单位备案。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第一百一十条</span>
+  <p>本章程经会员大会确认，报校团委批准后生效。修改时亦同。</p>
+</div>
+
+<div class="article">
+  <span class="art-num">第一百一十一条</span>
+  <p>本章程自发布之日起施行。</p>
+</div>
+</section>
+
+</div>
+
+</body></html>
