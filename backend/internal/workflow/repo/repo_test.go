@@ -6,26 +6,16 @@ import (
 	"testing"
 
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
+	"github.com/Yogdunana/StarByte/backend/pkg/testutil"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
-// setupTestDB creates a test database connection.
-// Set WORKFLOW_TEST_DSN env var to enable DB tests; otherwise tests are skipped.
 func setupTestDB(t *testing.T) *gorm.DB {
-	dsn := "host=localhost user=postgres password=postgres dbname=starbyte_test port=5432 sslmode=disable"
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
-	})
-	if err != nil {
-		t.Skipf("skipping DB test: %v", err)
-	}
+	db := testutil.OpenPostgres(t)
 
-	// Auto-migrate workflow tables
 	if err := db.AutoMigrate(
 		&model.FlowDefinition{},
 		&model.FlowDefinitionVersion{},
@@ -37,10 +27,25 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		t.Skipf("skipping DB test (migrate failed): %v", err)
 	}
 
-	// Clean up tables before each test
 	db.Exec("TRUNCATE flow_variables, flow_histories, flow_tasks, flow_instances, flow_definition_versions, flow_definitions CASCADE")
 
 	return db
+}
+
+func seedWorkflowUser(t *testing.T, db *gorm.DB) uuid.UUID {
+	t.Helper()
+	const name = "wf_repo_test_user"
+	id := uuid.New()
+	require.NoError(t, db.Exec(
+		`INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)
+		 ON CONFLICT (username) DO NOTHING`,
+		id, name, "x",
+	).Error)
+	var idStr string
+	require.NoError(t, db.Raw("SELECT id::text FROM users WHERE username = ?", name).Scan(&idStr).Error)
+	parsed, err := uuid.Parse(idStr)
+	require.NoError(t, err)
+	return parsed
 }
 
 // ========== DefinitionRepo Tests ==========
@@ -270,7 +275,7 @@ func TestInstanceRepo_CreateAndGet(t *testing.T) {
 		ID:                  instID,
 		DefinitionID:        defID,
 		DefinitionVersionID: verID,
-		InitiatorID:         uuid.New(),
+		InitiatorID:         seedWorkflowUser(t, db),
 		Status:              0,
 		CurrentNodeIDs:      []byte(`["node-1"]`),
 	}
@@ -312,10 +317,10 @@ func TestTaskRepo_CreateAndGet(t *testing.T) {
 	}))
 	instID := uuid.New()
 	require.NoError(t, instRepo.Create(ctx, nil, &model.FlowInstance{
-		ID: instID, DefinitionID: defID, DefinitionVersionID: verID, InitiatorID: uuid.New(),
+		ID: instID, DefinitionID: defID, DefinitionVersionID: verID, InitiatorID: seedWorkflowUser(t, db),
 	}))
 
-	assignee := uuid.New()
+	assignee := seedWorkflowUser(t, db)
 	taskID := uuid.New()
 	task := &model.FlowTask{
 		ID:         taskID,
@@ -373,7 +378,7 @@ func TestVariableRepo_SetAndGet(t *testing.T) {
 	}))
 	instID := uuid.New()
 	require.NoError(t, instRepo.Create(ctx, nil, &model.FlowInstance{
-		ID: instID, DefinitionID: defID, DefinitionVersionID: verID, InitiatorID: uuid.New(),
+		ID: instID, DefinitionID: defID, DefinitionVersionID: verID, InitiatorID: seedWorkflowUser(t, db),
 	}))
 
 	// Set a variable
@@ -433,7 +438,7 @@ func TestVariableRepo_SetAndGetValueTypes(t *testing.T) {
 	}))
 	instID := uuid.New()
 	require.NoError(t, instRepo.Create(ctx, nil, &model.FlowInstance{
-		ID: instID, DefinitionID: defID, DefinitionVersionID: verID, InitiatorID: uuid.New(),
+		ID: instID, DefinitionID: defID, DefinitionVersionID: verID, InitiatorID: seedWorkflowUser(t, db),
 	}))
 
 	// Test various value types
@@ -471,7 +476,7 @@ func TestVariableRepo_GetWithScope(t *testing.T) {
 	}))
 	instID := uuid.New()
 	require.NoError(t, instRepo.Create(ctx, nil, &model.FlowInstance{
-		ID: instID, DefinitionID: defID, DefinitionVersionID: verID, InitiatorID: uuid.New(),
+		ID: instID, DefinitionID: defID, DefinitionVersionID: verID, InitiatorID: seedWorkflowUser(t, db),
 	}))
 
 	// Create same key with different scopes

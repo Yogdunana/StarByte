@@ -8,6 +8,8 @@ import (
 	"gorm.io/gorm"
 )
 
+//go:generate mockgen -source=permission_repo.go -destination=mock_permission_repo.go -package=repo
+
 // PermissionRepo 权限数据访问接口
 // 定义权限相关的数据库操作，支持事务传入以保证复杂操作的原子性。
 type PermissionRepo interface {

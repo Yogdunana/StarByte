@@ -47,6 +47,9 @@ func (r *variableRepo) getDB(tx *gorm.DB) *gorm.DB {
 }
 
 func (r *variableRepo) Set(ctx context.Context, tx *gorm.DB, v *model.FlowVariable) error {
+	if v.ID == uuid.Nil {
+		v.ID = uuid.New()
+	}
 	// Atomic upsert using ON CONFLICT — no race condition.
 	return r.getDB(tx).WithContext(ctx).Clauses(clause.OnConflict{
 		Columns: []clause.Column{
