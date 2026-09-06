@@ -943,15 +943,15 @@ AI 系统提示词（见 8.2 节）已包含强制变更检查步骤。当开发
 | [#7](https://github.com/Yogdunana/StarByte/issues/7) | 面试管理 | fullstack | #1, #2, #6 | 完成（`000021` 补列；勿另起表） |
 | [#8](https://github.com/Yogdunana/StarByte/issues/8) | 会议管理 + 投票系统（等权 + 加权） | fullstack | #1, #4 | 完成（`000022` 补列；勿另起表） |
 | [#9](https://github.com/Yogdunana/StarByte/issues/9) | 任务流转 | fullstack | #1, #4 | 完成（`000023` 补列 + `task_logs`；勿另起表） |
-| [#10](https://github.com/Yogdunana/StarByte/issues/10) | IT 实习管理 | fullstack | #1, #4 | 进行中（`000024` 补列；勿另起表） |
-| [#11](https://github.com/Yogdunana/StarByte/issues/11) | 数据统计与可视化报表 | fullstack | #1, #5 | |
-| #22 | 财务管理模块（一期预留接口） | fullstack | #1, #4 | |
-| #23 | 纪律处分记录模块 | fullstack | #1, #4 | |
-| #24 | 合同管理模块（一期预留接口） | fullstack | #1, #4 | |
-| #25 | 邮件通知**增强**（附件/批量/重试/记录） | backend | #4 | 2026-09-04 改写；勿重做 SMTP |
-| #26 | 前端仪表盘与数据大屏 | frontend | #11, #15 | |
+| [#10](https://github.com/Yogdunana/StarByte/issues/10) | IT 实习管理 | fullstack | #1, #4 | 完成（`000024` 补列；勿另起表） |
+| [#11](https://github.com/Yogdunana/StarByte/issues/11) | 数据统计与可视化报表 | fullstack | #1, #5 | 完成 |
+| #22 | 财务管理模块（一期预留接口） | fullstack | #1, #4 | 未做产品页（表已在 `000017`；架构划二期） |
+| #23 | 纪律处分记录模块 | fullstack | #1, #4 | 未做产品页（表已在 `000018`；架构划二期） |
+| #24 | 合同管理模块（一期预留接口） | fullstack | #1, #4 | 未做产品页（表已在 `000019`；架构划二期） |
+| #25 | 邮件通知**增强**（附件/批量/重试/记录） | backend | #4 | 完成；勿重做 SMTP |
+| #26 | 前端仪表盘与数据大屏 | frontend | #11, #15 | 完成 |
 | #27 | ~~流程引擎节点插件~~ | backend | #2 | **已关闭（重复 #2）** |
-| #28 | 前端表单引擎与动态表单 | frontend | #3, #15 | |
+| #28 | 前端表单引擎与动态表单 | frontend | #3, #15 | 完成 |
 
 #### 易撞车的扩展 Issue（不在 33 张门禁表内）
 
@@ -966,13 +966,13 @@ AI 系统提示词（见 8.2 节）已包含强制变更检查步骤。当开发
 
 #### P3 - 支持功能（5 个）
 
-| Issue | 标题 | 模块 | 依赖 |
-|-------|------|------|------|
-| #29 | API 文档生成与 Swagger 集成 | backend | #14 |
-| #30 | 单元测试与集成测试框架 | fullstack | P0/P1 完成 |
-| #31 | 前端国际化与主题切换 | frontend | #15 |
-| #32 | 性能监控与健康检查 | backend | #14 |
-| #33 | 开发者文档与 README 完善 | docs | 各模块基本完成 |
+| Issue | 标题 | 模块 | 依赖 | 备注 |
+|-------|------|------|------|------|
+| #29 | API 文档生成与 Swagger 集成 | backend | #14 | 完成 |
+| #30 | 单元测试与集成测试框架 | fullstack | P0/P1 完成 | 完成 |
+| #31 | 前端国际化与主题切换 | frontend | #15 | 未做 |
+| #32 | 性能监控与健康检查 | backend | #14 | 完成 |
+| #33 | 开发者文档与 README 完善 | docs | 各模块基本完成 | 进行中（一期口径见 `docs/phase1-readiness.md`） |
 
 ### 9.5 标签说明
 
@@ -1055,4 +1055,5 @@ migrate -path backend/migrations \
 | Git 工作流 | `docs/dev-guide/git-workflow.md` | 分支管理与 PR |
 | PR 规范 | `docs/dev-guide/pr-specification.md` | PR 模板与审查 |
 | AI 提示词 | `docs/dev-guide/prompts/` | 各场景 AI 提示词 |
+| 一期可用性检查 | `docs/phase1-readiness.md` | 2026-09-06 门禁对照与实测 |
 | 贡献指南 | `CONTRIBUTING.md` | 完整贡献流程 |
