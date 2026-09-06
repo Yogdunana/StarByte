@@ -94,7 +94,7 @@ func (s *auditService) downloadObject(ctx context.Context, objectName string) ([
 	if err != nil {
 		return nil, err
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 	return io.ReadAll(io.LimitReader(rc, maxArchiveDecode+1))
 }
 
@@ -108,7 +108,7 @@ func decodeArchiveLogs(raw []byte) ([]model.AuditLog, bool, error) {
 		if err != nil {
 			return nil, false, err
 		}
-		defer zr.Close()
+		defer func() { _ = zr.Close() }()
 		decoded, err := io.ReadAll(io.LimitReader(zr, maxArchiveDecode+1))
 		if err != nil {
 			return nil, false, err
