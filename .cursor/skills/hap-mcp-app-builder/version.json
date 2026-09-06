@@ -1,0 +1,7 @@
+{
+  "version": "1.0.0",
+  "releaseNotes": "初始版本：方案设计 + 11 步物理搭建全流程",
+  "repository": "https://github.com/mingdaocom/hap-skills",
+  "branch": "main",
+  "skillPath": "skills/mcp/hap-mcp-app-builder"
+}

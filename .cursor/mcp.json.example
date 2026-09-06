@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "hap-mcp-工程系每周晚归情况统计": {
+      "url": "https://hap.smbu.edu.cn/mcp?HAP-Appkey=${env:HAP_APPKEY}&HAP-Sign=${env:HAP_SIGN}"
+    }
+  }
+}

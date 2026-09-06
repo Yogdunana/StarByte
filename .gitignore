@@ -29,6 +29,7 @@ pnpm-debug.log*
 # IDE
 .idea/
 .vscode/
+.cursor/mcp.json
 *.swp
 *.swo
 *~
