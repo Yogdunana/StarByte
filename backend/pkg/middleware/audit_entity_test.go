@@ -72,11 +72,14 @@ func TestFillTraceFields_PrefersResponseAfter(t *testing.T) {
 	SetAuditSnapshot(c, "user", "11111111-1111-1111-1111-111111111111", map[string]any{
 		"real_name": "旧",
 		"username":  "keep",
+		"status":    1,
 	})
 	entry := &AuditLogEntry{Method: "PUT", Path: "/api/v1/users/11111111-1111-1111-1111-111111111111"}
 	fillTraceFields(c, entry, `{"real_name":"新"}`, `{"code":0,"data":{"id":"11111111-1111-1111-1111-111111111111","real_name":"新","username":"keep"}}`)
 	assert.Contains(t, entry.AfterJSON, `"username":"keep"`)
+	assert.Contains(t, entry.AfterJSON, `"status":1`)
 	assert.NotContains(t, entry.DiffJSON, `"path":"username"`)
+	assert.NotContains(t, entry.DiffJSON, `"path":"status"`)
 }
 
 func TestFillTraceFields_CreateEntityIDFromResponse(t *testing.T) {

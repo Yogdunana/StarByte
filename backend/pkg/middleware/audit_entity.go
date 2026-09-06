@@ -210,16 +210,17 @@ func fillTraceFields(c *gin.Context, entry *AuditLogEntry, reqBody, respBody str
 }
 
 func resolveAfterJSON(before, reqAfter, respAfter string) string {
+	patch := reqAfter
 	if strings.TrimSpace(respAfter) != "" {
-		return respAfter
+		patch = respAfter
 	}
-	if strings.TrimSpace(reqAfter) == "" || reqAfter == "[redacted: sensitive endpoint]" {
-		return reqAfter
+	if strings.TrimSpace(patch) == "" || patch == "[redacted: sensitive endpoint]" {
+		return patch
 	}
 	if strings.TrimSpace(before) != "" {
-		return overlayJSON(before, reqAfter)
+		return overlayJSON(before, patch)
 	}
-	return reqAfter
+	return patch
 }
 
 // overlayJSON 用 after 的顶层键覆盖 before，避免部分请求体把快照字段标成删除。
