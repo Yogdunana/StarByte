@@ -230,3 +230,10 @@ func TestHtmlToText(t *testing.T) {
 	assert.Contains(t, got, "标题")
 	assert.Contains(t, got, "hello")
 }
+
+func TestRenderTable_CSV(t *testing.T) {
+	data, name, err := RenderTable("csv", sampleReq(1))
+	require.NoError(t, err)
+	assert.Equal(t, "members.csv", name)
+	assert.Contains(t, string(data), "张三")
+}

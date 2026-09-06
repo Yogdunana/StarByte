@@ -50,6 +50,39 @@ func (m *mockAuditService) Archive(ctx context.Context, beforeDays int) (*dto.Ar
 	}
 	return args.Get(0).(*dto.ArchiveResponse), args.Error(1)
 }
+func (m *mockAuditService) Trace(ctx context.Context, entityType, entityID string, req *dto.TraceQueryRequest) ([]dto.AuditTraceItem, int64, error) {
+	args := m.Called(ctx, entityType, entityID, req)
+	if args.Get(0) == nil {
+		return nil, args.Get(1).(int64), args.Error(2)
+	}
+	return args.Get(0).([]dto.AuditTraceItem), args.Get(1).(int64), args.Error(2)
+}
+func (m *mockAuditService) Report(ctx context.Context, req *dto.ReportRequest) (*dto.ReportResponse, []byte, string, error) {
+	args := m.Called(ctx, req)
+	var report *dto.ReportResponse
+	if args.Get(0) != nil {
+		report = args.Get(0).(*dto.ReportResponse)
+	}
+	var data []byte
+	if args.Get(1) != nil {
+		data = args.Get(1).([]byte)
+	}
+	return report, data, args.String(2), args.Error(3)
+}
+func (m *mockAuditService) ListArchives(ctx context.Context, req *dto.ArchiveListRequest) ([]dto.ArchiveListItem, int64, error) {
+	args := m.Called(ctx, req)
+	if args.Get(0) == nil {
+		return nil, args.Get(1).(int64), args.Error(2)
+	}
+	return args.Get(0).([]dto.ArchiveListItem), args.Get(1).(int64), args.Error(2)
+}
+func (m *mockAuditService) PullArchive(ctx context.Context, id uuid.UUID, req *dto.ArchiveListRequest) (*dto.ArchivePullResponse, error) {
+	args := m.Called(ctx, id, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.ArchivePullResponse), args.Error(1)
+}
 
 func TestGetByID_InvalidID(t *testing.T) {
 	gin.SetMode(gin.TestMode)

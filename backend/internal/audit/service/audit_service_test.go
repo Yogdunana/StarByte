@@ -54,6 +54,35 @@ func (m *mockAuditRepo) DeleteBefore(ctx context.Context, before time.Time) (int
 func (m *mockAuditRepo) CreateArchive(ctx context.Context, archive *model.AuditLogArchive) error {
 	return m.Called(ctx, archive).Error(0)
 }
+func (m *mockAuditRepo) ListByEntity(ctx context.Context, entityType, entityID string, page, pageSize int) ([]model.AuditLog, int64, error) {
+	args := m.Called(ctx, entityType, entityID, page, pageSize)
+	return args.Get(0).([]model.AuditLog), args.Get(1).(int64), args.Error(2)
+}
+func (m *mockAuditRepo) ListArchives(ctx context.Context, page, pageSize int) ([]model.AuditLogArchive, int64, error) {
+	args := m.Called(ctx, page, pageSize)
+	return args.Get(0).([]model.AuditLogArchive), args.Get(1).(int64), args.Error(2)
+}
+func (m *mockAuditRepo) GetArchiveByID(ctx context.Context, id uuid.UUID) (*model.AuditLogArchive, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.AuditLogArchive), args.Error(1)
+}
+func (m *mockAuditRepo) GroupCount(ctx context.Context, req *repo.ListParams, column string) ([]repo.CountRow, error) {
+	args := m.Called(ctx, req, column)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]repo.CountRow), args.Error(1)
+}
+func (m *mockAuditRepo) GroupCompliance(ctx context.Context, req *repo.ListParams) ([]repo.CountRow, error) {
+	args := m.Called(ctx, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]repo.CountRow), args.Error(1)
+}
 
 func sampleLog() model.AuditLog {
 	uid := uuid.New()

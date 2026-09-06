@@ -279,8 +279,11 @@ func TestCodeInternalErrorUsesGeneralRange(t *testing.T) {
 	assert.Equal(t, 1500, CodeInternalError)
 	assert.Equal(t, 1501, CodeNotImplemented)
 	assert.Equal(t, 5001, CodeAuditNotFound)
+	assert.Equal(t, 5005, CodeAuditArchiveNotFound)
+	assert.Equal(t, 5008, CodeAuditEntityInvalid)
 	assert.True(t, CodeInternalError >= 1000 && CodeInternalError <= 1999)
 	assert.True(t, CodeAuditNotFound >= 5000 && CodeAuditNotFound <= 5999)
+	assert.True(t, CodeAuditEntityInvalid >= 5000 && CodeAuditEntityInvalid <= 5999)
 	assert.NotEqual(t, CodeInternalError, CodeAuditNotFound)
 }
 

@@ -58,6 +58,7 @@ const AuditFilterBar: React.FC<AuditFilterBarProps> = ({
           { value: 'CREATE', label: 'CREATE' },
           { value: 'UPDATE', label: 'UPDATE' },
           { value: 'DELETE', label: 'DELETE' },
+          { value: 'EXPORT', label: 'EXPORT' },
           { value: 'LOGIN', label: 'LOGIN' },
           { value: 'LOGOUT', label: 'LOGOUT' },
         ]}

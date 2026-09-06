@@ -160,7 +160,7 @@ func TestAuditLog_LargeResponseBodyTruncated(t *testing.T) {
 func TestWriteMethods(t *testing.T) {
 	assert.True(t, writeMethods["POST"])
 	assert.True(t, writeMethods["PUT"])
-	assert.False(t, writeMethods["PATCH"])
+	assert.True(t, writeMethods["PATCH"])
 	assert.True(t, writeMethods["DELETE"])
 	assert.False(t, writeMethods["GET"])
 	assert.False(t, writeMethods["OPTIONS"])
@@ -195,6 +195,13 @@ func TestSanitizeRequestBody_NoSensitiveData(t *testing.T) {
 	result := sanitizeRequestBody("/api/v1/user/profile", body)
 	assert.Contains(t, result, "test")
 	assert.Contains(t, result, "age")
+}
+
+func TestSanitizeResponseBody_BinaryOmitted(t *testing.T) {
+	assert.Equal(t, "[binary response omitted]", sanitizeResponseBody(string([]byte{0xff, 0xfe, 0x00, 0x01})))
+	assert.Equal(t, "[binary response omitted]", sanitizeResponseBody("%PDF-1.4\n%binary"))
+	assert.Equal(t, "[binary response omitted]", sanitizeResponseBody("PK\x03\x04xlsx"))
+	assert.Contains(t, sanitizeResponseBody(`{"ok":true}`), "ok")
 }
 
 func TestSanitizeRequestBody_MultipleSensitiveFields(t *testing.T) {
