@@ -17,6 +17,23 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    env:
+      TEST_DATABASE_URL: postgres://starbyte:starbyte@localhost:5432/starbyte_test?sslmode=disable
+      TEST_DATABASE_REQUIRED: "1"
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: starbyte
+          POSTGRES_PASSWORD: starbyte
+          POSTGRES_DB: starbyte_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
 
@@ -48,8 +65,26 @@ jobs:
       - name: Build
         run: go build -o starbyte-server ./cmd/server
 
+      - name: Install migrate
+        run: |
+          curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz
+          sudo mv migrate /usr/local/bin/
+
+      - name: Migrate test database
+        run: migrate -path migrations -database "$TEST_DATABASE_URL" up
+
       - name: Test
         run: go test -v -race -count=1 ./...
+
+      - name: Coverage gate
+        run: bash scripts/check-coverage.sh
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage.out
 
   # ─────────────────────────────────────────────────────────
   # 前端检查
@@ -75,6 +110,16 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Test & coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage
 
       - name: Type check & Build
         run: npm run build

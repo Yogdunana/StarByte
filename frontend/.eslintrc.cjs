@@ -45,5 +45,11 @@ module.exports = {
     'prefer-const': 'error',
     'eqeqeq': ['error', 'smart'],
   },
-  ignorePatterns: ['dist', 'node_modules', '*.config.js'],
+  ignorePatterns: ['dist', 'node_modules', '*.config.js', 'coverage'],
+  overrides: [
+    {
+      files: ['**/*.test.ts', '**/*.test.tsx', 'src/test/**'],
+      env: { jest: true },
+    },
+  ],
 };

@@ -49,6 +49,14 @@ issues:
         - ineffassign
         - gosimple
         - staticcheck  # 测试代码静态检查适当放宽
+    # gomock 生成文件：类型断言为生成代码惯例
+    - path: mock_.*\.go
+      linters:
+        - errcheck
+        - ineffassign
+        - gosimple
+        - staticcheck
+        - govet
   exclude-use-default: false
   max-issues-per-linter: 50
   max-same-issues: 5

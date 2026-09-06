@@ -8,6 +8,8 @@ import (
 	"gorm.io/gorm"
 )
 
+//go:generate mockgen -source=position_repo.go -destination=mock_position_repo.go -package=repo
+
 // PositionRepo 职位数据访问接口
 // 定义职位相关的数据库操作，支持事务传入以保证复杂操作的原子性。
 type PositionRepo interface {
