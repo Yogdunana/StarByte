@@ -127,6 +127,18 @@ func TestAllSeedPermissions_IncludesDict(t *testing.T) {
 	}
 }
 
+func TestAllSeedPermissions_IncludesSession(t *testing.T) {
+	seen := map[string]bool{}
+	for _, p := range allSeedPermissions() {
+		seen[p.Code] = true
+	}
+	for _, need := range []string{"session:read", "session:delete"} {
+		assert.True(t, seen[need], "missing permission %s", need)
+	}
+	assert.False(t, seen["session:create"])
+	assert.False(t, seen["session:update"])
+}
+
 func TestOfficerAndMemberPerms_NonEmpty(t *testing.T) {
 	assert.GreaterOrEqual(t, len(officerPermCodes()), 8)
 	assert.GreaterOrEqual(t, len(memberPermCodes()), 5)

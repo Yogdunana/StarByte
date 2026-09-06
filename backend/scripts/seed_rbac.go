@@ -85,6 +85,10 @@ func allSeedPermissions() []seedPerm {
 		seedPerm{Name: "发送通知", Code: "notification:send", Resource: "notification", Action: "create"},
 	)
 	perms = append(perms, moduleCRUD("config", "运行时配置")...)
+	perms = append(perms,
+		seedPerm{Name: "会话查看", Code: "session:read", Resource: "session", Action: "read"},
+		seedPerm{Name: "强制下线", Code: "session:delete", Resource: "session", Action: "delete"},
+	)
 	return perms
 }
 

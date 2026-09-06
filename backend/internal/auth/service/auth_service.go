@@ -21,10 +21,14 @@ import (
 // AuthService defines the authentication service interface.
 type AuthService interface {
 	Login(ctx context.Context, req *dto.LoginRequest, ip, userAgent string) (*dto.LoginResponse, error)
-	RefreshToken(ctx context.Context, req *dto.RefreshTokenRequest) (*dto.RefreshResponse, error)
+	RefreshToken(ctx context.Context, req *dto.RefreshTokenRequest, ip, userAgent string) (*dto.RefreshResponse, error)
 	Logout(ctx context.Context, userID, tokenID, refreshToken string) error
 	GetCurrentUser(ctx context.Context, userID string) (*dto.UserInfo, error)
 	ChangePassword(ctx context.Context, userID string, req *dto.ChangePasswordRequest) error
+	ListSessions(ctx context.Context, keyword, userID string) (*dto.SessionListResponse, error)
+	GetUserSessions(ctx context.Context, userID string) (*dto.UserSessionsResponse, error)
+	KickSession(ctx context.Context, tokenID string) error
+	KickUserSessions(ctx context.Context, userID string) error
 }
 
 type authService struct {
@@ -104,16 +108,20 @@ func (s *authService) Login(ctx context.Context, req *dto.LoginRequest, ip, user
 	}
 
 	// 8. Generate and store refresh token (random string in Redis)
+	claims, _ := authmiddleware.ParseToken(accessToken, s.jwtConfig)
+	accessJTI := ""
+	if claims != nil {
+		accessJTI = claims.ID
+	}
+
 	refreshToken := s.authRepo.GenerateRefreshToken()
 	refreshTTL := time.Duration(s.jwtConfig.RefreshTokenExp) * time.Second
-	if err := s.authRepo.StoreRefreshToken(ctx, refreshToken, user.ID.String(), refreshTTL); err != nil {
+	if err := s.authRepo.StoreRefreshToken(ctx, refreshToken, user.ID.String(), accessJTI, refreshTTL); err != nil {
 		return nil, fmt.Errorf("store refresh token: %w", err)
 	}
 
-	// 9. Store session metadata
-	claims, _ := authmiddleware.ParseToken(accessToken, s.jwtConfig)
-	if claims != nil && claims.ID != "" {
-		_ = s.authRepo.StoreSession(ctx, user.ID.String(), claims.ID, ip, userAgent, accessTTL(s.jwtConfig))
+	if accessJTI != "" {
+		_ = s.authRepo.StoreSession(ctx, user.ID.String(), accessJTI, ip, userAgent, accessTTL(s.jwtConfig))
 	}
 
 	// 10. Update last login info
@@ -135,16 +143,18 @@ func (s *authService) Login(ctx context.Context, req *dto.LoginRequest, ip, user
 }
 
 // RefreshToken validates a refresh token, rotates it, and returns a new token pair.
-func (s *authService) RefreshToken(ctx context.Context, req *dto.RefreshTokenRequest) (*dto.RefreshResponse, error) {
-	// 1. Look up refresh token in Redis
-	userID, err := s.authRepo.GetRefreshTokenUserID(ctx, req.RefreshToken)
+func (s *authService) RefreshToken(ctx context.Context, req *dto.RefreshTokenRequest, ip, userAgent string) (*dto.RefreshResponse, error) {
+	userID, oldJTI, err := s.authRepo.GetRefreshTokenMeta(ctx, req.RefreshToken)
 	if err != nil {
 		return nil, response.NewError(response.CodeRefreshTokenInvalid, "Refresh Token 无效")
 	}
 
-	// 2. Delete old refresh token (rotation: one-time use)
 	if err := s.authRepo.DeleteRefreshToken(ctx, req.RefreshToken); err != nil {
 		return nil, fmt.Errorf("delete refresh token: %w", err)
+	}
+	if oldJTI != "" {
+		_ = s.authRepo.BlacklistToken(ctx, oldJTI, accessTTL(s.jwtConfig))
+		_ = s.authRepo.DeleteSession(ctx, oldJTI)
 	}
 
 	// 3. Query user
@@ -177,11 +187,19 @@ func (s *authService) RefreshToken(ctx context.Context, req *dto.RefreshTokenReq
 		return nil, fmt.Errorf("generate access token: %w", err)
 	}
 
-	// 6. Generate and store new refresh token (rotation)
+	newClaims, _ := authmiddleware.ParseToken(accessToken, s.jwtConfig)
+	newJTI := ""
+	if newClaims != nil {
+		newJTI = newClaims.ID
+	}
+
 	newRefreshToken := s.authRepo.GenerateRefreshToken()
 	refreshTTL := time.Duration(s.jwtConfig.RefreshTokenExp) * time.Second
-	if err := s.authRepo.StoreRefreshToken(ctx, newRefreshToken, user.ID.String(), refreshTTL); err != nil {
+	if err := s.authRepo.StoreRefreshToken(ctx, newRefreshToken, user.ID.String(), newJTI, refreshTTL); err != nil {
 		return nil, fmt.Errorf("store refresh token: %w", err)
+	}
+	if newJTI != "" {
+		_ = s.authRepo.StoreSession(ctx, user.ID.String(), newJTI, ip, userAgent, accessTTL(s.jwtConfig))
 	}
 
 	return &dto.RefreshResponse{

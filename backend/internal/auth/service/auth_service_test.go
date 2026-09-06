@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/auth/dto"
+	authmodel "github.com/Yogdunana/StarByte/backend/internal/auth/model"
 	"github.com/Yogdunana/StarByte/backend/internal/user/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
@@ -69,8 +70,8 @@ type mockAuthRepo struct {
 	mock.Mock
 }
 
-func (m *mockAuthRepo) StoreRefreshToken(ctx context.Context, token, userID string, ttl time.Duration) error {
-	args := m.Called(ctx, token, userID, ttl)
+func (m *mockAuthRepo) StoreRefreshToken(ctx context.Context, token, userID, accessJTI string, ttl time.Duration) error {
+	args := m.Called(ctx, token, userID, accessJTI, ttl)
 	return args.Error(0)
 }
 
@@ -79,8 +80,23 @@ func (m *mockAuthRepo) GetRefreshTokenUserID(ctx context.Context, token string) 
 	return args.String(0), args.Error(1)
 }
 
+func (m *mockAuthRepo) GetRefreshTokenMeta(ctx context.Context, token string) (string, string, error) {
+	args := m.Called(ctx, token)
+	return args.String(0), args.String(1), args.Error(2)
+}
+
 func (m *mockAuthRepo) DeleteRefreshToken(ctx context.Context, token string) error {
 	args := m.Called(ctx, token)
+	return args.Error(0)
+}
+
+func (m *mockAuthRepo) DeleteRefreshTokensByUser(ctx context.Context, userID string) error {
+	args := m.Called(ctx, userID)
+	return args.Error(0)
+}
+
+func (m *mockAuthRepo) DeleteRefreshTokensByJTI(ctx context.Context, userID, jti string) error {
+	args := m.Called(ctx, userID, jti)
 	return args.Error(0)
 }
 
@@ -132,6 +148,30 @@ func (m *mockAuthRepo) StoreSession(ctx context.Context, userID, tokenID, ip, us
 func (m *mockAuthRepo) DeleteSession(ctx context.Context, tokenID string) error {
 	args := m.Called(ctx, tokenID)
 	return args.Error(0)
+}
+
+func (m *mockAuthRepo) GetSession(ctx context.Context, tokenID string) (*authmodel.Session, error) {
+	args := m.Called(ctx, tokenID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*authmodel.Session), args.Error(1)
+}
+
+func (m *mockAuthRepo) ListSessions(ctx context.Context) ([]authmodel.Session, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]authmodel.Session), args.Error(1)
+}
+
+func (m *mockAuthRepo) ListSessionsByUser(ctx context.Context, userID string) ([]authmodel.Session, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]authmodel.Session), args.Error(1)
 }
 
 func (m *mockAuthRepo) GenerateRefreshToken() string {
@@ -217,7 +257,7 @@ func TestLogin_Success(t *testing.T) {
 	authRepo.On("ResetLoginAttempts", ctx, "testuser").Return(nil)
 	permCache.On("GetUserPermissionsAndSuperAdmin", ctx, userID).Return([]string{"user:read"}, false, nil)
 	permCache.On("GetUserRoleCodes", ctx, userID).Return([]string{"user"}, nil)
-	authRepo.On("StoreRefreshToken", ctx, mock.Anything, userID.String(), mock.Anything).Return(nil)
+	authRepo.On("StoreRefreshToken", ctx, mock.Anything, userID.String(), mock.Anything, mock.Anything).Return(nil)
 	authRepo.On("StoreSession", ctx, userID.String(), mock.Anything, "127.0.0.1", mock.Anything, mock.Anything).Return(nil)
 	userRepo.On("UpdateLastLogin", ctx, userID, "127.0.0.1").Return(nil)
 
@@ -362,16 +402,19 @@ func TestRefreshToken_Success(t *testing.T) {
 		Status:       0,
 	}
 
-	authRepo.On("GetRefreshTokenUserID", ctx, "valid-refresh-token").Return(userID.String(), nil)
+	authRepo.On("GetRefreshTokenMeta", ctx, "valid-refresh-token").Return(userID.String(), "old-jti", nil)
 	authRepo.On("DeleteRefreshToken", ctx, "valid-refresh-token").Return(nil)
+	authRepo.On("BlacklistToken", ctx, "old-jti", mock.Anything).Return(nil)
+	authRepo.On("DeleteSession", ctx, "old-jti").Return(nil)
 	userRepo.On("GetByID", ctx, userID).Return(user, nil)
 	permCache.On("GetUserPermissionsAndSuperAdmin", ctx, userID).Return([]string{"user:read"}, false, nil)
 	permCache.On("GetUserRoleCodes", ctx, userID).Return([]string{"user"}, nil)
-	authRepo.On("StoreRefreshToken", ctx, mock.Anything, userID.String(), mock.Anything).Return(nil)
+	authRepo.On("StoreRefreshToken", ctx, mock.Anything, userID.String(), mock.Anything, mock.Anything).Return(nil)
+	authRepo.On("StoreSession", ctx, userID.String(), mock.Anything, "127.0.0.1", "test-agent", mock.Anything).Return(nil)
 
 	result, err := svc.RefreshToken(ctx, &dto.RefreshTokenRequest{
 		RefreshToken: "valid-refresh-token",
-	})
+	}, "127.0.0.1", "test-agent")
 
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -389,11 +432,11 @@ func TestRefreshToken_InvalidToken(t *testing.T) {
 	ctx := context.Background()
 
 	// Redis returns nil for invalid token
-	authRepo.On("GetRefreshTokenUserID", ctx, "invalid-token").Return("", errors.New("redis: nil"))
+	authRepo.On("GetRefreshTokenMeta", ctx, "invalid-token").Return("", "", errors.New("redis: nil"))
 
 	result, err := svc.RefreshToken(ctx, &dto.RefreshTokenRequest{
 		RefreshToken: "invalid-token",
-	})
+	}, "127.0.0.1", "test-agent")
 
 	assert.Nil(t, result)
 	assert.Error(t, err)
@@ -414,13 +457,13 @@ func TestRefreshToken_UserDisabled(t *testing.T) {
 		Status:       1, // disabled
 	}
 
-	authRepo.On("GetRefreshTokenUserID", ctx, "valid-refresh-token").Return(userID.String(), nil)
+	authRepo.On("GetRefreshTokenMeta", ctx, "valid-refresh-token").Return(userID.String(), "", nil)
 	authRepo.On("DeleteRefreshToken", ctx, "valid-refresh-token").Return(nil)
 	userRepo.On("GetByID", ctx, userID).Return(user, nil)
 
 	result, err := svc.RefreshToken(ctx, &dto.RefreshTokenRequest{
 		RefreshToken: "valid-refresh-token",
-	})
+	}, "127.0.0.1", "test-agent")
 
 	assert.Nil(t, result)
 	assert.Error(t, err)
@@ -629,13 +672,13 @@ func TestRefreshToken_UserNotFound(t *testing.T) {
 	ctx := context.Background()
 	userID := uuid.New()
 
-	authRepo.On("GetRefreshTokenUserID", ctx, "valid-refresh-token").Return(userID.String(), nil)
+	authRepo.On("GetRefreshTokenMeta", ctx, "valid-refresh-token").Return(userID.String(), "", nil)
 	authRepo.On("DeleteRefreshToken", ctx, "valid-refresh-token").Return(nil)
 	userRepo.On("GetByID", ctx, userID).Return((*model.User)(nil), nil)
 
 	result, err := svc.RefreshToken(ctx, &dto.RefreshTokenRequest{
 		RefreshToken: "valid-refresh-token",
-	})
+	}, "127.0.0.1", "test-agent")
 
 	assert.Nil(t, result)
 	assert.Error(t, err)
@@ -648,12 +691,12 @@ func TestRefreshToken_InvalidUserID(t *testing.T) {
 	svc, _, authRepo, _ := setupTestService()
 	ctx := context.Background()
 
-	authRepo.On("GetRefreshTokenUserID", ctx, "valid-refresh-token").Return("not-a-uuid", nil)
+	authRepo.On("GetRefreshTokenMeta", ctx, "valid-refresh-token").Return("not-a-uuid", "", nil)
 	authRepo.On("DeleteRefreshToken", ctx, "valid-refresh-token").Return(nil)
 
 	result, err := svc.RefreshToken(ctx, &dto.RefreshTokenRequest{
 		RefreshToken: "valid-refresh-token",
-	})
+	}, "127.0.0.1", "test-agent")
 
 	assert.Nil(t, result)
 	assert.Error(t, err)
@@ -796,7 +839,7 @@ func TestLogin_SuperAdminRoles(t *testing.T) {
 	authRepo.On("ResetLoginAttempts", ctx, "admin").Return(nil)
 	// Super admin: isSuperAdmin=true, so GetUserRoleCodes is NOT called
 	permCache.On("GetUserPermissionsAndSuperAdmin", ctx, userID).Return([]string{}, true, nil)
-	authRepo.On("StoreRefreshToken", ctx, mock.Anything, userID.String(), mock.Anything).Return(nil)
+	authRepo.On("StoreRefreshToken", ctx, mock.Anything, userID.String(), mock.Anything, mock.Anything).Return(nil)
 	authRepo.On("StoreSession", ctx, userID.String(), mock.Anything, "127.0.0.1", mock.Anything, mock.Anything).Return(nil)
 	userRepo.On("UpdateLastLogin", ctx, userID, "127.0.0.1").Return(nil)
 
