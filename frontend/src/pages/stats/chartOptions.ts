@@ -29,7 +29,7 @@ export function barOption(series: StatsSeries, horizontal = false): EChartsOptio
       grid: { left: 80, right: 24, top: 24, bottom: 24 },
       xAxis: { type: 'value', minInterval: 1 },
       yAxis: { type: 'category', data: cats },
-      series: [{ name: series.name, type: 'bar', data: values }],
+      series: [{ name: series.name, type: 'bar', data: values, barMaxWidth: 48 }],
     };
   }
   return {
@@ -37,7 +37,7 @@ export function barOption(series: StatsSeries, horizontal = false): EChartsOptio
     grid: { left: 40, right: 16, top: 24, bottom: 32 },
     xAxis: { type: 'category', data: cats },
     yAxis: { type: 'value', minInterval: 1 },
-    series: [{ name: series.name, type: 'bar', data: values }],
+    series: [{ name: series.name, type: 'bar', data: values, barMaxWidth: 48 }],
   };
 }
 
@@ -109,6 +109,7 @@ export function stackedBarOption(seriesList: StatsSeries[]): EChartsOption {
       name: s.name,
       type: 'bar' as const,
       stack: 'status',
+      barMaxWidth: 48,
       data: cats.map((cat) => s.data.find((d) => d.label === cat)?.value ?? 0),
     })),
   };
