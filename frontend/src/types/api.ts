@@ -198,19 +198,20 @@ export interface Department {
   name: string;
   code: string;
   parent_id?: string;
-  sort: number;
+  sort_order: number;
   status: number;
   leader_id?: string;
   description?: string;
   children?: Department[];
   created_at: string;
+  updated_at?: string;
 }
 
 export interface CreateDepartmentParams {
   name: string;
   code: string;
   parent_id?: string;
-  sort?: number;
+  sort_order?: number;
   status?: number;
   leader_id?: string;
   description?: string;
@@ -220,7 +221,7 @@ export interface UpdateDepartmentParams {
   name?: string;
   code?: string;
   parent_id?: string;
-  sort?: number;
+  sort_order?: number;
   status?: number;
   leader_id?: string;
   description?: string;

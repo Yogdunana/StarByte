@@ -16,6 +16,7 @@ const UserList = lazy(() => import('@/pages/user/UserList'));
 const NotificationList = lazy(() => import('@/pages/notification/NotificationList'));
 const TemplateList = lazy(() => import('@/pages/notification/TemplateList'));
 const AuditList = lazy(() => import('@/pages/system/audit/AuditList'));
+const DepartmentPage = lazy(() => import('@/pages/system/department/DepartmentPage'));
 const FileList = lazy(() => import('@/pages/file/FileList'));
 const ApplicationPage = lazy(() => import('@/pages/member/application/ApplicationPage'));
 const ProfilePage = lazy(() => import('@/pages/member/profile/ProfilePage'));
@@ -304,7 +305,7 @@ const routes: AppRouteObject[] = [
           },
           {
             path: 'department',
-            element: guarded(<div style={{ padding: 24 }}>部门管理（开发中）</div>, 'department:read'),
+            element: lazyGuarded(DepartmentPage, 'department:read'),
             meta: { title: '部门管理', permission: 'department:read' },
           },
           {

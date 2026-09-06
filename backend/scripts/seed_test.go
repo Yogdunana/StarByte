@@ -40,8 +40,34 @@ func TestSeedTemplates_AtLeastFive(t *testing.T) {
 	}
 }
 
-func TestSeedDepartments_Four(t *testing.T) {
-	assert.Len(t, seedDepartmentsData, 4)
+func TestSeedDepartments_CharterLayout(t *testing.T) {
+	assert.Len(t, seedCentersData, 3)
+	assert.Len(t, seedDepartmentsData, 7)
+	assert.Len(t, seedLegacyDeptRemaps, 4)
+
+	centers := map[string]bool{}
+	for _, c := range seedCentersData {
+		assert.NotEmpty(t, c.Code)
+		assert.Empty(t, c.ParentCode)
+		assert.False(t, centers[c.Code], "duplicate center %s", c.Code)
+		centers[c.Code] = true
+	}
+
+	depts := map[string]bool{}
+	for _, d := range seedDepartmentsData {
+		assert.NotEmpty(t, d.Code)
+		assert.True(t, centers[d.ParentCode], "department %s parent %s missing", d.Code, d.ParentCode)
+		assert.False(t, depts[d.Code], "duplicate department %s", d.Code)
+		assert.False(t, centers[d.Code], "department code clashes with center %s", d.Code)
+		depts[d.Code] = true
+	}
+
+	seenOld := map[string]bool{}
+	for _, m := range seedLegacyDeptRemaps {
+		assert.True(t, depts[m.New], "legacy remap target %s missing", m.New)
+		assert.False(t, seenOld[m.Old], "duplicate legacy code %s", m.Old)
+		seenOld[m.Old] = true
+	}
 }
 
 func TestSeedRoles_OnlyTopRolesAreSystem(t *testing.T) {

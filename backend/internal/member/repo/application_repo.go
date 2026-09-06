@@ -136,8 +136,11 @@ func (r *applicationRepo) ListHistory(ctx context.Context, applicationID uuid.UU
 
 func (r *applicationRepo) ListDepartments(ctx context.Context) ([]model.NamedItem, error) {
 	var rows []model.NamedItem
+	// 只返回七大职能部门（挂在中心下），不把三大中心当作意向部门。
 	err := r.db.WithContext(ctx).Table("departments").
-		Select("id, name").Where("status = ?", 0).Order("sort_order ASC, name ASC").
+		Select("id, name").
+		Where("status = ? AND parent_id IS NOT NULL", 0).
+		Order("sort_order ASC, name ASC").
 		Scan(&rows).Error
 	return rows, err
 }
