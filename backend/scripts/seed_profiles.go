@@ -57,10 +57,14 @@ func seedMemberProfiles(db *gorm.DB) error {
 				real_name = ?,
 				grade = CASE WHEN mp.grade = '' THEN ? ELSE mp.grade END,
 				major = CASE WHEN mp.major = '' THEN ? ELSE mp.major END,
+				department_id = COALESCE(mp.department_id, d.id),
+				position_id = COALESCE(mp.position_id, pos.id),
 				updated_at = CURRENT_TIMESTAMP
 			FROM users u
+			LEFT JOIN departments d ON d.code = ?
+			LEFT JOIN positions pos ON pos.code = ?
 			WHERE mp.user_id = u.id AND u.username = ?
-		`, row.StudentNo, row.RealName, row.Grade, row.Major, row.Username,
+		`, row.StudentNo, row.RealName, row.Grade, row.Major, row.DeptCode, row.PosCode, row.Username,
 		).Error; err != nil {
 			return fmt.Errorf("backfill profile %s: %w", row.Username, err)
 		}
