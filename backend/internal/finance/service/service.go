@@ -53,7 +53,7 @@ func (s *financeService) Create(ctx context.Context, operator uuid.UUID, req *dt
 		Remark: req.Remark, CreatedBy: &operator, CreatedAt: now,
 	}
 	if dept := parseUUID(req.DepartmentID); dept != nil {
-		if !canAccess(scope, &operator, dept, operator) {
+		if !canAssignDepartment(scope, dept, operator) {
 			return nil, response.NewError(response.CodeFinanceNoAccess, "无权为该部门登记财务记录")
 		}
 		row.DepartmentID = dept
@@ -107,7 +107,11 @@ func (s *financeService) Update(ctx context.Context, operator, id uuid.UUID, req
 		row.Remark = *req.Remark
 	}
 	if req.DepartmentID != nil {
-		row.DepartmentID = parseUUID(*req.DepartmentID)
+		dept := parseUUID(*req.DepartmentID)
+		if dept != nil && !canAssignDepartment(scope, dept, operator) {
+			return nil, response.NewError(response.CodeFinanceNoAccess, "无权为该部门登记财务记录")
+		}
+		row.DepartmentID = dept
 	}
 	if err := s.rows.Update(ctx, row); err != nil {
 		return nil, fmt.Errorf("update finance record: %w", err)

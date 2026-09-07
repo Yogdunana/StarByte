@@ -51,3 +51,18 @@ func canAccess(scope *rbacModel.DataScopeCondition, createdBy *uuid.UUID, dept *
 	}
 	return false
 }
+
+// canAssignDepartment 本人范围不能给任意部门打标；部门范围须命中允许的部门。
+func canAssignDepartment(scope *rbacModel.DataScopeCondition, dept *uuid.UUID, viewer uuid.UUID) bool {
+	if dept == nil {
+		return true
+	}
+	rewritten := rewriteScope(scope, viewer)
+	if rewritten == nil || rewritten.IsEmpty() {
+		return true
+	}
+	if rewritten.Query == "1 = 0" || rewritten.IsSelf || rewritten.Query == "r.created_by = ?" {
+		return false
+	}
+	return canAccess(scope, nil, dept, viewer)
+}

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -83,6 +84,61 @@ func TestExpiryJobNotifiesOnce(t *testing.T) {
 	require.NoError(t, svc.ExpiryJob(ctx, "", func(string) {}))
 	assert.Equal(t, 1, n.n)
 	got, err := svc.Get(ctx, op, uuid.MustParse(created.ID), nil)
+	require.NoError(t, err)
+	assert.Equal(t, model.StatusActive, got.Status)
+}
+
+type failNotify struct{ n int }
+
+func (f *failNotify) Send(_ context.Context, _ []uuid.UUID, _ string, _ map[string]interface{}) error {
+	f.n++
+	return errors.New("notify down")
+}
+
+func TestExpiryJobRetriesWhenNotifyFails(t *testing.T) {
+	mem := newMem()
+	n := &failNotify{}
+	svc := New(mem, n)
+	ctx := context.Background()
+	op := uuid.New()
+	st := model.StatusActive
+	exp := time.Now().Add(3 * 24 * time.Hour)
+	created, err := svc.Create(ctx, op, &dto.CreateContractRequest{
+		Title: "临期合同", ContractType: 1, PartyName: "某公司",
+		ExpiredAt: &exp, Status: &st,
+	}, nil)
+	require.NoError(t, err)
+	_, err = svc.Update(ctx, op, uuid.MustParse(created.ID), &dto.UpdateContractRequest{Status: &st}, nil)
+	require.NoError(t, err)
+	require.NoError(t, svc.ExpiryJob(ctx, "", func(string) {}))
+	assert.Equal(t, 1, n.n)
+	row, err := mem.GetByID(ctx, uuid.MustParse(created.ID))
+	require.NoError(t, err)
+	require.NotNil(t, row)
+	assert.Nil(t, row.ExpiryNotifiedAt)
+	require.NoError(t, svc.ExpiryJob(ctx, "", func(string) {}))
+	assert.Equal(t, 2, n.n)
+}
+
+func TestTodayExpiryRemainsActive(t *testing.T) {
+	mem := newMem()
+	svc := New(mem, nil)
+	ctx := context.Background()
+	op := uuid.New()
+	st := model.StatusActive
+	today := dateOnly(time.Now())
+	created, err := svc.Create(ctx, op, &dto.CreateContractRequest{
+		Title: "今日到期", ContractType: 1, PartyName: "某公司",
+		ExpiredAt: &today, Status: &st,
+	}, nil)
+	require.NoError(t, err)
+	_, err = svc.Update(ctx, op, uuid.MustParse(created.ID), &dto.UpdateContractRequest{Status: &st}, nil)
+	require.NoError(t, err)
+	got, err := svc.Get(ctx, op, uuid.MustParse(created.ID), nil)
+	require.NoError(t, err)
+	assert.Equal(t, model.StatusActive, got.Status)
+	require.NoError(t, svc.ExpiryJob(ctx, "", func(string) {}))
+	got, err = svc.Get(ctx, op, uuid.MustParse(created.ID), nil)
 	require.NoError(t, err)
 	assert.Equal(t, model.StatusActive, got.Status)
 }

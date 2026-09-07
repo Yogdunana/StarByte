@@ -80,13 +80,12 @@ func (m *memRepo) List(_ context.Context, _ *dto.ListContractRequest, _ *rbacMod
 	return out, int64(len(out)), nil
 }
 
-func (m *memRepo) ListExpiring(_ context.Context, until time.Time, _ *rbacModel.DataScopeCondition) ([]model.ContractNamed, error) {
+func (m *memRepo) ListExpiring(_ context.Context, from, until time.Time, _ *rbacModel.DataScopeCondition) ([]model.ContractNamed, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	now := time.Now()
 	var out []model.ContractNamed
 	for _, row := range m.rows {
-		if row.Status == model.StatusActive && row.ExpiredAt != nil && !row.ExpiredAt.After(until) && !row.ExpiredAt.Before(now) {
+		if row.Status == model.StatusActive && row.ExpiredAt != nil && !row.ExpiredAt.After(until) && !row.ExpiredAt.Before(from) {
 			out = append(out, *m.named(row))
 		}
 	}

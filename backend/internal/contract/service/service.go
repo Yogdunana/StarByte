@@ -211,8 +211,10 @@ func (s *contractService) Expiring(ctx context.Context, viewer uuid.UUID, days i
 	if days <= 0 {
 		days = 30
 	}
-	until := time.Now().Add(time.Duration(days) * 24 * time.Hour)
-	rows, err := s.rows.ListExpiring(ctx, until, rewriteScope(scope, viewer))
+	now := time.Now()
+	from := dateOnly(now)
+	until := dateOnly(now.Add(time.Duration(days) * 24 * time.Hour))
+	rows, err := s.rows.ListExpiring(ctx, from, until, rewriteScope(scope, viewer))
 	if err != nil {
 		return nil, fmt.Errorf("list expiring: %w", err)
 	}
@@ -224,13 +226,14 @@ func (s *contractService) Expiring(ctx context.Context, viewer uuid.UUID, days i
 }
 
 func (s *contractService) ExpiryJob(ctx context.Context, _ string, logf func(string)) error {
-	n, err := s.rows.MarkExpired(ctx, time.Now())
+	now := time.Now()
+	cutoff := dateOnly(now)
+	n, err := s.rows.MarkExpired(ctx, cutoff)
 	if err != nil {
 		return err
 	}
 	logf(fmt.Sprintf("marked %d expired contracts", n))
-	now := time.Now()
-	rows, err := s.rows.ListExpiring(ctx, now.Add(7*24*time.Hour), nil)
+	rows, err := s.rows.ListExpiring(ctx, cutoff, dateOnly(now.Add(7*24*time.Hour)), nil)
 	if err != nil {
 		return err
 	}
@@ -239,7 +242,9 @@ func (s *contractService) ExpiryJob(ctx context.Context, _ string, logf func(str
 		if rows[i].ExpiryNotifiedAt != nil {
 			continue
 		}
-		s.notifyOwner(ctx, &rows[i])
+		if err := s.notifyOwner(ctx, &rows[i]); err != nil {
+			continue
+		}
 		ts := now
 		rows[i].ExpiryNotifiedAt = &ts
 		rows[i].UpdatedAt = now

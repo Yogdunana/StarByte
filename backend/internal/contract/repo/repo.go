@@ -19,7 +19,7 @@ type Repository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*model.Contract, error)
 	GetNamed(ctx context.Context, id uuid.UUID) (*model.ContractNamed, error)
 	List(ctx context.Context, req *dto.ListContractRequest, scope *rbacModel.DataScopeCondition) ([]model.ContractNamed, int64, error)
-	ListExpiring(ctx context.Context, until time.Time, scope *rbacModel.DataScopeCondition) ([]model.ContractNamed, error)
+	ListExpiring(ctx context.Context, from, until time.Time, scope *rbacModel.DataScopeCondition) ([]model.ContractNamed, error)
 	MarkExpired(ctx context.Context, now time.Time) (int64, error)
 	ListTemplates(ctx context.Context) ([]model.Template, error)
 	GetTemplate(ctx context.Context, id uuid.UUID) (*model.Template, error)
@@ -100,14 +100,14 @@ func applyList(q *gorm.DB, req *dto.ListContractRequest, scope *rbacModel.DataSc
 	return q
 }
 
-func (r *repository) ListExpiring(ctx context.Context, until time.Time, scope *rbacModel.DataScopeCondition) ([]model.ContractNamed, error) {
+func (r *repository) ListExpiring(ctx context.Context, from, until time.Time, scope *rbacModel.DataScopeCondition) ([]model.ContractNamed, error) {
 	q := r.named(ctx)
 	if scope != nil && !scope.IsEmpty() {
 		q = q.Where(scope.Query, scope.Args...)
 	}
 	var rows []model.ContractNamed
 	err := q.Where("c.status = ? AND c.expired_at IS NOT NULL AND c.expired_at <= ? AND c.expired_at >= ?",
-		model.StatusActive, until, time.Now()).
+		model.StatusActive, until, from).
 		Order("c.expired_at ASC").Find(&rows).Error
 	return rows, err
 }

@@ -75,13 +75,13 @@ func asiaShanghai() *time.Location {
 }
 
 func (s *contractService) touchExpired(row *model.Contract) {
-	if row.Status == model.StatusActive && row.ExpiredAt != nil && row.ExpiredAt.Before(time.Now()) {
+	if row.Status == model.StatusActive && pastExpiry(row.ExpiredAt, time.Now()) {
 		row.Status = model.StatusExpired
 	}
 }
 
 func (s *contractService) persistExpired(ctx context.Context, row *model.Contract) {
-	if row.Status != model.StatusActive || row.ExpiredAt == nil || !row.ExpiredAt.Before(time.Now()) {
+	if row.Status != model.StatusActive || !pastExpiry(row.ExpiredAt, time.Now()) {
 		return
 	}
 	row.Status = model.StatusExpired
@@ -91,15 +91,19 @@ func (s *contractService) persistExpired(ctx context.Context, row *model.Contrac
 	}
 }
 
-func (s *contractService) notifyOwner(ctx context.Context, row *model.ContractNamed) {
+func pastExpiry(expiredAt *time.Time, now time.Time) bool {
+	return expiredAt != nil && dateOnly(*expiredAt).Before(dateOnly(now))
+}
+
+func (s *contractService) notifyOwner(ctx context.Context, row *model.ContractNamed) error {
 	if s.notify == nil {
-		return
+		return nil
 	}
 	exp := ""
 	if row.ExpiredAt != nil {
 		exp = row.ExpiredAt.Format("2006-01-02")
 	}
-	_ = s.notify.Send(ctx, []uuid.UUID{row.UserID}, "contract_expiring", map[string]interface{}{
+	return s.notify.Send(ctx, []uuid.UUID{row.UserID}, "contract_expiring", map[string]interface{}{
 		"real_name": row.OwnerName, "title": row.Title, "expired_at": exp,
 	})
 }

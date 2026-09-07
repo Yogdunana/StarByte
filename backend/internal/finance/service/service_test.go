@@ -7,6 +7,7 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/finance/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/finance/model"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -72,4 +73,20 @@ func TestDateOnlyUsesShanghaiCalendar(t *testing.T) {
 	assert.Equal(t, 2026, got.Year())
 	assert.Equal(t, time.September, got.Month())
 	assert.Equal(t, 7, got.Day())
+}
+
+func TestFinanceSelfCannotTagForeignDept(t *testing.T) {
+	mem := newMem()
+	cat := &model.Category{ID: uuid.New(), Name: "会费", Code: "dues", Direction: model.DirectionIncome}
+	mem.cats[cat.ID] = cat
+	svc := New(mem)
+	op := uuid.New()
+	self := &rbacModel.DataScopeCondition{Query: "1 = 0", IsSelf: true}
+	other := uuid.New()
+	_, err := svc.Create(context.Background(), op, &dto.CreateRecordRequest{
+		CategoryID: cat.ID.String(), Amount: 10, Direction: model.DirectionIncome,
+		OccurredAt: time.Now(), Title: "会费", DepartmentID: other.String(),
+	}, self)
+	require.Error(t, err)
+	assert.Equal(t, response.CodeFinanceNoAccess, err.(*response.AppError).Code)
 }
