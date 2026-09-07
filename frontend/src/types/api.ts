@@ -76,13 +76,18 @@ export interface UserInfo {
   id: string;
   username: string;
   real_name: string;
+  student_no?: string;
+  grade?: string;
+  major?: string;
   avatar_url: string;
   email: string;
   phone: string;
   gender: number;
   status: number;
   department_id?: string;
+  department_name?: string;
   position_id?: string;
+  position_name?: string;
   roles: string[];
   permissions: string[];
   created_at: string;

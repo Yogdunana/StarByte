@@ -42,6 +42,7 @@ import (
 	meetingRepo "github.com/Yogdunana/StarByte/backend/internal/meeting/repo"
 	meetingService "github.com/Yogdunana/StarByte/backend/internal/meeting/service"
 	memberHandler "github.com/Yogdunana/StarByte/backend/internal/member/handler"
+	memberidentity "github.com/Yogdunana/StarByte/backend/internal/member/identity"
 	memberRepo "github.com/Yogdunana/StarByte/backend/internal/member/repo"
 	memberService "github.com/Yogdunana/StarByte/backend/internal/member/service"
 	notifHandler "github.com/Yogdunana/StarByte/backend/internal/notification/handler"
@@ -196,7 +197,11 @@ func main() {
 
 	// 认证模块（依赖 cacheService 获取角色和权限）
 	authR := authRepo.NewAuthRepo(redis.Client())
-	authSvc := authService.NewAuthService(authR, userRepo, &cfg.JWT, cacheService, eventBus)
+	memberProfRepo := memberRepo.NewProfileRepo(database.DB())
+	authSvc := authService.NewAuthService(
+		authR, userRepo, &cfg.JWT, cacheService, eventBus,
+		memberidentity.NewLookup(memberProfRepo),
+	)
 	authH := authHandler.NewAuthHandler(authSvc)
 
 	// 用户管理模块
@@ -274,7 +279,6 @@ func main() {
 
 	// 入会申请 + 人员档案
 	memberAppRepo := memberRepo.NewApplicationRepo(database.DB())
-	memberProfRepo := memberRepo.NewProfileRepo(database.DB())
 	interviewStarter := memberService.NewInterviewStarter(wfHandlers.DefinitionRepo, wfHandlers.InstanceService)
 	memberSvc := memberService.NewMemberService(memberAppRepo, memberProfRepo, interviewStarter)
 	memberH := memberHandler.NewMemberHandler(memberSvc)

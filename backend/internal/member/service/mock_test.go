@@ -83,6 +83,13 @@ func (m *mockProfRepo) GetByUserID(ctx context.Context, userID uuid.UUID) (*mode
 	}
 	return args.Get(0).(*model.MemberProfile), args.Error(1)
 }
+func (m *mockProfRepo) GetByUserIDWithNames(ctx context.Context, userID uuid.UUID) (*model.ProfileWithNames, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.ProfileWithNames), args.Error(1)
+}
 func (m *mockProfRepo) GetByIDWithNames(ctx context.Context, id uuid.UUID) (*model.ProfileWithNames, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {

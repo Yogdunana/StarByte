@@ -4,7 +4,7 @@ import "time"
 
 // ========== Request DTOs ==========
 
-// LoginRequest 登录请求
+// LoginRequest 登录请求（username 可为用户名或学号）
 type LoginRequest struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
@@ -48,19 +48,26 @@ type LoginResponse struct {
 	User             *UserInfo `json:"user"`
 }
 
-// UserInfo 用户信息（登录响应中返回）
+// UserInfo 用户信息（登录与 /auth/me 返回，含档案学号/姓名等）
 type UserInfo struct {
-	ID          string    `json:"id"`
-	Username    string    `json:"username"`
-	RealName    string    `json:"real_name"`
-	AvatarURL   string    `json:"avatar_url"`
-	Email       string    `json:"email"`
-	Phone       string    `json:"phone"`
-	Gender      int       `json:"gender"`
-	Status      int       `json:"status"`
-	Roles       []string  `json:"roles"`
-	Permissions []string  `json:"permissions"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID             string    `json:"id"`
+	Username       string    `json:"username"`
+	RealName       string    `json:"real_name"`
+	StudentNo      string    `json:"student_no"`
+	Grade          string    `json:"grade"`
+	Major          string    `json:"major"`
+	DepartmentID   string    `json:"department_id,omitempty"`
+	DepartmentName string    `json:"department_name"`
+	PositionID     string    `json:"position_id,omitempty"`
+	PositionName   string    `json:"position_name"`
+	AvatarURL      string    `json:"avatar_url"`
+	Email          string    `json:"email"`
+	Phone          string    `json:"phone"`
+	Gender         int       `json:"gender"`
+	Status         int       `json:"status"`
+	Roles          []string  `json:"roles"`
+	Permissions    []string  `json:"permissions"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 // RefreshResponse 刷新 Token 响应
