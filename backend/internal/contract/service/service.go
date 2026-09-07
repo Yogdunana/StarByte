@@ -72,12 +72,6 @@ func (s *contractService) Create(ctx context.Context, operator uuid.UUID, req *d
 		Amount: req.Amount, StartAt: dateOnlyPtr(req.StartAt), ExpiredAt: dateOnlyPtr(req.ExpiredAt),
 		Status: model.StatusDraft, CreatedAt: now, UpdatedAt: now,
 	}
-	if req.Status != nil {
-		row.Status = *req.Status
-	}
-	if row.Status == model.StatusActive {
-		row.SignedAt = &now
-	}
 	if err := s.bindRefs(ctx, row, req.TemplateID, req.FileID); err != nil {
 		return nil, err
 	}

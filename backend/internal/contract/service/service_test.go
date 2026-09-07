@@ -30,6 +30,10 @@ func TestContractCRUDAndExpiry(t *testing.T) {
 	}, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "赞助协议", created.Title)
+	assert.Equal(t, model.StatusDraft, created.Status)
+
+	created, err = svc.Update(ctx, op, uuid.MustParse(created.ID), &dto.UpdateContractRequest{Status: &st}, nil)
+	require.NoError(t, err)
 	assert.Equal(t, model.StatusActive, created.Status)
 
 	badEnd := start.Add(-24 * time.Hour)
@@ -71,6 +75,8 @@ func TestExpiryJobNotifiesOnce(t *testing.T) {
 		Title: "临期合同", ContractType: 1, PartyName: "某公司",
 		ExpiredAt: &exp, Status: &st,
 	}, nil)
+	require.NoError(t, err)
+	_, err = svc.Update(ctx, op, uuid.MustParse(created.ID), &dto.UpdateContractRequest{Status: &st}, nil)
 	require.NoError(t, err)
 	require.NoError(t, svc.ExpiryJob(ctx, "", func(string) {}))
 	assert.Equal(t, 1, n.n)

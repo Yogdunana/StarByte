@@ -9,6 +9,7 @@ import MainLayout from '@/layouts/MainLayout/MainLayout';
 // 路由守卫
 import AuthRoute from '@/router/guards/AuthRoute';
 import PermissionRoute from '@/router/guards/PermissionRoute';
+import ComingSoon from '@/pages/error/ComingSoon';
 
 // 页面组件
 const Login = lazy(() => import('@/pages/login/Login'));
@@ -282,12 +283,12 @@ const routes: AppRouteObject[] = [
           },
           {
             path: 'instances',
-            element: <div style={{ padding: 24 }}>流程实例（开发中）</div>,
+            element: <ComingSoon i18nKey="placeholder.workflowInstances" />,
             meta: { title: '流程实例' },
           },
           {
             path: 'todo',
-            element: <div style={{ padding: 24 }}>我的待办（开发中）</div>,
+            element: <ComingSoon i18nKey="placeholder.todo" />,
             meta: { title: '我的待办' },
           },
         ],
@@ -381,12 +382,12 @@ const routes: AppRouteObject[] = [
         children: [
           {
             path: 'role',
-            element: guarded(<div style={{ padding: 24 }}>角色管理（开发中）</div>, 'role:read'),
+            element: guarded(<ComingSoon i18nKey="placeholder.roles" />, 'role:read'),
             meta: { title: '角色管理', permission: 'role:read' },
           },
           {
             path: 'permission',
-            element: guarded(<div style={{ padding: 24 }}>权限管理（开发中）</div>, 'permission:read'),
+            element: guarded(<ComingSoon i18nKey="placeholder.permissions" />, 'permission:read'),
             meta: { title: '权限管理', permission: 'permission:read' },
           },
           {

@@ -27,6 +27,13 @@ func TestFinanceCRUDAndSummary(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, response.CodeFinanceInvalidAmount, err.(*response.AppError).Code)
 
+	_, err = svc.Create(ctx, op, &dto.CreateRecordRequest{
+		CategoryID: cat.ID.String(), Amount: 10, Direction: model.DirectionExpense,
+		OccurredAt: time.Now(), Title: "错向",
+	}, nil)
+	require.Error(t, err)
+	assert.Equal(t, response.CodeFinanceDirectionMismatch, err.(*response.AppError).Code)
+
 	created, err := svc.Create(ctx, op, &dto.CreateRecordRequest{
 		CategoryID: cat.ID.String(), Amount: 100, Direction: model.DirectionIncome,
 		OccurredAt: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC), Title: "会费",

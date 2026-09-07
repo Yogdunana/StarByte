@@ -356,6 +356,7 @@ func TestModuleRanges(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, 23000, r[0])
 	assert.Equal(t, 23001, CodeFinanceNotFound)
+	assert.Equal(t, 23005, CodeFinanceDirectionMismatch)
 
 	r, ok = ModuleRanges["discipline"]
 	assert.True(t, ok)

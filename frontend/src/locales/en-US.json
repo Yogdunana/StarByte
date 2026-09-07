@@ -68,6 +68,12 @@
     "notFound": "This page does not exist or has been removed.",
     "backHome": "Back home"
   },
+  "placeholder": {
+    "workflowInstances": "Workflow instances (coming soon)",
+    "todo": "My todos (coming soon)",
+    "roles": "Role management (coming soon)",
+    "permissions": "Permission management (coming soon)"
+  },
   "menu": {
     "/dashboard": "Dashboard",
     "/user": "Users",

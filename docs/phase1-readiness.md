@@ -22,5 +22,5 @@
 - `#22` `GET/POST/PUT/DELETE /api/v1/finance/records`，分类、汇总；`GET /finance/export` 501 预留
 - `#23` 处分 CRUD + 审批/撤销/申诉 + `discipline_notice`；有已发布流程 `discipline_approve` 时挂接实例
 - `#24` 合同 CRUD + 模板 + 附件 `file_id`；调度 handler `contract_expiry`；`GET /contracts/expiring`
-- `#31` react-i18next（zh-CN / en-US）+ 主题持久化。壳层（登录、顶栏、菜单、设置、403/404）与财务/处分/合同页使用 `t()`；存量业务页仍以中文为默认文案
+- `#31` react-i18next（zh-CN / en-US）+ 主题持久化。壳层（登录、顶栏、菜单、设置、403/404、占位页）与财务/处分/合同页使用 `t()`；存量业务页仍以中文为默认文案
 - `#33` `docs/deployment.md`、`docs/getting-started.md`、`docs/api.md`，并更新 README / 架构 §10–11

@@ -142,10 +142,11 @@ const FinancePage: React.FC = () => {
           form={form}
           layout="vertical"
           onFinish={(values: { title: string; category_id: string; direction: number; amount: number; occurred_at: dayjs.Dayjs; remark?: string }) => {
+            const cat = cats.find((c) => c.id === values.category_id);
             const payload = {
               title: values.title,
               category_id: values.category_id,
-              direction: values.direction,
+              direction: cat?.direction ?? values.direction,
               amount: values.amount,
               occurred_at: `${values.occurred_at.format('YYYY-MM-DD')}T00:00:00Z`,
               remark: values.remark,
@@ -158,11 +159,18 @@ const FinancePage: React.FC = () => {
         >
           <Form.Item name="title" label={t('finance.title')} rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item name="category_id" label={t('finance.category')} rules={[{ required: true }]}>
-            <Select options={cats.map((c) => ({ value: c.id, label: c.name }))} />
+            <Select
+              options={cats.map((c) => ({
+                value: c.id,
+                label: `${c.name}（${c.direction === 2 ? t('finance.income') : t('finance.expense')}）`,
+              }))}
+              onChange={(id: string) => {
+                const cat = cats.find((c) => c.id === id);
+                if (cat) form.setFieldsValue({ direction: cat.direction });
+              }}
+            />
           </Form.Item>
-          <Form.Item name="direction" label={t('finance.direction')} rules={[{ required: true }]}>
-            <Select options={[{ value: 2, label: t('finance.income') }, { value: 1, label: t('finance.expense') }]} />
-          </Form.Item>
+          <Form.Item name="direction" hidden rules={[{ required: true }]}><InputNumber /></Form.Item>
           <Form.Item name="amount" label={t('finance.amount')} rules={[{ required: true }]}><InputNumber min={0.01} style={{ width: '100%' }} /></Form.Item>
           <Form.Item name="occurred_at" label={t('finance.occurredAt')} rules={[{ required: true }]}><DatePicker style={{ width: '100%' }} /></Form.Item>
           <Form.Item name="remark" label={t('finance.remark')}><Input.TextArea rows={3} /></Form.Item>

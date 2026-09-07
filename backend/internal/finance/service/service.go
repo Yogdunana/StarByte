@@ -43,9 +43,12 @@ func (s *financeService) Create(ctx context.Context, operator uuid.UUID, req *dt
 	if cat == nil {
 		return nil, response.NewError(response.CodeFinanceCategoryGone, "收支分类不存在")
 	}
+	if err := matchDirection(cat, req.Direction); err != nil {
+		return nil, err
+	}
 	now := time.Now()
 	row := &model.Record{
-		ID: uuid.New(), CategoryID: catID, Amount: req.Amount, Direction: req.Direction,
+		ID: uuid.New(), CategoryID: catID, Amount: req.Amount, Direction: cat.Direction,
 		OccurredAt: dateOnly(req.OccurredAt), Title: strings.TrimSpace(req.Title),
 		Remark: req.Remark, CreatedBy: &operator, CreatedAt: now,
 	}
@@ -77,17 +80,22 @@ func (s *financeService) Update(ctx context.Context, operator, id uuid.UUID, req
 		if err != nil {
 			return nil, response.NewError(response.CodeBadRequest, "分类 ID 无效")
 		}
-		cat, err := s.rows.GetCategory(ctx, catID)
+		row.CategoryID = catID
+	}
+	if req.CategoryID != nil || req.Direction != nil {
+		cat, err := s.rows.GetCategory(ctx, row.CategoryID)
 		if err != nil {
 			return nil, fmt.Errorf("get category: %w", err)
 		}
 		if cat == nil {
 			return nil, response.NewError(response.CodeFinanceCategoryGone, "收支分类不存在")
 		}
-		row.CategoryID = catID
-	}
-	if req.Direction != nil {
-		row.Direction = *req.Direction
+		if req.Direction != nil {
+			if err := matchDirection(cat, *req.Direction); err != nil {
+				return nil, err
+			}
+		}
+		row.Direction = cat.Direction
 	}
 	if req.OccurredAt != nil {
 		row.OccurredAt = dateOnly(*req.OccurredAt)
@@ -214,6 +222,13 @@ func asiaShanghai() *time.Location {
 		return time.FixedZone("CST", 8*3600)
 	}
 	return loc
+}
+
+func matchDirection(cat *model.Category, direction int16) error {
+	if cat.Direction != direction {
+		return response.NewError(response.CodeFinanceDirectionMismatch, "收支方向须与分类一致")
+	}
+	return nil
 }
 
 func parseUUID(raw string) *uuid.UUID {

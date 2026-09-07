@@ -44,12 +44,15 @@ const DisciplinePage: React.FC = () => {
   }, [page]);
 
   useEffect(() => { void load(); }, [load]);
+  const loadUsers = useCallback((keyword?: string) => {
+    void getUserList({ page: 1, page_size: 50, keyword })
+      .then((res) => setUsers(res.list || []))
+      .catch(() => setUsers([]));
+  }, []);
   useEffect(() => {
     if (!open) return;
-    void getUserList({ page: 1, page_size: 50 })
-      .then((res) => setUsers(res.list || []))
-      .catch(() => undefined);
-  }, [open]);
+    loadUsers();
+  }, [open, loadUsers]);
 
   const levelLabel = (v: number) => t(`discipline.level.${v}`);
   const statusLabel = (v: number) => t(`discipline.status.${v}`);
@@ -117,7 +120,8 @@ const DisciplinePage: React.FC = () => {
           <Form.Item name="user_id" label={t('discipline.member')} rules={[{ required: true }]}>
             <Select
               showSearch
-              optionFilterProp="label"
+              filterOption={false}
+              onSearch={loadUsers}
               placeholder={t('discipline.pickMember')}
               options={users.map((u) => ({
                 value: u.id,

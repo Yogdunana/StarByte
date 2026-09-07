@@ -127,12 +127,11 @@ const ContractPage: React.FC = () => {
               contract_type: values.contract_type,
               amount: values.amount,
               template_id: values.template_id,
-              status: values.status,
               start_at: values.start_at ? `${values.start_at.format('YYYY-MM-DD')}T00:00:00Z` : undefined,
               expired_at: values.expired_at ? `${values.expired_at.format('YYYY-MM-DD')}T00:00:00Z` : undefined,
               file_id: fileId,
             };
-            if (editing) await updateContract(editing.id, payload);
+            if (editing) await updateContract(editing.id, { ...payload, status: values.status });
             else await createContract(payload);
             message.success(t('common.saved'));
             setOpen(false);
@@ -148,9 +147,11 @@ const ContractPage: React.FC = () => {
           <Form.Item name="template_id" label={t('contract.template')}>
             <Select allowClear options={tpls.map((x) => ({ value: x.id, label: x.name }))} />
           </Form.Item>
-          <Form.Item name="status" label={t('contract.statusLabel')} initialValue={0}>
-            <Select options={[0, 1, 2, 3].map((v) => ({ value: v, label: t(`contract.status.${v}`) }))} />
-          </Form.Item>
+          {canManage && editing && (
+            <Form.Item name="status" label={t('contract.statusLabel')}>
+              <Select options={[0, 1, 2, 3].map((v) => ({ value: v, label: t(`contract.status.${v}`) }))} />
+            </Form.Item>
+          )}
           <Form.Item name="start_at" label={t('contract.startAt')}><DatePicker style={{ width: '100%' }} /></Form.Item>
           <Form.Item name="expired_at" label={t('contract.expiredAt')}><DatePicker style={{ width: '100%' }} /></Form.Item>
           <Form.Item label={t('contract.file')}>

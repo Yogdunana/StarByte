@@ -11,11 +11,11 @@ func rewriteScope(scope *rbacModel.DataScopeCondition, userID uuid.UUID) *rbacMo
 	if scope == nil || scope.IsEmpty() {
 		return scope
 	}
-	if scope.Query == "1 = 0" {
-		if !scope.IsSelf {
-			return scope
-		}
+	if scope.IsSelf {
 		return &rbacModel.DataScopeCondition{Query: "c.user_id = ?", Args: []interface{}{userID}, IsSelf: true}
+	}
+	if scope.Query == "1 = 0" {
+		return scope
 	}
 	q := strings.ReplaceAll(scope.Query, "department_id", "u.department_id")
 	return &rbacModel.DataScopeCondition{Query: q, Args: scope.Args, IsSelf: scope.IsSelf}

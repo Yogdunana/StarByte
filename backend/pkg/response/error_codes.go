@@ -240,10 +240,11 @@ const (
 	CodeFormNameExists    = 22007 // 表单名称已存在
 
 	// ===== Finance (#22, 23000-23999) =====
-	CodeFinanceNotFound      = 23001 // 财务记录不存在
-	CodeFinanceCategoryGone  = 23002 // 收支分类不存在
-	CodeFinanceInvalidAmount = 23003 // 金额不合法
-	CodeFinanceNoAccess      = 23004 // 无权操作该财务记录
+	CodeFinanceNotFound          = 23001 // 财务记录不存在
+	CodeFinanceCategoryGone      = 23002 // 收支分类不存在
+	CodeFinanceInvalidAmount     = 23003 // 金额不合法
+	CodeFinanceNoAccess          = 23004 // 无权操作该财务记录
+	CodeFinanceDirectionMismatch = 23005 // 收支方向与分类不一致
 
 	// ===== Discipline (#23, 24000-24999) =====
 	CodeDisciplineNotFound     = 24001 // 处分记录不存在

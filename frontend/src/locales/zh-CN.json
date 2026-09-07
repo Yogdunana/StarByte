@@ -68,6 +68,12 @@
     "notFound": "抱歉，您访问的页面不存在或已被移除。",
     "backHome": "返回首页"
   },
+  "placeholder": {
+    "workflowInstances": "流程实例（开发中）",
+    "todo": "我的待办（开发中）",
+    "roles": "角色管理（开发中）",
+    "permissions": "权限管理（开发中）"
+  },
   "menu": {
     "/dashboard": "工作台",
     "/user": "用户管理",

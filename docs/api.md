@@ -61,7 +61,7 @@ Content-Type: application/json
 }
 ```
 
-`direction`：`1` 支出、`2` 收入。`GET /finance/export` 一期返回 **501 / 1501**，二期再接导出引擎。
+`direction`：`1` 支出、`2` 收入，**必须与分类的方向一致**（否则 `23005`）。`GET /finance/export` 一期返回 **501 / 1501**，二期再接导出引擎。
 
 登记处分：
 
@@ -81,14 +81,13 @@ POST /api/v1/contracts
   "party_name": "某公司",
   "contract_type": 1,
   "amount": 5000,
-  "status": 1,
   "start_at": "2026-09-01",
   "expired_at": "2026-12-31",
   "file_id": "<uuid from POST /files/upload>"
 }
 ```
 
-`contract_type`：1 赞助、2 活动、3 采购、4 其他。`status`：0 草稿、1 生效中、2 已到期、3 已终止。
+`contract_type`：1 赞助、2 活动、3 采购、4 其他。`POST` 一律创建为草稿（`status=0`），忽略请求体中的 `status`；生效/终止走 `PUT` 且需要 `contract:manage`。`status`：0 草稿、1 生效中、2 已到期、3 已终止。
 
 ## 接口列表
 
