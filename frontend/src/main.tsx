@@ -2,28 +2,18 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
-import { ConfigProvider } from 'antd';
-import zhCN from 'antd/locale/zh_CN';
-import 'dayjs/locale/zh-cn';
 
 import App from './App';
 import { store } from './store';
+import './i18n';
 import './styles/global.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <Provider store={store}>
-      <ConfigProvider locale={zhCN} theme={{
-        token: {
-          colorPrimary: '#2563eb',
-          borderRadius: 10,
-          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif",
-        },
-      }}>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
-      </ConfigProvider>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
     </Provider>
   </React.StrictMode>,
 );

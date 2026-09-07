@@ -9,6 +9,7 @@ import TopBar from './components/TopBar';
 import { useMenu } from '@/hooks/useMenu';
 import { fetchCurrentUser, selectCurrentUser } from '@/store/slices/userSlice';
 import type { AppDispatch } from '@/store';
+import { useTranslation } from 'react-i18next';
 
 const { Sider, Content } = Layout;
 
@@ -17,6 +18,7 @@ export interface MainLayoutProps {
 }
 
 const MainLayout: React.FC<MainLayoutProps> = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const currentUser = useSelector(selectCurrentUser);
@@ -72,7 +74,7 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
         {!collapsed && (
           <Input
             allowClear
-            placeholder="搜索菜单"
+            placeholder={t('common.searchMenu')}
             prefix={<SearchOutlined />}
             value={searchKeyword}
             onChange={(e) => setSearchKeyword(e.target.value)}

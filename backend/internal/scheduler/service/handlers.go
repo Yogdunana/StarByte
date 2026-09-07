@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -15,12 +16,28 @@ type handlerMeta struct {
 	pub  bool
 }
 
+var (
+	extraMu       sync.RWMutex
+	extraHandlers = map[string]handlerMeta{}
+)
+
 func builtinHandlers() map[string]handlerMeta {
 	return map[string]handlerMeta{
 		"noop": {fn: handleNoop, desc: "空操作，立即成功", pub: true},
 		"echo": {fn: handleEcho, desc: "把 payload 写入执行日志", pub: true},
 		"fail": {fn: handleFail, desc: "始终失败（用于重试/死信测试）", pub: true},
 	}
+}
+
+// RegisterHandler 供业务模块在启动时挂接处理器（如合同到期扫描）。
+func RegisterHandler(key, desc string, fn JobHandler) {
+	key = strings.TrimSpace(key)
+	if key == "" || fn == nil {
+		return
+	}
+	extraMu.Lock()
+	defer extraMu.Unlock()
+	extraHandlers[key] = handlerMeta{fn: fn, desc: desc, pub: true}
 }
 
 func handleNoop(_ context.Context, _ string, logf func(string)) error {
@@ -42,7 +59,12 @@ func handleFail(_ context.Context, payload string, _ func(string)) error {
 }
 
 func lookupHandler(key string) (JobHandler, bool) {
-	h, ok := builtinHandlers()[key]
+	if h, ok := builtinHandlers()[key]; ok {
+		return h.fn, true
+	}
+	extraMu.RLock()
+	defer extraMu.RUnlock()
+	h, ok := extraHandlers[key]
 	if !ok {
 		return nil, false
 	}
@@ -51,6 +73,11 @@ func lookupHandler(key string) (JobHandler, bool) {
 
 func publicHandlers() []handlerInfo {
 	src := builtinHandlers()
+	extraMu.RLock()
+	for k, v := range extraHandlers {
+		src[k] = v
+	}
+	extraMu.RUnlock()
 	out := make([]handlerInfo, 0, len(src))
 	for k, v := range src {
 		if v.pub {

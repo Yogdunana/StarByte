@@ -19,6 +19,10 @@ body {
   background: linear-gradient(180deg, #eef2ff 0%, #f8fafc 220px, #f1f5f9 100%);
 }
 
+html[data-theme='dark'] body {
+  background: #0f172a;
+}
+
 a {
   color: #1677ff;
   text-decoration: none;

@@ -9,6 +9,7 @@ import { fetchCurrentUser } from '@/store/slices/userSlice';
 import { register } from '@/api/auth';
 import { AppDispatch } from '@/store';
 import styles from './Login.module.css';
+import { useTranslation } from 'react-i18next';
 
 interface LocationFromState {
   from?: { pathname?: string };
@@ -37,6 +38,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 const Login: React.FC = () => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('login');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -57,10 +59,10 @@ const Login: React.FC = () => {
     try {
       await dispatch(login(values)).unwrap();
       await dispatch(fetchCurrentUser()).unwrap();
-      message.success('登录成功');
+      message.success(t('login.success'));
       navigate(getRedirectPath(location.state), { replace: true });
     } catch (error: unknown) {
-      message.error(getErrorMessage(error, '登录失败'));
+      message.error(getErrorMessage(error, t('login.fail')));
     } finally {
       setLoading(false);
     }
@@ -76,10 +78,10 @@ const Login: React.FC = () => {
         real_name: values.real_name,
         email: values.email,
       });
-      message.success('注册成功，请登录');
+      message.success(t('login.registerSuccess'));
       setActiveTab('login');
     } catch (error: unknown) {
-      message.error(getErrorMessage(error, '注册失败'));
+      message.error(getErrorMessage(error, t('login.registerFail')));
     } finally {
       setLoading(false);
     }
@@ -88,11 +90,11 @@ const Login: React.FC = () => {
   const tabItems = [
     {
       key: 'login',
-      label: '登录',
+      label: t('login.tabLogin'),
     },
     {
       key: 'register',
-      label: '注册',
+      label: t('login.tabRegister'),
     },
   ];
 
@@ -101,8 +103,8 @@ const Login: React.FC = () => {
       <div className={styles.left}>
         <div className={styles.brand}>
           <h1>StarByte</h1>
-          <p>计算机协会一体化管理平台</p>
-          <p style={{ marginTop: 12, fontSize: 16 }}>2026 秋季招新进行中 · 登录后即可提交入会申请</p>
+          <p>{t('login.brand')}</p>
+          <p style={{ marginTop: 12, fontSize: 16 }}>{t('login.recruit')}</p>
         </div>
       </div>
       <div className={styles.right}>
@@ -126,32 +128,32 @@ const Login: React.FC = () => {
               <Form.Item
                 name="username"
                 rules={[
-                  { required: true, message: '请输入用户名或学号' },
+                  { required: true, message: t('login.usernameRequired') },
                   { min: 3, message: '至少 3 个字符' },
                 ]}
               >
-                <Input prefix={<UserOutlined />} placeholder="用户名或学号" />
+                <Input prefix={<UserOutlined />} placeholder={t('login.usernameOrStudent')} />
               </Form.Item>
 
               <Form.Item
                 name="password"
                 rules={[
-                  { required: true, message: '请输入密码' },
-                  { min: 6, message: '密码至少6个字符' },
+                  { required: true, message: t('login.passwordRequired') },
+                  { min: 6, message: t('login.passwordRequired') },
                 ]}
               >
-                <Input.Password prefix={<LockOutlined />} placeholder="密码" />
+                <Input.Password prefix={<LockOutlined />} placeholder={t('login.password')} />
               </Form.Item>
 
               <Form.Item>
                 <Button type="primary" htmlType="submit" loading={loading} block>
-                  登录
+                  {t('login.submit')}
                 </Button>
               </Form.Item>
 
               <div style={{ textAlign: 'center', color: '#999' }}>
-                支持用户名或学号登录 · 还没有账号？
-                <a onClick={() => setActiveTab('register')}>立即注册</a>
+                {t('login.hint')}
+                <a onClick={() => setActiveTab('register')}>{t('login.goRegister')}</a>
               </div>
             </Form>
           )}
@@ -171,14 +173,14 @@ const Login: React.FC = () => {
                   { pattern: /^[a-zA-Z0-9_]+$/, message: '用户名只能包含字母、数字和下划线' },
                 ]}
               >
-                <Input prefix={<UserOutlined />} placeholder="用户名" />
+                <Input prefix={<UserOutlined />} placeholder={t('login.username')} />
               </Form.Item>
 
               <Form.Item
                 name="real_name"
                 rules={[{ required: true, message: '请输入真实姓名' }]}
               >
-                <Input placeholder="真实姓名" />
+                <Input placeholder={t('login.realName')} />
               </Form.Item>
 
               <Form.Item
@@ -188,7 +190,7 @@ const Login: React.FC = () => {
                   { type: 'email', message: '请输入有效的邮箱地址' },
                 ]}
               >
-                <Input prefix={<MailOutlined />} placeholder="邮箱" />
+                <Input prefix={<MailOutlined />} placeholder={t('login.email')} />
               </Form.Item>
 
               <Form.Item
@@ -198,14 +200,14 @@ const Login: React.FC = () => {
                   { min: 6, message: '密码至少6个字符' },
                 ]}
               >
-                <Input.Password prefix={<LockOutlined />} placeholder="密码" />
+                <Input.Password prefix={<LockOutlined />} placeholder={t('login.password')} />
               </Form.Item>
 
               <Form.Item
                 name="confirm_password"
                 dependencies={['password']}
                 rules={[
-                  { required: true, message: '请确认密码' },
+                  { required: true, message: t('login.passwordRequired') },
                   ({ getFieldValue }) => ({
                     validator(_, value) {
                       if (!value || getFieldValue('password') === value) {
@@ -216,18 +218,18 @@ const Login: React.FC = () => {
                   }),
                 ]}
               >
-                <Input.Password prefix={<LockOutlined />} placeholder="确认密码" />
+                <Input.Password prefix={<LockOutlined />} placeholder={t('login.confirmPassword')} />
               </Form.Item>
 
               <Form.Item>
                 <Button type="primary" htmlType="submit" loading={loading} block>
-                  注册
+                  {t('login.register')}
                 </Button>
               </Form.Item>
 
               <div style={{ textAlign: 'center', color: '#999' }}>
-                已有账号？
-                <a onClick={() => setActiveTab('login')}>立即登录</a>
+                {t('login.hasAccount')}
+                <a onClick={() => setActiveTab('login')}>{t('login.goLogin')}</a>
               </div>
             </Form>
           )}

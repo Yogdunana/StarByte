@@ -108,6 +108,12 @@ var seedTemplatesData = []seedTemplate{
 		Body:   "任务「{{.task_name}}」已进入死信：{{.error}}",
 		Schema: `{"task_name":"string","error":"string"}`,
 	},
+	{
+		Code: "contract_expiring", Name: "合同即将到期", Category: "system",
+		Title:  "合同即将到期：{{.title}}",
+		Body:   "{{.real_name}}，合同「{{.title}}」将于 {{.expired_at}} 到期。",
+		Schema: `{"real_name":"string","title":"string","expired_at":"string"}`,
+	},
 }
 
 func seedTemplates(db *gorm.DB) error {

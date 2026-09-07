@@ -115,6 +115,18 @@ func allSeedPermissions() []seedPerm {
 	perms = append(perms,
 		seedPerm{Name: "统一搜索", Code: "search:read", Resource: "search", Action: "read"},
 	)
+	perms = append(perms,
+		seedPerm{Name: "财务查看", Code: "finance:read", Resource: "finance", Action: "read"},
+		seedPerm{Name: "财务创建", Code: "finance:create", Resource: "finance", Action: "create"},
+		seedPerm{Name: "财务管理", Code: "finance:manage", Resource: "finance", Action: "manage"},
+		seedPerm{Name: "处分查看", Code: "discipline:read", Resource: "discipline", Action: "read"},
+		seedPerm{Name: "处分登记", Code: "discipline:create", Resource: "discipline", Action: "create"},
+		seedPerm{Name: "处分审批", Code: "discipline:approve", Resource: "discipline", Action: "approve"},
+		seedPerm{Name: "处分撤销", Code: "discipline:revoke", Resource: "discipline", Action: "revoke"},
+		seedPerm{Name: "合同查看", Code: "contract:read", Resource: "contract", Action: "read"},
+		seedPerm{Name: "合同创建", Code: "contract:create", Resource: "contract", Action: "create"},
+		seedPerm{Name: "合同管理", Code: "contract:manage", Resource: "contract", Action: "manage"},
+	)
 	return perms
 }
 
@@ -204,13 +216,16 @@ func seedRolePermissions(db *gorm.DB) error {
 		FROM roles r CROSS JOIN permissions p
 		WHERE r.code = 'minister' AND (
 			p.action = 'read'
-			OR (p.resource IN ('member','interview','meeting','task','internship','file','workflow','notification')
+			OR (p.resource IN ('member','interview','meeting','task','internship','file','workflow','notification','finance','discipline','contract')
 			    AND p.action IN ('create','update'))
 			OR (p.resource = 'member' AND p.action IN ('approve','export','manage'))
 			OR (p.resource = 'interview' AND p.action IN ('manage','evaluate'))
 			OR (p.resource = 'meeting' AND p.action = 'manage')
 			OR (p.resource = 'task' AND p.action IN ('assign','transfer','comment'))
 			OR (p.resource = 'internship' AND p.action = 'evaluate')
+			OR (p.resource = 'finance' AND p.action = 'manage')
+			OR (p.resource = 'discipline' AND p.action IN ('approve','revoke'))
+			OR (p.resource = 'contract' AND p.action = 'manage')
 			OR (p.resource = 'export' AND p.action IN ('excel','csv','pdf','json','template','download'))
 			OR (p.resource = 'stats' AND p.action = 'export')
 			OR (p.resource = 'form' AND p.action IN ('write', 'submit'))
@@ -227,7 +242,7 @@ func seedRolePermissions(db *gorm.DB) error {
 		FROM roles r CROSS JOIN permissions p
 		WHERE r.code = 'vice_minister' AND (
 			p.action = 'read'
-			OR (p.resource IN ('member','interview','meeting','task','internship','file')
+			OR (p.resource IN ('member','interview','meeting','task','internship','file','finance','discipline','contract')
 			    AND p.action = 'create')
 			OR (p.resource = 'task' AND p.action IN ('update','comment'))
 			OR (p.resource = 'form' AND p.action IN ('write', 'submit'))
@@ -251,6 +266,7 @@ func officerPermCodes() []string {
 		"file:read", "file:create",
 		"internship:read", "internship:create", "internship:update", "internship:delete",
 		"form:read", "form:submit",
+		"discipline:read",
 	}
 }
 
@@ -258,7 +274,7 @@ func memberPermCodes() []string {
 	return []string{
 		"user:read", "member:read", "meeting:read", "task:read",
 		"file:read", "file:create", "internship:read", "internship:create", "internship:update", "internship:delete",
-		"form:submit",
+		"form:submit", "discipline:read",
 	}
 }
 

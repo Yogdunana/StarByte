@@ -17,11 +17,15 @@ import {
   FolderOutlined,
   BookOutlined,
   FormOutlined,
+  DollarOutlined,
+  AlertOutlined,
+  FileProtectOutlined,
 } from '@ant-design/icons';
 
 import routes, { AppRouteObject, RouteMeta } from '@/router/routes';
 import { selectCollapsed } from '@/store/slices/appSlice';
 import { selectPermissions } from '@/store/slices/userSlice';
+import { useTranslation } from 'react-i18next';
 
 export type MenuItem = NonNullable<MenuProps['items']>[number];
 
@@ -57,6 +61,9 @@ const iconMap: Record<string, React.FC> = {
   FolderOutlined,
   BookOutlined,
   FormOutlined,
+  DollarOutlined,
+  AlertOutlined,
+  FileProtectOutlined,
 };
 
 function hasMenuPermission(permissions: string[], meta?: RouteMeta): boolean {
@@ -79,7 +86,8 @@ function hasVisibleChildren(route: AppRouteObject, permissions: string[]): boole
 function buildMenuNodes(
   routeList: AppRouteObject[],
   permissions: string[],
-  parentPath = '',
+  parentPath: string,
+  labelOf: (path: string, fallback: string) => string,
 ): MenuNode[] {
   return routeList
     .filter((route) => !route.meta?.hidden && route.path && route.path !== '*')
@@ -97,13 +105,14 @@ function buildMenuNodes(
       const node: MenuNode = {
         key: fullPath,
         icon: IconComponent ? <IconComponent /> : undefined,
-        label: route.meta?.title || route.path || '',
+        label: labelOf(fullPath, route.meta?.title || route.path || ''),
       };
       if (route.children && route.children.length > 0) {
         const childItems = buildMenuNodes(
           route.children.filter((c) => c.path !== 'index'),
           permissions,
           fullPath,
+          labelOf,
         );
         if (childItems.length > 0) {
           node.children = childItems;
@@ -155,15 +164,17 @@ export function useMenu(): UseMenuResult {
   const location = useLocation();
   const collapsed = useSelector(selectCollapsed);
   const permissions = useSelector(selectPermissions);
+  const { t } = useTranslation();
   const [searchKeyword, setSearchKeyword] = useState('');
   const [openKeys, setOpenKeys] = useState<string[]>([]);
 
   const allNodes = useMemo(() => {
     const layoutRoute = (routes as AppRouteObject[]).find((r) => r.path === '/');
+    const labelOf = (path: string, fallback: string) => t(`menu.${path}`, { defaultValue: fallback });
     return layoutRoute?.children
-      ? buildMenuNodes(layoutRoute.children, permissions, '')
+      ? buildMenuNodes(layoutRoute.children, permissions, '', labelOf)
       : [];
-  }, [permissions]);
+  }, [permissions, t]);
 
   const visibleNodes = useMemo(
     () => filterMenuNodes(allNodes, searchKeyword),

@@ -1,6 +1,7 @@
 import React, { lazy, Suspense } from 'react';
 import { Navigate } from 'react-router-dom';
 import type { RouteObject } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 // 布局组件
 import MainLayout from '@/layouts/MainLayout/MainLayout';
@@ -51,13 +52,18 @@ const FormListPage = lazy(() => import('@/pages/form-designer/ListPage'));
 const FormDesignerPage = lazy(() => import('@/pages/form-designer/DesignerPage'));
 const FormFillPage = lazy(() => import('@/pages/form-designer/FillPage'));
 const FormSubmissionsPage = lazy(() => import('@/pages/form-designer/SubmissionsPage'));
+const FinancePage = lazy(() => import('@/pages/finance/FinancePage'));
+const DisciplinePage = lazy(() => import('@/pages/discipline/DisciplinePage'));
+const ContractPage = lazy(() => import('@/pages/contract/ContractPage'));
 const Forbidden = lazy(() => import('@/pages/error/Forbidden'));
 const NotFound = lazy(() => import('@/pages/error/NotFound'));
 
-// 懒加载 fallback
-const LoadingFallback: React.FC = () => (
-  <div style={{ padding: 24, textAlign: 'center' }}>加载中...</div>
-);
+const LoadingFallback: React.FC = () => {
+  const { t } = useTranslation();
+  return (
+    <div style={{ padding: 24, textAlign: 'center' }}>{t('common.loading')}</div>
+  );
+};
 
 // 懒加载包装器（无权限守卫）
 const lazyWrap = (Component: React.LazyExoticComponent<React.FC>) => (
@@ -306,6 +312,21 @@ const routes: AppRouteObject[] = [
             meta: { title: '实习统计', permission: 'internship:read' },
           },
         ],
+      },
+      {
+        path: 'finance',
+        element: lazyGuarded(FinancePage, 'finance:read'),
+        meta: { title: '财务管理', icon: 'DollarOutlined', permission: 'finance:read' },
+      },
+      {
+        path: 'discipline',
+        element: lazyGuarded(DisciplinePage, 'discipline:read'),
+        meta: { title: '纪律处分', icon: 'AlertOutlined', permission: 'discipline:read' },
+      },
+      {
+        path: 'contract',
+        element: lazyGuarded(ContractPage, 'contract:read'),
+        meta: { title: '合同管理', icon: 'FileProtectOutlined', permission: 'contract:read' },
       },
       {
         path: 'forms',

@@ -71,6 +71,7 @@ StarByte 是一个面向高校计算机协会的全功能管理系统，涵盖�
 │  │ 用户 │ 会员  │ 面试  │ 会议  │ 任务  │ 实习  │ 通知  │ 统计 │   │
 │  │ 模块 │ 模块  │ 模块  │ 模块  │ 模块  │ 模块  │ 模块  │ 模块 │   │
 │  └──┬───┴───┬───┴───┬───┴───┬───┴───┬───┴───┬───┴───┬───┴────┘   │
+│     │ 财务 / 处分 / 合同（一期预留产品页，写主库）                 │
 │     │       │       │       │       │       │       │            │
 │  ┌──┴───────┴───────┴───────┴───────┴───────┴───────┴────┐       │
 │  │              流程引擎 (Workflow Engine)               │       │
@@ -411,14 +412,33 @@ module/
 - ✅ 系统审计日志
 - ✅ 数据统计与可视化报表
 - ✅ 文件管理（MinIO）
+- ✅ 财务管理（记录 CRUD、分类、汇总；导出预留）
+- ✅ 纪律处分（登记、审批、撤销、申诉、通知；可选挂接流程 `discipline_approve`）
+- ✅ 合同管理（模板、附件、到期扫描）
+- ✅ 前端 i18n（zh-CN / en-US）与亮/暗/跟随系统主题
 
 ### 二期功能
-- 🔲 微信扫码登录 / 第三方登录
-- 🔲 加权投票
-- 🔲 合同管理
-- 🔲 纪律处分记录
-- 🔲 财务管理
+- 🔲 微信扫码登录 / 第三方登录 / 学校 CAS
 - 🔲 入会申请接入流程引擎
 - 🔲 任务流转接入流程引擎
 - 🔲 更多通知渠道（微信公众号、企业微信、短信）
+- 🔲 财务导出引擎与报销审批完善
 - 🔲 移动端适配 / 小程序
+
+---
+
+## 11. 模块依赖（一期）
+
+```
+auth / user ──► rbac ──► 各业务模块（permission + data_scope）
+member ──► interview（干事申请可启动流程）
+interview / meeting / task / discipline ──► notification
+discipline ──► workflow（可选 key=discipline_approve；无定义则模块内审批）
+contract ──► file（附件 file_id）
+contract ──► scheduler（handler_key=contract_expiry）
+finance ──► export（一期 /finance/export 返回 1501 预留）
+frontend ──► antd ConfigProvider + i18next（壳层/新模块）
+```
+
+财务、处分、合同写本系统主库；学校 HAP/CAS 对接属二期，不在本图。
+

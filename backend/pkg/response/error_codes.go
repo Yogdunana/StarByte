@@ -27,6 +27,9 @@ package response
 //	20000-20999 Unified search (#74)
 //	21000-21999 API rate limit / circuit breaker (#75)
 //	22000-22999 Dynamic form engine (#28; issue listed 16001-16099, taken by #50 sessions)
+//	23000-23999 Finance (#22)
+//	24000-24999 Discipline (#23)
+//	25000-25999 Contract (#24)
 //
 //	Note: issue #71 asked for 9000-9499, but that range is already owned by
 //	the task module (9000-9999). Export therefore uses 17000-17999 (after
@@ -235,6 +238,27 @@ const (
 	CodeFormInvalidSchema = 22005 // 表单字段定义不合法
 	CodeFormInvalidStatus = 22006 // 表单状态不允许该操作
 	CodeFormNameExists    = 22007 // 表单名称已存在
+
+	// ===== Finance (#22, 23000-23999) =====
+	CodeFinanceNotFound      = 23001 // 财务记录不存在
+	CodeFinanceCategoryGone  = 23002 // 收支分类不存在
+	CodeFinanceInvalidAmount = 23003 // 金额不合法
+	CodeFinanceNoAccess      = 23004 // 无权操作该财务记录
+
+	// ===== Discipline (#23, 24000-24999) =====
+	CodeDisciplineNotFound     = 24001 // 处分记录不存在
+	CodeDisciplineInvalidState = 24002 // 处分状态不允许该操作
+	CodeDisciplineNoAccess     = 24003 // 无权操作该处分
+	CodeDisciplineInvalidLevel = 24004 // 处分等级不合法
+	CodeDisciplineDupAppeal    = 24005 // 已有进行中的申诉
+
+	// ===== Contract (#24, 25000-25999) =====
+	CodeContractNotFound      = 25001 // 合同不存在
+	CodeContractInvalidState  = 25002 // 合同状态不允许该操作
+	CodeContractNoAccess      = 25003 // 无权操作该合同
+	CodeContractTemplateGone  = 25004 // 合同模板不存在
+	CodeContractInvalidType   = 25005 // 合同类型不合法
+	CodeContractInvalidPeriod = 25006 // 开始/结束日期不合法
 )
 
 // ModuleRanges maps each module name to its error-code range [min, max].
@@ -262,4 +286,7 @@ var ModuleRanges = map[string][2]int{
 	"search":       {20000, 20999},
 	"traffic":      {21000, 21999},
 	"form":         {22000, 22999},
+	"finance":      {23000, 23999},
+	"discipline":   {24000, 24999},
+	"contract":     {25000, 25999},
 }

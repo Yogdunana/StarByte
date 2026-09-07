@@ -447,6 +447,9 @@ func main() {
 		formH := formHandler.NewFormHandler(formSvc, cacheService)
 		formHandler.RegisterRoutes(protected, formH, cacheService)
 
+		// 财务 / 处分 / 合同（#22 #23 #24）
+		registerPhase1Ops(protected, database.DB(), cacheService, deptRepo, notifSvc, wfHandlers.DefinitionRepo, wfHandlers.InstanceService)
+
 		// 审计日志模块路由（/system/audit-logs，audit:read / audit:export / audit:archive / audit:report）
 		auditHandler.RegisterRoutes(protected, auditH, cacheService)
 	}
