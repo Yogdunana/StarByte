@@ -96,7 +96,7 @@ const AccountSettingsPage: React.FC = () => {
                   if (!value || getFieldValue('new_password') === value) {
                     return Promise.resolve();
                   }
-                  return Promise.reject(new Error(t('login.confirmPassword')));
+                  return Promise.reject(new Error(t('login.passwordMismatch')));
                 },
               }),
             ]}

@@ -23,7 +23,9 @@ docker compose -f deploy/docker-compose.yml ps
 | Swagger（非生产） | http://localhost:8080/swagger/index.html |
 | MinIO API | http://localhost:9000 |
 
-首次启动后端会跑迁移。种子数据（角色/权限/演示账号）需在能连上库后执行：
+首次启动后端会跑迁移。生产 Postgres **不映射主机端口**，在宿主机执行 `APP_ENV=prod make seed` 会连不上库。请在能访问 `postgres` 服务的网络里跑种子（跳板机映射 5432，或一次性容器加入 compose 网络），并注入 `DB_HOST` / `DB_USER` / `DB_PASSWORD` / `JWT_SECRET` 等（见 `backend/.env.example`）。
+
+手动部署（库端口对本机可见）时：
 
 ```bash
 APP_ENV=prod make seed

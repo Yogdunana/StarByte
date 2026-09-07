@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/discipline/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/discipline/model"
@@ -21,6 +22,7 @@ type Repository interface {
 	CreateAppeal(ctx context.Context, row *model.Appeal) error
 	ListAppeals(ctx context.Context, recordID uuid.UUID) ([]model.Appeal, error)
 	HasOpenAppeal(ctx context.Context, recordID uuid.UUID) (bool, error)
+	ResolveOpenAppeals(ctx context.Context, recordID, reviewer uuid.UUID, status int16) error
 }
 
 type repository struct{ db *gorm.DB }
@@ -122,6 +124,15 @@ func (r *repository) HasOpenAppeal(ctx context.Context, recordID uuid.UUID) (boo
 	err := r.db.WithContext(ctx).Model(&model.Appeal{}).
 		Where("record_id = ? AND status = ?", recordID, model.AppealPending).Count(&n).Error
 	return n > 0, err
+}
+
+func (r *repository) ResolveOpenAppeals(ctx context.Context, recordID, reviewer uuid.UUID, status int16) error {
+	now := time.Now()
+	return r.db.WithContext(ctx).Model(&model.Appeal{}).
+		Where("record_id = ? AND status = ?", recordID, model.AppealPending).
+		Updates(map[string]interface{}{
+			"status": status, "reviewer_id": reviewer, "reviewed_at": now,
+		}).Error
 }
 
 func normalizePage(page, pageSize int) (int, int) {

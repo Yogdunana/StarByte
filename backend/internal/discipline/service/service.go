@@ -150,6 +150,9 @@ func (s *disciplineService) Approve(ctx context.Context, operator, id uuid.UUID,
 	if err := s.rows.Update(ctx, row); err != nil {
 		return nil, fmt.Errorf("approve discipline: %w", err)
 	}
+	if err := s.rows.ResolveOpenAppeals(ctx, id, operator, model.AppealRejected); err != nil {
+		return nil, fmt.Errorf("resolve appeals: %w", err)
+	}
 	s.notifyUser(ctx, row.UserID, "discipline_notice", row.Title)
 	return s.Get(ctx, operator, id, nil)
 }
@@ -169,6 +172,9 @@ func (s *disciplineService) Revoke(ctx context.Context, operator, id uuid.UUID, 
 	row.RevokedAt = &now
 	if err := s.rows.Update(ctx, row); err != nil {
 		return nil, fmt.Errorf("revoke discipline: %w", err)
+	}
+	if err := s.rows.ResolveOpenAppeals(ctx, id, operator, model.AppealAccepted); err != nil {
+		return nil, fmt.Errorf("resolve appeals: %w", err)
 	}
 	s.notifyUser(ctx, row.UserID, "discipline_notice", row.Title)
 	return s.Get(ctx, operator, id, nil)

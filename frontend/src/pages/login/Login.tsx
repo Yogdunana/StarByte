@@ -139,7 +139,7 @@ const Login: React.FC = () => {
                 name="password"
                 rules={[
                   { required: true, message: t('login.passwordRequired') },
-                  { min: 6, message: t('login.passwordRequired') },
+                  { min: 6, message: t('login.passwordMin') },
                 ]}
               >
                 <Input.Password prefix={<LockOutlined />} placeholder={t('login.password')} />
