@@ -21,7 +21,7 @@ func NewAuthHandler(authService service.AuthService) *AuthHandler {
 
 // Login handles POST /api/v1/auth/login
 // @Summary 用户登录
-// @Description 用户名密码登录，返回 Access Token 和 Refresh Token
+// @Description 用户名或学号 + 密码登录，返回 Access Token、Refresh Token 以及含学号/姓名的用户信息
 // @Tags 认证
 // @Accept json
 // @Produce json
@@ -105,7 +105,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 
 // GetCurrentUser handles GET /api/v1/auth/me
 // @Summary 获取当前用户信息
-// @Description 获取当前登录用户的详细信息（含角色和权限）
+// @Description 获取当前登录用户的详细信息（含角色、权限、学号、姓名、年级、专业、部门）
 // @Tags 认证
 // @Produce json
 // @Security BearerAuth

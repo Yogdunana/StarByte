@@ -61,6 +61,9 @@ func SeedAll(db *gorm.DB) error {
 		if err := seedUsers(tx); err != nil {
 			return fmt.Errorf("seed users: %w", err)
 		}
+		if err := seedMemberProfiles(tx); err != nil {
+			return fmt.Errorf("seed member profiles: %w", err)
+		}
 		if err := seedRolePermissions(tx); err != nil {
 			return fmt.Errorf("seed role permissions: %w", err)
 		}

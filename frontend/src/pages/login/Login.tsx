@@ -126,11 +126,11 @@ const Login: React.FC = () => {
               <Form.Item
                 name="username"
                 rules={[
-                  { required: true, message: '请输入用户名' },
-                  { min: 3, message: '用户名至少3个字符' },
+                  { required: true, message: '请输入用户名或学号' },
+                  { min: 3, message: '至少 3 个字符' },
                 ]}
               >
-                <Input prefix={<UserOutlined />} placeholder="用户名" />
+                <Input prefix={<UserOutlined />} placeholder="用户名或学号" />
               </Form.Item>
 
               <Form.Item
@@ -150,7 +150,7 @@ const Login: React.FC = () => {
               </Form.Item>
 
               <div style={{ textAlign: 'center', color: '#999' }}>
-                还没有账号？
+                支持用户名或学号登录 · 还没有账号？
                 <a onClick={() => setActiveTab('register')}>立即注册</a>
               </div>
             </Form>

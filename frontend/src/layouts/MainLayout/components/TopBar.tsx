@@ -109,8 +109,11 @@ const TopBar: React.FC<TopBarProps> = () => {
               src={currentUser?.avatar_url}
               icon={!currentUser?.avatar_url && <UserOutlined />}
             />
-            <span style={{ fontSize: 14 }}>
-              {currentUser?.real_name || currentUser?.username || '用户'}
+            <span style={{ fontSize: 14, display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
+              <span>{currentUser?.real_name || currentUser?.username || '用户'}</span>
+              {currentUser?.student_no ? (
+                <span style={{ fontSize: 12, color: '#8c8c8c' }}>{currentUser.student_no}</span>
+              ) : null}
             </span>
           </div>
         </Dropdown>

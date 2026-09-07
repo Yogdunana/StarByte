@@ -17,6 +17,7 @@ type ProfileRepo interface {
 	Update(ctx context.Context, p *model.MemberProfile) error
 	GetByID(ctx context.Context, id uuid.UUID) (*model.MemberProfile, error)
 	GetByUserID(ctx context.Context, userID uuid.UUID) (*model.MemberProfile, error)
+	GetByUserIDWithNames(ctx context.Context, userID uuid.UUID) (*model.ProfileWithNames, error)
 	GetByIDWithNames(ctx context.Context, id uuid.UUID) (*model.ProfileWithNames, error)
 	GetByStudentNo(ctx context.Context, studentNo string, excludeID *uuid.UUID) (*model.MemberProfile, error)
 	List(ctx context.Context, req *dto.ListProfileRequest, scope *rbacModel.DataScopeCondition) ([]model.ProfileWithNames, int64, error)
@@ -72,6 +73,18 @@ func (r *profileRepo) namedQuery(ctx context.Context) *gorm.DB {
 		Joins("LEFT JOIN users u ON u.id = p.user_id").
 		Joins("LEFT JOIN departments d ON d.id = p.department_id").
 		Joins("LEFT JOIN positions pos ON pos.id = p.position_id")
+}
+
+func (r *profileRepo) GetByUserIDWithNames(ctx context.Context, userID uuid.UUID) (*model.ProfileWithNames, error) {
+	var row model.ProfileWithNames
+	err := r.namedQuery(ctx).Where("p.user_id = ?", userID).First(&row).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &row, nil
 }
 
 func (r *profileRepo) GetByIDWithNames(ctx context.Context, id uuid.UUID) (*model.ProfileWithNames, error) {

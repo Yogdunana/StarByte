@@ -209,3 +209,20 @@ func TestOfficerAndMemberPerms_NonEmpty(t *testing.T) {
 	assert.Contains(t, officerPermCodes(), "task:create")
 	assert.Contains(t, memberPermCodes(), "file:read")
 }
+
+func TestSeedMemberProfiles_StudentNos(t *testing.T) {
+	assert.Len(t, seedProfileData, 2)
+	seenUser := map[string]bool{}
+	seenNo := map[string]bool{}
+	for _, row := range seedProfileData {
+		assert.NotEmpty(t, row.Username)
+		assert.NotEmpty(t, row.StudentNo)
+		assert.NotEmpty(t, row.RealName)
+		assert.False(t, seenUser[row.Username], "duplicate username %s", row.Username)
+		assert.False(t, seenNo[row.StudentNo], "duplicate student_no %s", row.StudentNo)
+		seenUser[row.Username] = true
+		seenNo[row.StudentNo] = true
+	}
+	assert.Equal(t, "20210001", seedProfileData[0].StudentNo)
+	assert.Equal(t, "20210002", seedProfileData[1].StudentNo)
+}

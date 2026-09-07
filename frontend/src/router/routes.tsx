@@ -14,6 +14,8 @@ const Login = lazy(() => import('@/pages/login/Login'));
 const Dashboard = lazy(() => import('@/pages/dashboard/Dashboard'));
 const BigScreenPage = lazy(() => import('@/pages/dashboard/bigscreen/BigScreenPage'));
 const UserList = lazy(() => import('@/pages/user/UserList'));
+const ProfileMePage = lazy(() => import('@/pages/user/ProfileMePage'));
+const AccountSettingsPage = lazy(() => import('@/pages/user/AccountSettingsPage'));
 const NotificationList = lazy(() => import('@/pages/notification/NotificationList'));
 const TemplateList = lazy(() => import('@/pages/notification/TemplateList'));
 const AuditList = lazy(() => import('@/pages/system/audit/AuditList'));
@@ -135,6 +137,16 @@ const routes: AppRouteObject[] = [
             path: 'list',
             element: lazyGuarded(UserList, 'user:read'),
             meta: { title: '用户列表', permission: 'user:read' },
+          },
+          {
+            path: 'profile',
+            element: lazyWrap(ProfileMePage),
+            meta: { title: '个人中心', hidden: true },
+          },
+          {
+            path: 'settings',
+            element: lazyWrap(AccountSettingsPage),
+            meta: { title: '账号设置', hidden: true },
           },
         ],
       },

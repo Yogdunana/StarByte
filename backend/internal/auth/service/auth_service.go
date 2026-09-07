@@ -37,15 +37,18 @@ type authService struct {
 	jwtConfig    *config.JWTConfig
 	permCacheSvc rbacService.PermissionCacheService
 	eventBus     *events.EventBus
+	identity     MemberIdentityLookup
 }
 
 // NewAuthService creates a new authentication service.
+// identity 可为 nil（无档案时登录仍可用，学号登录与档案字段为空）。
 func NewAuthService(
 	authRepo repo.AuthRepo,
 	userRepo userRepo.UserRepo,
 	jwtConfig *config.JWTConfig,
 	permCacheSvc rbacService.PermissionCacheService,
 	eventBus *events.EventBus,
+	identity MemberIdentityLookup,
 ) AuthService {
 	return &authService{
 		authRepo:     authRepo,
@@ -53,46 +56,16 @@ func NewAuthService(
 		jwtConfig:    jwtConfig,
 		permCacheSvc: permCacheSvc,
 		eventBus:     eventBus,
+		identity:     identity,
 	}
 }
 
 // Login authenticates a user and returns an access token + refresh token pair.
 func (s *authService) Login(ctx context.Context, req *dto.LoginRequest, ip, userAgent string) (*dto.LoginResponse, error) {
-	// 1. Check lockout
-	locked, err := s.authRepo.IsLockedOut(ctx, req.Username)
+	user, err := s.authenticateLogin(ctx, req.Username, req.Password)
 	if err != nil {
-		return nil, fmt.Errorf("check lockout: %w", err)
+		return nil, err
 	}
-	if locked {
-		ttl, _ := s.authRepo.GetLockoutTTL(ctx, req.Username)
-		return nil, response.NewError(response.CodeAccountLocked,
-			fmt.Sprintf("登录失败次数过多，账号已被锁定，请 %d 分钟后重试", int(ttl.Minutes())+1))
-	}
-
-	// 2. Query user
-	user, err := s.userRepo.GetByUsername(ctx, req.Username)
-	if err != nil {
-		return nil, fmt.Errorf("get user: %w", err)
-	}
-
-	// 3. Validate credentials
-	if user == nil || !utils.CheckPassword(req.Password, user.PasswordHash) {
-		s.recordFailedAttempt(ctx, req.Username)
-		return nil, response.NewError(response.CodeInvalidCredentials, "用户名或密码错误")
-	}
-
-	// 4. Check user status
-	if user.Status == 1 {
-		return nil, response.NewError(response.CodeUserDisabled, "账号已被禁用")
-	}
-	if user.Status == 2 {
-		return nil, response.NewError(response.CodeUserLocked, "账号已被锁定，请联系管理员")
-	}
-
-	// 5. Reset failed attempts on success
-	_ = s.authRepo.ResetLoginAttempts(ctx, req.Username)
-
-	// 6. Get roles and permissions（缓存/DB 失败必须 fail-closed，不得提权）
 	userUUID, _ := uuid.Parse(user.ID.String())
 	roles, permissions, err := s.getUserRolesAndPermissions(ctx, userUUID)
 	if err != nil {
@@ -131,7 +104,7 @@ func (s *authService) Login(ctx context.Context, req *dto.LoginRequest, ip, user
 	s.publishLogin(ctx, user, ip, userAgent)
 
 	// 12. Build response
-	userInfo := buildUserInfo(user, roles, permissions)
+	userInfo := s.buildUserInfo(ctx, user, roles, permissions)
 
 	return &dto.LoginResponse{
 		AccessToken:      accessToken,
@@ -250,7 +223,7 @@ func (s *authService) GetCurrentUser(ctx context.Context, userID string) (*dto.U
 		return nil, fmt.Errorf("get roles and permissions: %w", err)
 	}
 
-	return buildUserInfo(user, roles, permissions), nil
+	return s.buildUserInfo(ctx, user, roles, permissions), nil
 }
 
 // ChangePassword validates the old password, checks new password strength, and updates.
@@ -320,23 +293,6 @@ func (s *authService) getUserRolesAndPermissions(ctx context.Context, userID uui
 		return nil, permissions, nil
 	}
 	return roles, permissions, nil
-}
-
-// buildUserInfo constructs the UserInfo response from a User model.
-func buildUserInfo(user *model.User, roles, permissions []string) *dto.UserInfo {
-	return &dto.UserInfo{
-		ID:          user.ID.String(),
-		Username:    user.Username,
-		RealName:    user.RealName,
-		AvatarURL:   user.AvatarURL,
-		Email:       user.Email,
-		Phone:       user.Phone,
-		Gender:      user.Gender,
-		Status:      user.Status,
-		Roles:       roles,
-		Permissions: permissions,
-		CreatedAt:   user.CreatedAt,
-	}
 }
 
 // accessTTL returns the access token TTL duration.
