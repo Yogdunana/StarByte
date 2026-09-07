@@ -1,0 +1,17 @@
+{
+  "name": "StarByte",
+  "user": "ubuntu",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "backend",
+      "command": "cd backend && APP_ENV=dev go run ./cmd/server"
+    },
+    {
+      "name": "frontend",
+      "command": "cd frontend && npm run dev"
+    }
+  ],
+  "ports": [8080, 5173, 9001]
+}
