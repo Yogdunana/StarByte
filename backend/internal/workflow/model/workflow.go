@@ -10,9 +10,14 @@ import (
 // It supports multi-version management via FlowDefinitionVersion.
 //
 // Status values: 0=draft, 1=published, 2=disabled.
+//
+// Key uses gorm "unique" (not uniqueIndex) so AutoMigrate matches the UNIQUE
+// constraint created by 000002_workflow_engine. uniqueIndex would DROP
+// CONSTRAINT "uni_flow_definitions_key", which does not exist (Postgres names
+// it flow_definitions_key_key), and the server would exit on startup.
 type FlowDefinition struct {
 	ID          uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
-	Key         string     `gorm:"type:varchar(100);uniqueIndex;not null" json:"key"`
+	Key         string     `gorm:"type:varchar(100);unique;not null" json:"key"`
 	Name        string     `gorm:"type:varchar(200);not null" json:"name"`
 	Description string     `gorm:"type:text" json:"description"`
 	Category    string     `gorm:"type:varchar(50);default:custom" json:"category"`
