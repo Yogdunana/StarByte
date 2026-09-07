@@ -9,25 +9,26 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/finance/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/finance/model"
 	"github.com/Yogdunana/StarByte/backend/internal/finance/repo"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
 )
 
 type Service interface {
-	Create(ctx context.Context, operator uuid.UUID, req *dto.CreateRecordRequest) (*dto.RecordResponse, error)
-	Update(ctx context.Context, id uuid.UUID, req *dto.UpdateRecordRequest) (*dto.RecordResponse, error)
-	Delete(ctx context.Context, id uuid.UUID) error
-	Get(ctx context.Context, id uuid.UUID) (*dto.RecordResponse, error)
-	List(ctx context.Context, req *dto.ListRecordRequest) ([]*dto.RecordResponse, int64, int, int, error)
+	Create(ctx context.Context, operator uuid.UUID, req *dto.CreateRecordRequest, scope *rbacModel.DataScopeCondition) (*dto.RecordResponse, error)
+	Update(ctx context.Context, operator, id uuid.UUID, req *dto.UpdateRecordRequest, scope *rbacModel.DataScopeCondition) (*dto.RecordResponse, error)
+	Delete(ctx context.Context, operator, id uuid.UUID, scope *rbacModel.DataScopeCondition) error
+	Get(ctx context.Context, viewer, id uuid.UUID, scope *rbacModel.DataScopeCondition) (*dto.RecordResponse, error)
+	List(ctx context.Context, viewer uuid.UUID, req *dto.ListRecordRequest, scope *rbacModel.DataScopeCondition) ([]*dto.RecordResponse, int64, int, int, error)
 	Categories(ctx context.Context) ([]dto.CategoryResponse, error)
-	Summary(ctx context.Context, q dto.SummaryQuery) (*dto.SummaryResponse, error)
+	Summary(ctx context.Context, viewer uuid.UUID, q dto.SummaryQuery, scope *rbacModel.DataScopeCondition) (*dto.SummaryResponse, error)
 }
 
 type financeService struct{ rows repo.Repository }
 
 func New(rows repo.Repository) Service { return &financeService{rows: rows} }
 
-func (s *financeService) Create(ctx context.Context, operator uuid.UUID, req *dto.CreateRecordRequest) (*dto.RecordResponse, error) {
+func (s *financeService) Create(ctx context.Context, operator uuid.UUID, req *dto.CreateRecordRequest, scope *rbacModel.DataScopeCondition) (*dto.RecordResponse, error) {
 	if req.Amount <= 0 {
 		return nil, response.NewError(response.CodeFinanceInvalidAmount, "金额必须大于 0")
 	}
@@ -49,16 +50,19 @@ func (s *financeService) Create(ctx context.Context, operator uuid.UUID, req *dt
 		Remark: req.Remark, CreatedBy: &operator, CreatedAt: now,
 	}
 	if dept := parseUUID(req.DepartmentID); dept != nil {
+		if !canAccess(scope, &operator, dept, operator) {
+			return nil, response.NewError(response.CodeFinanceNoAccess, "无权为该部门登记财务记录")
+		}
 		row.DepartmentID = dept
 	}
 	if err := s.rows.Create(ctx, row); err != nil {
 		return nil, fmt.Errorf("create finance record: %w", err)
 	}
-	return s.Get(ctx, row.ID)
+	return s.Get(ctx, operator, row.ID, nil)
 }
 
-func (s *financeService) Update(ctx context.Context, id uuid.UUID, req *dto.UpdateRecordRequest) (*dto.RecordResponse, error) {
-	row, err := s.must(ctx, id)
+func (s *financeService) Update(ctx context.Context, operator, id uuid.UUID, req *dto.UpdateRecordRequest, scope *rbacModel.DataScopeCondition) (*dto.RecordResponse, error) {
+	row, err := s.must(ctx, operator, id, scope)
 	if err != nil {
 		return nil, err
 	}
@@ -100,11 +104,11 @@ func (s *financeService) Update(ctx context.Context, id uuid.UUID, req *dto.Upda
 	if err := s.rows.Update(ctx, row); err != nil {
 		return nil, fmt.Errorf("update finance record: %w", err)
 	}
-	return s.Get(ctx, id)
+	return s.Get(ctx, operator, id, nil)
 }
 
-func (s *financeService) Delete(ctx context.Context, id uuid.UUID) error {
-	if _, err := s.must(ctx, id); err != nil {
+func (s *financeService) Delete(ctx context.Context, operator, id uuid.UUID, scope *rbacModel.DataScopeCondition) error {
+	if _, err := s.must(ctx, operator, id, scope); err != nil {
 		return err
 	}
 	if err := s.rows.Delete(ctx, id); err != nil {
@@ -113,7 +117,7 @@ func (s *financeService) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (s *financeService) Get(ctx context.Context, id uuid.UUID) (*dto.RecordResponse, error) {
+func (s *financeService) Get(ctx context.Context, viewer, id uuid.UUID, scope *rbacModel.DataScopeCondition) (*dto.RecordResponse, error) {
 	row, err := s.rows.GetNamed(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get finance record: %w", err)
@@ -121,11 +125,14 @@ func (s *financeService) Get(ctx context.Context, id uuid.UUID) (*dto.RecordResp
 	if row == nil {
 		return nil, response.NewError(response.CodeFinanceNotFound, "财务记录不存在")
 	}
+	if !canAccess(scope, row.CreatedBy, row.DepartmentID, viewer) {
+		return nil, response.NewError(response.CodeFinanceNoAccess, "无权查看该财务记录")
+	}
 	return mapRecord(row), nil
 }
 
-func (s *financeService) List(ctx context.Context, req *dto.ListRecordRequest) ([]*dto.RecordResponse, int64, int, int, error) {
-	rows, total, err := s.rows.List(ctx, req)
+func (s *financeService) List(ctx context.Context, viewer uuid.UUID, req *dto.ListRecordRequest, scope *rbacModel.DataScopeCondition) ([]*dto.RecordResponse, int64, int, int, error) {
+	rows, total, err := s.rows.List(ctx, req, rewriteScope(scope, viewer))
 	if err != nil {
 		return nil, 0, 0, 0, fmt.Errorf("list finance records: %w", err)
 	}
@@ -157,8 +164,8 @@ func (s *financeService) Categories(ctx context.Context) ([]dto.CategoryResponse
 	return out, nil
 }
 
-func (s *financeService) Summary(ctx context.Context, q dto.SummaryQuery) (*dto.SummaryResponse, error) {
-	totals, cats, err := s.rows.Summary(ctx, q.From, q.To, q.CategoryID)
+func (s *financeService) Summary(ctx context.Context, viewer uuid.UUID, q dto.SummaryQuery, scope *rbacModel.DataScopeCondition) (*dto.SummaryResponse, error) {
+	totals, cats, err := s.rows.Summary(ctx, q.From, q.To, q.CategoryID, rewriteScope(scope, viewer))
 	if err != nil {
 		return nil, fmt.Errorf("finance summary: %w", err)
 	}
@@ -182,7 +189,7 @@ func (s *financeService) Summary(ctx context.Context, q dto.SummaryQuery) (*dto.
 	return out, nil
 }
 
-func (s *financeService) must(ctx context.Context, id uuid.UUID) (*model.Record, error) {
+func (s *financeService) must(ctx context.Context, viewer, id uuid.UUID, scope *rbacModel.DataScopeCondition) (*model.Record, error) {
 	row, err := s.rows.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get finance record: %w", err)
@@ -190,12 +197,23 @@ func (s *financeService) must(ctx context.Context, id uuid.UUID) (*model.Record,
 	if row == nil {
 		return nil, response.NewError(response.CodeFinanceNotFound, "财务记录不存在")
 	}
+	if !canAccess(scope, row.CreatedBy, row.DepartmentID, viewer) {
+		return nil, response.NewError(response.CodeFinanceNoAccess, "无权操作该财务记录")
+	}
 	return row, nil
 }
 
 func dateOnly(t time.Time) time.Time {
-	y, m, d := t.Date()
+	y, m, d := t.In(asiaShanghai()).Date()
 	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
+}
+
+func asiaShanghai() *time.Location {
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		return time.FixedZone("CST", 8*3600)
+	}
+	return loc
 }
 
 func parseUUID(raw string) *uuid.UUID {

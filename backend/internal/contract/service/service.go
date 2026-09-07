@@ -11,6 +11,7 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/contract/repo"
 	notifdto "github.com/Yogdunana/StarByte/backend/internal/notification/dto"
 	notifsvc "github.com/Yogdunana/StarByte/backend/internal/notification/service"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
 )
@@ -38,13 +39,13 @@ func (a *notificationAdapter) Send(ctx context.Context, userIDs []uuid.UUID, tem
 }
 
 type Service interface {
-	Create(ctx context.Context, operator uuid.UUID, req *dto.CreateContractRequest) (*dto.ContractResponse, error)
-	Update(ctx context.Context, id uuid.UUID, req *dto.UpdateContractRequest) (*dto.ContractResponse, error)
-	Delete(ctx context.Context, id uuid.UUID) error
-	Get(ctx context.Context, id uuid.UUID) (*dto.ContractResponse, error)
-	List(ctx context.Context, req *dto.ListContractRequest) ([]*dto.ContractResponse, int64, int, int, error)
+	Create(ctx context.Context, operator uuid.UUID, req *dto.CreateContractRequest, scope *rbacModel.DataScopeCondition) (*dto.ContractResponse, error)
+	Update(ctx context.Context, operator, id uuid.UUID, req *dto.UpdateContractRequest, scope *rbacModel.DataScopeCondition) (*dto.ContractResponse, error)
+	Delete(ctx context.Context, operator, id uuid.UUID, scope *rbacModel.DataScopeCondition) error
+	Get(ctx context.Context, viewer, id uuid.UUID, scope *rbacModel.DataScopeCondition) (*dto.ContractResponse, error)
+	List(ctx context.Context, viewer uuid.UUID, req *dto.ListContractRequest, scope *rbacModel.DataScopeCondition) ([]*dto.ContractResponse, int64, int, int, error)
 	Templates(ctx context.Context) ([]dto.TemplateResponse, error)
-	Expiring(ctx context.Context, days int) ([]*dto.ContractResponse, error)
+	Expiring(ctx context.Context, viewer uuid.UUID, days int, scope *rbacModel.DataScopeCondition) ([]*dto.ContractResponse, error)
 	ExpiryJob(ctx context.Context, payload string, logf func(string)) error
 }
 
@@ -57,7 +58,7 @@ func New(rows repo.Repository, notify Notifier) Service {
 	return &contractService{rows: rows, notify: notify}
 }
 
-func (s *contractService) Create(ctx context.Context, operator uuid.UUID, req *dto.CreateContractRequest) (*dto.ContractResponse, error) {
+func (s *contractService) Create(ctx context.Context, operator uuid.UUID, req *dto.CreateContractRequest, _ *rbacModel.DataScopeCondition) (*dto.ContractResponse, error) {
 	if !model.ValidType(req.ContractType) {
 		return nil, response.NewError(response.CodeContractInvalidType, "合同类型不合法")
 	}
@@ -68,7 +69,7 @@ func (s *contractService) Create(ctx context.Context, operator uuid.UUID, req *d
 	row := &model.Contract{
 		ID: uuid.New(), UserID: operator, Title: strings.TrimSpace(req.Title),
 		ContractType: req.ContractType, PartyName: strings.TrimSpace(req.PartyName),
-		Amount: req.Amount, StartAt: req.StartAt, ExpiredAt: req.ExpiredAt,
+		Amount: req.Amount, StartAt: dateOnlyPtr(req.StartAt), ExpiredAt: dateOnlyPtr(req.ExpiredAt),
 		Status: model.StatusDraft, CreatedAt: now, UpdatedAt: now,
 	}
 	if req.Status != nil {
@@ -83,11 +84,11 @@ func (s *contractService) Create(ctx context.Context, operator uuid.UUID, req *d
 	if err := s.rows.Create(ctx, row); err != nil {
 		return nil, fmt.Errorf("create contract: %w", err)
 	}
-	return s.Get(ctx, row.ID)
+	return s.Get(ctx, operator, row.ID, nil)
 }
 
-func (s *contractService) Update(ctx context.Context, id uuid.UUID, req *dto.UpdateContractRequest) (*dto.ContractResponse, error) {
-	row, err := s.must(ctx, id)
+func (s *contractService) Update(ctx context.Context, operator, id uuid.UUID, req *dto.UpdateContractRequest, scope *rbacModel.DataScopeCondition) (*dto.ContractResponse, error) {
+	row, err := s.must(ctx, operator, id, scope)
 	if err != nil {
 		return nil, err
 	}
@@ -110,10 +111,16 @@ func (s *contractService) Update(ctx context.Context, id uuid.UUID, req *dto.Upd
 		row.Amount = req.Amount
 	}
 	if req.StartAt != nil {
-		row.StartAt = req.StartAt
+		row.StartAt = dateOnlyPtr(req.StartAt)
 	}
 	if req.ExpiredAt != nil {
-		row.ExpiredAt = req.ExpiredAt
+		next := dateOnlyPtr(req.ExpiredAt)
+		changed := (row.ExpiredAt == nil) != (next == nil) ||
+			(row.ExpiredAt != nil && next != nil && !dateOnly(*row.ExpiredAt).Equal(*next))
+		row.ExpiredAt = next
+		if changed {
+			row.ExpiryNotifiedAt = nil
+		}
 	}
 	if err := validatePeriod(row.StartAt, row.ExpiredAt); err != nil {
 		return nil, err
@@ -142,11 +149,11 @@ func (s *contractService) Update(ctx context.Context, id uuid.UUID, req *dto.Upd
 	if err := s.rows.Update(ctx, row); err != nil {
 		return nil, fmt.Errorf("update contract: %w", err)
 	}
-	return s.Get(ctx, id)
+	return s.Get(ctx, operator, id, nil)
 }
 
-func (s *contractService) Delete(ctx context.Context, id uuid.UUID) error {
-	row, err := s.must(ctx, id)
+func (s *contractService) Delete(ctx context.Context, operator, id uuid.UUID, scope *rbacModel.DataScopeCondition) error {
+	row, err := s.must(ctx, operator, id, scope)
 	if err != nil {
 		return err
 	}
@@ -159,7 +166,7 @@ func (s *contractService) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (s *contractService) Get(ctx context.Context, id uuid.UUID) (*dto.ContractResponse, error) {
+func (s *contractService) Get(ctx context.Context, viewer, id uuid.UUID, scope *rbacModel.DataScopeCondition) (*dto.ContractResponse, error) {
 	row, err := s.rows.GetNamed(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get contract: %w", err)
@@ -167,12 +174,15 @@ func (s *contractService) Get(ctx context.Context, id uuid.UUID) (*dto.ContractR
 	if row == nil {
 		return nil, response.NewError(response.CodeContractNotFound, "合同不存在")
 	}
+	if !canAccess(scope, row.UserID, row.DepartmentID, viewer) {
+		return nil, response.NewError(response.CodeContractNoAccess, "无权查看该合同")
+	}
 	s.persistExpired(ctx, &row.Contract)
 	return mapContract(row), nil
 }
 
-func (s *contractService) List(ctx context.Context, req *dto.ListContractRequest) ([]*dto.ContractResponse, int64, int, int, error) {
-	rows, total, err := s.rows.List(ctx, req)
+func (s *contractService) List(ctx context.Context, viewer uuid.UUID, req *dto.ListContractRequest, scope *rbacModel.DataScopeCondition) ([]*dto.ContractResponse, int64, int, int, error) {
+	rows, total, err := s.rows.List(ctx, req, rewriteScope(scope, viewer))
 	if err != nil {
 		return nil, 0, 0, 0, fmt.Errorf("list contracts: %w", err)
 	}
@@ -203,12 +213,12 @@ func (s *contractService) Templates(ctx context.Context) ([]dto.TemplateResponse
 	return out, nil
 }
 
-func (s *contractService) Expiring(ctx context.Context, days int) ([]*dto.ContractResponse, error) {
+func (s *contractService) Expiring(ctx context.Context, viewer uuid.UUID, days int, scope *rbacModel.DataScopeCondition) ([]*dto.ContractResponse, error) {
 	if days <= 0 {
 		days = 30
 	}
 	until := time.Now().Add(time.Duration(days) * 24 * time.Hour)
-	rows, err := s.rows.ListExpiring(ctx, until)
+	rows, err := s.rows.ListExpiring(ctx, until, rewriteScope(scope, viewer))
 	if err != nil {
 		return nil, fmt.Errorf("list expiring: %w", err)
 	}
@@ -225,13 +235,25 @@ func (s *contractService) ExpiryJob(ctx context.Context, _ string, logf func(str
 		return err
 	}
 	logf(fmt.Sprintf("marked %d expired contracts", n))
-	rows, err := s.rows.ListExpiring(ctx, time.Now().Add(7*24*time.Hour))
+	now := time.Now()
+	rows, err := s.rows.ListExpiring(ctx, now.Add(7*24*time.Hour), nil)
 	if err != nil {
 		return err
 	}
+	notified := 0
 	for i := range rows {
+		if rows[i].ExpiryNotifiedAt != nil {
+			continue
+		}
 		s.notifyOwner(ctx, &rows[i])
+		ts := now
+		rows[i].ExpiryNotifiedAt = &ts
+		rows[i].UpdatedAt = now
+		if err := s.rows.Update(ctx, &rows[i].Contract); err != nil {
+			return fmt.Errorf("mark expiry notified: %w", err)
+		}
+		notified++
 	}
-	logf(fmt.Sprintf("notified %d expiring contracts", len(rows)))
+	logf(fmt.Sprintf("notified %d expiring contracts", notified))
 	return nil
 }

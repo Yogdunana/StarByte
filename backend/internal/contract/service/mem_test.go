@@ -7,6 +7,7 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/contract/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/contract/model"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/google/uuid"
 )
 
@@ -69,7 +70,7 @@ func (m *memRepo) GetNamed(ctx context.Context, id uuid.UUID) (*model.ContractNa
 	return m.named(row), nil
 }
 
-func (m *memRepo) List(_ context.Context, _ *dto.ListContractRequest) ([]model.ContractNamed, int64, error) {
+func (m *memRepo) List(_ context.Context, _ *dto.ListContractRequest, _ *rbacModel.DataScopeCondition) ([]model.ContractNamed, int64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	out := make([]model.ContractNamed, 0, len(m.rows))
@@ -79,7 +80,7 @@ func (m *memRepo) List(_ context.Context, _ *dto.ListContractRequest) ([]model.C
 	return out, int64(len(out)), nil
 }
 
-func (m *memRepo) ListExpiring(_ context.Context, until time.Time) ([]model.ContractNamed, error) {
+func (m *memRepo) ListExpiring(_ context.Context, until time.Time, _ *rbacModel.DataScopeCondition) ([]model.ContractNamed, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	now := time.Now()

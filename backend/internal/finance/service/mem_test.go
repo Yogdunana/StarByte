@@ -6,6 +6,7 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/finance/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/finance/model"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/google/uuid"
 )
 
@@ -66,7 +67,7 @@ func (m *memRepo) GetNamed(ctx context.Context, id uuid.UUID) (*model.RecordName
 	return m.namedOf(row), nil
 }
 
-func (m *memRepo) List(_ context.Context, _ *dto.ListRecordRequest) ([]model.RecordNamed, int64, error) {
+func (m *memRepo) List(_ context.Context, _ *dto.ListRecordRequest, _ *rbacModel.DataScopeCondition) ([]model.RecordNamed, int64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	out := make([]model.RecordNamed, 0, len(m.recs))
@@ -96,7 +97,7 @@ func (m *memRepo) GetCategory(_ context.Context, id uuid.UUID) (*model.Category,
 	return &cp, nil
 }
 
-func (m *memRepo) Summary(_ context.Context, _, _, _ string) ([]model.SummaryRow, []model.CategorySumRow, error) {
+func (m *memRepo) Summary(_ context.Context, _, _, _ string, _ *rbacModel.DataScopeCondition) ([]model.SummaryRow, []model.CategorySumRow, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	byDir := map[int16]*model.SummaryRow{}

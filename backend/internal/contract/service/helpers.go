@@ -7,6 +7,7 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/contract/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/contract/model"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/logger"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
@@ -38,15 +39,39 @@ func (s *contractService) bindRefs(ctx context.Context, row *model.Contract, tem
 	return nil
 }
 
-func (s *contractService) must(ctx context.Context, id uuid.UUID) (*model.Contract, error) {
-	row, err := s.rows.GetByID(ctx, id)
+func (s *contractService) must(ctx context.Context, viewer, id uuid.UUID, scope *rbacModel.DataScopeCondition) (*model.Contract, error) {
+	row, err := s.rows.GetNamed(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get contract: %w", err)
 	}
 	if row == nil {
 		return nil, response.NewError(response.CodeContractNotFound, "合同不存在")
 	}
-	return row, nil
+	if !canAccess(scope, row.UserID, row.DepartmentID, viewer) {
+		return nil, response.NewError(response.CodeContractNoAccess, "无权操作该合同")
+	}
+	return &row.Contract, nil
+}
+
+func dateOnly(t time.Time) time.Time {
+	y, m, d := t.In(asiaShanghai()).Date()
+	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
+}
+
+func dateOnlyPtr(t *time.Time) *time.Time {
+	if t == nil {
+		return nil
+	}
+	d := dateOnly(*t)
+	return &d
+}
+
+func asiaShanghai() *time.Location {
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		return time.FixedZone("CST", 8*3600)
+	}
+	return loc
 }
 
 func (s *contractService) touchExpired(row *model.Contract) {

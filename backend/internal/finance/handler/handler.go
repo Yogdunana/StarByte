@@ -3,6 +3,8 @@ package handler
 import (
 	"github.com/Yogdunana/StarByte/backend/internal/finance/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/finance/service"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
+	"github.com/Yogdunana/StarByte/backend/pkg/middleware"
 	"github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/gin-gonic/gin"
@@ -33,6 +35,10 @@ func parseID(c *gin.Context) (uuid.UUID, error) {
 	return id, nil
 }
 
+func dataScope(c *gin.Context) *rbacModel.DataScopeCondition {
+	return middleware.GetDataScopeFromContext(c)
+}
+
 // ListRecords 财务记录列表
 // @Summary 财务记录列表
 // @Tags 财务
@@ -41,12 +47,17 @@ func parseID(c *gin.Context) (uuid.UUID, error) {
 // @Router /finance/records [get]
 // @Security BearerAuth
 func (h *Handler) ListRecords(c *gin.Context) {
+	userID, err := currentUser(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 	var req dto.ListRecordRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		response.BadRequest(c, "参数错误")
 		return
 	}
-	list, total, page, size, err := h.svc.List(c.Request.Context(), &req)
+	list, total, page, size, err := h.svc.List(c.Request.Context(), userID, &req, dataScope(c))
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -74,7 +85,7 @@ func (h *Handler) CreateRecord(c *gin.Context) {
 		response.BadRequest(c, "参数错误: "+err.Error())
 		return
 	}
-	out, err := h.svc.Create(c.Request.Context(), userID, &req)
+	out, err := h.svc.Create(c.Request.Context(), userID, &req, dataScope(c))
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -91,12 +102,17 @@ func (h *Handler) CreateRecord(c *gin.Context) {
 // @Router /finance/records/{id} [get]
 // @Security BearerAuth
 func (h *Handler) GetRecord(c *gin.Context) {
+	userID, err := currentUser(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 	id, err := parseID(c)
 	if err != nil {
 		response.Error(c, err)
 		return
 	}
-	out, err := h.svc.Get(c.Request.Context(), id)
+	out, err := h.svc.Get(c.Request.Context(), userID, id, dataScope(c))
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -114,6 +130,11 @@ func (h *Handler) GetRecord(c *gin.Context) {
 // @Router /finance/records/{id} [put]
 // @Security BearerAuth
 func (h *Handler) UpdateRecord(c *gin.Context) {
+	userID, err := currentUser(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 	id, err := parseID(c)
 	if err != nil {
 		response.Error(c, err)
@@ -124,7 +145,7 @@ func (h *Handler) UpdateRecord(c *gin.Context) {
 		response.BadRequest(c, "参数错误: "+err.Error())
 		return
 	}
-	out, err := h.svc.Update(c.Request.Context(), id, &req)
+	out, err := h.svc.Update(c.Request.Context(), userID, id, &req, dataScope(c))
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -141,12 +162,17 @@ func (h *Handler) UpdateRecord(c *gin.Context) {
 // @Router /finance/records/{id} [delete]
 // @Security BearerAuth
 func (h *Handler) DeleteRecord(c *gin.Context) {
+	userID, err := currentUser(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 	id, err := parseID(c)
 	if err != nil {
 		response.Error(c, err)
 		return
 	}
-	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
+	if err := h.svc.Delete(c.Request.Context(), userID, id, dataScope(c)); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -177,12 +203,17 @@ func (h *Handler) Categories(c *gin.Context) {
 // @Router /finance/summary [get]
 // @Security BearerAuth
 func (h *Handler) Summary(c *gin.Context) {
+	userID, err := currentUser(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 	var q dto.SummaryQuery
 	if err := c.ShouldBindQuery(&q); err != nil {
 		response.BadRequest(c, "参数错误")
 		return
 	}
-	out, err := h.svc.Summary(c.Request.Context(), q)
+	out, err := h.svc.Summary(c.Request.Context(), userID, q, dataScope(c))
 	if err != nil {
 		response.Error(c, err)
 		return

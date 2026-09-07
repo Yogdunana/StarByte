@@ -6,6 +6,7 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/finance/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/finance/model"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -16,10 +17,10 @@ type Repository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	GetByID(ctx context.Context, id uuid.UUID) (*model.Record, error)
 	GetNamed(ctx context.Context, id uuid.UUID) (*model.RecordNamed, error)
-	List(ctx context.Context, req *dto.ListRecordRequest) ([]model.RecordNamed, int64, error)
+	List(ctx context.Context, req *dto.ListRecordRequest, scope *rbacModel.DataScopeCondition) ([]model.RecordNamed, int64, error)
 	ListCategories(ctx context.Context) ([]model.Category, error)
 	GetCategory(ctx context.Context, id uuid.UUID) (*model.Category, error)
-	Summary(ctx context.Context, from, to, categoryID string) ([]model.SummaryRow, []model.CategorySumRow, error)
+	Summary(ctx context.Context, from, to, categoryID string, scope *rbacModel.DataScopeCondition) ([]model.SummaryRow, []model.CategorySumRow, error)
 }
 
 type repository struct{ db *gorm.DB }
@@ -67,8 +68,8 @@ func (r *repository) GetNamed(ctx context.Context, id uuid.UUID) (*model.RecordN
 	return &row, err
 }
 
-func (r *repository) List(ctx context.Context, req *dto.ListRecordRequest) ([]model.RecordNamed, int64, error) {
-	q := applyList(r.named(ctx), req)
+func (r *repository) List(ctx context.Context, req *dto.ListRecordRequest, scope *rbacModel.DataScopeCondition) ([]model.RecordNamed, int64, error) {
+	q := applyList(r.named(ctx), req, scope)
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -79,7 +80,10 @@ func (r *repository) List(ctx context.Context, req *dto.ListRecordRequest) ([]mo
 	return rows, total, err
 }
 
-func applyList(q *gorm.DB, req *dto.ListRecordRequest) *gorm.DB {
+func applyList(q *gorm.DB, req *dto.ListRecordRequest, scope *rbacModel.DataScopeCondition) *gorm.DB {
+	if scope != nil && !scope.IsEmpty() {
+		q = q.Where(scope.Query, scope.Args...)
+	}
 	if req.Direction != nil {
 		q = q.Where("r.direction = ?", *req.Direction)
 	}
@@ -117,8 +121,11 @@ func (r *repository) GetCategory(ctx context.Context, id uuid.UUID) (*model.Cate
 	return &row, err
 }
 
-func (r *repository) Summary(ctx context.Context, from, to, categoryID string) ([]model.SummaryRow, []model.CategorySumRow, error) {
+func (r *repository) Summary(ctx context.Context, from, to, categoryID string, scope *rbacModel.DataScopeCondition) ([]model.SummaryRow, []model.CategorySumRow, error) {
 	q := r.db.WithContext(ctx).Table("finance_records AS r")
+	if scope != nil && !scope.IsEmpty() {
+		q = q.Where(scope.Query, scope.Args...)
+	}
 	if from != "" {
 		q = q.Where("r.occurred_at >= ?", from)
 	}
@@ -138,6 +145,9 @@ func (r *repository) Summary(ctx context.Context, from, to, categoryID string) (
 		Select(`r.category_id, COALESCE(c.name,'') AS category_name, r.direction,
 			COALESCE(SUM(r.amount),0) AS total, COUNT(*) AS item_count`).
 		Joins("LEFT JOIN finance_categories c ON c.id = r.category_id")
+	if scope != nil && !scope.IsEmpty() {
+		cq = cq.Where(scope.Query, scope.Args...)
+	}
 	if from != "" {
 		cq = cq.Where("r.occurred_at >= ?", from)
 	}
