@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layout, Avatar, Dropdown, Breadcrumb } from 'antd';
+import { Layout, Avatar, Dropdown, Breadcrumb, theme } from 'antd';
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -7,9 +7,12 @@ import {
   LogoutOutlined,
   SettingOutlined,
   ProfileOutlined,
+  BgColorsOutlined,
+  GlobalOutlined,
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 import { toggleCollapsed } from '@/store/slices/appSlice';
 import { selectCurrentUser, clearUser } from '@/store/slices/userSlice';
@@ -19,29 +22,28 @@ import { logout as logoutApi } from '@/api/auth';
 import { removeToken } from '@/utils/storage';
 import { useNotificationWebSocket } from '@/hooks/useNotificationWebSocket';
 import NotificationBell from '@/components/NotificationBell';
+import { useThemeLang } from '@/theme/ThemeLangContext';
 import type { AppDispatch } from '@/store';
 
 const { Header: AntHeader } = Layout;
 
-export interface TopBarProps {
-  onToggleTheme?: () => void;
-}
-
-const TopBar: React.FC<TopBarProps> = () => {
+const TopBar: React.FC = () => {
+  const { t } = useTranslation();
+  const { token } = theme.useToken();
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const location = useLocation();
   const collapsed = useSelector((state: { app: { collapsed: boolean } }) => state.app.collapsed);
   const currentUser = useSelector(selectCurrentUser);
+  const { setLang, setPreference, preference, lang } = useThemeLang();
 
-  // 初始化通知 WebSocket 连接
   useNotificationWebSocket();
 
   const handleLogout = async () => {
     try {
       await logoutApi();
     } catch {
-      // 忽略登出 API 错误
+      // ignore
     }
     dispatch(logoutAction());
     dispatch(clearUser());
@@ -51,39 +53,34 @@ const TopBar: React.FC<TopBarProps> = () => {
   };
 
   const userMenuItems = [
-    {
-      key: 'profile',
-      icon: <ProfileOutlined />,
-      label: '个人中心',
-      onClick: () => navigate('/user/profile'),
-    },
-    {
-      key: 'settings',
-      icon: <SettingOutlined />,
-      label: '账号设置',
-      onClick: () => navigate('/user/settings'),
-    },
+    { key: 'profile', icon: <ProfileOutlined />, label: t('topbar.profile'), onClick: () => navigate('/user/profile') },
+    { key: 'settings', icon: <SettingOutlined />, label: t('topbar.settings'), onClick: () => navigate('/user/settings') },
     { type: 'divider' as const },
-    {
-      key: 'logout',
-      icon: <LogoutOutlined />,
-      label: '退出登录',
-      onClick: handleLogout,
-    },
+    { key: 'logout', icon: <LogoutOutlined />, label: t('topbar.logout'), onClick: handleLogout },
   ];
 
-  const getBreadcrumbItems = () => {
-    const paths = location.pathname.split('/').filter(Boolean);
-    return paths.map((path) => ({
-      title: path.charAt(0).toUpperCase() + path.slice(1),
-    }));
-  };
+  const themeItems = [
+    { key: 'light', label: t('topbar.themeLight'), onClick: () => setPreference('light') },
+    { key: 'dark', label: t('topbar.themeDark'), onClick: () => setPreference('dark') },
+    { key: 'system', label: t('topbar.themeSystem'), onClick: () => setPreference('system') },
+  ];
+
+  const langItems = [
+    { key: 'zh-CN', label: '简体中文', onClick: () => setLang('zh-CN') },
+    { key: 'en-US', label: 'English', onClick: () => setLang('en-US') },
+  ];
+
+  const paths = location.pathname.split('/').filter(Boolean);
+  const crumbs = paths.map((_, idx) => {
+    const full = `/${paths.slice(0, idx + 1).join('/')}`;
+    return { title: t(`menu.${full}`, { defaultValue: paths[idx] }) };
+  });
 
   return (
     <AntHeader
       style={{
         padding: '0 16px',
-        background: '#fff',
+        background: token.colorBgContainer,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -96,23 +93,24 @@ const TopBar: React.FC<TopBarProps> = () => {
           onClick: () => dispatch(toggleCollapsed()),
           style: { fontSize: 18, cursor: 'pointer' },
         })}
-        <Breadcrumb items={getBreadcrumbItems()} />
+        <Breadcrumb items={crumbs} />
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <Dropdown menu={{ items: themeItems, selectedKeys: [preference] }} placement="bottomRight">
+          <BgColorsOutlined style={{ fontSize: 16, cursor: 'pointer' }} title={t('topbar.theme')} />
+        </Dropdown>
+        <Dropdown menu={{ items: langItems, selectedKeys: [lang] }} placement="bottomRight">
+          <GlobalOutlined style={{ fontSize: 16, cursor: 'pointer' }} title={t('topbar.language')} />
+        </Dropdown>
         <NotificationBell />
-
         <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
           <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: 8 }}>
-            <Avatar
-              size="small"
-              src={currentUser?.avatar_url}
-              icon={!currentUser?.avatar_url && <UserOutlined />}
-            />
+            <Avatar size="small" src={currentUser?.avatar_url} icon={!currentUser?.avatar_url && <UserOutlined />} />
             <span style={{ fontSize: 14, display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
-              <span>{currentUser?.real_name || currentUser?.username || '用户'}</span>
+              <span>{currentUser?.real_name || currentUser?.username || t('common.user')}</span>
               {currentUser?.student_no ? (
-                <span style={{ fontSize: 12, color: '#8c8c8c' }}>{currentUser.student_no}</span>
+                <span style={{ fontSize: 12, color: token.colorTextSecondary }}>{currentUser.student_no}</span>
               ) : null}
             </span>
           </div>

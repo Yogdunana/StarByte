@@ -31,7 +31,7 @@ migrate-create:
 	migrate create -ext sql -dir $(MIGRATE_PATH) -seq $(name)
 
 seed:
-	cd backend && go run ./scripts
+	cd backend && APP_ENV=$(or $(APP_ENV),dev) go run ./scripts
 
 backend-test:
 	cd backend && go test ./...

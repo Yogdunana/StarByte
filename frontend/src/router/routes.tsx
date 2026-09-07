@@ -1,6 +1,7 @@
 import React, { lazy, Suspense } from 'react';
 import { Navigate } from 'react-router-dom';
 import type { RouteObject } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 // 布局组件
 import MainLayout from '@/layouts/MainLayout/MainLayout';
@@ -8,6 +9,7 @@ import MainLayout from '@/layouts/MainLayout/MainLayout';
 // 路由守卫
 import AuthRoute from '@/router/guards/AuthRoute';
 import PermissionRoute from '@/router/guards/PermissionRoute';
+import ComingSoon from '@/pages/error/ComingSoon';
 
 // 页面组件
 const Login = lazy(() => import('@/pages/login/Login'));
@@ -51,13 +53,18 @@ const FormListPage = lazy(() => import('@/pages/form-designer/ListPage'));
 const FormDesignerPage = lazy(() => import('@/pages/form-designer/DesignerPage'));
 const FormFillPage = lazy(() => import('@/pages/form-designer/FillPage'));
 const FormSubmissionsPage = lazy(() => import('@/pages/form-designer/SubmissionsPage'));
+const FinancePage = lazy(() => import('@/pages/finance/FinancePage'));
+const DisciplinePage = lazy(() => import('@/pages/discipline/DisciplinePage'));
+const ContractPage = lazy(() => import('@/pages/contract/ContractPage'));
 const Forbidden = lazy(() => import('@/pages/error/Forbidden'));
 const NotFound = lazy(() => import('@/pages/error/NotFound'));
 
-// 懒加载 fallback
-const LoadingFallback: React.FC = () => (
-  <div style={{ padding: 24, textAlign: 'center' }}>加载中...</div>
-);
+const LoadingFallback: React.FC = () => {
+  const { t } = useTranslation();
+  return (
+    <div style={{ padding: 24, textAlign: 'center' }}>{t('common.loading')}</div>
+  );
+};
 
 // 懒加载包装器（无权限守卫）
 const lazyWrap = (Component: React.LazyExoticComponent<React.FC>) => (
@@ -276,12 +283,12 @@ const routes: AppRouteObject[] = [
           },
           {
             path: 'instances',
-            element: <div style={{ padding: 24 }}>流程实例（开发中）</div>,
+            element: <ComingSoon i18nKey="placeholder.workflowInstances" />,
             meta: { title: '流程实例' },
           },
           {
             path: 'todo',
-            element: <div style={{ padding: 24 }}>我的待办（开发中）</div>,
+            element: <ComingSoon i18nKey="placeholder.todo" />,
             meta: { title: '我的待办' },
           },
         ],
@@ -306,6 +313,21 @@ const routes: AppRouteObject[] = [
             meta: { title: '实习统计', permission: 'internship:read' },
           },
         ],
+      },
+      {
+        path: 'finance',
+        element: lazyGuarded(FinancePage, 'finance:read'),
+        meta: { title: '财务管理', icon: 'DollarOutlined', permission: 'finance:read' },
+      },
+      {
+        path: 'discipline',
+        element: lazyGuarded(DisciplinePage, 'discipline:read'),
+        meta: { title: '纪律处分', icon: 'AlertOutlined', permission: 'discipline:read' },
+      },
+      {
+        path: 'contract',
+        element: lazyGuarded(ContractPage, 'contract:read'),
+        meta: { title: '合同管理', icon: 'FileProtectOutlined', permission: 'contract:read' },
       },
       {
         path: 'forms',
@@ -360,12 +382,12 @@ const routes: AppRouteObject[] = [
         children: [
           {
             path: 'role',
-            element: guarded(<div style={{ padding: 24 }}>角色管理（开发中）</div>, 'role:read'),
+            element: guarded(<ComingSoon i18nKey="placeholder.roles" />, 'role:read'),
             meta: { title: '角色管理', permission: 'role:read' },
           },
           {
             path: 'permission',
-            element: guarded(<div style={{ padding: 24 }}>权限管理（开发中）</div>, 'permission:read'),
+            element: guarded(<ComingSoon i18nKey="placeholder.permissions" />, 'permission:read'),
             meta: { title: '权限管理', permission: 'permission:read' },
           },
           {

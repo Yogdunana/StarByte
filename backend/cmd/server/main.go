@@ -346,7 +346,6 @@ func main() {
 	schedR := schedRepo.New(database.DB())
 	schedEng := schedService.NewEngine(schedR, redis.Client(), schedService.NewNotifAlerter(notifSvc))
 	schedSvc := schedService.NewService(schedR, schedEng)
-	schedEng.Start()
 
 	// 10. API 路由组
 	api := r.Group("/api/v1")
@@ -446,6 +445,12 @@ func main() {
 		formSvc := formService.New(formRepo.New(database.DB()))
 		formH := formHandler.NewFormHandler(formSvc, cacheService)
 		formHandler.RegisterRoutes(protected, formH, cacheService)
+
+		// 财务 / 处分 / 合同（#22 #23 #24）
+		registerPhase1Ops(protected, database.DB(), cacheService, deptRepo, notifSvc, wfHandlers.DefinitionRepo, wfHandlers.InstanceService)
+
+		// 调度引擎在业务 handler（如 contract_expiry）注册后再启动
+		schedEng.Start()
 
 		// 审计日志模块路由（/system/audit-logs，audit:read / audit:export / audit:archive / audit:report）
 		auditHandler.RegisterRoutes(protected, auditH, cacheService)

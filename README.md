@@ -47,6 +47,9 @@ StarByte/
 │   │   ├── meeting/           # 会议模块
 │   │   ├── task/              # 任务模块
 │   │   ├── internship/        # 实习模块
+│   │   ├── finance/           # 财务
+│   │   ├── discipline/        # 纪律处分
+│   │   ├── contract/          # 合同
 │   │   └── notification/      # 通知模块
 │   ├── pkg/                   # 公共包
 │   │   ├── config/            # 配置管理
@@ -134,7 +137,7 @@ cp .env.example .env
 
 # 迁移与种子（需已安装 golang-migrate；库名与 compose.dev 对齐）
 # make migrate-up POSTGRES_DB=starbyte_dev
-# make seed
+# APP_ENV=dev make seed
 
 # 启动服务（必须编译整个 cmd/server 包，不要只 run main.go）
 APP_ENV=dev go run ./cmd/server
@@ -186,17 +189,19 @@ npm run dev
 | 数据统计 | ECharts 概览、工作台、数据大屏 | 可用 |
 | 审计日志 | 操作日志、Trace、归档/报告 | 可用 |
 | 文件 / 表单 | MinIO 文件、动态表单引擎 | 可用 |
+| 财务 | 收支记录、分类、汇总；Excel 导出预留 | 可用 |
+| 纪律处分 | 登记、审批、撤销、申诉、站内通知 | 可用 |
+| 合同 | 模板、附件、到期扫描（调度 `contract_expiry`） | 可用 |
+| 国际化 / 主题 | zh-CN + en-US，亮/暗/跟随系统 | 可用（壳层 + 新模块已 t()） |
 | 运维探针 | `/health` `/health/ready` `/metrics`、Swagger | 可用 |
 
-财务、纪律处分、合同、OAuth、移动端仍属二期（门禁表 #22/#23/#24 未做产品页）。
+OAuth / 学校 CAS / 移动端仍属二期。
 
 ### 二期功能 (Phase 2)
-- 财务管理
-- 纪律处分记录
-- 合同管理
-- 第三方登录（微信扫码等）
+- 第三方登录（学校 CAS、微信等）
 - 移动端适配
-- 更多通知渠道（邮件、短信、企业微信等）
+- 更多通知渠道（短信、企业微信等）
+- 财务导出引擎与报销审批完善
 
 ## 开发规范
 
@@ -227,14 +232,17 @@ npm run dev
 
 ## 设计文档
 
-- [一期可用性检查（2026-09-06）](docs/phase1-readiness.md)
+- [一期可用性检查](docs/phase1-readiness.md)
+- [部署文档](docs/deployment.md)
+- [开发者入门](docs/getting-started.md)
+- [API 文档](docs/api.md)
 - [整体架构设计](docs/specs/00-overall-architecture.md)
 - [工作流引擎设计](docs/specs/01-workflow-engine.md)
 - [RBAC 权限系统设计](docs/specs/02-rbac-system.md)
 
 ## API 文档
 
-非生产环境启动后端后访问: http://localhost:8080/swagger/index.html
+见 [docs/api.md](docs/api.md)。非生产环境：http://localhost:8080/swagger/index.html
 
 ## 贡献指南
 

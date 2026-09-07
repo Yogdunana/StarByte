@@ -203,11 +203,27 @@ func TestAllSeedPermissions_IncludesExport(t *testing.T) {
 	assert.False(t, seen["export:delete"])
 }
 
+func TestAllSeedPermissions_IncludesOpsModules(t *testing.T) {
+	seen := map[string]bool{}
+	for _, p := range allSeedPermissions() {
+		seen[p.Code] = true
+	}
+	for _, need := range []string{
+		"finance:read", "finance:create", "finance:manage",
+		"discipline:read", "discipline:create", "discipline:approve", "discipline:revoke",
+		"contract:read", "contract:create", "contract:manage",
+	} {
+		assert.True(t, seen[need], "missing permission %s", need)
+	}
+}
+
 func TestOfficerAndMemberPerms_NonEmpty(t *testing.T) {
 	assert.GreaterOrEqual(t, len(officerPermCodes()), 8)
 	assert.GreaterOrEqual(t, len(memberPermCodes()), 5)
 	assert.Contains(t, officerPermCodes(), "task:create")
 	assert.Contains(t, memberPermCodes(), "file:read")
+	assert.Contains(t, memberPermCodes(), "discipline:read")
+	assert.Contains(t, officerPermCodes(), "discipline:read")
 }
 
 func TestSeedMemberProfiles_StudentNos(t *testing.T) {

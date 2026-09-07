@@ -1,3 +1,27 @@
+:root {
+  --sb-bg: #f1f5f9;
+  --sb-bg-accent: #eef2ff;
+  --sb-text: #0f172a;
+  --sb-panel: #f5f7fa;
+  --sb-scrollbar-track: #f1f1f1;
+  --sb-scrollbar-thumb: #c1c1c1;
+  --sb-scrollbar-thumb-hover: #a8a8a8;
+  --sb-link: #1677ff;
+  --sb-link-hover: #4096ff;
+}
+
+html[data-theme='dark'] {
+  --sb-bg: #0f172a;
+  --sb-bg-accent: #0b1220;
+  --sb-text: #e2e8f0;
+  --sb-panel: #111827;
+  --sb-scrollbar-track: #1e293b;
+  --sb-scrollbar-thumb: #475569;
+  --sb-scrollbar-thumb-hover: #64748b;
+  --sb-link: #60a5fa;
+  --sb-link-hover: #93c5fd;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -16,16 +40,17 @@ body {
     'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(180deg, #eef2ff 0%, #f8fafc 220px, #f1f5f9 100%);
+  color: var(--sb-text);
+  background: linear-gradient(180deg, var(--sb-bg-accent) 0%, var(--sb-bg) 220px, var(--sb-bg) 100%);
 }
 
 a {
-  color: #1677ff;
+  color: var(--sb-link);
   text-decoration: none;
 }
 
 a:hover {
-  color: #4096ff;
+  color: var(--sb-link-hover);
 }
 
 /* 滚动条样式 */
@@ -35,17 +60,17 @@ a:hover {
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--sb-scrollbar-track);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: var(--sb-scrollbar-thumb);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: var(--sb-scrollbar-thumb-hover);
 }
 
 /* Ant Design 覆盖 */

@@ -19,6 +19,7 @@
 | React Flow | 11.x | 流程设计器 |
 | ECharts | 5.x | 图表库 |
 | Axios | 1.x | HTTP 客户端 |
+| i18next / react-i18next | 23 / 14 | 国际化（zh-CN、en-US） |
 | ESLint | - | 代码检查 |
 | Prettier | - | 代码格式化 |
 

@@ -351,6 +351,22 @@ func TestModuleRanges(t *testing.T) {
 	assert.Equal(t, 21003, CodeBlacklisted)
 	assert.Equal(t, 21004, CodeDegraded)
 	assert.True(t, r[0] > taskRange[1], "traffic must not collide with task 9000-9999")
+
+	r, ok = ModuleRanges["finance"]
+	assert.True(t, ok)
+	assert.Equal(t, 23000, r[0])
+	assert.Equal(t, 23001, CodeFinanceNotFound)
+	assert.Equal(t, 23005, CodeFinanceDirectionMismatch)
+
+	r, ok = ModuleRanges["discipline"]
+	assert.True(t, ok)
+	assert.Equal(t, 24000, r[0])
+	assert.Equal(t, 24001, CodeDisciplineNotFound)
+
+	r, ok = ModuleRanges["contract"]
+	assert.True(t, ok)
+	assert.Equal(t, 25000, r[0])
+	assert.Equal(t, 25001, CodeContractNotFound)
 }
 
 // ========== TranslateGORMError tests ==========
