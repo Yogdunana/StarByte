@@ -61,6 +61,12 @@ var seedTemplatesData = []seedTemplate{
 		Schema: `{"real_name":"string","title":"string"}`,
 	},
 	{
+		Code: "discipline_revoked", Name: "处分撤销", Category: "system",
+		Title:  "纪律处分已撤销",
+		Body:   "{{.real_name}}，你的纪律处分「{{.title}}」已撤销。",
+		Schema: `{"real_name":"string","title":"string"}`,
+	},
+	{
 		Code: "task_assigned", Name: "任务分配", Category: "task",
 		Title:  "新任务：{{.title}}",
 		Body:   "{{.real_name}}，你被分配了任务「{{.title}}」。",

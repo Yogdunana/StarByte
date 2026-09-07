@@ -27,27 +27,56 @@ func TestContractCRUDAndExpiry(t *testing.T) {
 	created, err := svc.Create(ctx, op, &dto.CreateContractRequest{
 		Title: "赞助协议", ContractType: 1, PartyName: "某公司",
 		TemplateID: tpl.ID.String(), StartAt: &start, ExpiredAt: &end, Status: &st,
-	})
+	}, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "赞助协议", created.Title)
 	assert.Equal(t, model.StatusActive, created.Status)
 
 	badEnd := start.Add(-24 * time.Hour)
-	_, err = svc.Update(ctx, uuid.MustParse(created.ID), &dto.UpdateContractRequest{ExpiredAt: &badEnd})
+	_, err = svc.Update(ctx, op, uuid.MustParse(created.ID), &dto.UpdateContractRequest{ExpiredAt: &badEnd}, nil)
 	require.Error(t, err)
 	assert.Equal(t, response.CodeContractInvalidPeriod, err.(*response.AppError).Code)
 
 	past := time.Now().Add(-24 * time.Hour)
-	_, err = svc.Update(ctx, uuid.MustParse(created.ID), &dto.UpdateContractRequest{ExpiredAt: &past})
+	_, err = svc.Update(ctx, op, uuid.MustParse(created.ID), &dto.UpdateContractRequest{ExpiredAt: &past}, nil)
 	require.NoError(t, err)
-	got, err := svc.Get(ctx, uuid.MustParse(created.ID))
+	got, err := svc.Get(ctx, op, uuid.MustParse(created.ID), nil)
 	require.NoError(t, err)
 	assert.Equal(t, model.StatusExpired, got.Status)
 
-	require.NoError(t, svc.Delete(ctx, uuid.MustParse(created.ID)))
+	require.NoError(t, svc.Delete(ctx, op, uuid.MustParse(created.ID), nil))
 	require.NoError(t, svc.ExpiryJob(ctx, "", func(string) {}))
 
 	tpls, err := svc.Templates(ctx)
 	require.NoError(t, err)
 	assert.Len(t, tpls, 1)
+}
+
+type captureNotify struct{ n int }
+
+func (c *captureNotify) Send(_ context.Context, _ []uuid.UUID, _ string, _ map[string]interface{}) error {
+	c.n++
+	return nil
+}
+
+func TestExpiryJobNotifiesOnce(t *testing.T) {
+	mem := newMem()
+	n := &captureNotify{}
+	svc := New(mem, n)
+	ctx := context.Background()
+	op := uuid.New()
+	st := model.StatusActive
+	exp := time.Now().Add(3 * 24 * time.Hour)
+	created, err := svc.Create(ctx, op, &dto.CreateContractRequest{
+		Title: "临期合同", ContractType: 1, PartyName: "某公司",
+		ExpiredAt: &exp, Status: &st,
+	}, nil)
+	require.NoError(t, err)
+	require.NoError(t, svc.ExpiryJob(ctx, "", func(string) {}))
+	assert.Equal(t, 1, n.n)
+	require.NoError(t, svc.ExpiryJob(ctx, "", func(string) {}))
+	assert.Equal(t, 1, n.n)
+	got, err := svc.Get(ctx, op, uuid.MustParse(created.ID), nil)
+	require.NoError(t, err)
+	assert.Equal(t, model.StatusActive, got.Status)
 }

@@ -3,6 +3,8 @@ package handler
 import (
 	"github.com/Yogdunana/StarByte/backend/internal/contract/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/contract/service"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
+	"github.com/Yogdunana/StarByte/backend/pkg/middleware"
 	"github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/gin-gonic/gin"
@@ -33,6 +35,10 @@ func parseID(c *gin.Context) (uuid.UUID, error) {
 	return id, nil
 }
 
+func dataScope(c *gin.Context) *rbacModel.DataScopeCondition {
+	return middleware.GetDataScopeFromContext(c)
+}
+
 // List 合同列表
 // @Summary 合同列表
 // @Tags 合同
@@ -40,12 +46,17 @@ func parseID(c *gin.Context) (uuid.UUID, error) {
 // @Router /contracts [get]
 // @Security BearerAuth
 func (h *Handler) List(c *gin.Context) {
+	userID, err := currentUser(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 	var req dto.ListContractRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		response.BadRequest(c, "参数错误")
 		return
 	}
-	list, total, page, size, err := h.svc.List(c.Request.Context(), &req)
+	list, total, page, size, err := h.svc.List(c.Request.Context(), userID, &req, dataScope(c))
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -72,7 +83,7 @@ func (h *Handler) Create(c *gin.Context) {
 		response.BadRequest(c, "参数错误: "+err.Error())
 		return
 	}
-	out, err := h.svc.Create(c.Request.Context(), userID, &req)
+	out, err := h.svc.Create(c.Request.Context(), userID, &req, dataScope(c))
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -88,12 +99,17 @@ func (h *Handler) Create(c *gin.Context) {
 // @Router /contracts/{id} [get]
 // @Security BearerAuth
 func (h *Handler) Get(c *gin.Context) {
+	userID, err := currentUser(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 	id, err := parseID(c)
 	if err != nil {
 		response.Error(c, err)
 		return
 	}
-	out, err := h.svc.Get(c.Request.Context(), id)
+	out, err := h.svc.Get(c.Request.Context(), userID, id, dataScope(c))
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -110,6 +126,11 @@ func (h *Handler) Get(c *gin.Context) {
 // @Router /contracts/{id} [put]
 // @Security BearerAuth
 func (h *Handler) Update(c *gin.Context) {
+	userID, err := currentUser(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 	id, err := parseID(c)
 	if err != nil {
 		response.Error(c, err)
@@ -120,7 +141,7 @@ func (h *Handler) Update(c *gin.Context) {
 		response.BadRequest(c, "参数错误: "+err.Error())
 		return
 	}
-	out, err := h.svc.Update(c.Request.Context(), id, &req)
+	out, err := h.svc.Update(c.Request.Context(), userID, id, &req, dataScope(c))
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -136,12 +157,17 @@ func (h *Handler) Update(c *gin.Context) {
 // @Router /contracts/{id} [delete]
 // @Security BearerAuth
 func (h *Handler) Delete(c *gin.Context) {
+	userID, err := currentUser(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 	id, err := parseID(c)
 	if err != nil {
 		response.Error(c, err)
 		return
 	}
-	if err := h.svc.Delete(c.Request.Context(), id); err != nil {
+	if err := h.svc.Delete(c.Request.Context(), userID, id, dataScope(c)); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -170,9 +196,14 @@ func (h *Handler) Templates(c *gin.Context) {
 // @Router /contracts/expiring [get]
 // @Security BearerAuth
 func (h *Handler) Expiring(c *gin.Context) {
+	userID, err := currentUser(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 	var q dto.ExpiringQuery
 	_ = c.ShouldBindQuery(&q)
-	out, err := h.svc.Expiring(c.Request.Context(), q.Days)
+	out, err := h.svc.Expiring(c.Request.Context(), userID, q.Days, dataScope(c))
 	if err != nil {
 		response.Error(c, err)
 		return

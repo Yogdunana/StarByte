@@ -69,7 +69,7 @@ const FinancePage: React.FC = () => {
               setEditing(record);
               form.setFieldsValue({
                 ...record,
-                occurred_at: record.occurred_at ? dayjs(record.occurred_at) : undefined,
+                occurred_at: record.occurred_at ? dayjs(record.occurred_at.slice(0, 10)) : undefined,
               });
               setOpen(true);
             }}
@@ -147,7 +147,7 @@ const FinancePage: React.FC = () => {
               category_id: values.category_id,
               direction: values.direction,
               amount: values.amount,
-              occurred_at: values.occurred_at.toISOString(),
+              occurred_at: `${values.occurred_at.format('YYYY-MM-DD')}T00:00:00Z`,
               remark: values.remark,
             };
             const run = editing

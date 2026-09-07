@@ -69,8 +69,8 @@ const ContractPage: React.FC = () => {
               setEditing(record);
               form.setFieldsValue({
                 ...record,
-                start_at: record.start_at ? dayjs(record.start_at) : undefined,
-                expired_at: record.expired_at ? dayjs(record.expired_at) : undefined,
+                start_at: record.start_at ? dayjs(record.start_at.slice(0, 10)) : undefined,
+                expired_at: record.expired_at ? dayjs(record.expired_at.slice(0, 10)) : undefined,
               });
               setFileList([]);
               setOpen(true);
@@ -128,8 +128,8 @@ const ContractPage: React.FC = () => {
               amount: values.amount,
               template_id: values.template_id,
               status: values.status,
-              start_at: values.start_at?.toISOString(),
-              expired_at: values.expired_at?.toISOString(),
+              start_at: values.start_at ? `${values.start_at.format('YYYY-MM-DD')}T00:00:00Z` : undefined,
+              expired_at: values.expired_at ? `${values.expired_at.format('YYYY-MM-DD')}T00:00:00Z` : undefined,
               file_id: fileId,
             };
             if (editing) await updateContract(editing.id, payload);

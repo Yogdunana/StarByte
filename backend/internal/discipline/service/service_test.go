@@ -27,12 +27,13 @@ func TestDisciplineApproveRevokeAppeal(t *testing.T) {
 	}, nil)
 	require.NoError(t, err)
 	assert.Equal(t, model.StatusPending, created.Status)
-	assert.GreaterOrEqual(t, n.n, 1)
+	assert.Equal(t, 0, n.n)
 
 	id := uuid.MustParse(created.ID)
 	approved, err := svc.Approve(ctx, op, id, "ok", nil)
 	require.NoError(t, err)
 	assert.Equal(t, model.StatusActive, approved.Status)
+	assert.Equal(t, []string{"discipline_notice"}, n.codes)
 
 	_, err = svc.Appeal(ctx, op, id, "不是我", nil)
 	require.Error(t, err)
@@ -47,32 +48,6 @@ func TestDisciplineApproveRevokeAppeal(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, response.CodeDisciplineDupAppeal, err.(*response.AppError).Code)
 
-	revoked, err := svc.Revoke(ctx, op, id, "证据不足", nil)
-	require.NoError(t, err)
-	assert.Equal(t, model.StatusRevoked, revoked.Status)
-	require.Len(t, revoked.Appeals, 1)
-	assert.Equal(t, model.AppealAccepted, revoked.Appeals[0].Status)
-}
-
-func TestDisciplineApproveAfterAppealClosesAppeal(t *testing.T) {
-	mem := newMem()
-	target := uuid.New()
-	op := uuid.New()
-	mem.users[target] = &model.NamedUser{ID: target, RealName: "张三"}
-	mem.users[op] = &model.NamedUser{ID: op, RealName: "部长"}
-	svc := New(mem, nil, nil)
-	ctx := context.Background()
-
-	created, err := svc.Create(ctx, op, &dto.CreateRecordRequest{
-		UserID: target.String(), Title: "迟到", Level: 1,
-	}, nil)
-	require.NoError(t, err)
-	id := uuid.MustParse(created.ID)
-	_, err = svc.Approve(ctx, op, id, "ok", nil)
-	require.NoError(t, err)
-	_, err = svc.Appeal(ctx, target, id, "有误会", nil)
-	require.NoError(t, err)
-
 	kept, err := svc.Approve(ctx, op, id, "维持", nil)
 	require.NoError(t, err)
 	assert.Equal(t, model.StatusActive, kept.Status)
@@ -82,4 +57,16 @@ func TestDisciplineApproveAfterAppealClosesAppeal(t *testing.T) {
 	again, err := svc.Appeal(ctx, target, id, "再次申诉", nil)
 	require.NoError(t, err)
 	assert.Equal(t, model.StatusAppealing, again.Status)
+
+	revoked, err := svc.Revoke(ctx, op, id, "证据不足", nil)
+	require.NoError(t, err)
+	assert.Equal(t, model.StatusRevoked, revoked.Status)
+	require.Len(t, revoked.Appeals, 2)
+	gotStatus := map[int16]int{}
+	for _, a := range revoked.Appeals {
+		gotStatus[a.Status]++
+	}
+	assert.Equal(t, 1, gotStatus[model.AppealAccepted])
+	assert.Equal(t, 1, gotStatus[model.AppealRejected])
+	assert.Equal(t, []string{"discipline_notice", "discipline_notice", "discipline_revoked"}, n.codes)
 }

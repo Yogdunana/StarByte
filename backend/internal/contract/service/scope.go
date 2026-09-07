@@ -3,7 +3,6 @@ package service
 import (
 	"strings"
 
-	"github.com/Yogdunana/StarByte/backend/internal/discipline/model"
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/google/uuid"
 )
@@ -12,11 +11,11 @@ func rewriteScope(scope *rbacModel.DataScopeCondition, userID uuid.UUID) *rbacMo
 	if scope == nil || scope.IsEmpty() {
 		return scope
 	}
-	if scope.IsSelf {
-		return &rbacModel.DataScopeCondition{Query: "r.user_id = ?", Args: []interface{}{userID}, IsSelf: true}
-	}
 	if scope.Query == "1 = 0" {
-		return scope
+		if !scope.IsSelf {
+			return scope
+		}
+		return &rbacModel.DataScopeCondition{Query: "c.user_id = ?", Args: []interface{}{userID}, IsSelf: true}
 	}
 	q := strings.ReplaceAll(scope.Query, "department_id", "u.department_id")
 	return &rbacModel.DataScopeCondition{Query: q, Args: scope.Args, IsSelf: scope.IsSelf}
@@ -30,7 +29,7 @@ func canAccess(scope *rbacModel.DataScopeCondition, owner uuid.UUID, dept *uuid.
 	if rewritten.Query == "1 = 0" {
 		return false
 	}
-	if rewritten.Query == "r.user_id = ?" || rewritten.IsSelf {
+	if rewritten.Query == "c.user_id = ?" || rewritten.IsSelf {
 		return owner == viewer
 	}
 	if dept == nil {
@@ -51,14 +50,4 @@ func canAccess(scope *rbacModel.DataScopeCondition, owner uuid.UUID, dept *uuid.
 		}
 	}
 	return false
-}
-
-func displayName(u *model.NamedUser) string {
-	if u == nil {
-		return ""
-	}
-	if strings.TrimSpace(u.RealName) != "" {
-		return u.RealName
-	}
-	return u.Username
 }

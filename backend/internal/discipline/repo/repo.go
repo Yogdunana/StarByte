@@ -22,7 +22,7 @@ type Repository interface {
 	CreateAppeal(ctx context.Context, row *model.Appeal) error
 	ListAppeals(ctx context.Context, recordID uuid.UUID) ([]model.Appeal, error)
 	HasOpenAppeal(ctx context.Context, recordID uuid.UUID) (bool, error)
-	ResolveOpenAppeals(ctx context.Context, recordID, reviewer uuid.UUID, status int16) error
+	ResolveOpenAppeals(ctx context.Context, recordID, reviewer uuid.UUID, status int16, now time.Time) error
 }
 
 type repository struct{ db *gorm.DB }
@@ -126,8 +126,7 @@ func (r *repository) HasOpenAppeal(ctx context.Context, recordID uuid.UUID) (boo
 	return n > 0, err
 }
 
-func (r *repository) ResolveOpenAppeals(ctx context.Context, recordID, reviewer uuid.UUID, status int16) error {
-	now := time.Now()
+func (r *repository) ResolveOpenAppeals(ctx context.Context, recordID, reviewer uuid.UUID, status int16, now time.Time) error {
 	return r.db.WithContext(ctx).Model(&model.Appeal{}).
 		Where("record_id = ? AND status = ?", recordID, model.AppealPending).
 		Updates(map[string]interface{}{

@@ -30,7 +30,7 @@ func registerPhase1Ops(
 	inst wfService.InstanceService,
 ) {
 	finH := financeHandler.New(financeService.New(financeRepo.New(db)))
-	financeHandler.RegisterRoutes(r, finH, cache)
+	financeHandler.RegisterRoutes(r, finH, cache, db, deptRepo)
 
 	discSvc := disciplineService.New(
 		disciplineRepo.New(db),
@@ -40,6 +40,6 @@ func registerPhase1Ops(
 	disciplineHandler.RegisterRoutes(r, disciplineHandler.New(discSvc), cache, db, deptRepo)
 
 	conSvc := contractService.New(contractRepo.New(db), contractService.NewNotifier(notif))
-	contractHandler.RegisterRoutes(r, contractHandler.New(conSvc), cache)
+	contractHandler.RegisterRoutes(r, contractHandler.New(conSvc), cache, db, deptRepo)
 	schedService.RegisterHandler("contract_expiry", "扫描并标记到期合同、提醒临期合同", conSvc.ExpiryJob)
 }

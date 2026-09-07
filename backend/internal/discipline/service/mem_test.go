@@ -111,25 +111,30 @@ func (m *memRepo) HasOpenAppeal(_ context.Context, recordID uuid.UUID) (bool, er
 	return false, nil
 }
 
-func (m *memRepo) ResolveOpenAppeals(_ context.Context, recordID, reviewer uuid.UUID, status int16) error {
+func (m *memRepo) ResolveOpenAppeals(_ context.Context, recordID, reviewer uuid.UUID, status int16, now time.Time) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	now := time.Now()
+	rid := reviewer
+	ts := now
 	rows := m.appeals[recordID]
 	for i := range rows {
 		if rows[i].Status == model.AppealPending {
 			rows[i].Status = status
-			rows[i].ReviewerID = &reviewer
-			rows[i].ReviewedAt = &now
+			rows[i].ReviewerID = &rid
+			rows[i].ReviewedAt = &ts
 		}
 	}
 	m.appeals[recordID] = rows
 	return nil
 }
 
-type captureNotify struct{ n int }
+type captureNotify struct {
+	n     int
+	codes []string
+}
 
-func (c *captureNotify) Send(_ context.Context, _ []uuid.UUID, _ string, _ map[string]interface{}) error {
+func (c *captureNotify) Send(_ context.Context, _ []uuid.UUID, template string, _ map[string]interface{}) error {
 	c.n++
+	c.codes = append(c.codes, template)
 	return nil
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/contract/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/contract/model"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -17,8 +18,8 @@ type Repository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	GetByID(ctx context.Context, id uuid.UUID) (*model.Contract, error)
 	GetNamed(ctx context.Context, id uuid.UUID) (*model.ContractNamed, error)
-	List(ctx context.Context, req *dto.ListContractRequest) ([]model.ContractNamed, int64, error)
-	ListExpiring(ctx context.Context, until time.Time) ([]model.ContractNamed, error)
+	List(ctx context.Context, req *dto.ListContractRequest, scope *rbacModel.DataScopeCondition) ([]model.ContractNamed, int64, error)
+	ListExpiring(ctx context.Context, until time.Time, scope *rbacModel.DataScopeCondition) ([]model.ContractNamed, error)
 	MarkExpired(ctx context.Context, now time.Time) (int64, error)
 	ListTemplates(ctx context.Context) ([]model.Template, error)
 	GetTemplate(ctx context.Context, id uuid.UUID) (*model.Template, error)
@@ -52,7 +53,7 @@ func (r *repository) GetByID(ctx context.Context, id uuid.UUID) (*model.Contract
 
 func (r *repository) named(ctx context.Context) *gorm.DB {
 	return r.db.WithContext(ctx).Table("contracts AS c").
-		Select(`c.*,
+		Select(`c.*, u.department_id,
 			COALESCE(u.real_name, u.username, '') AS owner_name,
 			COALESCE(t.name, '') AS template_name,
 			COALESCE(f.original_name, f.name, '') AS file_name`).
@@ -70,8 +71,8 @@ func (r *repository) GetNamed(ctx context.Context, id uuid.UUID) (*model.Contrac
 	return &row, err
 }
 
-func (r *repository) List(ctx context.Context, req *dto.ListContractRequest) ([]model.ContractNamed, int64, error) {
-	q := applyList(r.named(ctx), req)
+func (r *repository) List(ctx context.Context, req *dto.ListContractRequest, scope *rbacModel.DataScopeCondition) ([]model.ContractNamed, int64, error) {
+	q := applyList(r.named(ctx), req, scope)
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -82,7 +83,10 @@ func (r *repository) List(ctx context.Context, req *dto.ListContractRequest) ([]
 	return rows, total, err
 }
 
-func applyList(q *gorm.DB, req *dto.ListContractRequest) *gorm.DB {
+func applyList(q *gorm.DB, req *dto.ListContractRequest, scope *rbacModel.DataScopeCondition) *gorm.DB {
+	if scope != nil && !scope.IsEmpty() {
+		q = q.Where(scope.Query, scope.Args...)
+	}
 	if req.Status != nil {
 		q = q.Where("c.status = ?", *req.Status)
 	}
@@ -96,11 +100,14 @@ func applyList(q *gorm.DB, req *dto.ListContractRequest) *gorm.DB {
 	return q
 }
 
-func (r *repository) ListExpiring(ctx context.Context, until time.Time) ([]model.ContractNamed, error) {
+func (r *repository) ListExpiring(ctx context.Context, until time.Time, scope *rbacModel.DataScopeCondition) ([]model.ContractNamed, error) {
+	q := r.named(ctx)
+	if scope != nil && !scope.IsEmpty() {
+		q = q.Where(scope.Query, scope.Args...)
+	}
 	var rows []model.ContractNamed
-	err := r.named(ctx).
-		Where("c.status = ? AND c.expired_at IS NOT NULL AND c.expired_at <= ? AND c.expired_at >= ?",
-			model.StatusActive, until, time.Now()).
+	err := q.Where("c.status = ? AND c.expired_at IS NOT NULL AND c.expired_at <= ? AND c.expired_at >= ?",
+		model.StatusActive, until, time.Now()).
 		Order("c.expired_at ASC").Find(&rows).Error
 	return rows, err
 }
