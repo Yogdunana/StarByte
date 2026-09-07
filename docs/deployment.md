@@ -26,7 +26,7 @@ docker compose -f deploy/docker-compose.yml ps
 首次启动后端会跑迁移。种子数据（角色/权限/演示账号）需在能连上库后执行：
 
 ```bash
-make seed POSTGRES_DB=starbyte POSTGRES_PASSWORD=starbyte123
+APP_ENV=prod make seed
 ```
 
 默认账号：`admin/admin123`（社长，学号 `20210001`）、`test/test123`（会员，学号 `20210002`）。
@@ -36,7 +36,7 @@ make seed POSTGRES_DB=starbyte POSTGRES_PASSWORD=starbyte123
 1. PostgreSQL 16、Redis 7、MinIO。
 2. 后端：`cd backend && go build -o server ./cmd/server`，设置 `APP_ENV=prod`、`CONFIG_PATH` 与 `DB_*` / `REDIS_*` / `MINIO_*` / `JWT_SECRET`。
 3. 迁移：`make migrate-up DATABASE_URL=postgres://...`。
-4. 种子：`make seed`。
+4. 种子：`APP_ENV=prod make seed`。
 5. 前端：`cd frontend && npm ci && npm run build`，用 Nginx 托管 `dist/` 并把 `/api/` 反代到后端。
 
 ## Nginx 反向代理（示例）

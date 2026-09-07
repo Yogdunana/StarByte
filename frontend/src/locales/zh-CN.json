@@ -31,7 +31,16 @@
     "hasAccount": "已有账号？",
     "goLogin": "立即登录",
     "usernameRequired": "请输入用户名或学号",
-    "passwordRequired": "请输入密码"
+    "usernameOnlyRequired": "请输入用户名",
+    "passwordRequired": "请输入密码",
+    "minChars": "至少 {{n}} 个字符",
+    "usernameLen": "用户名长度为 3-20 个字符",
+    "usernamePattern": "用户名只能包含字母、数字和下划线",
+    "realNameRequired": "请输入真实姓名",
+    "emailRequired": "请输入邮箱",
+    "emailInvalid": "请输入有效的邮箱地址",
+    "passwordMin": "密码至少 6 个字符",
+    "passwordMismatch": "两次输入的密码不一致"
   },
   "topbar": {
     "profile": "个人中心",
@@ -125,13 +134,16 @@
     "expenseTotal": "支出合计",
     "balance": "结余",
     "export": "导出",
-    "exportReserved": "导出将在二期接入导出引擎"
+    "exportReserved": "导出将在二期接入导出引擎",
+    "byCategory": "分类构成",
+    "directionSplit": "收支构成"
   },
   "discipline": {
     "records": "处分记录",
     "create": "登记处分",
     "title": "标题",
     "member": "成员",
+    "pickMember": "搜索姓名或用户名",
     "levelLabel": "等级",
     "statusLabel": "状态",
     "description": "说明",

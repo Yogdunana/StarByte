@@ -4,6 +4,7 @@ import { PlusOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
+import { PieChart } from '@/components/Chart';
 import { usePermission } from '@/hooks/usePermission';
 import {
   createFinanceRecord,
@@ -92,6 +93,27 @@ const FinancePage: React.FC = () => {
         <Col xs={24} md={8}><Card><Statistic title={t('finance.expenseTotal')} value={sum?.expense_total ?? 0} precision={2} /></Card></Col>
         <Col xs={24} md={8}><Card><Statistic title={t('finance.balance')} value={sum?.balance ?? 0} precision={2} /></Card></Col>
       </Row>
+      {(sum?.by_category?.length ?? 0) > 0 && (
+        <Row gutter={16} style={{ marginBottom: 16 }}>
+          <Col xs={24} md={12}>
+            <PieChart
+              title={t('finance.byCategory')}
+              height={260}
+              data={(sum?.by_category ?? []).map((c) => ({ name: c.category_name, value: c.total }))}
+            />
+          </Col>
+          <Col xs={24} md={12}>
+            <PieChart
+              title={t('finance.directionSplit')}
+              height={260}
+              data={[
+                { name: t('finance.income'), value: sum?.income_total ?? 0 },
+                { name: t('finance.expense'), value: sum?.expense_total ?? 0 },
+              ].filter((d) => d.value > 0)}
+            />
+          </Col>
+        </Row>
+      )}
       <Card
         title={t('finance.records')}
         extra={(

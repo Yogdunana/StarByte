@@ -21,8 +21,8 @@ docker compose -f deploy/docker-compose.dev.yml up -d
 # 2. 迁移（库名与 config.dev.yaml 对齐：starbyte_dev）
 make migrate-up POSTGRES_DB=starbyte_dev
 
-# 3. 种子
-make seed POSTGRES_DB=starbyte_dev
+# 3. 种子（Makefile 默认 APP_ENV=dev，写入 starbyte_dev）
+make seed
 
 # 4. 后端（必须编译整个 cmd/server 包）
 cd backend

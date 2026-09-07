@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
 import { usePermission } from '@/hooks/usePermission';
 import { selectCurrentUser } from '@/store/slices/userSlice';
+import { getUserList, type UserListItem } from '@/api/user';
 import {
   appealDiscipline,
   approveDiscipline,
@@ -28,6 +29,7 @@ const DisciplinePage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [detail, setDetail] = useState<DisciplineRecord | null>(null);
+  const [users, setUsers] = useState<UserListItem[]>([]);
   const [form] = Form.useForm();
 
   const load = useCallback(async () => {
@@ -42,6 +44,12 @@ const DisciplinePage: React.FC = () => {
   }, [page]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (!open) return;
+    void getUserList({ page: 1, page_size: 50 })
+      .then((res) => setUsers(res.list || []))
+      .catch(() => undefined);
+  }, [open]);
 
   const levelLabel = (v: number) => t(`discipline.level.${v}`);
   const statusLabel = (v: number) => t(`discipline.status.${v}`);
@@ -106,7 +114,17 @@ const DisciplinePage: React.FC = () => {
           void createDisciplineRecord(values).then(() => { message.success(t('common.saved')); setOpen(false); void load(); });
         }}
         >
-          <Form.Item name="user_id" label={t('discipline.member')} rules={[{ required: true }]}><Input placeholder="UUID" /></Form.Item>
+          <Form.Item name="user_id" label={t('discipline.member')} rules={[{ required: true }]}>
+            <Select
+              showSearch
+              optionFilterProp="label"
+              placeholder={t('discipline.pickMember')}
+              options={users.map((u) => ({
+                value: u.id,
+                label: `${u.real_name || u.username} (${u.username})`,
+              }))}
+            />
+          </Form.Item>
           <Form.Item name="title" label={t('discipline.title')} rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item name="level" label={t('discipline.levelLabel')} rules={[{ required: true }]}>
             <Select options={[1, 2, 3, 4, 5].map((v) => ({ value: v, label: t(`discipline.level.${v}`) }))} />

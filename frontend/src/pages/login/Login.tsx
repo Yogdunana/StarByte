@@ -129,7 +129,7 @@ const Login: React.FC = () => {
                 name="username"
                 rules={[
                   { required: true, message: t('login.usernameRequired') },
-                  { min: 3, message: '至少 3 个字符' },
+                  { min: 3, message: t('login.minChars', { n: 3 }) },
                 ]}
               >
                 <Input prefix={<UserOutlined />} placeholder={t('login.usernameOrStudent')} />
@@ -168,9 +168,9 @@ const Login: React.FC = () => {
               <Form.Item
                 name="username"
                 rules={[
-                  { required: true, message: '请输入用户名' },
-                  { min: 3, max: 20, message: '用户名长度为3-20个字符' },
-                  { pattern: /^[a-zA-Z0-9_]+$/, message: '用户名只能包含字母、数字和下划线' },
+                  { required: true, message: t('login.usernameOnlyRequired') },
+                  { min: 3, max: 20, message: t('login.usernameLen') },
+                  { pattern: /^[a-zA-Z0-9_]+$/, message: t('login.usernamePattern') },
                 ]}
               >
                 <Input prefix={<UserOutlined />} placeholder={t('login.username')} />
@@ -178,7 +178,7 @@ const Login: React.FC = () => {
 
               <Form.Item
                 name="real_name"
-                rules={[{ required: true, message: '请输入真实姓名' }]}
+                rules={[{ required: true, message: t('login.realNameRequired') }]}
               >
                 <Input placeholder={t('login.realName')} />
               </Form.Item>
@@ -186,8 +186,8 @@ const Login: React.FC = () => {
               <Form.Item
                 name="email"
                 rules={[
-                  { required: true, message: '请输入邮箱' },
-                  { type: 'email', message: '请输入有效的邮箱地址' },
+                  { required: true, message: t('login.emailRequired') },
+                  { type: 'email', message: t('login.emailInvalid') },
                 ]}
               >
                 <Input prefix={<MailOutlined />} placeholder={t('login.email')} />
@@ -196,8 +196,8 @@ const Login: React.FC = () => {
               <Form.Item
                 name="password"
                 rules={[
-                  { required: true, message: '请输入密码' },
-                  { min: 6, message: '密码至少6个字符' },
+                  { required: true, message: t('login.passwordRequired') },
+                  { min: 6, message: t('login.passwordMin') },
                 ]}
               >
                 <Input.Password prefix={<LockOutlined />} placeholder={t('login.password')} />
@@ -213,7 +213,7 @@ const Login: React.FC = () => {
                       if (!value || getFieldValue('password') === value) {
                         return Promise.resolve();
                       }
-                      return Promise.reject(new Error('两次输入的密码不一致'));
+                      return Promise.reject(new Error(t('login.passwordMismatch')));
                     },
                   }),
                 ]}

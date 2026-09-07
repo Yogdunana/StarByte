@@ -137,7 +137,7 @@ cp .env.example .env
 
 # 迁移与种子（需已安装 golang-migrate；库名与 compose.dev 对齐）
 # make migrate-up POSTGRES_DB=starbyte_dev
-# make seed
+# APP_ENV=dev make seed
 
 # 启动服务（必须编译整个 cmd/server 包，不要只 run main.go）
 APP_ENV=dev go run ./cmd/server

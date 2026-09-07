@@ -31,7 +31,16 @@
     "hasAccount": "Already have an account?",
     "goLogin": "Sign in",
     "usernameRequired": "Enter username or student ID",
-    "passwordRequired": "Enter password"
+    "usernameOnlyRequired": "Enter username",
+    "passwordRequired": "Enter password",
+    "minChars": "At least {{n}} characters",
+    "usernameLen": "Username must be 3-20 characters",
+    "usernamePattern": "Only letters, numbers and underscore",
+    "realNameRequired": "Enter real name",
+    "emailRequired": "Enter email",
+    "emailInvalid": "Enter a valid email",
+    "passwordMin": "Password must be at least 6 characters",
+    "passwordMismatch": "Passwords do not match"
   },
   "topbar": {
     "profile": "Profile",
@@ -125,13 +134,16 @@
     "expenseTotal": "Expense total",
     "balance": "Balance",
     "export": "Export",
-    "exportReserved": "Excel export is reserved for phase 2"
+    "exportReserved": "Excel export is reserved for phase 2",
+    "byCategory": "By category",
+    "directionSplit": "Income vs expense"
   },
   "discipline": {
     "records": "Discipline records",
     "create": "Register",
     "title": "Title",
     "member": "Member",
+    "pickMember": "Search name or username",
     "levelLabel": "Level",
     "statusLabel": "Status",
     "description": "Description",

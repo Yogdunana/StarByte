@@ -55,6 +55,8 @@ function shouldRetry(config: InternalAxiosRequestConfig, status?: number): boole
     return retryCount < 2;
   }
   if (retryCount >= GET_RETRY_COUNT) return false;
+  // 501 预留接口不重试
+  if (status === 501) return false;
   // 网络错误（无 status）或 5xx 服务端错误时重试
   return !status || status >= 500;
 }
