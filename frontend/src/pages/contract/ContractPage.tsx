@@ -155,6 +155,7 @@ const ContractPage: React.FC = () => {
           <Form.Item name="expired_at" label={t('contract.expiredAt')}><DatePicker style={{ width: '100%' }} /></Form.Item>
           <Form.Item label={t('contract.file')}>
             <Upload
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.webp"
               fileList={fileList}
               beforeUpload={(file) => { setFileList([{ uid: file.uid, name: file.name, status: 'done', originFileObj: file }]); return false; }}
               onRemove={() => setFileList([])}
@@ -162,6 +163,7 @@ const ContractPage: React.FC = () => {
             >
               <Button icon={<UploadOutlined />}>{t('contract.upload')}</Button>
             </Upload>
+            <div style={{ color: '#888', marginTop: 8 }}>{t('contract.uploadHint')}</div>
           </Form.Item>
         </Form>
       </Modal>

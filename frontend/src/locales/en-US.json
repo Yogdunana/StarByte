@@ -167,6 +167,7 @@
     "template": "Template",
     "file": "Attachment",
     "upload": "Upload file",
+    "uploadHint": "pdf, office, or image",
     "expiring": "Expiring soon",
     "type": { "1": "Sponsorship", "2": "Event", "3": "Purchase", "4": "Other" },
     "status": { "0": "Draft", "1": "Active", "2": "Expired", "3": "Terminated" }
