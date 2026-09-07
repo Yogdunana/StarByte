@@ -8,12 +8,6 @@ interface PasswordFormValues {
   confirm_password: string;
 }
 
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (typeof error === 'string' && error) return error;
-  if (error instanceof Error && error.message) return error.message;
-  return fallback;
-}
-
 const AccountSettingsPage: React.FC = () => {
   const [form] = Form.useForm<PasswordFormValues>();
   const [loading, setLoading] = useState(false);
@@ -27,8 +21,8 @@ const AccountSettingsPage: React.FC = () => {
       });
       message.success('密码已更新');
       form.resetFields();
-    } catch (error: unknown) {
-      message.error(getErrorMessage(error, '修改密码失败'));
+    } catch {
+      // API 错误已由请求拦截器提示，避免重复 toast
     } finally {
       setLoading(false);
     }

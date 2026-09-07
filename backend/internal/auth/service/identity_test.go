@@ -2,10 +2,13 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/auth/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/user/model"
+	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -47,6 +50,8 @@ func TestLogin_ByStudentNo(t *testing.T) {
 	userRepo.On("GetByUsername", ctx, "20210002").Return((*model.User)(nil), nil)
 	ident.On("GetUserIDByStudentNo", ctx, "20210002").Return(userID, nil)
 	userRepo.On("GetByID", ctx, userID).Return(user, nil)
+	authRepo.On("IsLockedOut", ctx, "testuser").Return(false, nil)
+	authRepo.On("ResetLoginAttempts", ctx, "testuser").Return(nil)
 	authRepo.On("ResetLoginAttempts", ctx, "20210002").Return(nil)
 	permCache.On("GetUserPermissionsAndSuperAdmin", ctx, userID).Return([]string{"user:read"}, false, nil)
 	permCache.On("GetUserRoleCodes", ctx, userID).Return([]string{"member"}, nil)
@@ -72,6 +77,71 @@ func TestLogin_ByStudentNo(t *testing.T) {
 	assert.Equal(t, "2021", result.User.Grade)
 	assert.Equal(t, "软件工程", result.User.Major)
 	assert.Equal(t, "品牌传播部", result.User.DepartmentName)
+}
+
+func TestLogin_StudentNoRespectsUsernameLockout(t *testing.T) {
+	svc, userRepo, authRepo, _ := setupTestService()
+	ident := &mockIdentityLookup{}
+	svc.identity = ident
+	ctx := context.Background()
+	userID := uuid.New()
+
+	user := &model.User{
+		ID:           userID,
+		Username:     "admin",
+		PasswordHash: hashPasswordForTest("password123"),
+		Status:       0,
+	}
+
+	authRepo.On("IsLockedOut", ctx, "20210001").Return(false, nil)
+	userRepo.On("GetByUsername", ctx, "20210001").Return((*model.User)(nil), nil)
+	ident.On("GetUserIDByStudentNo", ctx, "20210001").Return(userID, nil)
+	userRepo.On("GetByID", ctx, userID).Return(user, nil)
+	authRepo.On("IsLockedOut", ctx, "admin").Return(true, nil)
+	authRepo.On("GetLockoutTTL", ctx, "admin").Return(10*time.Minute, nil)
+
+	result, err := svc.Login(ctx, &dto.LoginRequest{
+		Username: "20210001",
+		Password: "password123",
+	}, "127.0.0.1", "test-agent")
+
+	assert.Nil(t, result)
+	assert.Error(t, err)
+	var appErr *response.AppError
+	assert.True(t, errors.As(err, &appErr))
+	assert.Equal(t, response.CodeAccountLocked, appErr.Code)
+}
+
+func TestLogin_StudentNoFailedAttemptUsesUsername(t *testing.T) {
+	svc, userRepo, authRepo, _ := setupTestService()
+	ident := &mockIdentityLookup{}
+	svc.identity = ident
+	ctx := context.Background()
+	userID := uuid.New()
+
+	user := &model.User{
+		ID:           userID,
+		Username:     "admin",
+		PasswordHash: hashPasswordForTest("correctpass123"),
+		Status:       0,
+	}
+
+	authRepo.On("IsLockedOut", ctx, "20210001").Return(false, nil)
+	userRepo.On("GetByUsername", ctx, "20210001").Return((*model.User)(nil), nil)
+	ident.On("GetUserIDByStudentNo", ctx, "20210001").Return(userID, nil)
+	userRepo.On("GetByID", ctx, userID).Return(user, nil)
+	authRepo.On("IsLockedOut", ctx, "admin").Return(false, nil)
+	authRepo.On("IncrLoginAttempts", ctx, "admin").Return(int64(1), nil)
+
+	result, err := svc.Login(ctx, &dto.LoginRequest{
+		Username: "20210001",
+		Password: "wrongpassword",
+	}, "127.0.0.1", "test-agent")
+
+	assert.Nil(t, result)
+	assert.Error(t, err)
+	authRepo.AssertCalled(t, "IncrLoginAttempts", ctx, "admin")
+	authRepo.AssertNotCalled(t, "IncrLoginAttempts", ctx, "20210001")
 }
 
 func TestGetCurrentUser_WithIdentity(t *testing.T) {

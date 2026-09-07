@@ -62,41 +62,10 @@ func NewAuthService(
 
 // Login authenticates a user and returns an access token + refresh token pair.
 func (s *authService) Login(ctx context.Context, req *dto.LoginRequest, ip, userAgent string) (*dto.LoginResponse, error) {
-	// 1. Check lockout
-	locked, err := s.authRepo.IsLockedOut(ctx, req.Username)
-	if err != nil {
-		return nil, fmt.Errorf("check lockout: %w", err)
-	}
-	if locked {
-		ttl, _ := s.authRepo.GetLockoutTTL(ctx, req.Username)
-		return nil, response.NewError(response.CodeAccountLocked,
-			fmt.Sprintf("登录失败次数过多，账号已被锁定，请 %d 分钟后重试", int(ttl.Minutes())+1))
-	}
-
-	// 2. Query user by username or student number
-	user, err := s.resolveLoginUser(ctx, req.Username)
+	user, err := s.authenticateLogin(ctx, req.Username, req.Password)
 	if err != nil {
 		return nil, err
 	}
-
-	// 3. Validate credentials
-	if user == nil || !utils.CheckPassword(req.Password, user.PasswordHash) {
-		s.recordFailedAttempt(ctx, req.Username)
-		return nil, response.NewError(response.CodeInvalidCredentials, "用户名/学号或密码错误")
-	}
-
-	// 4. Check user status
-	if user.Status == 1 {
-		return nil, response.NewError(response.CodeUserDisabled, "账号已被禁用")
-	}
-	if user.Status == 2 {
-		return nil, response.NewError(response.CodeUserLocked, "账号已被锁定，请联系管理员")
-	}
-
-	// 5. Reset failed attempts on success
-	_ = s.authRepo.ResetLoginAttempts(ctx, req.Username)
-
-	// 6. Get roles and permissions（缓存/DB 失败必须 fail-closed，不得提权）
 	userUUID, _ := uuid.Parse(user.ID.String())
 	roles, permissions, err := s.getUserRolesAndPermissions(ctx, userUUID)
 	if err != nil {

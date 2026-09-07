@@ -7,6 +7,8 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/auth/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/user/model"
+	"github.com/Yogdunana/StarByte/backend/pkg/response"
+	"github.com/Yogdunana/StarByte/backend/pkg/utils"
 	"github.com/google/uuid"
 )
 
@@ -27,6 +29,73 @@ type MemberIdentity struct {
 type MemberIdentityLookup interface {
 	GetByUserID(ctx context.Context, userID uuid.UUID) (*MemberIdentity, error)
 	GetUserIDByStudentNo(ctx context.Context, studentNo string) (uuid.UUID, error)
+}
+
+func (s *authService) authenticateLogin(ctx context.Context, identifier, password string) (*model.User, error) {
+	identifier = strings.TrimSpace(identifier)
+	if err := s.rejectIfLockedOut(ctx, identifier); err != nil {
+		return nil, err
+	}
+
+	user, err := s.resolveLoginUser(ctx, identifier)
+	if err != nil {
+		return nil, err
+	}
+
+	// 用户名与学号对应同一账号，锁定计数共用 canonical username。
+	lockoutKey := identifier
+	if user != nil {
+		lockoutKey = user.Username
+	}
+	if lockoutKey != identifier {
+		if err := s.rejectIfLockedOut(ctx, lockoutKey); err != nil {
+			return nil, err
+		}
+	}
+
+	if user == nil || !utils.CheckPassword(password, user.PasswordHash) {
+		s.recordFailedAttempt(ctx, lockoutKey)
+		return nil, response.NewError(response.CodeInvalidCredentials, "用户名/学号或密码错误")
+	}
+	if user.Status == 1 {
+		return nil, response.NewError(response.CodeUserDisabled, "账号已被禁用")
+	}
+	if user.Status == 2 {
+		return nil, response.NewError(response.CodeUserLocked, "账号已被锁定，请联系管理员")
+	}
+
+	s.resetLoginAttempts(ctx, lockoutKey, identifier)
+	return user, nil
+}
+
+func (s *authService) rejectIfLockedOut(ctx context.Context, key string) error {
+	if key == "" {
+		return nil
+	}
+	locked, err := s.authRepo.IsLockedOut(ctx, key)
+	if err != nil {
+		return fmt.Errorf("check lockout: %w", err)
+	}
+	if !locked {
+		return nil
+	}
+	ttl, _ := s.authRepo.GetLockoutTTL(ctx, key)
+	return response.NewError(response.CodeAccountLocked,
+		fmt.Sprintf("登录失败次数过多，账号已被锁定，请 %d 分钟后重试", int(ttl.Minutes())+1))
+}
+
+func (s *authService) resetLoginAttempts(ctx context.Context, keys ...string) {
+	seen := make(map[string]struct{}, len(keys))
+	for _, key := range keys {
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		_ = s.authRepo.ResetLoginAttempts(ctx, key)
+	}
 }
 
 func (s *authService) resolveLoginUser(ctx context.Context, identifier string) (*model.User, error) {
