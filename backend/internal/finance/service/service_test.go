@@ -90,3 +90,35 @@ func TestFinanceSelfCannotTagForeignDept(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, response.CodeFinanceNoAccess, err.(*response.AppError).Code)
 }
+
+func TestFinanceDeptScopeCannotRetagOrClear(t *testing.T) {
+	mem := newMem()
+	cat := &model.Category{ID: uuid.New(), Name: "会费", Code: "dues", Direction: model.DirectionIncome}
+	mem.cats[cat.ID] = cat
+	svc := New(mem)
+	op := uuid.New()
+	deptA := uuid.New()
+	deptB := uuid.New()
+	scope := &rbacModel.DataScopeCondition{Query: "department_id = ?", Args: []interface{}{deptA}}
+	ctx := context.Background()
+	created, err := svc.Create(ctx, op, &dto.CreateRecordRequest{
+		CategoryID: cat.ID.String(), Amount: 10, Direction: model.DirectionIncome,
+		OccurredAt: time.Now(), Title: "会费", DepartmentID: deptA.String(),
+	}, scope)
+	require.NoError(t, err)
+
+	other := deptB.String()
+	_, err = svc.Update(ctx, op, uuid.MustParse(created.ID), &dto.UpdateRecordRequest{DepartmentID: &other}, scope)
+	require.Error(t, err)
+	assert.Equal(t, response.CodeFinanceNoAccess, err.(*response.AppError).Code)
+
+	bad := "not-a-uuid"
+	_, err = svc.Update(ctx, op, uuid.MustParse(created.ID), &dto.UpdateRecordRequest{DepartmentID: &bad}, scope)
+	require.Error(t, err)
+	assert.Equal(t, response.CodeBadRequest, err.(*response.AppError).Code)
+
+	empty := ""
+	_, err = svc.Update(ctx, op, uuid.MustParse(created.ID), &dto.UpdateRecordRequest{DepartmentID: &empty}, scope)
+	require.Error(t, err)
+	assert.Equal(t, response.CodeFinanceNoAccess, err.(*response.AppError).Code)
+}

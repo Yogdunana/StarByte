@@ -52,7 +52,11 @@ func (s *financeService) Create(ctx context.Context, operator uuid.UUID, req *dt
 		OccurredAt: dateOnly(req.OccurredAt), Title: strings.TrimSpace(req.Title),
 		Remark: req.Remark, CreatedBy: &operator, CreatedAt: now,
 	}
-	if dept := parseUUID(req.DepartmentID); dept != nil {
+	if req.DepartmentID != "" {
+		dept, err := parseDepartmentID(req.DepartmentID)
+		if err != nil {
+			return nil, err
+		}
 		if !canAssignDepartment(scope, dept, operator) {
 			return nil, response.NewError(response.CodeFinanceNoAccess, "无权为该部门登记财务记录")
 		}
@@ -107,8 +111,15 @@ func (s *financeService) Update(ctx context.Context, operator, id uuid.UUID, req
 		row.Remark = *req.Remark
 	}
 	if req.DepartmentID != nil {
-		dept := parseUUID(*req.DepartmentID)
-		if dept != nil && !canAssignDepartment(scope, dept, operator) {
+		dept, err := parseDepartmentID(*req.DepartmentID)
+		if err != nil {
+			return nil, err
+		}
+		if dept == nil {
+			if !canClearDepartment(scope, operator) {
+				return nil, response.NewError(response.CodeFinanceNoAccess, "无权清空该记录的部门")
+			}
+		} else if !canAssignDepartment(scope, dept, operator) {
 			return nil, response.NewError(response.CodeFinanceNoAccess, "无权为该部门登记财务记录")
 		}
 		row.DepartmentID = dept
@@ -235,12 +246,16 @@ func matchDirection(cat *model.Category, direction int16) error {
 	return nil
 }
 
-func parseUUID(raw string) *uuid.UUID {
-	id, err := uuid.Parse(strings.TrimSpace(raw))
-	if err != nil {
-		return nil
+func parseDepartmentID(raw string) (*uuid.UUID, error) {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return nil, nil
 	}
-	return &id
+	id, err := uuid.Parse(s)
+	if err != nil {
+		return nil, response.NewError(response.CodeBadRequest, "部门 ID 无效")
+	}
+	return &id, nil
 }
 
 func mapRecord(row *model.RecordNamed) *dto.RecordResponse {

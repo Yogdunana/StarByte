@@ -66,3 +66,8 @@ func canAssignDepartment(scope *rbacModel.DataScopeCondition, dept *uuid.UUID, v
 	}
 	return canAccess(scope, nil, dept, viewer)
 }
+
+func canClearDepartment(scope *rbacModel.DataScopeCondition, viewer uuid.UUID) bool {
+	rewritten := rewriteScope(scope, viewer)
+	return rewritten == nil || rewritten.IsEmpty()
+}
