@@ -53,8 +53,8 @@ func seedMemberProfiles(db *gorm.DB) error {
 		if err := db.Exec(`
 			UPDATE member_profiles mp
 			SET
-				student_no = CASE WHEN mp.student_no = '' THEN ? ELSE mp.student_no END,
-				real_name = CASE WHEN mp.real_name = '' THEN ? ELSE mp.real_name END,
+				student_no = ?,
+				real_name = ?,
 				grade = CASE WHEN mp.grade = '' THEN ? ELSE mp.grade END,
 				major = CASE WHEN mp.major = '' THEN ? ELSE mp.major END,
 				updated_at = CURRENT_TIMESTAMP
