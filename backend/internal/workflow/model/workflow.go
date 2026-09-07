@@ -12,7 +12,7 @@ import (
 // Status values: 0=draft, 1=published, 2=disabled.
 type FlowDefinition struct {
 	ID          uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
-	Key         string     `gorm:"type:varchar(100);uniqueIndex;not null" json:"key"`
+	Key         string     `gorm:"type:varchar(100);unique;not null" json:"key"`
 	Name        string     `gorm:"type:varchar(200);not null" json:"name"`
 	Description string     `gorm:"type:text" json:"description"`
 	Category    string     `gorm:"type:varchar(50);default:custom" json:"category"`
