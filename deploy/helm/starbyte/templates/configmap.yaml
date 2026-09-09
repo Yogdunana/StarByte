@@ -1,0 +1,49 @@
+{{- /* StarByte Helm Chart - Issue #102 */ -}}
+{{- if or .Values.backend.enabled .Values.frontend.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "starbyte.configmap.fullname" . }}
+  namespace: {{ .Values.namespace.name | quote }}
+  labels:
+    {{- include "starbyte.labels" . | nindent 4 }}
+data:
+  # 应用环境标识
+  APP_ENV: {{ .Values.backend.env.appEnv | quote }}
+  LOG_LEVEL: {{ .Values.backend.env.logLevel | quote }}
+  CONFIG_PATH: {{ .Values.backend.env.configPath | quote }}
+
+  # PostgreSQL 连接 (非敏感信息:主机/端口/库名/用户)
+  {{- if .Values.postgres.enabled }}
+  POSTGRES_HOST: {{ include "starbyte.postgres.fullname" . | quote }}
+  POSTGRES_PORT: {{ .Values.postgres.config.port | quote }}
+  POSTGRES_DB: {{ .Values.postgres.config.db | quote }}
+  POSTGRES_USER: {{ .Values.postgres.config.user | quote }}
+  {{- end }}
+
+  # Redis 连接 (非敏感信息:主机/端口)
+  {{- if .Values.redis.enabled }}
+  REDIS_HOST: {{ include "starbyte.redis.fullname" . | quote }}
+  REDIS_PORT: {{ .Values.redis.config.port | quote }}
+  {{- end }}
+
+  # MinIO 连接 (非敏感信息:主机/端口/桶)
+  {{- if .Values.minio.enabled }}
+  MINIO_HOST: {{ include "starbyte.minio.fullname" . | quote }}
+  MINIO_PORT: {{ .Values.minio.config.port | quote }}
+  MINIO_CONSOLE_PORT: {{ .Values.minio.config.consolePort | quote }}
+  MINIO_BUCKET: {{ .Values.minio.bucket | quote }}
+  {{- end }}
+
+  # 后端服务信息
+  {{- if .Values.backend.enabled }}
+  BACKEND_HOST: {{ include "starbyte.backend.fullname" . | quote }}
+  BACKEND_PORT: {{ .Values.backend.service.port | quote }}
+  {{- end }}
+
+  # 前端服务信息
+  {{- if .Values.frontend.enabled }}
+  FRONTEND_HOST: {{ include "starbyte.frontend.fullname" . | quote }}
+  FRONTEND_PORT: {{ .Values.frontend.service.port | quote }}
+  {{- end }}
+{{- end }}

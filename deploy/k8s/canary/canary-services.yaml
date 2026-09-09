@@ -1,0 +1,42 @@
+# StarByte 金丝雀发布 - Canary Services - Issue #102
+apiVersion: v1
+kind: Service
+metadata:
+  name: starbyte-backend-canary
+  namespace: starbyte
+  labels:
+    app: starbyte
+    component: backend
+    track: canary
+spec:
+  type: ClusterIP
+  selector:
+    app: starbyte
+    component: backend
+    track: canary
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: starbyte-frontend-canary
+  namespace: starbyte
+  labels:
+    app: starbyte
+    component: frontend
+    track: canary
+spec:
+  type: ClusterIP
+  selector:
+    app: starbyte
+    component: frontend
+    track: canary
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP

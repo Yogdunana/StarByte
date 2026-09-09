@@ -1,0 +1,123 @@
+# StarByte Kubernetes 部署清单 - Issue #102
+# PostgreSQL 16 有状态服务
+#   - Headless Service：postgres-starbyte（供 StatefulSet 稳定网络标识）
+#   - StatefulSet：postgres-starbyte，持久化数据卷 10Gi
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-starbyte
+  namespace: starbyte
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/instance: starbyte
+    app.kubernetes.io/part-of: starbyte
+spec:
+  type: ClusterIP
+  clusterIP: None  # headless，配合 StatefulSet 提供稳定 DNS
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/instance: starbyte
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-starbyte
+  namespace: starbyte
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/instance: starbyte
+    app.kubernetes.io/part-of: starbyte
+spec:
+  serviceName: postgres-starbyte
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+      app.kubernetes.io/instance: starbyte
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres
+        app.kubernetes.io/instance: starbyte
+        app.kubernetes.io/part-of: starbyte
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+              protocol: TCP
+          env:
+            # 数据库名 / 用户来自 ConfigMap，密码来自 Secret
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: starbyte-config
+                  key: DB_NAME
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: starbyte-config
+                  key: DB_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: starbyte-secret
+                  key: DB_PASSWORD
+            - name: TZ
+              valueFrom:
+                configMapKeyRef:
+                  name: starbyte-config
+                  key: TZ
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U $(POSTGRES_USER) -d $(POSTGRES_DB)
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U $(POSTGRES_USER) -d $(POSTGRES_DB)
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          app.kubernetes.io/name: postgres
+          app.kubernetes.io/instance: starbyte
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: standard
+        resources:
+          requests:
+            storage: 10Gi

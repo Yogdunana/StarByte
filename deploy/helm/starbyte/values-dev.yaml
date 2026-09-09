@@ -1,0 +1,98 @@
+# StarByte Helm Chart 开发环境覆盖配置
+# 使用方式: helm install starbyte ./deploy/helm/starbyte -f values.yaml -f values-dev.yaml -n starbyte
+
+global:
+  imagePullPolicy: IfNotPresent
+  # 开发环境使用本地存储
+  storageClass: ""
+
+namespace:
+  name: starbyte-dev
+  create: true
+
+# 后端 - 单副本低资源
+backend:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  env:
+    appEnv: development
+    logLevel: debug
+  probes:
+    liveness:
+      initialDelaySeconds: 15
+    readiness:
+      initialDelaySeconds: 5
+    startup:
+      initialDelaySeconds: 5
+  # 开发环境使用 NodePort 方便本地访问
+  service:
+    type: NodePort
+    port: 8080
+    targetPort: 8080
+    nodePort: 30080
+
+# 前端 - 单副本低资源
+frontend:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  service:
+    type: NodePort
+    port: 80
+    targetPort: 80
+    nodePort: 30081
+
+# PostgreSQL - 低资源
+postgres:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  storage:
+    size: 5Gi
+
+# Redis - 低资源
+redis:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  storage:
+    size: 1Gi
+
+# MinIO - 低资源
+minio:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  storage:
+    size: 5Gi
+
+# 开发环境不启用 Ingress (直接使用 NodePort)
+ingress:
+  enabled: false
+
+# 开发环境允许使用测试默认密码
+secrets:
+  create: true

@@ -1,0 +1,135 @@
+# StarByte Kubernetes 部署清单 - Issue #102
+# MinIO 对象存储
+#   - Service：minio-starbyte（9000 S3 API；9001 控制台通过容器内 --console-address 暴露）
+#   - Deployment：minio-starbyte，持久化数据卷 20Gi
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-starbyte
+  namespace: starbyte
+  labels:
+    app.kubernetes.io/name: minio
+    app.kubernetes.io/instance: starbyte
+    app.kubernetes.io/part-of: starbyte
+spec:
+  type: ClusterIP
+  ports:
+    - name: s3
+      port: 9000
+      targetPort: 9000
+      protocol: TCP
+    - name: console
+      port: 9001
+      targetPort: 9001
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: minio
+    app.kubernetes.io/instance: starbyte
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio-starbyte
+  namespace: starbyte
+  labels:
+    app.kubernetes.io/name: minio
+    app.kubernetes.io/instance: starbyte
+    app.kubernetes.io/part-of: starbyte
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: minio
+      app.kubernetes.io/instance: starbyte
+  strategy:
+    type: Recreate  # 单实例带持久卷，避免双副本同时挂载 RWO 卷
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: minio
+        app.kubernetes.io/instance: starbyte
+        app.kubernetes.io/part-of: starbyte
+    spec:
+      containers:
+        - name: minio
+          image: minio/minio:RELEASE.2024-08-17T01-16-21Z
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - minio server /data --console-address ":9001"
+          ports:
+            - name: s3
+              containerPort: 9000
+              protocol: TCP
+            - name: console
+              containerPort: 9001
+              protocol: TCP
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: starbyte-secret
+                  key: MINIO_ACCESS_KEY
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: starbyte-secret
+                  key: MINIO_SECRET_KEY
+            - name: TZ
+              valueFrom:
+                configMapKeyRef:
+                  name: starbyte-config
+                  key: TZ
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - curl -fsS http://localhost:9000/minio/health/live
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - curl -fsS http://localhost:9000/minio/health/live
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: minio-starbyte-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-starbyte-data
+  namespace: starbyte
+  labels:
+    app.kubernetes.io/name: minio
+    app.kubernetes.io/instance: starbyte
+    app.kubernetes.io/part-of: starbyte
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 20Gi

@@ -1,0 +1,38 @@
+# StarByte Kubernetes 部署清单 - Issue #102
+# ConfigMap：starbyte-config，集中管理非敏感配置，与 docker-compose.yml 环境变量对齐
+# 敏感信息（密码/密钥）请勿放入此文件，统一从 Secret 引用（见 secret.yaml.example）
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: starbyte-config
+  namespace: starbyte
+  labels:
+    app.kubernetes.io/name: starbyte
+    app.kubernetes.io/part-of: starbyte
+data:
+  # ── 应用通用 ──
+  APP_ENV: "prod"
+  TZ: "Asia/Shanghai"
+  CONFIG_PATH: "configs/config.yaml"
+
+  # ── PostgreSQL 连接（非敏感部分）──
+  DB_HOST: "postgres-starbyte"
+  DB_PORT: "5432"
+  DB_USER: "starbyte"
+  DB_NAME: "starbyte"
+  DB_SSLMODE: "disable"
+
+  # ── Redis 连接（非敏感部分）──
+  REDIS_HOST: "redis-starbyte"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+
+  # ── MinIO 连接（非敏感部分）──
+  MINIO_ENDPOINT: "minio-starbyte:9000"
+  MINIO_USE_SSL: "false"
+  MINIO_BUCKET: "starbyte"
+
+  # ── 迁移与初始化控制 ──
+  SKIP_MIGRATION: "false"
+  MIGRATION_FAIL_FATAL: "true"
+  SKIP_BUCKET_CREATE: "false"

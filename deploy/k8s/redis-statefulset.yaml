@@ -1,0 +1,117 @@
+# StarByte Kubernetes 部署清单 - Issue #102
+# Redis 7 有状态服务
+#   - Headless Service：redis-starbyte
+#   - StatefulSet：redis-starbyte，开启 AOF 持久化，密码校验，持久化数据卷 5Gi
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-starbyte
+  namespace: starbyte
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/instance: starbyte
+    app.kubernetes.io/part-of: starbyte
+spec:
+  type: ClusterIP
+  clusterIP: None  # headless，配合 StatefulSet 提供稳定 DNS
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/instance: starbyte
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-starbyte
+  namespace: starbyte
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/instance: starbyte
+    app.kubernetes.io/part-of: starbyte
+spec:
+  serviceName: redis-starbyte
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+      app.kubernetes.io/instance: starbyte
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: redis
+        app.kubernetes.io/instance: starbyte
+        app.kubernetes.io/part-of: starbyte
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: redis
+              containerPort: 6379
+              protocol: TCP
+          # 通过 shell 启动，确保 $(REDIS_PASSWORD) 能被正确展开
+          command:
+            - /bin/sh
+            - -c
+          args:
+            - redis-server --requirepass $(REDIS_PASSWORD) --appendonly yes
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: starbyte-secret
+                  key: REDIS_PASSWORD
+            - name: TZ
+              valueFrom:
+                configMapKeyRef:
+                  name: starbyte-config
+                  key: TZ
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          # Redis 开启 requirepass 后，PING 需携带密码，故探针使用 -a 认证
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - redis-cli -a $(REDIS_PASSWORD) --no-auth-warning ping | grep PONG
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - redis-cli -a $(REDIS_PASSWORD) --no-auth-warning ping | grep PONG
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          app.kubernetes.io/name: redis
+          app.kubernetes.io/instance: starbyte
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: standard
+        resources:
+          requests:
+            storage: 5Gi

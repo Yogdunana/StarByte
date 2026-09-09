@@ -1,0 +1,42 @@
+# StarByte 蓝绿部署 - Service - Issue #102
+# 通过 selector.version 控制流量指向 Blue 或 Green
+# 初始指向 Blue，切换时 patch selector.version=green
+apiVersion: v1
+kind: Service
+metadata:
+  name: starbyte-backend-bg
+  namespace: starbyte
+  labels:
+    app: starbyte
+    component: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: starbyte
+    component: backend
+    version: blue          # ← 改为 green 即切换流量
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: starbyte-frontend-bg
+  namespace: starbyte
+  labels:
+    app: starbyte
+    component: frontend
+spec:
+  type: ClusterIP
+  selector:
+    app: starbyte
+    component: frontend
+    version: blue          # ← 改为 green 即切换流量
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP

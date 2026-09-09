@@ -1,0 +1,43 @@
+# StarByte Kubernetes 部署清单 - Issue #102
+# Ingress：starbyte-ingress（nginx ingress controller）
+#   - host: starbyte.example.com（占位，部署前替换为实际域名）
+#   - /api/    → starbyte-backend:8080
+#   - /        → starbyte-frontend:80
+#   - TLS：占位 secretName=starbyte-tls（由 cert-manager 或手动创建）
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: starbyte-ingress
+  namespace: starbyte
+  labels:
+    app.kubernetes.io/name: starbyte
+    app.kubernetes.io/part-of: starbyte
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - starbyte.example.com
+      secretName: starbyte-tls  # 占位：生产环境用 cert-manager 自动签发，或手动 `kubectl create secret tls`
+  rules:
+    - host: starbyte.example.com  # TODO: 替换为实际域名
+      http:
+        paths:
+          - path: /api/
+            pathType: Prefix
+            backend:
+              service:
+                name: starbyte-backend
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: starbyte-frontend
+                port:
+                  number: 80

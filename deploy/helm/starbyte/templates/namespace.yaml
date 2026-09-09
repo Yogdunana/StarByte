@@ -1,0 +1,9 @@
+{{- /* StarByte Helm Chart - Issue #102 */ -}}
+{{- if .Values.namespace.create }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.namespace.name | quote }}
+  labels:
+    {{- include "starbyte.labels" . | nindent 4 }}
+{{- end }}

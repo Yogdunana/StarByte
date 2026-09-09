@@ -1,0 +1,237 @@
+# StarByte Helm Chart 全局默认配置
+# 生产环境请使用 values-prod.yaml 覆盖,开发环境使用 values-dev.yaml 覆盖
+
+# 全局配置
+global:
+  imageRegistry: ghcr.io/yogdunana
+  imagePullPolicy: IfNotPresent
+  # storageClass 为空时使用集群默认 StorageClass
+  storageClass: ""
+
+# namespace 配置
+namespace:
+  name: starbyte
+  create: true
+
+# 后端服务 (Go + Gin)
+backend:
+  enabled: true
+  image:
+    repository: ghcr.io/yogdunana/starbyte-backend
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  env:
+    appEnv: production
+    configPath: /etc/starbyte/config.yaml
+    logLevel: info
+  probes:
+    liveness:
+      enabled: true
+      path: /health
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readiness:
+      enabled: true
+      path: /health
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    startup:
+      enabled: true
+      path: /health
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 30
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+  # 调度策略
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# 前端服务 (React + Vite + Nginx)
+frontend:
+  enabled: true
+  image:
+    repository: ghcr.io/yogdunana/starbyte-frontend
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  probes:
+    liveness:
+      enabled: true
+      path: /
+      initialDelaySeconds: 15
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readiness:
+      enabled: true
+      path: /
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# PostgreSQL 16
+postgres:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "16"
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  storage:
+    size: 20Gi
+    # storageClass 为空时使用 global.storageClass
+    storageClass: ""
+  config:
+    user: starbyte
+    db: starbyte
+    port: 5432
+  # 密码引用自 Secret (见 secrets.secretData.POSTGRES_PASSWORD)
+  # 注意: key 名称需符合环境变量命名规则,以便 envFrom 批量注入
+  password:
+    secretKey: POSTGRES_PASSWORD
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Redis 7
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: "7"
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  storage:
+    size: 5Gi
+    storageClass: ""
+  config:
+    port: 6379
+  # 密码引用自 Secret (见 secrets.secretData.REDIS_PASSWORD)
+  password:
+    secretKey: REDIS_PASSWORD
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# MinIO 对象存储
+minio:
+  enabled: true
+  image:
+    repository: minio/minio
+    tag: "RELEASE.2024-09-13T20-34-00Z"
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  storage:
+    size: 50Gi
+    storageClass: ""
+  config:
+    port: 9000
+    consolePort: 9001
+    args:
+      - server
+      - /data
+      - --console-address
+      - ":9001"
+  # rootUser/rootPassword 引用自 Secret (见 secrets.secretData.MINIO_*)
+  rootUser:
+    secretKey: MINIO_ROOT_USER
+  rootPassword:
+    secretKey: MINIO_ROOT_PASSWORD
+  bucket: starbyte
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Ingress 配置
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: starbyte.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceName: frontend
+          servicePort: 80
+    - host: api.starbyte.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceName: backend
+          servicePort: 8080
+  # TLS 配置
+  tls:
+    - secretName: starbyte-tls
+      hosts:
+        - starbyte.example.com
+        - api.starbyte.example.com
+
+# Secrets 配置
+# 注意: 生产环境请使用 Sealed Secrets 或 External Secrets Operator 管理
+# 以下 secretData 仅用于开发/测试,生产环境请勿提交明文密码
+secrets:
+  # 是否创建 Secret 资源 (生产环境设为 false,改用外部 Secret 管理)
+  create: true
+  # 仅供测试用的默认值,部署到生产前请务必替换
+  # key 命名须符合环境变量规则,以便 backend 通过 envFrom 批量注入
+  secretData:
+    POSTGRES_PASSWORD: "change-me-postgres-password"
+    REDIS_PASSWORD: "change-me-redis-password"
+    MINIO_ROOT_USER: "change-me-minio-root-user"
+    MINIO_ROOT_PASSWORD: "change-me-minio-root-password"
+    # JWT 签名密钥
+    JWT_SECRET: "change-me-jwt-secret"

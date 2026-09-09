@@ -1,0 +1,10 @@
+# StarByte Kubernetes 部署清单 - Issue #102
+# 命名空间：starbyte，所有 StarByte 资源统一部署于此命名空间
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: starbyte
+  labels:
+    app.kubernetes.io/name: starbyte
+    app.kubernetes.io/part-of: starbyte
+    app.kubernetes.io/managed-by: kubectl

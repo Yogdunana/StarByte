@@ -1,0 +1,69 @@
+# StarByte Kubernetes 部署清单 - Issue #102
+# 后端服务 Deployment：starbyte-backend（Go 1.22 + Gin，监听 8080）
+#   - 镜像：ghcr.io/yogdunana/starbyte-backend:latest
+#   - 滚动更新：maxSurge=1 / maxUnavailable=0（保证至少 2 个可用副本）
+#   - 副本数：2
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: starbyte-backend
+  namespace: starbyte
+  labels:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/instance: starbyte
+    app.kubernetes.io/part-of: starbyte
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backend
+      app.kubernetes.io/instance: starbyte
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: backend
+        app.kubernetes.io/instance: starbyte
+        app.kubernetes.io/part-of: starbyte
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/yogdunana/starbyte-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          # 环境变量统一从 ConfigMap + Secret 注入，与 docker-compose.yml 对齐
+          envFrom:
+            - configMapRef:
+                name: starbyte-config
+            - secretRef:
+                name: starbyte-secret
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

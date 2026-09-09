@@ -1,0 +1,183 @@
+# StarByte CD 流水线 - Issue #102
+# 自动构建镜像 → 推送 GHCR → 部署到 Kubernetes
+name: CD
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: '部署环境'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
+
+env:
+  REGISTRY: ghcr.io
+  NAMESPACE: starbyte
+
+jobs:
+  # ─────────────────────────────────────────────────────────
+  # 构建并推送后端镜像
+  # ─────────────────────────────────────────────────────────
+  build-backend:
+    name: Build & Push Backend Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/backend
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: backend
+          target: production
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ─────────────────────────────────────────────────────────
+  # 构建并推送前端镜像
+  # ─────────────────────────────────────────────────────────
+  build-frontend:
+    name: Build & Push Frontend Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/frontend
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: frontend
+          target: production
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ─────────────────────────────────────────────────────────
+  # 部署到 Kubernetes
+  # ─────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    needs: [build-backend, build-frontend]
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: ${{ github.event.inputs.environment || (github.ref_type == 'tag' && 'prod' || 'dev') }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set deploy environment
+        id: env
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "name=prod" >> $GITHUB_OUTPUT
+            echo "values=values-prod.yaml" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.inputs.environment }}" = "prod" ]; then
+            echo "name=prod" >> $GITHUB_OUTPUT
+            echo "values=values-prod.yaml" >> $GITHUB_OUTPUT
+          else
+            echo "name=dev" >> $GITHUB_OUTPUT
+            echo "values=values-dev.yaml" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set image tags
+        id: images
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            TAG="latest"
+          fi
+          echo "backend=${{ env.REGISTRY }}/${{ github.repository }}/backend:${TAG}" >> $GITHUB_OUTPUT
+          echo "frontend=${{ env.REGISTRY }}/${{ github.repository }}/frontend:${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Set up kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+          export KUBECONFIG=$HOME/.kube/config
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'v3.14.0'
+
+      - name: Deploy with Helm
+        run: |
+          helm upgrade --install starbyte deploy/helm/starbyte \
+            --namespace ${{ env.NAMESPACE }} --create-namespace \
+            --values deploy/helm/starbyte/${{ steps.env.outputs.values }} \
+            --set backend.image.tag=${{ steps.images.outputs.backend }} \
+            --set frontend.image.tag=${{ steps.images.outputs.frontend }} \
+            --wait --timeout 5m
+
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/starbyte-backend -n ${{ env.NAMESPACE }} --timeout=3m
+          kubectl rollout status deployment/starbyte-frontend -n ${{ env.NAMESPACE }} --timeout=3m
+          echo "✅ Deployment successful"
+
+      - name: Cleanup on failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed, checking rollback history..."
+          kubectl rollout history deployment/starbyte-backend -n ${{ env.NAMESPACE }}
+          kubectl rollout history deployment/starbyte-frontend -n ${{ env.NAMESPACE }}

@@ -1,0 +1,29 @@
+# StarByte Kustomize - Issue #102
+# 用法: kubectl apply -k deploy/k8s/
+#
+# 注意: Secret 不在此处直接引用，避免部署占位密钥。
+# 生产环境请先复制 secret.yaml.example 为 secret.yaml 并填入真实值，
+# 或使用 Sealed Secrets / External Secrets 管理密钥。
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: starbyte
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - postgres-statefulset.yaml
+  - redis-statefulset.yaml
+  - minio-deployment.yaml
+  - backend-deployment.yaml
+  - backend-service.yaml
+  - frontend-deployment.yaml
+  - frontend-service.yaml
+  - ingress.yaml
+
+# 镜像统一管理（部署时用 kustomize edit set image 覆盖）
+images:
+  - name: ghcr.io/yogdunana/starbyte-backend
+    newTag: latest
+  - name: ghcr.io/yogdunana/starbyte-frontend
+    newTag: latest

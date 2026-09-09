@@ -1,0 +1,144 @@
+# StarByte Helm Chart 生产环境覆盖配置
+# 使用方式: helm install starbyte ./deploy/helm/starbyte -f values.yaml -f values-prod.yaml -n starbyte-prod
+#
+# 重要: 生产环境部署前请务必
+# 1. 替换 secrets.secretData 中的所有默认密码,或使用 Sealed Secrets / External Secrets
+# 2. 配置 ingress.hosts 为真实域名
+# 3. 配置 ingress.tls 的证书 Secret
+
+global:
+  imagePullPolicy: IfNotPresent
+  # 生产环境建议显式指定 storageClass
+  storageClass: ""
+
+namespace:
+  name: starbyte-prod
+  create: true
+
+# 后端 - 多副本高可用
+backend:
+  replicaCount: 3
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  env:
+    appEnv: production
+    logLevel: warn
+  probes:
+    liveness:
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      failureThreshold: 3
+    readiness:
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      failureThreshold: 3
+    startup:
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      failureThreshold: 30
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+
+# 前端 - 多副本高可用
+frontend:
+  replicaCount: 3
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  probes:
+    liveness:
+      initialDelaySeconds: 15
+      periodSeconds: 10
+      failureThreshold: 3
+    readiness:
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      failureThreshold: 3
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+
+# PostgreSQL - 高资源
+postgres:
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+  storage:
+    size: 50Gi
+
+# Redis - 高资源
+redis:
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  storage:
+    size: 10Gi
+
+# MinIO - 高资源
+minio:
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  storage:
+    size: 200Gi
+
+# 生产环境启用 Ingress + TLS
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: starbyte.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceName: frontend
+          servicePort: 80
+    - host: api.starbyte.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          serviceName: backend
+          servicePort: 8080
+  tls:
+    - secretName: starbyte-tls
+      hosts:
+        - starbyte.example.com
+        - api.starbyte.example.com
+
+# 生产环境建议使用 Sealed Secrets / External Secrets Operator
+# 此处 create 设为 false 时,需保证集群中已存在对应的 Secret 资源
+secrets:
+  # 生产环境部署前请改为 false 并通过外部工具管理 Secret
+  # 此处保留为 true 以便首次部署可运行,密码请务必替换
+  create: true

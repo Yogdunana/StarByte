@@ -1,0 +1,38 @@
+# StarByte 金丝雀发布 - Canary Ingress - Issue #102
+# 基于 Nginx Ingress Controller canary 注解实现流量切分
+# 初始权重 10%，通过 kubectl annotate 逐步调整
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: starbyte-canary-ingress
+  namespace: starbyte
+  labels:
+    app: starbyte
+    track: canary
+  annotations:
+    # 金丝雀流量百分比（初始 10%）
+    nginx.ingress.kubernetes.io/canary: "true"
+    nginx.ingress.kubernetes.io/canary-weight: "10"
+    # 可选：按 Header 路由（取消注释即可启用）
+    # nginx.ingress.kubernetes.io/canary-by-header: "X-Canary"
+    # nginx.ingress.kubernetes.io/canary-by-header-value: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: starbyte.example.com    # ← 替换为实际域名
+      http:
+        paths:
+          - path: /api/
+            pathType: Prefix
+            backend:
+              service:
+                name: starbyte-backend-canary
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: starbyte-frontend-canary
+                port:
+                  number: 80
