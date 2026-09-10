@@ -41,6 +41,8 @@ const MeetingListPage = lazy(() => import('@/pages/meeting/ListPage'));
 const MeetingDetailPage = lazy(() => import('@/pages/meeting/DetailPage'));
 const MeetingCheckinPage = lazy(() => import('@/pages/meeting/CheckinPage'));
 const MeetingWeightPage = lazy(() => import('@/pages/meeting/WeightPage'));
+const ActivityListPage = lazy(() => import('@/pages/activity/ListPage'));
+const ActivityDetailPage = lazy(() => import('@/pages/activity/DetailPage'));
 const TaskListPage = lazy(() => import('@/pages/task/ListPage'));
 const TaskBoardPage = lazy(() => import('@/pages/task/BoardPage'));
 const TaskMyPage = lazy(() => import('@/pages/task/MyPage'));
@@ -243,6 +245,22 @@ const routes: AppRouteObject[] = [
             path: ':id',
             element: lazyGuarded(MeetingDetailPage, 'meeting:read'),
             meta: { title: '会议详情', permission: 'meeting:read', hidden: true },
+          },
+        ],
+      },
+      {
+        path: 'activity',
+        meta: { title: '活动管理', icon: 'CalendarOutlined' },
+        children: [
+          {
+            path: 'list',
+            element: lazyGuarded(ActivityListPage, 'activity:read'),
+            meta: { title: '活动列表', permission: 'activity:read' },
+          },
+          {
+            path: ':id',
+            element: lazyGuarded(ActivityDetailPage, 'activity:read'),
+            meta: { title: '活动详情', permission: 'activity:read', hidden: true },
           },
         ],
       },

@@ -38,6 +38,9 @@ import (
 	interviewHandler "github.com/Yogdunana/StarByte/backend/internal/interview/handler"
 	interviewRepo "github.com/Yogdunana/StarByte/backend/internal/interview/repo"
 	interviewService "github.com/Yogdunana/StarByte/backend/internal/interview/service"
+	activityHandler "github.com/Yogdunana/StarByte/backend/internal/activity/handler"
+	activityRepo "github.com/Yogdunana/StarByte/backend/internal/activity/repo"
+	activityService "github.com/Yogdunana/StarByte/backend/internal/activity/service"
 	meetingHandler "github.com/Yogdunana/StarByte/backend/internal/meeting/handler"
 	meetingRepo "github.com/Yogdunana/StarByte/backend/internal/meeting/repo"
 	meetingService "github.com/Yogdunana/StarByte/backend/internal/meeting/service"
@@ -300,6 +303,14 @@ func main() {
 	mtSvc := meetingService.NewMeetingService(mtMeetingRepo, mtAgendaRepo, mtAttendeeRepo, mtVoteRepo, mtNotifier)
 	mtH := meetingHandler.NewMeetingHandler(mtSvc)
 
+	// 活动管理与报名系统（/activities，#52）
+	actActivityRepo := activityRepo.NewActivityRepo(database.DB())
+	actRegRepo := activityRepo.NewRegistrationRepo(database.DB())
+	actSurveyRepo := activityRepo.NewSurveyRepo(database.DB())
+	actNotifier := activityService.NewNotifier(notifSvc)
+	actSvc := activityService.NewActivityService(actActivityRepo, actRegRepo, actSurveyRepo, actNotifier)
+	actH := activityHandler.NewActivityHandler(actSvc)
+
 	// 运行时业务配置（#47，复用 configs 表，不改 pkg/config YAML）
 	cfgRows := cfgstoreRepo.NewConfigRepo(database.DB())
 	cfgStore := configstore.New(redis.Client(), &cfgstoreRepo.BackendAdapter{Rows: cfgRows})
@@ -406,6 +417,9 @@ func main() {
 
 		// 会议管理 + 投票（/meetings, /votes, /system/vote-weight-config）
 		meetingHandler.RegisterRoutes(protected, mtH, cacheService, database.DB(), deptRepo)
+
+		// 活动管理与报名系统（/activities）
+		activityHandler.RegisterRoutes(protected, actH, cacheService)
 
 		// 任务流转（/tasks，不与 /workflow/tasks 冲突）
 		taskHandler.RegisterRoutes(protected, tkH, cacheService, database.DB(), deptRepo)

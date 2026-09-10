@@ -29,6 +29,7 @@ var resourceSingular = map[string]string{
 	"meetings":    "meeting",
 	"tasks":       "task",
 	"internships": "internship",
+	"activities":  "activity",
 }
 
 // SetAuditSnapshot 由业务 handler 在写操作前写入实体 before 快照。

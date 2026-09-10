@@ -260,6 +260,18 @@ const (
 	CodeContractTemplateGone  = 25004 // 合同模板不存在
 	CodeContractInvalidType   = 25005 // 合同类型不合法
 	CodeContractInvalidPeriod = 25006 // 开始/结束日期不合法
+
+	// ===== Activity (#52, 26000-26999) =====
+	CodeActivityNotFound       = 26001 // 活动不存在
+	CodeActivityInvalidState   = 26002 // 活动状态不允许该操作
+	CodeActivityFull           = 26003 // 报名人数已满
+	CodeRegistrationExists     = 26004 // 重复报名
+	CodeRegistrationNotFound   = 26005 // 报名记录不存在
+	CodeCheckinFailed          = 26006 // 签到失败
+	CodeCheckinAlreadyDone     = 26007 // 已签到，请勿重复
+	CodeCheckinNotApproved     = 26008 // 报名未通过，无法签到
+	CodeSurveyAlreadySubmitted = 26009 // 已提交过评价
+	CodeSurveyNotEnded         = 26010 // 活动未结束，暂不能评价
 )
 
 // ModuleRanges maps each module name to its error-code range [min, max].
@@ -290,4 +302,5 @@ var ModuleRanges = map[string][2]int{
 	"finance":      {23000, 23999},
 	"discipline":   {24000, 24999},
 	"contract":     {25000, 25999},
+	"activity":     {26000, 26999},
 }
