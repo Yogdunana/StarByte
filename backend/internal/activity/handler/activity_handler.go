@@ -283,5 +283,3 @@ func (h *ActivityHandler) SubmitSurvey(c *gin.Context) {
 	}
 	response.OKWithoutData(c)
 }
-
-

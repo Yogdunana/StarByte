@@ -137,8 +137,8 @@ func (m *memRegs) ListByActivity(_ context.Context, activityID uuid.UUID) ([]mod
 		if r.ActivityID == activityID {
 			out = append(out, model.RegistrationNamed{
 				ActivityRegistration: *r,
-				RealName:              "测试用户",
-				Username:              "tester",
+				RealName:             "测试用户",
+				Username:             "tester",
 			})
 		}
 	}
@@ -239,8 +239,8 @@ func (m *memSurveys) StatsByActivity(_ context.Context, activityID uuid.UUID) (i
 // ===== 内存通知器 =====
 
 type memNotifier struct {
-	mu     sync.Mutex
-	sent   []string
+	mu      sync.Mutex
+	sent    []string
 	targets [][]uuid.UUID
 }
 

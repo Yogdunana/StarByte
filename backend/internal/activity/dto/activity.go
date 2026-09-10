@@ -104,15 +104,15 @@ type RegistrationResponse struct {
 
 // ActivityStatsResponse 活动统计
 type ActivityStatsResponse struct {
-	ActivityID      string            `json:"activity_id"`
-	MaxParticipants int               `json:"max_participants"`
-	RegisteredCount int64             `json:"registered_count"`
-	ApprovedCount   int64             `json:"approved_count"`
-	WaitlistCount   int64             `json:"waitlist_count"`
-	CheckedInCount  int64             `json:"checked_in_count"`
-	RegisterRate    float64           `json:"register_rate"`
-	AttendRate      float64           `json:"attend_rate"`
-	SurveyCount     int64             `json:"survey_count"`
-	AvgRating       float64           `json:"avg_rating"`
-	RatingDist      map[string]int64  `json:"rating_distribution"`
+	ActivityID      string           `json:"activity_id"`
+	MaxParticipants int              `json:"max_participants"`
+	RegisteredCount int64            `json:"registered_count"`
+	ApprovedCount   int64            `json:"approved_count"`
+	WaitlistCount   int64            `json:"waitlist_count"`
+	CheckedInCount  int64            `json:"checked_in_count"`
+	RegisterRate    float64          `json:"register_rate"`
+	AttendRate      float64          `json:"attend_rate"`
+	SurveyCount     int64            `json:"survey_count"`
+	AvgRating       float64          `json:"avg_rating"`
+	RatingDist      map[string]int64 `json:"rating_distribution"`
 }
