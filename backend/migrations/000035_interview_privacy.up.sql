@@ -31,9 +31,15 @@ CREATE TABLE IF NOT EXISTS interview_privacy_archive (
 );
 INSERT INTO interview_privacy_archive (source_table, source_id, original_data)
 SELECT 'notifications', n.id, to_jsonb(n) FROM notifications n
-WHERE n.category = 'interview' AND n.title LIKE '面试结果：%' ON CONFLICT DO NOTHING;
-UPDATE notifications SET content = '你的面试结果已更新，请在申请进度页查看后续安排。'
-WHERE category = 'interview' AND title LIKE '面试结果：%';
+-- Fresh installations still have the original `type` column. Existing servers
+-- may also have `category`, added by Notification AutoMigrate at startup.
+-- Read optional fields through JSON so neither schema requires starting the app
+-- before migrations, and preserve the exact original row before sanitizing it.
+WHERE (to_jsonb(n)->>'category' = 'interview' OR to_jsonb(n)->>'type' = 'interview')
+  AND n.title LIKE '面试结果：%' ON CONFLICT DO NOTHING;
+UPDATE notifications n SET content = '你的面试结果已更新，请在申请进度页查看后续安排。'
+WHERE EXISTS (SELECT 1 FROM interview_privacy_archive x
+ WHERE x.source_table = 'notifications' AND x.source_id = n.id);
 
 INSERT INTO interview_privacy_archive (source_table, source_id, original_data)
 SELECT 'member_applications', a.id, to_jsonb(a) FROM member_applications a
