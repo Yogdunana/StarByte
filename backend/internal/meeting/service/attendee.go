@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/Yogdunana/StarByte/backend/internal/meeting/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/meeting/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/google/uuid"
 )
 
 func (s *meetingService) ListAttendees(ctx context.Context, meetingID uuid.UUID) ([]dto.AttendeeResponse, error) {
@@ -26,7 +27,7 @@ func (s *meetingService) ListAttendees(ctx context.Context, meetingID uuid.UUID)
 	return out, nil
 }
 
-func (s *meetingService) AddAttendees(ctx context.Context, meetingID uuid.UUID, userIDs []uuid.UUID) ([]dto.AttendeeResponse, error) {
+func (s *meetingService) addAttendees(ctx context.Context, meetingID uuid.UUID, userIDs []uuid.UUID) ([]dto.AttendeeResponse, error) {
 	m, err := s.mustMeeting(ctx, meetingID)
 	if err != nil {
 		return nil, err
@@ -42,9 +43,42 @@ func (s *meetingService) AddAttendees(ctx context.Context, meetingID uuid.UUID, 
 	return s.ListAttendees(ctx, meetingID)
 }
 
-func (s *meetingService) RemoveAttendee(ctx context.Context, meetingID, userID uuid.UUID) error {
-	if _, err := s.mustMeeting(ctx, meetingID); err != nil {
+func (s *meetingService) removeAttendee(ctx context.Context, meetingID, userID uuid.UUID) error {
+	m, err := s.mustMeeting(ctx, meetingID)
+	if err != nil {
 		return err
+	}
+	if m.Status == model.MeetingEnded || m.Status == model.MeetingCancelled || m.OrganizerID == userID {
+		return response.NewError(response.CodeMeetingInvalidState, "不可移除组织者或变更已结束会议的参会人")
+	}
+	att, err := s.attendees.Get(ctx, meetingID, userID)
+	if err != nil {
+		return fmt.Errorf("get attendee: %w", err)
+	}
+	if att != nil && att.Attended {
+		return response.NewError(response.CodeMeetingInvalidState, "已有签到记录，不可移除")
+	}
+	votes, err := s.votes.ListByMeeting(ctx, meetingID)
+	if err != nil {
+		return fmt.Errorf("check voting history: %w", err)
+	}
+	for _, v := range votes {
+		if v.ElectorateFrozen && (v.Status == model.VoteOpen || v.Status == model.VotePending) {
+			elector, err := s.electorate.Get(ctx, v.ID, userID)
+			if err != nil {
+				return fmt.Errorf("check frozen electorate: %w", err)
+			}
+			if elector != nil {
+				return response.NewError(response.CodeMeetingInvalidState, "本轮投票的参会名单已固定，截止前不可移除")
+			}
+		}
+		voted, err := s.votes.HasVoted(ctx, v.ID, userID)
+		if err != nil {
+			return fmt.Errorf("check participation: %w", err)
+		}
+		if voted {
+			return response.NewError(response.CodeMeetingInvalidState, "已有投票参与记录，不可移除")
+		}
 	}
 	if err := s.attendees.Remove(ctx, meetingID, userID); err != nil {
 		return fmt.Errorf("remove attendee: %w", err)
@@ -52,7 +86,7 @@ func (s *meetingService) RemoveAttendee(ctx context.Context, meetingID, userID u
 	return nil
 }
 
-func (s *meetingService) Checkin(ctx context.Context, meetingID, userID uuid.UUID, token string) (*dto.AttendeeResponse, error) {
+func (s *meetingService) checkin(ctx context.Context, meetingID, userID uuid.UUID, token string) (*dto.AttendeeResponse, error) {
 	m, err := s.mustMeeting(ctx, meetingID)
 	if err != nil {
 		return nil, err

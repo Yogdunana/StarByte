@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/Yogdunana/StarByte/backend/internal/interview/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/interview/model"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/google/uuid"
 )
 
 func (s *interviewService) ListDimensions(ctx context.Context) ([]dto.DimensionResponse, error) {
@@ -81,11 +83,17 @@ func (s *interviewService) DeleteDimension(ctx context.Context, id uuid.UUID) er
 	return s.evals.DeleteDimension(ctx, id)
 }
 
-func (s *interviewService) Stats(ctx context.Context, q *dto.StatsQuery) (*dto.StatsResponse, error) {
+func (s *interviewService) Stats(ctx context.Context, viewer Viewer, q *dto.StatsQuery) (*dto.StatsResponse, error) {
 	if q == nil {
 		q = &dto.StatsQuery{}
 	}
-	row, buckets, depts, err := s.evals.Stats(ctx, q)
+	if viewer.ID == uuid.Nil {
+		return nil, response.NewError(response.CodeUnauthorized, "用户未认证")
+	}
+	scope := rewriteInterviewScope(viewer.Scope, viewer.ID)
+	scoreScope := rewriteInterviewScope(viewer.ReviewScope, viewer.ID)
+	scoreScope = &rbacModel.DataScopeCondition{Query: "(" + firstNonEmpty(scope.Query, "1 = 1") + ") AND (" + firstNonEmpty(scoreScope.Query, "1 = 1") + ") AND i.applicant_id <> ?", Args: append(append(append([]interface{}{}, scope.Args...), scoreScope.Args...), viewer.ID)}
+	row, buckets, depts, err := s.evals.Stats(ctx, q, scope, scoreScope)
 	if err != nil {
 		return nil, fmt.Errorf("stats: %w", err)
 	}

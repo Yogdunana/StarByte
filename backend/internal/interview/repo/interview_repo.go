@@ -4,11 +4,12 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+
 	"github.com/Yogdunana/StarByte/backend/internal/interview/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/interview/model"
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
-	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 type InterviewRepo interface {
@@ -199,7 +200,7 @@ func (r *interviewRepo) GetUser(ctx context.Context, id uuid.UUID) (*model.Named
 func (r *interviewRepo) GetApplication(ctx context.Context, id uuid.UUID) (*model.ApplicationBrief, error) {
 	var a model.ApplicationBrief
 	err := r.db.WithContext(ctx).Table("member_applications").
-		Select("id, user_id, real_name, student_no, department_id, status").
+		Select("id, user_id, real_name, student_no, department_id, status, admission_version, admission_stage").
 		Where("id = ?", id).First(&a).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil

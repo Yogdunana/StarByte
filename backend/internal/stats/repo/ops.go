@@ -37,7 +37,7 @@ func (r *statsRepo) MeetingCalendar(ctx context.Context, q Query) ([]Bucket, err
 }
 
 func (r *statsRepo) TaskByStatus(ctx context.Context, q Query) ([]Bucket, error) {
-	db := r.db.WithContext(ctx).Table("tasks").
+	db := r.db.WithContext(ctx).Table("tasks").Where("deleted_at IS NULL").
 		Select("status::text AS k, CASE status WHEN 0 THEN '待处理' WHEN 1 THEN '进行中' WHEN 2 THEN '已完成' WHEN 3 THEN '已取消' WHEN 4 THEN '已挂起' ELSE status::text END AS l, COUNT(*)::float AS v")
 	db = applyDept(db, "department_id", q)
 	db = applyRange(db, "created_at", q)
@@ -50,7 +50,7 @@ func (r *statsRepo) TaskOnTimeRate(ctx context.Context, q Query) (float64, error
 		OnTime int64
 	}
 	var row agg
-	db := r.db.WithContext(ctx).Table("tasks").Where("status = 2")
+	db := r.db.WithContext(ctx).Table("tasks").Where("deleted_at IS NULL").Where("status = 2")
 	db = applyDept(db, "department_id", q)
 	db = applyRange(db, "created_at", q)
 	err := db.Select("COUNT(*) AS done, COUNT(*) FILTER (WHERE due_date IS NULL OR completed_at IS NULL OR completed_at <= due_date) AS on_time").Scan(&row).Error
@@ -62,7 +62,7 @@ func (r *statsRepo) TaskOnTimeRate(ctx context.Context, q Query) (float64, error
 
 func (r *statsRepo) TaskTrend(ctx context.Context, q Query) ([]string, map[string][]Bucket, error) {
 	expr := truncExpr("created_at", q.Granularity)
-	db := r.db.WithContext(ctx).Table("tasks").
+	db := r.db.WithContext(ctx).Table("tasks").Where("deleted_at IS NULL").
 		Select(expr + " AS k, " + expr + " AS l, status::text AS s, COUNT(*)::float AS v")
 	db = applyDept(db, "department_id", q)
 	db = applyRange(db, "created_at", q)

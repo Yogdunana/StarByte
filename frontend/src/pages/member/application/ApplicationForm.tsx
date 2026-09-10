@@ -11,6 +11,7 @@ interface ApplicationFormProps {
 
 const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
   const [form] = Form.useForm<CreateMemberApplicationParams>();
+  const applicantType = Form.useWatch('applicant_type', form);
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [departments, setDepartments] = useState<MemberDepartmentOption[]>([]);
@@ -64,13 +65,13 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
               ]}
             />
           </Form.Item>
-          <Form.Item name="real_name" label="姓名" rules={[{ required: true, max: 50 }]}>
+          <Form.Item name="real_name" label="姓名" rules={[{ required: true, whitespace: true, max: 50 }]}>
             <Input placeholder="真实姓名" />
           </Form.Item>
-          <Form.Item name="student_no" label="学号" rules={[{ required: true, max: 30 }]}>
+          <Form.Item name="student_no" label="学号" rules={[{ required: true, whitespace: true, max: 30 }]}>
             <Input placeholder="学号" />
           </Form.Item>
-          <Form.Item name="department_id" label="意向部门">
+          <Form.Item name="department_id" label="意向部门" rules={[{ required: applicantType === 2, message: '干事申请请选择意向部门' }]}>
             <Select
               allowClear
               placeholder="选择部门"
@@ -91,7 +92,7 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
           </Form.Item>
         </div>
         <div style={{ display: step === 2 ? 'block' : 'none' }}>
-          <Form.Item name="reason" label="申请理由" rules={[{ required: true, max: 2000 }]}>
+          <Form.Item name="reason" label="申请理由" rules={[{ required: true, whitespace: true, max: 2000 }]}>
             <TextArea rows={4} placeholder="为什么想加入协会" />
           </Form.Item>
           <Form.Item name="skills" label="技能标签">
@@ -107,11 +108,11 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
           上一步
         </Button>
         {step < 2 ? (
-          <Button type="primary" onClick={() => void next()}>
+          <Button type="primary" onClick={() => { void next().catch(() => undefined); }}>
             下一步
           </Button>
         ) : (
-          <Button type="primary" loading={submitting} onClick={() => void handleSubmit()}>
+          <Button type="primary" loading={submitting} onClick={() => { void handleSubmit().catch(() => undefined); }}>
             提交申请
           </Button>
         )}
@@ -119,7 +120,7 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
       {step === 2 && (
         <div style={{ marginTop: 16 }}>
           <Tag color="blue">会员：资料审核后直接通过/拒绝</Tag>
-          <Tag color="purple">干事：审核后进入面试流程</Tag>
+          <Tag color="green">干事：面试 → 正式签字 → 候补期</Tag>
         </div>
       )}
     </>

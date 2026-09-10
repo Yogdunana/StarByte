@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
 	"github.com/google/uuid"
 )
 
@@ -103,6 +102,8 @@ type StartInstanceRequest struct {
 
 // InstanceResponse is the response for a single flow instance.
 type InstanceResponse struct {
+	DefinitionName      string     `json:"definition_name"`
+	InitiatorName       string     `json:"initiator_name"`
 	ID                  uuid.UUID  `json:"id"`
 	DefinitionID        uuid.UUID  `json:"definition_id"`
 	DefinitionVersionID uuid.UUID  `json:"definition_version_id"`
@@ -151,145 +152,41 @@ type RollbackTaskRequest struct {
 
 // TaskResponse is the response for a single flow task.
 type TaskResponse struct {
-	ID          uuid.UUID       `json:"id"`
-	InstanceID  uuid.UUID       `json:"instance_id"`
-	NodeID      string          `json:"node_id"`
-	NodeName    string          `json:"node_name"`
-	TaskType    string          `json:"task_type"`
-	AssigneeID  *uuid.UUID      `json:"assignee_id"`
-	Status      int             `json:"status"`
-	Action      string          `json:"action"`
-	Comment     string          `json:"comment"`
-	FormData    json.RawMessage `json:"form_data" swaggertype:"object"`
-	DueDate     *time.Time      `json:"due_date"`
-	ClaimedAt   *time.Time      `json:"claimed_at"`
-	CompletedAt *time.Time      `json:"completed_at"`
-	CreatedAt   time.Time       `json:"created_at"`
-	UpdatedAt   time.Time       `json:"updated_at"`
+	DefinitionName string          `json:"definition_name"`
+	AssigneeName   string          `json:"assignee_name"`
+	InstanceStatus int             `json:"instance_status"`
+	BusinessType   string          `json:"business_type"`
+	BusinessKey    string          `json:"business_key"`
+	ID             uuid.UUID       `json:"id"`
+	InstanceID     uuid.UUID       `json:"instance_id"`
+	NodeID         string          `json:"node_id"`
+	NodeName       string          `json:"node_name"`
+	TaskType       string          `json:"task_type"`
+	AssigneeID     *uuid.UUID      `json:"assignee_id"`
+	Status         int             `json:"status"`
+	Action         string          `json:"action"`
+	Comment        string          `json:"comment"`
+	FormData       json.RawMessage `json:"form_data" swaggertype:"object"`
+	DueDate        *time.Time      `json:"due_date"`
+	ClaimedAt      *time.Time      `json:"claimed_at"`
+	CompletedAt    *time.Time      `json:"completed_at"`
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
 }
 
 // HistoryResponse is the response for a flow history entry.
 type HistoryResponse struct {
-	ID         uuid.UUID  `json:"id"`
-	InstanceID uuid.UUID  `json:"instance_id"`
-	TaskID     *uuid.UUID `json:"task_id"`
-	NodeID     string     `json:"node_id"`
-	NodeName   string     `json:"node_name"`
-	NodeType   string     `json:"node_type"`
-	OperatorID *uuid.UUID `json:"operator_id"`
-	Action     string     `json:"action"`
-	Comment    string     `json:"comment"`
-	FromNodeID string     `json:"from_node_id"`
-	ToNodeID   string     `json:"to_node_id"`
-	CreatedAt  time.Time  `json:"created_at"`
-}
-
-// ========== DTO Conversion Functions ==========
-
-// ToDefinitionResponse converts FlowDefinition model to DefinitionResponse.
-func ToDefinitionResponse(def *model.FlowDefinition) DefinitionResponse {
-	var draft *GraphData
-	if len(def.DraftGraph) > 0 {
-		var graph GraphData
-		if err := json.Unmarshal(def.DraftGraph, &graph); err == nil {
-			draft = &graph
-		}
-	}
-	return DefinitionResponse{
-		ID:          def.ID,
-		Key:         def.Key,
-		Name:        def.Name,
-		Description: def.Description,
-		Category:    def.Category,
-		Status:      def.Status,
-		DraftGraph:  draft,
-		CreatedBy:   def.CreatedBy,
-		UpdatedBy:   def.UpdatedBy,
-		CreatedAt:   def.CreatedAt,
-		UpdatedAt:   def.UpdatedAt,
-	}
-}
-
-// ToVersionResponse converts FlowDefinitionVersion model to VersionResponse.
-func ToVersionResponse(ver *model.FlowDefinitionVersion) VersionResponse {
-	var graphData GraphData
-	if len(ver.BpmnData) > 0 {
-		_ = json.Unmarshal(ver.BpmnData, &graphData)
-	}
-	return VersionResponse{
-		ID:           ver.ID,
-		DefinitionID: ver.DefinitionID,
-		Version:      ver.Version,
-		BpmnData:     graphData,
-		Status:       ver.Status,
-		PublishedBy:  ver.PublishedBy,
-		PublishedAt:  ver.PublishedAt,
-		CreatedAt:    ver.CreatedAt,
-	}
-}
-
-// ToInstanceResponse converts FlowInstance model to InstanceResponse.
-func ToInstanceResponse(inst *model.FlowInstance) InstanceResponse {
-	var currentNodeIDs []string
-	if len(inst.CurrentNodeIDs) > 0 {
-		_ = json.Unmarshal(inst.CurrentNodeIDs, &currentNodeIDs)
-	}
-	return InstanceResponse{
-		ID:                  inst.ID,
-		DefinitionID:        inst.DefinitionID,
-		DefinitionVersionID: inst.DefinitionVersionID,
-		BusinessKey:         inst.BusinessKey,
-		BusinessType:        inst.BusinessType,
-		InitiatorID:         inst.InitiatorID,
-		Status:              inst.Status,
-		CurrentNodeIDs:      currentNodeIDs,
-		StartedAt:           inst.StartedAt,
-		EndedAt:             inst.EndedAt,
-		TerminateReason:     inst.TerminateReason,
-		CreatedAt:           inst.CreatedAt,
-		UpdatedAt:           inst.UpdatedAt,
-	}
-}
-
-// ToTaskResponse converts FlowTask model to TaskResponse.
-func ToTaskResponse(task *model.FlowTask) TaskResponse {
-	var formData json.RawMessage
-	if len(task.FormData) > 0 {
-		formData = json.RawMessage(task.FormData)
-	}
-	return TaskResponse{
-		ID:          task.ID,
-		InstanceID:  task.InstanceID,
-		NodeID:      task.NodeID,
-		NodeName:    task.NodeName,
-		TaskType:    task.TaskType,
-		AssigneeID:  task.AssigneeID,
-		Status:      task.Status,
-		Action:      task.Action,
-		Comment:     task.Comment,
-		FormData:    formData,
-		DueDate:     task.DueDate,
-		ClaimedAt:   task.ClaimedAt,
-		CompletedAt: task.CompletedAt,
-		CreatedAt:   task.CreatedAt,
-		UpdatedAt:   task.UpdatedAt,
-	}
-}
-
-// ToHistoryResponse converts FlowHistory model to HistoryResponse.
-func ToHistoryResponse(h *model.FlowHistory) HistoryResponse {
-	return HistoryResponse{
-		ID:         h.ID,
-		InstanceID: h.InstanceID,
-		TaskID:     h.TaskID,
-		NodeID:     h.NodeID,
-		NodeName:   h.NodeName,
-		NodeType:   h.NodeType,
-		OperatorID: h.OperatorID,
-		Action:     h.Action,
-		Comment:    h.Comment,
-		FromNodeID: h.FromNodeID,
-		ToNodeID:   h.ToNodeID,
-		CreatedAt:  h.CreatedAt,
-	}
+	OperatorName string     `json:"operator_name"`
+	ID           uuid.UUID  `json:"id"`
+	InstanceID   uuid.UUID  `json:"instance_id"`
+	TaskID       *uuid.UUID `json:"task_id"`
+	NodeID       string     `json:"node_id"`
+	NodeName     string     `json:"node_name"`
+	NodeType     string     `json:"node_type"`
+	OperatorID   *uuid.UUID `json:"operator_id"`
+	Action       string     `json:"action"`
+	Comment      string     `json:"comment"`
+	FromNodeID   string     `json:"from_node_id"`
+	ToNodeID     string     `json:"to_node_id"`
+	CreatedAt    time.Time  `json:"created_at"`
 }

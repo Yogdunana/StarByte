@@ -3,11 +3,12 @@ package repo
 import (
 	"context"
 
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+
 	"github.com/Yogdunana/StarByte/backend/internal/member/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/member/model"
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
-	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 // ApplicationRepo 入会申请数据访问。
@@ -22,7 +23,7 @@ type ApplicationRepo interface {
 	CreateHistory(ctx context.Context, h *model.ApplicationHistory) error
 	ListHistory(ctx context.Context, applicationID uuid.UUID) ([]model.ApplicationHistory, error)
 	ListDepartments(ctx context.Context) ([]model.NamedItem, error)
-	Stats(ctx context.Context, start, end, groupBy string) ([]model.StatBucket, error)
+	Stats(ctx context.Context, start, end, groupBy string, scope *rbacModel.DataScopeCondition) ([]model.StatBucket, error)
 }
 
 type applicationRepo struct {
@@ -145,8 +146,8 @@ func (r *applicationRepo) ListDepartments(ctx context.Context) ([]model.NamedIte
 	return rows, err
 }
 
-func (r *applicationRepo) Stats(ctx context.Context, start, end, groupBy string) ([]model.StatBucket, error) {
-	q := r.db.WithContext(ctx).Table("member_applications AS a")
+func (r *applicationRepo) Stats(ctx context.Context, start, end, groupBy string, scope *rbacModel.DataScopeCondition) ([]model.StatBucket, error) {
+	q := applyAppScope(r.db.WithContext(ctx).Table("member_applications AS a"), scope)
 	if start != "" {
 		q = q.Where("a.created_at >= ?", start)
 	}

@@ -1,0 +1,7 @@
+.cards { display: grid; gap: 12px; }
+.card { padding: 18px; border: 1px solid var(--sb-border); border-radius: 14px; background: var(--sb-surface); overflow-wrap: anywhere; }
+.heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.heading h3 { margin: 0; font-size: 16px; }
+.card p { color: var(--sb-muted); margin: 8px 0; font-size: 13px; }
+.stage { display: block; margin-top: 18px; font-size: 16px; }
+.card .date { margin-bottom: 18px; }

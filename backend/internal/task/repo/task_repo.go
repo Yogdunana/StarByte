@@ -5,11 +5,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/task/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/task/model"
-	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 type TaskRepo interface {
@@ -21,11 +22,13 @@ type TaskRepo interface {
 	List(ctx context.Context, req *dto.ListTaskRequest, scope *rbacModel.DataScopeCondition) ([]model.TaskWithNames, int64, error)
 	ListMine(ctx context.Context, userID uuid.UUID, kind string, req *dto.MyTaskRequest) ([]model.TaskWithNames, int64, error)
 	ListChildren(ctx context.Context, parentID uuid.UUID) ([]model.Task, error)
+	ListByIDs(ctx context.Context, ids []uuid.UUID) ([]model.Task, error)
 	ListDueSoon(ctx context.Context, now, until time.Time) ([]model.Task, error)
 	ListOverdue(ctx context.Context, now time.Time) ([]model.Task, error)
 	Stats(ctx context.Context, req *dto.StatsRequest, now time.Time, scope *rbacModel.DataScopeCondition) (*dto.StatsResponse, error)
 	GetUser(ctx context.Context, id uuid.UUID) (*model.NamedUser, error)
 	FindUsersByUsername(ctx context.Context, names []string) ([]model.NamedUser, error)
+	SearchUsers(context.Context, string) ([]model.NamedUser, error)
 }
 
 type taskRepo struct{ db *gorm.DB }
@@ -59,7 +62,7 @@ func (r *taskRepo) GetByID(ctx context.Context, id uuid.UUID) (*model.Task, erro
 }
 
 func (r *taskRepo) namedQuery(ctx context.Context) *gorm.DB {
-	return r.db.WithContext(ctx).Table("tasks AS t").
+	return r.db.WithContext(ctx).Table("tasks AS t").Where("t.deleted_at IS NULL").
 		Select(`t.*,
 			COALESCE(c.real_name, c.username, '') AS creator_name,
 			COALESCE(a.real_name, a.username, '') AS assignee_name,
@@ -71,7 +74,7 @@ func (r *taskRepo) namedQuery(ctx context.Context) *gorm.DB {
 		Joins("LEFT JOIN users c ON c.id = t.creator_id").
 		Joins("LEFT JOIN users a ON a.id = t.assignee_id").
 		Joins("LEFT JOIN departments d ON d.id = t.department_id").
-		Joins("LEFT JOIN tasks p ON p.id = t.parent_id")
+		Joins("LEFT JOIN tasks p ON p.id = t.parent_id AND p.deleted_at IS NULL")
 }
 
 func (r *taskRepo) GetByIDWithNames(ctx context.Context, id uuid.UUID) (*model.TaskWithNames, error) {

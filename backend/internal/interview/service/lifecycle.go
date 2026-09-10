@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/Yogdunana/StarByte/backend/internal/interview/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/interview/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/google/uuid"
 )
 
 func (s *interviewService) AssignEvaluators(ctx context.Context, id uuid.UUID, req *dto.AssignEvaluatorsRequest) (*dto.InterviewResponse, error) {
@@ -22,6 +23,11 @@ func (s *interviewService) AssignEvaluators(ctx context.Context, id uuid.UUID, r
 	ids, err := parseEvaluatorIDs(req.EvaluatorIDs)
 	if err != nil {
 		return nil, err
+	}
+	for _, evaluatorID := range ids {
+		if evaluatorID == iv.ApplicantID {
+			return nil, response.NewError(response.CodeForbidden, "不能将候选人分配为自己的面试官")
+		}
 	}
 	if err := s.ensureNoConflicts(ctx, iv, ids); err != nil {
 		return nil, err
@@ -40,7 +46,7 @@ func (s *interviewService) AssignEvaluators(ctx context.Context, id uuid.UUID, r
 		return nil, fmt.Errorf("assign evaluators: %w", err)
 	}
 	s.notifyAssigned(ctx, ids, iv)
-	return s.GetInterview(ctx, id, nil)
+	return s.interviewResponse(ctx, id)
 }
 
 func (s *interviewService) Checkin(ctx context.Context, userID, id uuid.UUID, token string) (*dto.InterviewResponse, error) {
@@ -68,7 +74,7 @@ func (s *interviewService) Checkin(ctx context.Context, userID, id uuid.UUID, to
 	if err := s.records.Update(ctx, iv); err != nil {
 		return nil, fmt.Errorf("checkin: %w", err)
 	}
-	return s.GetInterview(ctx, id, nil)
+	return s.interviewResponse(ctx, id)
 }
 
 func (s *interviewService) StartInterview(ctx context.Context, operator, id uuid.UUID) (*dto.InterviewResponse, error) {
@@ -86,7 +92,12 @@ func (s *interviewService) StartInterview(ctx context.Context, operator, id uuid
 	if len(evals) == 0 {
 		return nil, response.NewError(response.CodeInterviewNoEvaluator, "面试官未分配")
 	}
-	_ = operator
+	if iv.ApplicantID == operator {
+		return nil, response.NewError(response.CodeForbidden, "不能处理自己的面试")
+	}
+	if err := s.ensureAssigned(ctx, id, operator); err != nil {
+		return nil, err
+	}
 	now := time.Now()
 	iv.Status = model.InterviewOngoing
 	iv.ActualStartTime = &now
@@ -94,12 +105,18 @@ func (s *interviewService) StartInterview(ctx context.Context, operator, id uuid
 	if err := s.records.Update(ctx, iv); err != nil {
 		return nil, fmt.Errorf("start interview: %w", err)
 	}
-	return s.GetInterview(ctx, id, nil)
+	return s.interviewResponse(ctx, id)
 }
 
 func (s *interviewService) EndInterview(ctx context.Context, operator, id uuid.UUID) (*dto.InterviewResponse, error) {
 	iv, err := s.mustInterview(ctx, id)
 	if err != nil {
+		return nil, err
+	}
+	if iv.ApplicantID == operator {
+		return nil, response.NewError(response.CodeForbidden, "不能处理自己的面试")
+	}
+	if err := s.ensureAssigned(ctx, id, operator); err != nil {
 		return nil, err
 	}
 	if !canEndInterview(iv.Status) {
@@ -115,8 +132,7 @@ func (s *interviewService) EndInterview(ctx context.Context, operator, id uuid.U
 	if err := s.records.Update(ctx, iv); err != nil {
 		return nil, fmt.Errorf("end interview: %w", err)
 	}
-	_ = operator
-	return s.GetInterview(ctx, id, nil)
+	return s.interviewResponse(ctx, id)
 }
 
 func (s *interviewService) mustInterview(ctx context.Context, id uuid.UUID) (*model.Interview, error) {
@@ -174,7 +190,7 @@ func parseEvaluatorIDs(raw []string) ([]uuid.UUID, error) {
 }
 
 func (s *interviewService) refreshScore(ctx context.Context, iv *model.Interview) error {
-	summary, err := s.GetEvaluations(ctx, iv.ID)
+	summary, err := s.evaluationSummary(ctx, iv.ID)
 	if err != nil {
 		return err
 	}

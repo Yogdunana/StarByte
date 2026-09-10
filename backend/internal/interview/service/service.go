@@ -3,10 +3,11 @@ package service
 import (
 	"context"
 
+	"github.com/google/uuid"
+
 	"github.com/Yogdunana/StarByte/backend/internal/interview/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/interview/repo"
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
-	"github.com/google/uuid"
 )
 
 // Notifier 发送模板通知。
@@ -23,7 +24,7 @@ type ApplicationSyncer interface {
 type InterviewService interface {
 	CreateSession(ctx context.Context, operator uuid.UUID, req *dto.CreateSessionRequest) (*dto.SessionResponse, error)
 	ListSessions(ctx context.Context, viewer uuid.UUID, req *dto.ListSessionRequest, scope *rbacModel.DataScopeCondition) ([]*dto.SessionResponse, int64, error)
-	GetSession(ctx context.Context, id uuid.UUID, scope *rbacModel.DataScopeCondition) (*dto.SessionResponse, error)
+	GetSession(ctx context.Context, viewer Viewer, id uuid.UUID) (*dto.SessionResponse, error)
 	UpdateSession(ctx context.Context, id uuid.UUID, req *dto.UpdateSessionRequest) (*dto.SessionResponse, error)
 	DeleteSession(ctx context.Context, id uuid.UUID) error
 	StartSession(ctx context.Context, id uuid.UUID) (*dto.SessionResponse, error)
@@ -32,7 +33,7 @@ type InterviewService interface {
 
 	CreateInterview(ctx context.Context, operator uuid.UUID, req *dto.CreateInterviewRequest) (*dto.InterviewResponse, error)
 	ListInterviews(ctx context.Context, viewer uuid.UUID, req *dto.ListInterviewRequest, scope *rbacModel.DataScopeCondition) ([]*dto.InterviewResponse, int64, error)
-	GetInterview(ctx context.Context, id uuid.UUID, scope *rbacModel.DataScopeCondition) (*dto.InterviewResponse, error)
+	GetInterview(ctx context.Context, viewer Viewer, id uuid.UUID) (*dto.InterviewResponse, error)
 	AssignEvaluators(ctx context.Context, id uuid.UUID, req *dto.AssignEvaluatorsRequest) (*dto.InterviewResponse, error)
 	Checkin(ctx context.Context, userID, id uuid.UUID, token string) (*dto.InterviewResponse, error)
 	StartInterview(ctx context.Context, operator, id uuid.UUID) (*dto.InterviewResponse, error)
@@ -40,7 +41,7 @@ type InterviewService interface {
 	MyInterviews(ctx context.Context, userID uuid.UUID, status *int16) ([]*dto.InterviewResponse, error)
 
 	SubmitEvaluations(ctx context.Context, evaluator, id uuid.UUID, req *dto.SubmitEvaluationsRequest) (*dto.EvaluationSummary, error)
-	GetEvaluations(ctx context.Context, id uuid.UUID) (*dto.EvaluationSummary, error)
+	GetEvaluations(ctx context.Context, viewer Viewer, id uuid.UUID) (*dto.EvaluationSummary, error)
 	UpdateEvaluation(ctx context.Context, evaluator, interviewID, eid uuid.UUID, req *dto.UpdateEvaluationRequest) (*dto.EvaluationResponse, error)
 	SubmitResult(ctx context.Context, operator, id uuid.UUID, req *dto.SubmitResultRequest) (*dto.InterviewResponse, error)
 
@@ -48,7 +49,7 @@ type InterviewService interface {
 	CreateDimension(ctx context.Context, req *dto.CreateDimensionRequest) (*dto.DimensionResponse, error)
 	UpdateDimension(ctx context.Context, id uuid.UUID, req *dto.UpdateDimensionRequest) (*dto.DimensionResponse, error)
 	DeleteDimension(ctx context.Context, id uuid.UUID) error
-	Stats(ctx context.Context, q *dto.StatsQuery) (*dto.StatsResponse, error)
+	Stats(ctx context.Context, viewer Viewer, q *dto.StatsQuery) (*dto.StatsResponse, error)
 }
 
 type interviewService struct {

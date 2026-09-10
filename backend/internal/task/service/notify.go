@@ -3,12 +3,13 @@ package service
 import (
 	"context"
 
+	"github.com/google/uuid"
+	"go.uber.org/zap"
+
 	notifdto "github.com/Yogdunana/StarByte/backend/internal/notification/dto"
 	notifsvc "github.com/Yogdunana/StarByte/backend/internal/notification/service"
 	"github.com/Yogdunana/StarByte/backend/internal/task/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/logger"
-	"github.com/google/uuid"
-	"go.uber.org/zap"
 )
 
 const (
@@ -65,8 +66,16 @@ func (s *taskService) notifyUsers(ctx context.Context, userIDs []uuid.UUID, temp
 			"message":   extra,
 			"due_date":  due,
 		}
-		if err := s.notify.Send(ctx, []uuid.UUID{uid}, template, vars); err != nil {
-			logger.Warn("send task notify failed", zap.Error(err), zap.String("tpl", template))
+		target := uid
+		send := func() {
+			if err := s.notify.Send(ctx, []uuid.UUID{target}, template, vars); err != nil {
+				logger.Warn("send task notify failed", zap.Error(err), zap.String("tpl", template))
+			}
+		}
+		if s.afterCommit != nil {
+			*s.afterCommit = append(*s.afterCommit, send)
+		} else {
+			send()
 		}
 	}
 }

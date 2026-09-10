@@ -5,13 +5,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/Yogdunana/StarByte/backend/internal/member/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/member/model"
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 func TestUpdateProfile_WritesFieldDiff(t *testing.T) {
@@ -41,7 +42,7 @@ func TestUpdateProfile_WritesFieldDiff(t *testing.T) {
 	updated.RealName = "新名"
 	profs.On("GetByIDWithNames", mock.Anything, id).Return(&updated, nil)
 
-	out, err := svc.UpdateProfile(context.Background(), viewer, id, &dto.UpdateProfileRequest{RealName: "新名"}, nil)
+	out, err := svc.UpdateProfile(context.Background(), viewer, id, &dto.UpdateProfileRequest{RealName: "新名"}, &rbacModel.DataScopeCondition{IsSelf: true, Query: "1 = 0"})
 	require.NoError(t, err)
 	require.Equal(t, "新名", out.RealName)
 }
@@ -70,7 +71,7 @@ func TestUpdateProfileStatus_Leave(t *testing.T) {
 	}, nil)
 
 	out, err := svc.UpdateProfileStatus(context.Background(), uuid.New(), id, &dto.UpdateProfileStatusRequest{
-		Status: model.ProfileLeft, Reason: "毕业离会",
+		Status: model.ProfileLeft, Reason: "毕业离会", Scope: &rbacModel.DataScopeCondition{},
 	})
 	require.NoError(t, err)
 	require.Equal(t, model.ProfileLeft, out.Status)
@@ -100,7 +101,7 @@ func TestExportProfiles_PDFHeader(t *testing.T) {
 func TestApplicationStats(t *testing.T) {
 	apps := &mockAppRepo{}
 	svc := NewMemberService(apps, &mockProfRepo{}, nil)
-	apps.On("Stats", mock.Anything, "", "", "type").Return([]model.StatBucket{{Key: "1", Label: "会员", Count: 3}}, nil)
+	apps.On("Stats", mock.Anything, "", "", "type", mock.Anything).Return([]model.StatBucket{{Key: "1", Label: "会员", Count: 3}}, nil)
 	out, err := svc.ApplicationStats(context.Background(), &dto.StatsQuery{GroupBy: "type"})
 	require.NoError(t, err)
 	require.Equal(t, int64(3), out.Items[0].Count)

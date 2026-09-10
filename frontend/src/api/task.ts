@@ -113,3 +113,9 @@ export function getMyOverdue(params: ListTaskParams): Promise<PageResponse<Task>
 export function getTaskStats(params?: { department_id?: string; start_date?: string; end_date?: string }): Promise<TaskStats> {
   return request.get('/tasks/stats', { params });
 }
+
+export function getTaskCandidates(kind: 'create' | 'assign' | 'transfer', keyword = ''): Promise<Array<{ id: string; name: string }>> {
+ return request.get(`/tasks/${kind}-candidates`, { params: { keyword } });
+}
+
+export function getTaskAssignmentRoles(keyword: string): Promise<Array<{ id: string; name: string }>> { return request.get('/tasks/assignment-roles', { params: { keyword } }); }

@@ -5,14 +5,18 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/Yogdunana/StarByte/backend/internal/member/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/member/model"
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/google/uuid"
 )
 
 func (s *memberService) Submit(ctx context.Context, userID uuid.UUID, req *dto.SubmitApplicationRequest) (*dto.ApplicationResponse, error) {
+	if s.admission != nil {
+		return s.admission.SubmitApplication(ctx, userID, req)
+	}
 	open, err := s.apps.HasOpenApplication(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("check open application: %w", err)
@@ -22,6 +26,7 @@ func (s *memberService) Submit(ctx context.Context, userID uuid.UUID, req *dto.S
 	}
 	now := time.Now()
 	app := &model.MemberApplication{
+		AdmissionVersion: 2, AdmissionRevision: 1, AdmissionStage: model.AdmissionMaterials, StageEnteredAt: now,
 		ID:             uuid.New(),
 		UserID:         userID,
 		Type:           int16(req.ApplicantType),
@@ -50,6 +55,9 @@ func (s *memberService) Submit(ctx context.Context, userID uuid.UUID, req *dto.S
 }
 
 func (s *memberService) Resubmit(ctx context.Context, userID, id uuid.UUID, req *dto.ResubmitApplicationRequest) (*dto.ApplicationResponse, error) {
+	if s.admission != nil {
+		return s.admission.ResubmitApplication(ctx, userID, id, req)
+	}
 	app, err := s.apps.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get application: %w", err)
@@ -70,8 +78,11 @@ func (s *memberService) Resubmit(ctx context.Context, userID, id uuid.UUID, req 
 	applyResubmit(app, req)
 	from := app.Status
 	app.Status = next
+	app.AdmissionRevision++
+	app.AdmissionStage = model.AdmissionMaterials
+	app.StageEnteredAt = time.Now()
 	app.CurrentStage = stageLabel(next)
-	app.RequiredFields = nil
+	app.RequiredFields = model.JSONStrings{}
 	app.UpdatedAt = time.Now()
 	if err := s.apps.Update(ctx, app); err != nil {
 		return nil, fmt.Errorf("update application: %w", err)

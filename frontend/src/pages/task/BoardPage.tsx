@@ -1,80 +1,53 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Card, Tag, message } from 'antd';
-import StatusTag from '@/components/StatusTag/StatusTag';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, Button, Card, Empty, Grid, Modal, Pagination, Select, Spin, message } from 'antd';
+import PageIntro from '@/components/PageIntro/PageIntro';
 import { getTaskList, updateTaskStatus } from '@/api/task';
-import type { Task } from '@/types/api';
-import { BOARD_COLUMNS, TaskPriorityMap } from './meta';
+import type { Task, TaskStatus } from '@/types/api';
+import { BOARD_COLUMNS } from './meta';
 import DetailDrawer from './DetailDrawer';
-
-const BoardPage: React.FC = () => {
-  const [list, setList] = useState<Task[]>([]);
-  const [dragId, setDragId] = useState<string | null>(null);
+import { TaskCard } from './TaskCollection';
+import styles from './TaskWorkspace.module.css';
+const transitions: Record<number, number[]> = { 0: [1, 3], 1: [2, 4, 3], 4: [1] };
+interface LaneProps { status: TaskStatus; title: string; revision: number; onOpen: (id: string) => void; onDrag: (task: Task) => void; onDrop: (status: TaskStatus) => void }
+function Lane({ status, title, revision, onOpen, onDrag, onDrop }: LaneProps) {
+  const [rows, setRows] = useState<Task[]>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    let active = true; setLoading(true);
+    void getTaskList({ page, page_size: 10, status, sort_by: 'priority', sort_order: 'desc' }).then(res => {
+      if (!active) return;
+      if (!res.list.length && res.total > 0 && page > 1) { setPage(page - 1); return; }
+      setRows(res.list || []); setTotal(res.total); setFailed(false);
+    }).catch(() => { if (active) setFailed(true); }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [page, status, revision, retry]);
+  return <section className={styles.lane} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); onDrop(status); }}><h2>{title}<span>{total}</span></h2>
+    {failed && <Alert type="error" message="加载失败" action={<Button size="small" onClick={() => setRetry(v => v + 1)}>重试</Button>} />}
+    <Spin spinning={loading}>{!rows.length && !loading && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无任务" />}{rows.map(task => <div key={task.id} draggable={!!task.can_update && !task.workflow_stage} onDragStart={() => onDrag(task)}><TaskCard task={task} onOpen={() => onOpen(task.id)} /></div>)}</Spin>
+    <Pagination simple size="small" current={page} total={total} pageSize={10} onChange={setPage} hideOnSinglePage />
+  </section>;
+}
+export default function BoardPage() {
+  const screens = Grid.useBreakpoint();
+  const [modal, holder] = Modal.useModal();
+  const [drag, setDrag] = useState<Task | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    const res = await getTaskList({ page: 1, page_size: 100, sort_by: 'sort_order', sort_order: 'asc' });
-    setList(res.list || []);
-  }, []);
-
-  useEffect(() => { void load(); }, [load]);
-
-  const dropTo = async (status: number) => {
-    if (!dragId) return;
-    try {
-      await updateTaskStatus(dragId, status);
-      message.success('已更新状态');
-      await load();
-    } catch {
-      /* interceptor already toasts */
-    } finally {
-      setDragId(null);
-    }
+  const [revision, setRevision] = useState(0);
+  const [mobileStatus, setMobileStatus] = useState<TaskStatus>(0);
+  const reload = useCallback(() => setRevision(v => v + 1), []);
+  const drop = (status: TaskStatus) => {
+    const task = drag; setDrag(null);
+    if (!task || task.status === status) return;
+    if (task.workflow_stage || !task.can_update || !transitions[task.status]?.includes(status)) { message.warning('该任务不能直接进入这个状态，请打开详情查看可用操作'); return; }
+    modal.confirm({ title: `将“${task.title}”移到${BOARD_COLUMNS.find(c => c.status === status)?.title}？`, content: [2, 3].includes(status) ? '关闭后将保留历史，无法继续编辑或转办。' : '状态变更会记录到流转历史。', okText: '确认变更', cancelText: '保留原状态', onOk: async () => { await updateTaskStatus(task.id, status); reload(); } });
   };
-
-  return (
-    <Card title="任务看板">
-      <div style={{ display: 'flex', gap: 12, overflowX: 'auto', minHeight: 480 }}>
-        {BOARD_COLUMNS.map((col) => {
-          const cards = list.filter((t) => t.status === col.status);
-          return (
-            <div
-              key={col.status}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={() => { void dropTo(col.status); }}
-              style={{
-                width: 240, flexShrink: 0, background: '#f5f5f5', borderRadius: 8, padding: 8,
-              }}
-            >
-              <div style={{ fontWeight: 600, marginBottom: 8 }}>{col.title} ({cards.length})</div>
-              {cards.map((t) => (
-                <div
-                  key={t.id}
-                  draggable
-                  onDragStart={() => setDragId(t.id)}
-                  onClick={() => setDetailId(t.id)}
-                  style={{
-                    background: '#fff', borderRadius: 6, padding: 10, marginBottom: 8,
-                    cursor: 'grab', boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                  }}
-                >
-                  <div style={{ fontWeight: 500 }}>{t.title}</div>
-                  <div style={{ marginTop: 6 }}>
-                    <StatusTag status={t.priority} mapping={TaskPriorityMap} />
-                  </div>
-                  <div style={{ color: '#888', fontSize: 12, marginTop: 6 }}>
-                    {t.assignee?.name || '未分配'}
-                    {t.due_date ? ` · ${t.due_date.slice(0, 10)}` : ''}
-                  </div>
-                  {(t.tags || []).slice(0, 3).map((tag) => <Tag key={tag} style={{ marginTop: 4 }}>{tag}</Tag>)}
-                </div>
-              ))}
-            </div>
-          );
-        })}
-      </div>
-      <DetailDrawer taskId={detailId} open={!!detailId} onClose={() => setDetailId(null)} onChanged={() => { void load(); }} />
-    </Card>
-  );
-};
-
-export default BoardPage;
+  const columns = screens.lg ? BOARD_COLUMNS : BOARD_COLUMNS.filter(c => c.status === mobileStatus);
+  return <>{holder}<PageIntro eyebrow="WORKSPACE / BOARD" title="任务看板" description="按阶段查看进展。打开任务即可处理，桌面也支持拖动卡片变更状态。" actions={<Button onClick={reload}>刷新看板</Button>} /><Card>
+    {!screens.lg && <Select aria-label="看板阶段" value={mobileStatus} onChange={setMobileStatus} style={{ width: '100%', marginBottom: 20 }} options={BOARD_COLUMNS.map(c => ({ value: c.status, label: c.title }))} />}
+    <div className={styles.board}>{columns.map(col => <Lane key={col.status} {...col} revision={revision} onOpen={setDetailId} onDrag={setDrag} onDrop={drop} />)}</div>
+  </Card><DetailDrawer taskId={detailId} open={!!detailId} onClose={() => setDetailId(null)} onChanged={reload} /></>;
+}

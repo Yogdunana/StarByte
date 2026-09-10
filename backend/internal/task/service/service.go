@@ -5,11 +5,14 @@ import (
 	"io"
 	"mime/multipart"
 
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+
 	filedto "github.com/Yogdunana/StarByte/backend/internal/file/dto"
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/task/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/task/repo"
-	"github.com/google/uuid"
+	"github.com/Yogdunana/StarByte/backend/internal/workflow/engine"
 )
 
 type Notifier interface {
@@ -27,6 +30,13 @@ type ObjectDownloader interface {
 }
 
 type TaskService interface {
+	AssignmentRoles(context.Context, string) ([]dto.Person, error)
+	SetWorkflowEngine(*engine.FlowEngine)
+	GetWorkflow(context.Context, uuid.UUID, uuid.UUID) (*dto.WorkflowResponse, error)
+	ActWorkflow(context.Context, uuid.UUID, uuid.UUID, *dto.WorkflowActionRequest) (*dto.WorkflowResponse, error)
+
+	ProcessAttachmentDeletions(context.Context) (int, error)
+	Candidates(context.Context, string) ([]dto.Person, error)
 	Create(ctx context.Context, operator uuid.UUID, req *dto.CreateTaskRequest) (*dto.TaskResponse, error)
 	List(ctx context.Context, viewer uuid.UUID, req *dto.ListTaskRequest, scope *rbacModel.DataScopeCondition) ([]*dto.TaskResponse, int64, error)
 	Get(ctx context.Context, viewer, id uuid.UUID, scope *rbacModel.DataScopeCondition) (*dto.TaskResponse, error)
@@ -55,13 +65,20 @@ type TaskService interface {
 }
 
 type taskService struct {
-	tasks    repo.TaskRepo
-	logs     repo.LogRepo
-	comments repo.CommentRepo
-	files    repo.AttachmentRepo
-	notify   Notifier
-	bridge   FileBridge
-	store    ObjectDownloader
+	transfers   repo.TransferRepo
+	assignments repo.AssignmentRepo
+	engine      *engine.FlowEngine
+	flow        TaskWorkflowRuntime
+	cleanup     repo.CleanupRepo
+	db          *gorm.DB
+	afterCommit *[]func()
+	tasks       repo.TaskRepo
+	logs        repo.LogRepo
+	comments    repo.CommentRepo
+	files       repo.AttachmentRepo
+	notify      Notifier
+	bridge      FileBridge
+	store       ObjectDownloader
 }
 
 func NewTaskService(
@@ -72,9 +89,16 @@ func NewTaskService(
 	notify Notifier,
 	bridge FileBridge,
 	store ObjectDownloader,
+	databases ...*gorm.DB,
 ) TaskService {
-	return &taskService{
+	var db *gorm.DB
+	if len(databases) > 0 {
+		db = databases[0]
+	}
+	return &taskService{transfers: repo.NewTransferRepo(db), assignments: repo.NewAssignmentRepo(db), db: db, cleanup: repo.NewCleanupRepo(db),
 		tasks: tasks, logs: logs, comments: comments, files: files,
 		notify: notify, bridge: bridge, store: store,
 	}
 }
+
+func (s *taskService) SetWorkflowEngine(flow *engine.FlowEngine) { s.engine = flow; s.flow = flow }

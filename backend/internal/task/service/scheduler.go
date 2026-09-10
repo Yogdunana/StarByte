@@ -4,10 +4,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/Yogdunana/StarByte/backend/internal/task/model"
-	"github.com/Yogdunana/StarByte/backend/pkg/logger"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+
+	"github.com/Yogdunana/StarByte/backend/internal/task/model"
+	"github.com/Yogdunana/StarByte/backend/pkg/logger"
 )
 
 type ReminderScheduler struct {
@@ -35,11 +36,16 @@ func (s *ReminderScheduler) run() {
 	defer close(s.done)
 	ticker := time.NewTicker(15 * time.Minute)
 	defer ticker.Stop()
+	cleanupTicker := time.NewTicker(30 * time.Second)
+	defer cleanupTicker.Stop()
+	s.cleanupFiles()
 	s.tick()
 	for {
 		select {
 		case <-ticker.C:
 			s.tick()
+		case <-cleanupTicker.C:
+			s.cleanupFiles()
 		case <-s.stopCh:
 			return
 		}
@@ -66,33 +72,23 @@ func (s *taskService) RemindDueAndOverdue(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	for i := range soon {
-		t := &soon[i]
-		s.notifyUsers(ctx, reminderTargets(t), tplTaskDueSoon, t, "")
-		mark := now
-		t.DueRemindedAt = &mark
-		t.UpdatedAt = now
-		if err := s.tasks.Update(ctx, t); err != nil {
-			logger.Warn("mark due reminder failed", zap.Error(err), zap.String("id", t.ID.String()))
-			continue
+	for _, task := range soon {
+		n, err := s.remindTask(ctx, task.ID, now, false)
+		sent += n
+		if err != nil {
+			return sent, err
 		}
-		sent++
 	}
 	overdue, err := s.tasks.ListOverdue(ctx, now)
 	if err != nil {
 		return sent, err
 	}
-	for i := range overdue {
-		t := &overdue[i]
-		s.notifyUsers(ctx, reminderTargets(t), tplTaskOverdue, t, "")
-		mark := now
-		t.OverdueRemindedAt = &mark
-		t.UpdatedAt = now
-		if err := s.tasks.Update(ctx, t); err != nil {
-			logger.Warn("mark overdue reminder failed", zap.Error(err), zap.String("id", t.ID.String()))
-			continue
+	for _, task := range overdue {
+		n, err := s.remindTask(ctx, task.ID, now, true)
+		sent += n
+		if err != nil {
+			return sent, err
 		}
-		sent++
 	}
 	return sent, nil
 }
@@ -115,4 +111,12 @@ func reminderTargets(t *model.Task) []uuid.UUID {
 		add(*t.AssigneeID)
 	}
 	return out
+}
+
+func (s *ReminderScheduler) cleanupFiles() {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	if _, err := s.svc.ProcessAttachmentDeletions(ctx); err != nil {
+		logger.Warn("task attachment cleanup pending retry", zap.Error(err))
+	}
 }

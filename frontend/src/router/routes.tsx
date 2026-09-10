@@ -47,6 +47,8 @@ const TaskMyPage = lazy(() => import('@/pages/task/MyPage'));
 const InternshipListPage = lazy(() => import('@/pages/internship/ListPage'));
 const InternshipMyPage = lazy(() => import('@/pages/internship/MyPage'));
 const InternshipStatsPage = lazy(() => import('@/pages/internship/StatsPage'));
+const WorkflowTodo = lazy(() => import('@/pages/workflow/runtime/TodoPage'));
+const WorkflowInstances = lazy(() => import('@/pages/workflow/runtime/InstancePage'));
 const WorkflowDesigner = lazy(() => import('@/pages/workflow/designer/DesignerPage'));
 const StatsOverviewPage = lazy(() => import('@/pages/stats/OverviewPage'));
 const FormListPage = lazy(() => import('@/pages/form-designer/ListPage'));
@@ -177,6 +179,7 @@ const routes: AppRouteObject[] = [
         path: 'member',
         meta: { title: '会员管理', icon: 'TeamOutlined' },
         children: [
+          { path: 'applications', element: <Navigate to="/member/application" replace />, meta: { hidden: true } },
           {
             path: 'application',
             element: lazyWrap(ApplicationPage),
@@ -273,22 +276,22 @@ const routes: AppRouteObject[] = [
         children: [
           {
             path: 'designer',
-            element: lazyWrap(WorkflowDesigner),
-            meta: { title: '流程设计' },
+            element: lazyGuarded(WorkflowDesigner, 'workflow:read'),
+            meta: { title: '流程设计', permission: 'workflow:read' },
           },
           {
             path: 'designer/:id',
-            element: lazyWrap(WorkflowDesigner),
-            meta: { title: '流程设计', hidden: true },
+            element: lazyGuarded(WorkflowDesigner, 'workflow:read'),
+            meta: { title: '流程设计', permission: 'workflow:read', hidden: true },
           },
           {
             path: 'instances',
-            element: <ComingSoon i18nKey="placeholder.workflowInstances" />,
+            element: lazyWrap(WorkflowInstances),
             meta: { title: '流程实例' },
           },
           {
             path: 'todo',
-            element: <ComingSoon i18nKey="placeholder.todo" />,
+            element: lazyWrap(WorkflowTodo),
             meta: { title: '我的待办' },
           },
         ],

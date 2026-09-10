@@ -1,10 +1,18 @@
 package dto
 
+import (
+	"github.com/google/uuid"
+
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
+)
+
 // StatsQuery 统计查询。
 type StatsQuery struct {
-	StartDate string `form:"start_date"`
-	EndDate   string `form:"end_date"`
-	GroupBy   string `form:"group_by"`
+	ViewerID  uuid.UUID                     `form:"-" json:"-"`
+	Scope     *rbacModel.DataScopeCondition `form:"-" json:"-"`
+	StartDate string                        `form:"start_date"`
+	EndDate   string                        `form:"end_date"`
+	GroupBy   string                        `form:"group_by"`
 }
 
 // StatItem 统计桶。

@@ -4,12 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Yogdunana/StarByte/backend/internal/member/dto"
-	"github.com/Yogdunana/StarByte/backend/internal/member/model"
-	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/Yogdunana/StarByte/backend/internal/member/dto"
+	"github.com/Yogdunana/StarByte/backend/internal/member/model"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 )
 
 type mockProfiles struct{ mock.Mock }
@@ -66,8 +67,8 @@ func (m *mockProfiles) ListHistory(ctx context.Context, profileID uuid.UUID) ([]
 	args := m.Called(ctx, profileID)
 	return args.Get(0).([]model.ProfileHistory), args.Error(1)
 }
-func (m *mockProfiles) Stats(ctx context.Context, groupBy string) ([]model.StatBucket, error) {
-	args := m.Called(ctx, groupBy)
+func (m *mockProfiles) Stats(ctx context.Context, groupBy string, scope *rbacModel.DataScopeCondition) ([]model.StatBucket, error) {
+	args := m.Called(ctx, groupBy, scope)
 	return args.Get(0).([]model.StatBucket), args.Error(1)
 }
 

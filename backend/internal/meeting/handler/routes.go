@@ -1,12 +1,13 @@
 package handler
 
 import (
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+
 	"github.com/Yogdunana/StarByte/backend/internal/meeting/service"
 	rbacRepo "github.com/Yogdunana/StarByte/backend/internal/rbac/repo"
 	rbacService "github.com/Yogdunana/StarByte/backend/internal/rbac/service"
 	"github.com/Yogdunana/StarByte/backend/pkg/middleware"
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 type MeetingHandler struct {
@@ -32,9 +33,13 @@ func withReadScope(
 ) *gin.RouterGroup {
 	g := group.Group("")
 	g.Use(middleware.RequirePermission("meeting:read"))
-	g.Use(middleware.RequireDataScope("meeting"))
+	g.Use(middleware.RequireDataScope("meeting:read"))
 	g.Use(middleware.PermissionRequired(cacheService))
 	g.Use(middleware.DataScopeMiddleware(db, deptRepo, cacheService))
+	g.Use(meetingViewer(false))
+	g.Use(middleware.RequireDataScope("meeting:manage"), middleware.DataScopeMiddleware(db, deptRepo, cacheService), meetingCapabilities("meeting:manage"))
+	g.Use(middleware.RequireDataScope("meeting:update"), middleware.DataScopeMiddleware(db, deptRepo, cacheService), meetingCapabilities("meeting:update"))
+	g.Use(middleware.RequireDataScope("meeting:delete"), middleware.DataScopeMiddleware(db, deptRepo, cacheService), meetingCapabilities("meeting:delete"))
 	return g
 }
 
@@ -47,6 +52,7 @@ func RegisterRoutes(
 	deptRepo rbacRepo.DepartmentRepo,
 ) {
 	g := r.Group("/meetings")
+	g.Use(meetingViewer(false))
 	g.POST("/:id/checkin", h.Checkin)
 
 	read := withReadScope(g, cacheService, db, deptRepo)
@@ -59,13 +65,13 @@ func RegisterRoutes(
 	create := withPermission(g, "meeting:create", cacheService)
 	create.POST("", h.CreateMeeting)
 
-	update := withPermission(g, "meeting:update", cacheService)
+	update := withMeetingScope(withPermission(g, "meeting:update", cacheService), "meeting:update", cacheService, db, deptRepo)
 	update.PUT("/:id", h.UpdateMeeting)
 
-	del := withPermission(g, "meeting:delete", cacheService)
+	del := withMeetingScope(withPermission(g, "meeting:delete", cacheService), "meeting:delete", cacheService, db, deptRepo)
 	del.DELETE("/:id", h.DeleteMeeting)
 
-	manage := withPermission(g, "meeting:manage", cacheService)
+	manage := withMeetingScope(withPermission(g, "meeting:manage", cacheService), "meeting:manage", cacheService, db, deptRepo)
 	manage.POST("/:id/start", h.StartMeeting)
 	manage.POST("/:id/end", h.EndMeeting)
 	manage.POST("/:id/cancel", h.CancelMeeting)
@@ -80,12 +86,13 @@ func RegisterRoutes(
 	manage.POST("/:id/votes", h.CreateVote)
 
 	votes := r.Group("/votes")
+	votes.Use(meetingViewer(false))
 	votes.POST("/:id/cast", h.CastVote)
 	votes.GET("/:id/my", h.MyVote)
 	voteRead := withReadScope(votes, cacheService, db, deptRepo)
 	voteRead.GET("/:id", h.GetVote)
 	voteRead.GET("/:id/result", h.VoteResult)
-	voteManage := withPermission(votes, "meeting:manage", cacheService)
+	voteManage := withMeetingScope(withPermission(votes, "meeting:manage", cacheService), "meeting:manage", cacheService, db, deptRepo)
 	voteManage.POST("/:id/close", h.CloseVote)
 
 	sysRead := withPermission(r, "meeting:read", cacheService)

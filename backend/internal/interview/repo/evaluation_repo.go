@@ -4,10 +4,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/Yogdunana/StarByte/backend/internal/interview/dto"
-	"github.com/Yogdunana/StarByte/backend/internal/interview/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+
+	"github.com/Yogdunana/StarByte/backend/internal/interview/dto"
+	"github.com/Yogdunana/StarByte/backend/internal/interview/model"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 )
 
 type EvaluationRepo interface {
@@ -22,7 +24,7 @@ type EvaluationRepo interface {
 	CreateDimension(ctx context.Context, d *model.Dimension) error
 	UpdateDimension(ctx context.Context, d *model.Dimension) error
 	DeleteDimension(ctx context.Context, id uuid.UUID) error
-	Stats(ctx context.Context, q *dto.StatsQuery) (model.StatsRow, []model.ScoreBucket, []model.DeptStat, error)
+	Stats(ctx context.Context, q *dto.StatsQuery, scope, scoreScope *rbacModel.DataScopeCondition) (model.StatsRow, []model.ScoreBucket, []model.DeptStat, error)
 }
 
 type evaluationRepo struct{ db *gorm.DB }
@@ -115,8 +117,8 @@ func (r *evaluationRepo) DeleteDimension(ctx context.Context, id uuid.UUID) erro
 	return r.db.WithContext(ctx).Delete(&model.Dimension{}, "id = ?", id).Error
 }
 
-func (r *evaluationRepo) Stats(ctx context.Context, q *dto.StatsQuery) (model.StatsRow, []model.ScoreBucket, []model.DeptStat, error) {
-	base := r.statsBase(ctx, q)
+func (r *evaluationRepo) Stats(ctx context.Context, q *dto.StatsQuery, scope, scoreScope *rbacModel.DataScopeCondition) (model.StatsRow, []model.ScoreBucket, []model.DeptStat, error) {
+	base := r.statsBase(ctx, q, scope)
 	var row model.StatsRow
 	err := base.Select(`COUNT(*) AS total,
 		COUNT(*) FILTER (WHERE i.result_code = 1) AS pass_count,
@@ -126,15 +128,15 @@ func (r *evaluationRepo) Stats(ctx context.Context, q *dto.StatsQuery) (model.St
 	if err != nil {
 		return row, nil, nil, err
 	}
-	buckets, err := r.scoreBuckets(ctx, q)
+	buckets, err := r.scoreBuckets(ctx, q, scoreScope)
 	if err != nil {
 		return row, nil, nil, err
 	}
-	depts, err := r.deptStats(ctx, q)
+	depts, err := r.deptStats(ctx, q, scope)
 	return row, buckets, depts, err
 }
 
-func (r *evaluationRepo) statsBase(ctx context.Context, q *dto.StatsQuery) *gorm.DB {
+func (r *evaluationRepo) statsBase(ctx context.Context, q *dto.StatsQuery, scope *rbacModel.DataScopeCondition) *gorm.DB {
 	db := r.db.WithContext(ctx).Table("interviews AS i").
 		Joins("LEFT JOIN interview_sessions s ON s.id = i.session_id").
 		Where("i.status <> ?", model.InterviewCancelled)
@@ -154,16 +156,16 @@ func (r *evaluationRepo) statsBase(ctx context.Context, q *dto.StatsQuery) *gorm
 			db = db.Where("i.created_at < ?", t.Add(24*time.Hour))
 		}
 	}
-	return db
+	return applyScope(db, scope)
 }
 
-func (r *evaluationRepo) scoreBuckets(ctx context.Context, q *dto.StatsQuery) ([]model.ScoreBucket, error) {
+func (r *evaluationRepo) scoreBuckets(ctx context.Context, q *dto.StatsQuery, scope *rbacModel.DataScopeCondition) ([]model.ScoreBucket, error) {
 	type row struct {
 		Bucket string
 		Count  int64
 	}
 	var rows []row
-	err := r.statsBase(ctx, q).
+	err := r.statsBase(ctx, q, scope).
 		Select(`CASE
 			WHEN i.score IS NULL THEN '未评分'
 			WHEN i.score < 60 THEN '0-59'
@@ -184,9 +186,9 @@ func (r *evaluationRepo) scoreBuckets(ctx context.Context, q *dto.StatsQuery) ([
 	return out, err
 }
 
-func (r *evaluationRepo) deptStats(ctx context.Context, q *dto.StatsQuery) ([]model.DeptStat, error) {
+func (r *evaluationRepo) deptStats(ctx context.Context, q *dto.StatsQuery, scope *rbacModel.DataScopeCondition) ([]model.DeptStat, error) {
 	var rows []model.DeptStat
-	err := r.statsBase(ctx, q).
+	err := r.statsBase(ctx, q, scope).
 		Select("COALESCE(d.name, '未分配') AS department, COUNT(*) AS count, COUNT(*) FILTER (WHERE i.result_code = 1) AS pass_count").
 		Joins("LEFT JOIN departments d ON d.id = s.department_id").
 		Group("d.name").

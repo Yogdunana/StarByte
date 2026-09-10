@@ -3,9 +3,10 @@ package service
 import (
 	"encoding/json"
 
+	"github.com/google/uuid"
+
 	"github.com/Yogdunana/StarByte/backend/internal/member/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/member/model"
-	"github.com/google/uuid"
 )
 
 func mapApplication(row *model.ApplicationWithNames) *dto.ApplicationResponse {
@@ -13,6 +14,7 @@ func mapApplication(row *model.ApplicationWithNames) *dto.ApplicationResponse {
 		return nil
 	}
 	out := &dto.ApplicationResponse{
+		AdmissionVersion: row.AdmissionVersion, AdmissionRevision: row.AdmissionRevision, AdmissionStage: row.AdmissionStage, HistoricalReviewRequired: row.HistoricalReviewRequired, ProbationUntil: row.ProbationUntil,
 		ID:             row.ID.String(),
 		UserID:         row.UserID.String(),
 		Username:       row.Username,

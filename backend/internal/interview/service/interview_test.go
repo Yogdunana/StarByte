@@ -5,12 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Yogdunana/StarByte/backend/internal/interview/dto"
-	"github.com/Yogdunana/StarByte/backend/internal/interview/model"
-	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Yogdunana/StarByte/backend/internal/interview/dto"
+	"github.com/Yogdunana/StarByte/backend/internal/interview/model"
+	"github.com/Yogdunana/StarByte/backend/pkg/response"
 )
 
 func TestCreateInterview_SessionFull(t *testing.T) {
@@ -124,7 +125,7 @@ func TestSubmitResult_SyncsApplication(t *testing.T) {
 	records.On("Update", mock.Anything, mock.AnythingOfType("*model.Interview")).Return(nil)
 	records.On("GetUser", mock.Anything, iv.ApplicantID).Return(&model.NamedUser{RealName: "张三"}, nil)
 	notify.On("Send", mock.Anything, mock.Anything, tplResult, mock.Anything).Return(nil)
-	syncer.On("SyncFromInterview", mock.Anything, op, appID, int16(1), "过").Return(nil)
+	syncer.On("SyncFromInterview", mock.Anything, op, appID, int16(1), "通过").Return(nil)
 	records.On("ListInterviewers", mock.Anything, []uuid.UUID{id}).Return([]model.InterviewerNamed{}, nil)
 	out, err := svc.SubmitResult(context.Background(), op, id, &dto.SubmitResultRequest{Result: 1, Comment: "过"})
 	require.NoError(t, err)
@@ -146,20 +147,20 @@ func TestGetInterview_NotFound(t *testing.T) {
 	svc := NewInterviewService(&mockSessionRepo{}, records, &mockEvalRepo{}, nil, nil)
 	id := uuid.New()
 	records.On("GetByIDWithNames", mock.Anything, id).Return(nil, nil)
-	_, err := svc.GetInterview(context.Background(), id, nil)
+	_, err := svc.GetInterview(context.Background(), Viewer{ID: uuid.New()}, id)
 	requireAppError(t, err, response.CodeInterviewRecordGone)
 }
 
 func TestStats_PassRate(t *testing.T) {
 	evals := &mockEvalRepo{}
 	svc := NewInterviewService(&mockSessionRepo{}, &mockInterviewRepo{}, evals, nil, nil)
-	evals.On("Stats", mock.Anything, mock.Anything).Return(
+	evals.On("Stats", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
 		model.StatsRow{Total: 4, PassCount: 2, FailCount: 1, PendingCount: 1},
 		[]model.ScoreBucket{{Range: "80-89", Count: 2}},
 		[]model.DeptStat{{Department: "技术部", Count: 4, PassCount: 2}},
 		nil,
 	)
-	out, err := svc.Stats(context.Background(), &dto.StatsQuery{})
+	out, err := svc.Stats(context.Background(), Viewer{ID: uuid.New()}, &dto.StatsQuery{})
 	require.NoError(t, err)
 	require.Equal(t, 50.0, out.PassRate)
 }

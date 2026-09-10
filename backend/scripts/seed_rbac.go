@@ -183,6 +183,7 @@ func seedRolePermissions(db *gorm.DB) error {
 		FROM roles r
 		CROSS JOIN permissions p
 		WHERE r.code IN ('president', 'super_admin')
+ AND (r.code = 'president' OR p.resource <> 'interview_private')
 		ON CONFLICT (role_id, permission_id) DO NOTHING
 	`).Error; err != nil {
 		return fmt.Errorf("assign all perms to president: %w", err)
@@ -191,7 +192,7 @@ func seedRolePermissions(db *gorm.DB) error {
 	// 副社长：可读运行时配置，但不能改/删（与 system:config 对齐，避免绕过实习/投票开关）
 	if err := db.Exec(`
 		INSERT INTO role_permissions (id, role_id, permission_id, data_scope)
-		SELECT uuid_generate_v4(), r.id, p.id, 'all'
+		SELECT uuid_generate_v4(), r.id, p.id, CASE WHEN p.resource = 'interview_private' THEN 'department_and_sub' ELSE 'all' END
 		FROM roles r CROSS JOIN permissions p
 		WHERE r.code = 'vice_president'
 		  AND p.code NOT IN ('system:config', 'config:create', 'config:update', 'config:delete', 'cache:delete', 'cache:manage', 'scheduler:create', 'scheduler:update', 'scheduler:delete', 'scheduler:run', 'scheduler:manage')
@@ -240,7 +241,7 @@ func seedRolePermissions(db *gorm.DB) error {
 		INSERT INTO role_permissions (id, role_id, permission_id, data_scope)
 		SELECT uuid_generate_v4(), r.id, p.id, 'department'
 		FROM roles r CROSS JOIN permissions p
-		WHERE r.code = 'vice_minister' AND (
+		WHERE r.code = 'vice_minister' AND p.resource <> 'interview_private' AND (
 			p.action = 'read'
 			OR (p.resource IN ('member','interview','meeting','task','internship','file','finance','discipline','contract')
 			    AND p.action = 'create')

@@ -4,12 +4,13 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/mock"
+
 	"github.com/Yogdunana/StarByte/backend/internal/interview/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/interview/model"
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/mock"
 )
 
 type mockSessionRepo struct{ mock.Mock }
@@ -162,8 +163,8 @@ func (m *mockEvalRepo) UpdateDimension(ctx context.Context, d *model.Dimension) 
 func (m *mockEvalRepo) DeleteDimension(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
 }
-func (m *mockEvalRepo) Stats(ctx context.Context, q *dto.StatsQuery) (model.StatsRow, []model.ScoreBucket, []model.DeptStat, error) {
-	args := m.Called(ctx, q)
+func (m *mockEvalRepo) Stats(ctx context.Context, q *dto.StatsQuery, scope, scoreScope *rbacModel.DataScopeCondition) (model.StatsRow, []model.ScoreBucket, []model.DeptStat, error) {
+	args := m.Called(ctx, q, scope, scoreScope)
 	return args.Get(0).(model.StatsRow), args.Get(1).([]model.ScoreBucket), args.Get(2).([]model.DeptStat), args.Error(3)
 }
 

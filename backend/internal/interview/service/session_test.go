@@ -5,12 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Yogdunana/StarByte/backend/internal/interview/dto"
-	"github.com/Yogdunana/StarByte/backend/internal/interview/model"
-	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Yogdunana/StarByte/backend/internal/interview/dto"
+	"github.com/Yogdunana/StarByte/backend/internal/interview/model"
+	"github.com/Yogdunana/StarByte/backend/pkg/response"
 )
 
 func TestCreateSession_InvalidTime(t *testing.T) {
@@ -51,7 +52,7 @@ func TestGetSession_NotFound(t *testing.T) {
 	svc := NewInterviewService(sessions, &mockInterviewRepo{}, &mockEvalRepo{}, nil, nil)
 	id := uuid.New()
 	sessions.On("GetByIDWithNames", mock.Anything, id).Return(nil, nil)
-	_, err := svc.GetSession(context.Background(), id, nil)
+	_, err := svc.GetSession(context.Background(), Viewer{ID: uuid.New()}, id)
 	requireAppError(t, err, response.CodeInterviewNotFound)
 }
 

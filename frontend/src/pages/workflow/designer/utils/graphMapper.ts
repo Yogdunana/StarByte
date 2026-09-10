@@ -98,7 +98,11 @@ const NODE_FALLBACK: Record<DesignerNodeType, string> = {
 /** 加载已发布版本：后端类型 → 短名 */
 export function fromBackendGraph(graph: FlowGraphData | PublishGraphData): FlowGraphData {
   return {
-    nodes: graph.nodes.map(mapLoadedNode),
+    nodes: graph.nodes.map(node => {
+      const mapped = mapLoadedNode(node);
+      if (node.type === 'parallel_gateway' && graph.edges.filter(edge => edge.target === node.id).length > 1) mapped.type = 'merge';
+      return mapped;
+    }),
     edges: graph.edges,
   };
 }

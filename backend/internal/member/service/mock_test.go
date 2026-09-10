@@ -3,12 +3,13 @@ package service
 import (
 	"context"
 
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/mock"
+
 	"github.com/Yogdunana/StarByte/backend/internal/member/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/member/model"
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/mock"
 )
 
 type mockAppRepo struct{ mock.Mock }
@@ -56,8 +57,8 @@ func (m *mockAppRepo) ListDepartments(ctx context.Context) ([]model.NamedItem, e
 	args := m.Called(ctx)
 	return args.Get(0).([]model.NamedItem), args.Error(1)
 }
-func (m *mockAppRepo) Stats(ctx context.Context, start, end, groupBy string) ([]model.StatBucket, error) {
-	args := m.Called(ctx, start, end, groupBy)
+func (m *mockAppRepo) Stats(ctx context.Context, start, end, groupBy string, scope *rbacModel.DataScopeCondition) ([]model.StatBucket, error) {
+	args := m.Called(ctx, start, end, groupBy, scope)
 	return args.Get(0).([]model.StatBucket), args.Error(1)
 }
 
@@ -115,8 +116,8 @@ func (m *mockProfRepo) ListHistory(ctx context.Context, profileID uuid.UUID) ([]
 	args := m.Called(ctx, profileID)
 	return args.Get(0).([]model.ProfileHistory), args.Error(1)
 }
-func (m *mockProfRepo) Stats(ctx context.Context, groupBy string) ([]model.StatBucket, error) {
-	args := m.Called(ctx, groupBy)
+func (m *mockProfRepo) Stats(ctx context.Context, groupBy string, scope *rbacModel.DataScopeCondition) ([]model.StatBucket, error) {
+	args := m.Called(ctx, groupBy, scope)
 	return args.Get(0).([]model.StatBucket), args.Error(1)
 }
 

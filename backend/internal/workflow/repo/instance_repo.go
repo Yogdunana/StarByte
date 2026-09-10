@@ -3,9 +3,10 @@ package repo
 import (
 	"context"
 
-	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+
+	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
 )
 
 // InstanceRepo manages flow_instances.
@@ -42,7 +43,7 @@ func (r *instanceRepo) Create(ctx context.Context, tx *gorm.DB, inst *model.Flow
 
 func (r *instanceRepo) GetByID(ctx context.Context, id uuid.UUID) (*model.FlowInstance, error) {
 	var inst model.FlowInstance
-	err := r.db.WithContext(ctx).Where("id = ?", id).First(&inst).Error
+	err := r.instanceQuery(ctx).Where("flow_instances.id = ?", id).First(&inst).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
 	}
@@ -57,16 +58,16 @@ func (r *instanceRepo) List(ctx context.Context, page, pageSize int, status *int
 	var instances []model.FlowInstance
 	var total int64
 
-	query := r.db.WithContext(ctx).Model(&model.FlowInstance{})
+	query := visibleInstances(r.instanceQuery(ctx), model.ViewerFromContext(ctx), true)
 
 	if status != nil {
-		query = query.Where("status = ?", *status)
+		query = query.Where("flow_instances.status = ?", *status)
 	}
 	if definitionID != nil && *definitionID != uuid.Nil {
-		query = query.Where("definition_id = ?", *definitionID)
+		query = query.Where("flow_instances.definition_id = ?", *definitionID)
 	}
 	if initiatorID != nil && *initiatorID != uuid.Nil {
-		query = query.Where("initiator_id = ?", *initiatorID)
+		query = query.Where("flow_instances.initiator_id = ?", *initiatorID)
 	}
 
 	if err := query.Count(&total).Error; err != nil {
@@ -74,6 +75,10 @@ func (r *instanceRepo) List(ctx context.Context, page, pageSize int, status *int
 	}
 
 	offset := (page - 1) * pageSize
-	err := query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&instances).Error
+	err := query.Order("flow_instances.created_at DESC").Offset(offset).Limit(pageSize).Find(&instances).Error
 	return instances, total, err
+}
+
+func (r *instanceRepo) instanceQuery(ctx context.Context) *gorm.DB {
+	return r.db.WithContext(ctx).Model(&model.FlowInstance{}).Select("flow_instances.*, definition.name AS definition_name, initiator.real_name AS initiator_name").Joins("LEFT JOIN flow_definitions definition ON definition.id=flow_instances.definition_id").Joins("LEFT JOIN users initiator ON initiator.id=flow_instances.initiator_id")
 }

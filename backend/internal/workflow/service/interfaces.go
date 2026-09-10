@@ -3,9 +3,10 @@ package service
 import (
 	"context"
 
+	"github.com/google/uuid"
+
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
-	"github.com/google/uuid"
 )
 
 // DefinitionService 流程定义服务接口
@@ -34,6 +35,7 @@ type InstanceService interface {
 
 // TaskService 流程任务服务接口
 type TaskService interface {
+	TransferCandidates(context.Context, uuid.UUID, string) ([]model.ApproverOption, error)
 	ListTodoTasks(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]model.FlowTask, int64, error)
 	ListDoneTasks(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]model.FlowTask, int64, error)
 	GetTaskByID(ctx context.Context, id uuid.UUID) (*model.FlowTask, error)

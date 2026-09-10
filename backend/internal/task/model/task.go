@@ -4,29 +4,39 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type Task struct {
-	ID                uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
-	Title             string     `gorm:"type:varchar(200);not null" json:"title"`
-	Description       string     `gorm:"type:text" json:"description"`
-	Status            int16      `gorm:"type:smallint;not null;default:0" json:"status"`
-	Priority          int16      `gorm:"type:smallint;not null;default:1" json:"priority"`
-	CreatorID         uuid.UUID  `gorm:"type:uuid;not null" json:"creator_id"`
-	AssigneeID        *uuid.UUID `gorm:"type:uuid" json:"assignee_id"`
-	DepartmentID      *uuid.UUID `gorm:"type:uuid" json:"department_id"`
-	ParentID          *uuid.UUID `gorm:"type:uuid" json:"parent_id"`
-	DueDate           *time.Time `json:"due_date"`
-	Progress          int16      `gorm:"type:smallint;not null;default:0" json:"progress"`
-	Tags              string     `gorm:"type:varchar(500)" json:"tags"`
-	RelatedType       string     `gorm:"type:varchar(50)" json:"related_type"`
-	RelatedID         *uuid.UUID `gorm:"type:uuid" json:"related_id"`
-	SortOrder         int        `gorm:"not null;default:0" json:"sort_order"`
-	CompletedAt       *time.Time `json:"completed_at"`
-	DueRemindedAt     *time.Time `json:"due_reminded_at"`
-	OverdueRemindedAt *time.Time `json:"overdue_reminded_at"`
-	CreatedAt         time.Time  `json:"created_at"`
-	UpdatedAt         time.Time  `json:"updated_at"`
+	AssignmentPolicy   string     `gorm:"type:jsonb;not null;default:'{}'" json:"assignment_policy"`
+	WorkflowRevision   int64      `gorm:"not null;default:0" json:"workflow_revision"`
+	WorkflowInstanceID *uuid.UUID `gorm:"type:uuid" json:"workflow_instance_id"`
+	WorkflowStage      string     `gorm:"type:varchar(32);not null;default:''" json:"workflow_stage"`
+	ReviewerID         *uuid.UUID `gorm:"type:uuid" json:"reviewer_id"`
+	AcceptorID         *uuid.UUID `gorm:"type:uuid" json:"acceptor_id"`
+	Submission         string     `gorm:"type:text;not null;default:''" json:"submission"`
+
+	DeletedAt         gorm.DeletedAt `gorm:"index" json:"-"`
+	ID                uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
+	Title             string         `gorm:"type:varchar(200);not null" json:"title"`
+	Description       string         `gorm:"type:text" json:"description"`
+	Status            int16          `gorm:"type:smallint;not null;default:0" json:"status"`
+	Priority          int16          `gorm:"type:smallint;not null" json:"priority"`
+	CreatorID         uuid.UUID      `gorm:"type:uuid;not null" json:"creator_id"`
+	AssigneeID        *uuid.UUID     `gorm:"type:uuid" json:"assignee_id"`
+	DepartmentID      *uuid.UUID     `gorm:"type:uuid" json:"department_id"`
+	ParentID          *uuid.UUID     `gorm:"type:uuid" json:"parent_id"`
+	DueDate           *time.Time     `json:"due_date"`
+	Progress          int16          `gorm:"type:smallint;not null;default:0" json:"progress"`
+	Tags              string         `gorm:"type:varchar(500)" json:"tags"`
+	RelatedType       string         `gorm:"type:varchar(50)" json:"related_type"`
+	RelatedID         *uuid.UUID     `gorm:"type:uuid" json:"related_id"`
+	SortOrder         int            `gorm:"not null;default:0" json:"sort_order"`
+	CompletedAt       *time.Time     `json:"completed_at"`
+	DueRemindedAt     *time.Time     `json:"due_reminded_at"`
+	OverdueRemindedAt *time.Time     `json:"overdue_reminded_at"`
+	CreatedAt         time.Time      `json:"created_at"`
+	UpdatedAt         time.Time      `json:"updated_at"`
 }
 
 func (Task) TableName() string { return "tasks" }
@@ -43,10 +53,13 @@ type TaskWithNames struct {
 }
 
 type NamedUser struct {
-	ID       uuid.UUID
-	RealName string
-	Username string
-	Avatar   string
+	DepartmentID *uuid.UUID
+	Status       int16
+	DeletedAt    *time.Time
+	ID           uuid.UUID
+	RealName     string
+	Username     string
+	Avatar       string
 }
 
 type TaskLog struct {

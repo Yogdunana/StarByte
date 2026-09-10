@@ -16,6 +16,9 @@ var sensitivePaths = map[string]bool{
 }
 
 func sanitizeRequestBody(path, body string) string {
+	if strings.HasPrefix(path, "/api/v1/votes/") && strings.HasSuffix(path, "/cast") {
+		return "[redacted: ballot choice]"
+	}
 	if sensitivePaths[path] {
 		return "[redacted: sensitive endpoint]"
 	}

@@ -44,33 +44,38 @@ func RegisterRoutes(
 	defHandler *DefinitionHandler,
 	instHandler *InstanceHandler,
 	taskHandler *TaskHandler,
+	security ...RouteSecurity,
 ) {
+	var config RouteSecurity
+	if len(security) > 0 {
+		config = security[0]
+	}
 	wf := r.Group("/workflow")
 	{
 		// ========== 流程定义 ==========
 		defs := wf.Group("/definitions")
 		{
-			defs.GET("", defHandler.List)
-			defs.POST("", defHandler.Create)
-			defs.GET("/:id", defHandler.GetByID)
-			defs.PUT("/:id", defHandler.Update)
-			defs.DELETE("/:id", defHandler.Delete)
-			defs.POST("/:id/publish", defHandler.Publish)
-			defs.PUT("/:id/draft", defHandler.SaveDraft)
-			defs.GET("/:id/versions", defHandler.ListVersions)
-			defs.GET("/:id/versions/:versionId", defHandler.GetVersionByID)
+			workflowPermission(defs, "workflow:read", config).GET("", defHandler.List)
+			workflowPermission(defs, "workflow:create", config).POST("", defHandler.Create)
+			workflowPermission(defs, "workflow:read", config).GET("/:id", defHandler.GetByID)
+			workflowPermission(workflowViewer(defs, "workflow:update", config), "workflow:update", config).PUT("/:id", defHandler.Update)
+			workflowPermission(workflowViewer(defs, "workflow:delete", config), "workflow:delete", config).DELETE("/:id", defHandler.Delete)
+			workflowPermission(workflowViewer(defs, "workflow:update", config), "workflow:update", config).POST("/:id/publish", defHandler.Publish)
+			workflowPermission(workflowViewer(defs, "workflow:update", config), "workflow:update", config).PUT("/:id/draft", defHandler.SaveDraft)
+			workflowPermission(defs, "workflow:read", config).GET("/:id/versions", defHandler.ListVersions)
+			workflowPermission(defs, "workflow:read", config).GET("/:id/versions/:versionId", defHandler.GetVersionByID)
 		}
 
 		// ========== 流程实例 ==========
 		instances := wf.Group("/instances")
 		{
-			instances.POST("", instHandler.Start)
-			instances.GET("", instHandler.List)
-			instances.GET("/:id", instHandler.GetByID)
-			instances.POST("/:id/terminate", instHandler.Terminate)
-			instances.POST("/:id/suspend", instHandler.Suspend)
-			instances.POST("/:id/resume", instHandler.Resume)
-			instances.GET("/:id/history", instHandler.ListHistory)
+			workflowPermission(instances, "workflow:create", config).POST("", instHandler.Start)
+			workflowViewer(instances, "workflow:read", config).GET("", instHandler.List)
+			workflowViewer(instances, "workflow:read", config).GET("/:id", instHandler.GetByID)
+			workflowViewer(instances, "workflow:update", config).POST("/:id/terminate", instHandler.Terminate)
+			workflowViewer(instances, "workflow:update", config).POST("/:id/suspend", instHandler.Suspend)
+			workflowViewer(instances, "workflow:update", config).POST("/:id/resume", instHandler.Resume)
+			workflowViewer(instances, "workflow:read", config).GET("/:id/history", instHandler.ListHistory)
 		}
 
 		// ========== 流程任务 ==========
@@ -78,7 +83,8 @@ func RegisterRoutes(
 		{
 			tasks.GET("/todo", taskHandler.ListTodoTasks)
 			tasks.GET("/done", taskHandler.ListDoneTasks)
-			tasks.GET("/:id", taskHandler.GetByID)
+			workflowViewer(tasks, "workflow:read", config).GET("/:id", taskHandler.GetByID)
+			workflowViewer(tasks, "workflow:read", config).GET("/:id/assignees", taskHandler.TransferCandidates)
 			tasks.POST("/:id/approve", taskHandler.Approve)
 			tasks.POST("/:id/reject", taskHandler.Reject)
 			tasks.POST("/:id/transfer", taskHandler.Transfer)

@@ -9,6 +9,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.uber.org/zap"
+
 	auditHandler "github.com/Yogdunana/StarByte/backend/internal/audit/handler"
 	auditRepo "github.com/Yogdunana/StarByte/backend/internal/audit/repo"
 	auditService "github.com/Yogdunana/StarByte/backend/internal/audit/service"
@@ -81,9 +85,6 @@ import (
 	"github.com/Yogdunana/StarByte/backend/pkg/redis"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/Yogdunana/StarByte/backend/pkg/storage"
-	"github.com/gin-gonic/gin"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"go.uber.org/zap"
 )
 
 // @title StarByte API
@@ -280,8 +281,13 @@ func main() {
 	// 入会申请 + 人员档案
 	memberAppRepo := memberRepo.NewApplicationRepo(database.DB())
 	interviewStarter := memberService.NewInterviewStarter(wfHandlers.DefinitionRepo, wfHandlers.InstanceService)
-	memberSvc := memberService.NewMemberService(memberAppRepo, memberProfRepo, interviewStarter)
-	memberH := memberHandler.NewMemberHandler(memberSvc)
+	if err := wfHandlers.RegisterBusinessApprover("member_application", memberService.NewAdmissionApprover(database.DB())); err != nil {
+		logger.Fatal("register admission workflow", zap.Error(err))
+	}
+	admissionSvc := memberService.NewAdmissionServiceWithWorkflow(database.DB(), wfHandlers.Engine, cacheService)
+	schedService.RegisterHandler("admission_maintenance", "检查候补到期并按异议状态转正", admissionSvc.Maintenance)
+	memberSvc := memberService.NewMemberService(memberAppRepo, memberProfRepo, interviewStarter, admissionSvc)
+	memberH := memberHandler.NewMemberHandler(memberSvc, admissionSvc)
 
 	// 面试管理
 	ivSessionRepo := interviewRepo.NewSessionRepo(database.DB())
@@ -297,8 +303,9 @@ func main() {
 	mtAttendeeRepo := meetingRepo.NewAttendeeRepo(database.DB())
 	mtVoteRepo := meetingRepo.NewVoteRepo(database.DB())
 	mtNotifier := meetingService.NewNotifier(notifSvc)
-	mtSvc := meetingService.NewMeetingService(mtMeetingRepo, mtAgendaRepo, mtAttendeeRepo, mtVoteRepo, mtNotifier)
+	mtSvc := meetingService.NewMeetingService(mtMeetingRepo, mtAgendaRepo, mtAttendeeRepo, mtVoteRepo, mtNotifier, database.DB())
 	mtH := meetingHandler.NewMeetingHandler(mtSvc)
+	schedService.RegisterHandler("meeting_vote_expiry", "按截止时间关闭会议投票", meetingService.NewVoteExpiryJob(database.DB()))
 
 	// 运行时业务配置（#47，复用 configs 表，不改 pkg/config YAML）
 	cfgRows := cfgstoreRepo.NewConfigRepo(database.DB())
@@ -317,7 +324,11 @@ func main() {
 	tkCommentRepo := taskRepo.NewCommentRepo(database.DB())
 	tkAttachRepo := taskRepo.NewAttachmentRepo(database.DB())
 	tkNotifier := taskService.NewNotifier(notifSvc)
-	tkSvc := taskService.NewTaskService(tkTaskRepo, tkLogRepo, tkCommentRepo, tkAttachRepo, tkNotifier, fileSvc, objectStore)
+	tkSvc := taskService.NewTaskService(tkTaskRepo, tkLogRepo, tkCommentRepo, tkAttachRepo, tkNotifier, fileSvc, objectStore, database.DB())
+	if err := wfHandlers.RegisterBusinessApprover("collaboration_task", taskService.NewTaskApprover(database.DB())); err != nil {
+		logger.Fatal("register task workflow", zap.Error(err))
+	}
+	tkSvc.SetWorkflowEngine(wfHandlers.Engine)
 	tkH := taskHandler.NewTaskHandler(tkSvc)
 	taskReminder := taskService.NewReminderScheduler(tkSvc)
 	taskReminder.Start()
@@ -390,7 +401,7 @@ func main() {
 		rbacHandler.RegisterRoutes(protected, database.DB(), roleHandler, permHandler, deptHandler, posHandler, cacheService, deptRepo)
 
 		// 工作流引擎模块
-		wfHandler.RegisterRoutes(protected, wfHandlers.Definition, wfHandlers.Instance, wfHandlers.Task)
+		wfHandler.RegisterRoutes(protected, wfHandlers.Definition, wfHandlers.Instance, wfHandlers.Task, wfHandler.RouteSecurity{DB: database.DB(), Cache: cacheService, Departments: deptRepo})
 
 		// 通知模块路由
 		notifHandler.RegisterRoutes(protected, protected, notificationHandler, templateHandler, wsHandler, emailHandler, cacheService)

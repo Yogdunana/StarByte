@@ -1,6 +1,10 @@
 package service
 
-import "github.com/Yogdunana/StarByte/backend/internal/meeting/model"
+import (
+	"math"
+
+	"github.com/Yogdunana/StarByte/backend/internal/meeting/model"
+)
 
 type optionAgg struct {
 	Count  int
@@ -13,9 +17,9 @@ func CalculateVoteResult(records []model.VoteRecord) (map[string]optionAgg, int,
 	for _, r := range records {
 		cur := agg[r.OptionKey]
 		cur.Count++
-		cur.Weight += r.Weight
+		cur.Weight = math.Round((cur.Weight+r.Weight)*100) / 100
 		agg[r.OptionKey] = cur
-		totalWeight += r.Weight
+		totalWeight = math.Round((totalWeight+r.Weight)*100) / 100
 	}
 	return agg, len(records), totalWeight
 }

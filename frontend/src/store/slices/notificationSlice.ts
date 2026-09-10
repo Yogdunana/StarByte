@@ -14,6 +14,8 @@ interface NotificationState {
   wsConnected: boolean;
   loading: boolean;
   error: string | null;
+  countRequest?: string;
+  recentRequest?: string;
 }
 
 const initialState: NotificationState = {
@@ -91,6 +93,9 @@ const notificationSlice = createSlice({
       state.recentNotifications = [];
       state.wsConnected = false;
       state.error = null;
+      state.loading = false;
+      state.countRequest = undefined;
+      state.recentRequest = undefined;
     },
     /** 通知列表中某条标记为已读（UI 即时更新） */
     markReadInList(state, action: PayloadAction<string>) {
@@ -110,20 +115,25 @@ const notificationSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      .addCase(fetchUnreadCount.pending, (state, action) => { state.countRequest = action.meta.requestId; })
       // 未读计数
-      .addCase(fetchUnreadCount.fulfilled, (state, action: PayloadAction<number>) => {
+      .addCase(fetchUnreadCount.fulfilled, (state, action) => {
+        if (state.countRequest !== action.meta.requestId) return;
         state.unreadCount = action.payload;
       })
       // 最近通知
-      .addCase(fetchRecentNotifications.pending, (state) => {
+      .addCase(fetchRecentNotifications.pending, (state, action) => {
+        state.recentRequest = action.meta.requestId;
         state.loading = true;
         state.error = null;
       })
-      .addCase(fetchRecentNotifications.fulfilled, (state, action: PayloadAction<Notification[]>) => {
+      .addCase(fetchRecentNotifications.fulfilled, (state, action) => {
+        if (state.recentRequest !== action.meta.requestId) return;
         state.loading = false;
         state.recentNotifications = action.payload;
       })
       .addCase(fetchRecentNotifications.rejected, (state, action) => {
+        if (state.recentRequest !== action.meta.requestId) return;
         state.loading = false;
         state.error = action.payload as string;
       })

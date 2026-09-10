@@ -5,16 +5,20 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/Yogdunana/StarByte/backend/internal/interview/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/interview/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/google/uuid"
 )
 
 func (s *interviewService) SubmitEvaluations(ctx context.Context, evaluator, id uuid.UUID, req *dto.SubmitEvaluationsRequest) (*dto.EvaluationSummary, error) {
 	iv, err := s.mustInterview(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	if iv.ApplicantID == evaluator {
+		return nil, response.NewError(response.CodeForbidden, "不能评价自己的面试")
 	}
 	if !canScore(iv.Status) {
 		return nil, response.NewError(response.CodeInterviewInvalidState, "当前状态不允许评分")
@@ -43,10 +47,21 @@ func (s *interviewService) SubmitEvaluations(ctx context.Context, evaluator, id 
 	if err := s.persistWeightedScore(ctx, iv); err != nil {
 		return nil, err
 	}
-	return s.GetEvaluations(ctx, id)
+	return s.evaluationSummary(ctx, id)
 }
 
-func (s *interviewService) GetEvaluations(ctx context.Context, id uuid.UUID) (*dto.EvaluationSummary, error) {
+func (s *interviewService) GetEvaluations(ctx context.Context, viewer Viewer, id uuid.UUID) (*dto.EvaluationSummary, error) {
+	row, people, err := s.readInterview(ctx, viewer, id)
+	if err != nil {
+		return nil, err
+	}
+	if !viewer.canReview(row, people) {
+		return nil, response.NewError(response.CodeForbidden, "无权查看内部评分")
+	}
+	return s.evaluationSummary(ctx, id)
+}
+
+func (s *interviewService) evaluationSummary(ctx context.Context, id uuid.UUID) (*dto.EvaluationSummary, error) {
 	row, err := s.records.GetByIDWithNames(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get interview: %w", err)
@@ -80,8 +95,14 @@ func (s *interviewService) UpdateEvaluation(ctx context.Context, evaluator, inte
 	if err != nil {
 		return nil, err
 	}
+	if iv.ApplicantID == evaluator {
+		return nil, response.NewError(response.CodeForbidden, "不能评价自己的面试")
+	}
 	if !canScore(iv.Status) {
 		return nil, response.NewError(response.CodeInterviewInvalidState, "当前状态不允许改分")
+	}
+	if err := s.ensureAssigned(ctx, interviewID, evaluator); err != nil {
+		return nil, err
 	}
 	if req.Score != nil {
 		dim, err := s.evals.GetDimensionByName(ctx, ev.Dimension)
@@ -100,7 +121,9 @@ func (s *interviewService) UpdateEvaluation(ctx context.Context, evaluator, inte
 	if err := s.evals.Update(ctx, ev); err != nil {
 		return nil, fmt.Errorf("update evaluation: %w", err)
 	}
-	_ = s.persistWeightedScore(ctx, iv)
+	if err := s.persistWeightedScore(ctx, iv); err != nil {
+		return nil, err
+	}
 	return &dto.EvaluationResponse{
 		ID: ev.ID.String(), InterviewID: ev.InterviewID.String(),
 		Evaluator: dto.Person{ID: ev.InterviewerID.String()},
@@ -113,6 +136,9 @@ func (s *interviewService) SubmitResult(ctx context.Context, operator, id uuid.U
 	iv, err := s.mustInterview(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	if operator == iv.ApplicantID {
+		return nil, response.NewError(response.CodeForbidden, "不能处理自己的面试结果")
 	}
 	if !canSubmitResult(iv.Status) {
 		return nil, response.NewError(response.CodeInterviewInvalidState, "当前状态不允许提交结果")
@@ -134,11 +160,11 @@ func (s *interviewService) SubmitResult(ctx context.Context, operator, id uuid.U
 	}
 	s.notifyResult(ctx, iv)
 	if iv.ApplicationID != nil && s.syncer != nil && req.Result != model.ResultPending {
-		if err := s.syncer.SyncFromInterview(ctx, operator, *iv.ApplicationID, req.Result, req.Comment); err != nil {
+		if err := s.syncer.SyncFromInterview(ctx, operator, *iv.ApplicationID, req.Result, resultLabel(req.Result)); err != nil {
 			return nil, err
 		}
 	}
-	return s.GetInterview(ctx, id, nil)
+	return s.interviewResponse(ctx, id)
 }
 
 func (s *interviewService) ensureAssigned(ctx context.Context, interviewID, evaluator uuid.UUID) error {

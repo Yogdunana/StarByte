@@ -3,10 +3,12 @@ package service
 import (
 	"context"
 
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+
 	"github.com/Yogdunana/StarByte/backend/internal/meeting/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/meeting/repo"
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
-	"github.com/google/uuid"
 )
 
 type Notifier interface {
@@ -49,11 +51,15 @@ type MeetingService interface {
 }
 
 type meetingService struct {
-	meetings  repo.MeetingRepo
-	agendas   repo.AgendaRepo
-	attendees repo.AttendeeRepo
-	votes     repo.VoteRepo
-	notify    Notifier
+	electorate  repo.ElectorateRepo
+	afterCommit *[]func()
+	access      repo.AccessRepo
+	db          *gorm.DB
+	meetings    repo.MeetingRepo
+	agendas     repo.AgendaRepo
+	attendees   repo.AttendeeRepo
+	votes       repo.VoteRepo
+	notify      Notifier
 }
 
 func NewMeetingService(
@@ -62,8 +68,17 @@ func NewMeetingService(
 	attendees repo.AttendeeRepo,
 	votes repo.VoteRepo,
 	notify Notifier,
+	databases ...*gorm.DB,
 ) MeetingService {
-	return &meetingService{
+	s := &meetingService{
 		meetings: meetings, agendas: agendas, attendees: attendees, votes: votes, notify: notify,
 	}
+	if len(databases) > 0 {
+		s.db = databases[0]
+		if s.db != nil {
+			s.access = repo.NewAccessRepo(s.db)
+			s.electorate = repo.NewElectorateRepo(s.db)
+		}
+	}
+	return s
 }

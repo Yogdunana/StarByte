@@ -3,8 +3,9 @@ package service
 import (
 	"testing"
 
-	"github.com/Yogdunana/StarByte/backend/internal/meeting/model"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Yogdunana/StarByte/backend/internal/meeting/model"
 )
 
 func TestResolveWeight_EqualAlwaysOne(t *testing.T) {
@@ -22,9 +23,10 @@ func TestResolveWeight_FromConfig(t *testing.T) {
 }
 
 func TestParseWeightConfig_Fallback(t *testing.T) {
-	cfg := parseWeightConfig(`{"weights":{"president":9},"default_weight":2}`)
+	cfg, err := parseWeightConfig(`{"weights":{"president":9},"default_weight":2}`)
+	require.NoError(t, err)
 	require.Equal(t, 9.0, cfg.Weights["president"])
 	require.Equal(t, 2.0, cfg.DefaultWeight)
-	bad := parseWeightConfig("not-json")
-	require.Equal(t, 5.0, bad.Weights["president"])
+	_, err = parseWeightConfig("not-json")
+	require.Error(t, err)
 }

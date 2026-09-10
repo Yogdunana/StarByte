@@ -6,13 +6,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
-	"github.com/Yogdunana/StarByte/backend/pkg/events"
-	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
+
+	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
+	"github.com/Yogdunana/StarByte/backend/pkg/events"
+	"github.com/Yogdunana/StarByte/backend/pkg/response"
 )
 
 // --- Mock Repos for engine tests ---
@@ -115,7 +116,13 @@ func (m *mockTaskRepo) ListDoneTasks(ctx context.Context, assigneeID uuid.UUID, 
 	return nil, 0, nil
 }
 func (m *mockTaskRepo) ListTasksByInstance(ctx context.Context, instanceID uuid.UUID) ([]model.FlowTask, error) {
-	return nil, nil
+	tasks := []model.FlowTask{}
+	for _, task := range m.tasks {
+		if task.InstanceID == instanceID {
+			tasks = append(tasks, *task)
+		}
+	}
+	return tasks, nil
 }
 func (m *mockTaskRepo) CreateHistory(ctx context.Context, tx *gorm.DB, hist *model.FlowHistory) error {
 	return nil

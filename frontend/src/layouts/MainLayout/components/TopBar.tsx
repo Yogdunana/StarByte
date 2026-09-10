@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layout, Avatar, Dropdown, Breadcrumb, theme } from 'antd';
+import { Layout, Avatar, Dropdown, Breadcrumb, Button, theme } from 'antd';
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -24,10 +24,13 @@ import { useNotificationWebSocket } from '@/hooks/useNotificationWebSocket';
 import NotificationBell from '@/components/NotificationBell';
 import { useThemeLang } from '@/theme/ThemeLangContext';
 import type { AppDispatch } from '@/store';
+import styles from './TopBar.module.css';
 
 const { Header: AntHeader } = Layout;
 
-const TopBar: React.FC = () => {
+interface TopBarProps { mobile?: boolean; onOpenMenu?: () => void }
+
+const TopBar: React.FC<TopBarProps> = ({ mobile, onOpenMenu }) => {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const dispatch = useDispatch<AppDispatch>();
@@ -35,7 +38,7 @@ const TopBar: React.FC = () => {
   const location = useLocation();
   const collapsed = useSelector((state: { app: { collapsed: boolean } }) => state.app.collapsed);
   const currentUser = useSelector(selectCurrentUser);
-  const { setLang, setPreference, preference, lang } = useThemeLang();
+  const { setLang, setPreference, preference, lang, reduceMotion, setReduceMotion } = useThemeLang();
 
   useNotificationWebSocket();
 
@@ -63,6 +66,8 @@ const TopBar: React.FC = () => {
     { key: 'light', label: t('topbar.themeLight'), onClick: () => setPreference('light') },
     { key: 'dark', label: t('topbar.themeDark'), onClick: () => setPreference('dark') },
     { key: 'system', label: t('topbar.themeSystem'), onClick: () => setPreference('system') },
+    { type: 'divider' as const },
+    { key: 'motion', label: reduceMotion ? '恢复视觉动效（遵循系统设置）' : '减少视觉动效', onClick: () => setReduceMotion(!reduceMotion) },
   ];
 
   const langItems = [
@@ -73,47 +78,36 @@ const TopBar: React.FC = () => {
   const paths = location.pathname.split('/').filter(Boolean);
   const crumbs = paths.map((_, idx) => {
     const full = `/${paths.slice(0, idx + 1).join('/')}`;
-    return { title: t(`menu.${full}`, { defaultValue: paths[idx] }) };
+    return { title: t(`menu.${full}`, { defaultValue: /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(paths[idx]) ? '详情' : paths[idx] }) };
   });
 
   return (
-    <AntHeader
-      style={{
-        padding: '0 16px',
-        background: token.colorBgContainer,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        boxShadow: '0 1px 4px rgba(0,21,41,.08)',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        {React.createElement(collapsed ? MenuUnfoldOutlined : MenuFoldOutlined, {
-          className: 'trigger',
-          onClick: () => dispatch(toggleCollapsed()),
-          style: { fontSize: 18, cursor: 'pointer' },
-        })}
-        <Breadcrumb items={crumbs} />
+    <AntHeader className={styles.header}>
+      <div className={styles.leading}>
+        <Button type="text" aria-label={mobile ? '打开导航' : collapsed ? '展开导航' : '收起导航'}
+          icon={collapsed || mobile ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+          onClick={() => mobile ? onOpenMenu?.() : dispatch(toggleCollapsed())} />
+        <Breadcrumb className={styles.breadcrumb} items={crumbs} />
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <Dropdown menu={{ items: themeItems, selectedKeys: [preference] }} placement="bottomRight">
-          <BgColorsOutlined style={{ fontSize: 16, cursor: 'pointer' }} title={t('topbar.theme')} />
+      <div className={styles.actions}>
+        <Dropdown trigger={['click']} menu={{ items: themeItems, selectedKeys: [preference] }} placement="bottomRight">
+          <Button type="text" aria-label={t('topbar.theme')} icon={<BgColorsOutlined />} />
         </Dropdown>
-        <Dropdown menu={{ items: langItems, selectedKeys: [lang] }} placement="bottomRight">
-          <GlobalOutlined style={{ fontSize: 16, cursor: 'pointer' }} title={t('topbar.language')} />
+        <Dropdown trigger={['click']} menu={{ items: langItems, selectedKeys: [lang] }} placement="bottomRight">
+          <Button type="text" className={styles.language} aria-label={t('topbar.language')} icon={<GlobalOutlined />} />
         </Dropdown>
         <NotificationBell />
-        <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-          <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: 8 }}>
+        <Dropdown trigger={['click']} menu={{ items: userMenuItems }} placement="bottomRight">
+          <button type="button" className={styles.account} aria-label="账号菜单">
             <Avatar size="small" src={currentUser?.avatar_url} icon={!currentUser?.avatar_url && <UserOutlined />} />
-            <span style={{ fontSize: 14, display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
+            <span className={styles.accountText}>
               <span>{currentUser?.real_name || currentUser?.username || t('common.user')}</span>
               {currentUser?.student_no ? (
                 <span style={{ fontSize: 12, color: token.colorTextSecondary }}>{currentUser.student_no}</span>
               ) : null}
             </span>
-          </div>
+          </button>
         </Dropdown>
       </div>
     </AntHeader>

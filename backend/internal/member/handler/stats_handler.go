@@ -1,9 +1,10 @@
 package handler
 
 import (
+	"github.com/gin-gonic/gin"
+
 	"github.com/Yogdunana/StarByte/backend/internal/member/dto"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/gin-gonic/gin"
 )
 
 // ApplicationStats 申请统计
@@ -25,6 +26,12 @@ func (h *MemberHandler) ApplicationStats(c *gin.Context) {
 		response.BadRequest(c, "参数错误: "+err.Error())
 		return
 	}
+	userID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	q.ViewerID, q.Scope = userID, dataScope(c)
 	result, err := h.svc.ApplicationStats(c.Request.Context(), &q)
 	if err != nil {
 		response.Error(c, err)
@@ -50,6 +57,12 @@ func (h *MemberHandler) MemberStats(c *gin.Context) {
 		response.BadRequest(c, "参数错误: "+err.Error())
 		return
 	}
+	userID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	q.ViewerID, q.Scope = userID, dataScope(c)
 	result, err := h.svc.MemberStats(c.Request.Context(), &q)
 	if err != nil {
 		response.Error(c, err)

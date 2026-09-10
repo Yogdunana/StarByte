@@ -16,9 +16,10 @@ const (
 
 // 档案状态
 const (
-	ProfileActive   int16 = 0
-	ProfileDisabled int16 = 1
-	ProfileLeft     int16 = 2
+	ProfileActive    int16 = 0
+	ProfileDisabled  int16 = 1
+	ProfileLeft      int16 = 2
+	ProfileProbation int16 = 3
 )
 
 // MemberProfile 人员档案。

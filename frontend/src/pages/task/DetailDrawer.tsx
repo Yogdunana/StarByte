@@ -1,194 +1,82 @@
-import React, { useEffect, useState } from 'react';
-import { Button, Descriptions, Drawer, Input, List, Space, Tabs, Tag, Upload, message } from 'antd';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Button, Descriptions, Drawer, Empty, Input, List, Modal, Space, Spin, Tabs, Tag, Timeline, Upload, message } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
-import StatusTag from '@/components/StatusTag/StatusTag';
-import { usePermission } from '@/hooks/usePermission';
 import { useSelector } from 'react-redux';
+import dayjs from 'dayjs';
+import StatusTag from '@/components/StatusTag/StatusTag';
 import { selectCurrentUser } from '@/store/slices/userSlice';
-import {
-  addTaskComment, deleteTaskAttachment, deleteTaskComment, downloadTaskAttachment,
-  getTaskAttachments, getTaskComments, getTaskDetail, getTaskLogs, updateTaskStatus,
-  uploadTaskAttachment, urgeTask,
-} from '@/api/task';
+import { addTaskComment, deleteTaskAttachment, deleteTaskComment, downloadTaskAttachment, getTaskAttachments, getTaskComments, getTaskDetail, getTaskLogs, updateTaskStatus, uploadTaskAttachment, urgeTask } from '@/api/task';
 import type { Task, TaskAttachment, TaskComment, TaskLog } from '@/types/api';
 import { TaskPriorityMap, TaskStatusMap } from './meta';
-
-interface Props {
-  taskId: string | null;
-  open: boolean;
-  onClose: () => void;
-  onChanged: () => void;
-}
-
-const DetailDrawer: React.FC<Props> = ({ taskId, open, onClose, onChanged }) => {
-  const canUpdate = usePermission('task:update');
-  const canComment = usePermission('task:comment');
-  const canCreate = usePermission('task:create');
+import { taskDate } from './TaskCollection';
+import AssignmentModal from './AssignmentModal';
+import WorkflowPanel from './WorkflowPanel';
+import styles from './TaskWorkspace.module.css';
+interface Props { taskId: string | null; open: boolean; onClose: () => void; onChanged: () => void }
+const actionNames: Record<string, string> = { auto_assign: '按规则自动分配', create: '创建任务', assign: '分配负责人', transfer: '转办任务', status_change: '更新状态', comment: '添加评论', urge: '催办任务', delete: '删除任务', attachment_add: '添加附件', attachment_remove: '删除附件', attachment_remove_requested: '申请删除附件' };
+const historyText = (log: TaskLog) => log.action_type === 'status_change' ? `${TaskStatusMap[Number(log.old_value)]?.text || '原状态'} → ${TaskStatusMap[Number(log.new_value)]?.text || '新状态'}` : log.action_type === 'create' ? log.new_value : '';
+export default function DetailDrawer({ taskId, open, onClose, onChanged }: Props) {
   const me = useSelector(selectCurrentUser);
+  const [modal, holder] = Modal.useModal();
   const [task, setTask] = useState<Task | null>(null);
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [logs, setLogs] = useState<TaskLog[]>([]);
   const [files, setFiles] = useState<TaskAttachment[]>([]);
   const [content, setContent] = useState('');
-
-  const load = async (id: string) => {
-    const [t, c, l, a] = await Promise.all([
-      getTaskDetail(id),
-      getTaskComments(id),
-      getTaskLogs(id),
-      getTaskAttachments(id),
-    ]);
-    setTask(t);
-    setComments(c || []);
-    setLogs(l || []);
-    setFiles(a || []);
-  };
-
-  useEffect(() => {
-    if (open && taskId) {
-      void load(taskId);
-    }
-  }, [open, taskId]);
-
-  const changeStatus = async (status: number) => {
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [assignment, setAssignment] = useState<'assign' | 'transfer' | null>(null);
+  const seq = useRef(0);
+  const invalidate = useCallback(() => { seq.current++; }, []);
+  const load = useCallback(async () => {
     if (!taskId) return;
-    await updateTaskStatus(taskId, status);
-    message.success('状态已更新');
-    await load(taskId);
-    onChanged();
+    const current = ++seq.current; setLoading(true);
+    try {
+      const [t, c, l, a] = await Promise.all([getTaskDetail(taskId), getTaskComments(taskId), getTaskLogs(taskId), getTaskAttachments(taskId)]);
+      if (seq.current !== current) return;
+      setTask(t); setComments(c || []); setLogs(l || []); setFiles(a || []); setFailed(false);
+    } catch { if (seq.current === current) setFailed(true); } finally { if (seq.current === current) setLoading(false); }
+  }, [taskId]);
+  useEffect(() => { setTask(null); setContent(''); setFailed(false); setAssignment(null); if (open) void load(); return invalidate; }, [open, load, invalidate]);
+  const run = async (work: () => Promise<unknown>, success: string) => {
+    if (busy) return; setBusy(true);
+    try { await work(); message.success(success); await load(); onChanged(); } catch { /* API interceptor reports failure. */ } finally { setBusy(false); }
   };
-
-  return (
-    <Drawer title={task?.title || '任务详情'} width={640} open={open} onClose={onClose}>
-      {task && (
-        <>
-          <Descriptions column={2} size="small" style={{ marginBottom: 16 }}>
-            <Descriptions.Item label="状态"><StatusTag status={task.status} mapping={TaskStatusMap} /></Descriptions.Item>
-            <Descriptions.Item label="优先级"><StatusTag status={task.priority} mapping={TaskPriorityMap} /></Descriptions.Item>
-            <Descriptions.Item label="负责人">{task.assignee?.name || '-'}</Descriptions.Item>
-            <Descriptions.Item label="创建人">{task.creator?.name || '-'}</Descriptions.Item>
-            <Descriptions.Item label="部门">{task.department?.name || '-'}</Descriptions.Item>
-            <Descriptions.Item label="截止">{task.due_date?.replace('T', ' ').slice(0, 16) || '-'}</Descriptions.Item>
-            <Descriptions.Item label="标签" span={2}>
-              {(task.tags || []).map((tag) => <Tag key={tag}>{tag}</Tag>)}
-            </Descriptions.Item>
-            <Descriptions.Item label="说明" span={2}>{task.description || '-'}</Descriptions.Item>
-          </Descriptions>
-          <Space wrap style={{ marginBottom: 16 }}>
-            {canUpdate && task.status === 0 && <Button onClick={() => changeStatus(1)}>开始</Button>}
-            {canUpdate && task.status === 1 && <Button onClick={() => changeStatus(2)}>完成</Button>}
-            {canUpdate && task.status === 1 && <Button onClick={() => changeStatus(4)}>挂起</Button>}
-            {canUpdate && task.status === 4 && <Button onClick={() => changeStatus(1)}>恢复</Button>}
-            {canUpdate && (task.status === 0 || task.status === 1) && <Button danger onClick={() => changeStatus(3)}>取消</Button>}
-            {canCreate && task.creator?.id === me?.id && task.assignee && (
-              <Button onClick={() => urgeTask(task.id, '请尽快处理').then(() => message.success('已催办'))}>催办</Button>
-            )}
-          </Space>
-          <Tabs
-            items={[
-              {
-                key: 'comments',
-                label: `评论 (${task.comment_count})`,
-                children: (
-                  <>
-                    <List
-                      dataSource={comments}
-                      locale={{ emptyText: '暂无评论' }}
-                      renderItem={(item) => (
-                        <List.Item
-                          actions={item.user_id === me?.id ? [
-                            <Button key="d" type="link" size="small" danger onClick={() => deleteTaskComment(task.id, item.id).then(() => load(task.id))}>删除</Button>,
-                          ] : undefined}
-                        >
-                          <List.Item.Meta title={item.user?.name} description={item.content} />
-                        </List.Item>
-                      )}
-                    />
-                    {canComment && (
-                      <Space.Compact style={{ width: '100%', marginTop: 12 }}>
-                        <Input.TextArea
-                          rows={2}
-                          value={content}
-                          onChange={(e) => setContent(e.target.value)}
-                          placeholder="评论，可用 @username 提及"
-                        />
-                        <Button
-                          type="primary"
-                          onClick={async () => {
-                            if (!content.trim()) return;
-                            await addTaskComment(task.id, content.trim());
-                            setContent('');
-                            await load(task.id);
-                            onChanged();
-                          }}
-                        >
-                          发送
-                        </Button>
-                      </Space.Compact>
-                    )}
-                  </>
-                ),
-              },
-              {
-                key: 'files',
-                label: `附件 (${task.attachment_count})`,
-                children: (
-                  <>
-                    <List
-                      dataSource={files}
-                      locale={{ emptyText: '暂无附件' }}
-                      renderItem={(item) => (
-                        <List.Item
-                          actions={[
-                            <Button key="dl" type="link" size="small" onClick={() => downloadTaskAttachment(task.id, item.id, item.file_name)}>下载</Button>,
-                            canUpdate ? <Button key="rm" type="link" size="small" danger onClick={() => deleteTaskAttachment(task.id, item.id).then(() => load(task.id))}>删除</Button> : null,
-                          ]}
-                        >
-                          {item.file_name} ({Math.round(item.file_size / 1024)} KB)
-                        </List.Item>
-                      )}
-                    />
-                    {canUpdate && (
-                      <Upload
-                        showUploadList={false}
-                        beforeUpload={async (file) => {
-                          await uploadTaskAttachment(task.id, file);
-                          message.success('已上传');
-                          await load(task.id);
-                          onChanged();
-                          return false;
-                        }}
-                      >
-                        <Button icon={<UploadOutlined />} style={{ marginTop: 8 }}>上传附件</Button>
-                      </Upload>
-                    )}
-                  </>
-                ),
-              },
-              {
-                key: 'logs',
-                label: '流转历史',
-                children: (
-                  <List
-                    dataSource={logs}
-                    locale={{ emptyText: '暂无记录' }}
-                    renderItem={(item) => (
-                      <List.Item>
-                        <List.Item.Meta
-                          title={`${item.operator?.name} · ${item.action_type}`}
-                          description={`${item.old_value || '-'} → ${item.new_value || '-'} ${item.comment || ''} ${item.created_at?.replace('T', ' ').slice(0, 16)}`}
-                        />
-                      </List.Item>
-                    )}
-                  />
-                ),
-              },
-            ]}
-          />
-        </>
-      )}
-    </Drawer>
-  );
-};
-
-export default DetailDrawer;
+  const changeStatus = (status: number) => {
+    if (!task) return;
+    let reason = '';
+    const work = () => updateTaskStatus(task.id, status, reason);
+    if ([2, 3].includes(status)) modal.confirm({ title: status === 2 ? '确认这项任务已经完成？' : '取消这项任务？', content: status === 3 ? <Input.TextArea placeholder="请填写取消原因" onChange={e => { reason = e.target.value; }} /> : '关闭后将保留历史记录，无法继续编辑或转办。', okText: status === 2 ? '确认完成' : '取消任务', cancelText: '继续处理', okButtonProps: { danger: status === 3 }, onOk: async () => { if (status === 3 && !reason.trim()) { message.warning('请填写取消原因'); throw new Error('reason required'); } await work(); message.success('状态已更新'); await load(); onChanged(); } });
+    else void run(work, '状态已更新');
+  };
+  return <Drawer title="任务详情" width={720} open={open} onClose={() => { if (!busy) onClose(); }} styles={{ body: { padding: '20px clamp(16px, 4vw, 28px)' } }}>{holder}
+    {loading && !task && <Spin tip="正在加载任务"><div style={{ minHeight: 180 }} /></Spin>}
+    {failed && <Alert type="error" showIcon message="任务详情加载失败" description="任务可能已转办、删除，或暂时无法连接。" action={<Button onClick={() => void load()}>重试</Button>} style={{ marginBottom: 16 }} />}
+    {task && <><div className={styles.detailHeading}><Space><StatusTag status={task.status} mapping={TaskStatusMap} /><StatusTag status={task.priority} mapping={TaskPriorityMap} /></Space><h2>{task.title}</h2><p>{task.creator.name} 创建于 {dayjs(task.created_at).format('YYYY-MM-DD HH:mm')}</p></div>
+      <Descriptions column={{ xs: 1, sm: 2 }} size="small"><Descriptions.Item label="负责人">{task.assignee?.name || '待分配'}</Descriptions.Item><Descriptions.Item label="所属部门">{task.department?.name || '个人协作'}</Descriptions.Item><Descriptions.Item label="截止时间">{taskDate(task.due_date)}</Descriptions.Item><Descriptions.Item label="标签">{task.tags.length ? task.tags.map(tag => <Tag key={tag}>{tag}</Tag>) : '无标签'}</Descriptions.Item></Descriptions>
+      <div className={styles.description}>{task.description || '暂未填写任务说明。'}</div>
+      {task.children.length > 0 && <Alert type="info" message="关联子任务" description={task.children.map(child => <div key={child.id}>{child.title} · {TaskStatusMap[child.status]?.text}</div>)} />}
+      <div className={styles.actions}>
+        {task.can_update && (!task.workflow_stage || task.assignee?.id === me?.id) && task.status === 0 && <Button type="primary" disabled={busy} onClick={() => changeStatus(1)}>开始处理</Button>}
+        {task.can_update && (!task.workflow_stage || task.assignee?.id === me?.id) && task.status === 1 && <>{!task.workflow_stage && <Button type="primary" disabled={busy} onClick={() => changeStatus(2)}>完成任务</Button>}<Button disabled={busy} onClick={() => changeStatus(4)}>暂时挂起</Button></>}
+        {task.can_update && (!task.workflow_stage || task.assignee?.id === me?.id) && task.status === 4 && <Button type="primary" disabled={busy} onClick={() => changeStatus(1)}>恢复处理</Button>}
+        {task.can_assign && <Button disabled={busy} onClick={() => setAssignment('assign')}>分配负责人</Button>}
+        {task.can_transfer && <Button disabled={busy} onClick={() => setAssignment('transfer')}>转办</Button>}
+        {task.can_urge && <Button disabled={busy} onClick={() => void run(() => urgeTask(task.id, '请查看任务进度并及时处理'), '催办已发送')}>提醒负责人</Button>}
+        {task.can_cancel && <Button danger disabled={busy} onClick={() => changeStatus(3)}>取消任务</Button>}
+      </div>
+      <Tabs items={[
+ ...(task.workflow_instance_id ? [{ key: 'workflow', label: '审核验收', children: <WorkflowPanel taskId={task.id} onChanged={() => { onChanged(); void load(); }} /> }] : []),
+        { key: 'comments', label: `讨论 · ${comments.length}`, children: <>
+          {!comments.length && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有讨论，写下进展或需要协助的事" />}
+          {comments.map(item => <article className={styles.comment} key={item.id}><div className={styles.commentHead}><strong>{item.user?.name || '协作成员'}</strong><span>{dayjs(item.created_at).format('MM-DD HH:mm')}</span></div><p>{item.content}</p>{task.can_comment && item.user_id === me?.id && <Button size="small" type="text" danger disabled={busy} onClick={() => modal.confirm({ title: '删除这条评论？', okText: '删除评论', cancelText: '保留', onOk: async () => { await deleteTaskComment(task.id, item.id); await load(); onChanged(); } })}>删除评论</Button>}</article>)}
+          {task.can_comment && <div className={styles.composer}><Input.TextArea rows={3} value={content} onChange={e => setContent(e.target.value)} placeholder="记录进展、问题或交接说明" /><div><small>@ 提及会发送通知；无权参与的人不会收到讨论内容。</small><Button type="primary" loading={busy} disabled={!content.trim()} onClick={() => void run(async () => { await addTaskComment(task.id, content.trim()); setContent(''); }, '评论已发布')}>发布评论</Button></div></div>}
+        </> },
+        { key: 'files', label: `附件 · ${files.length}`, children: <><List dataSource={files} locale={{ emptyText: '暂无附件' }} renderItem={item => <List.Item actions={[<Button key="download" type="text" onClick={() => void run(() => downloadTaskAttachment(task.id, item.id, item.file_name), '下载已开始')}>下载</Button>, task.can_update && <Button key="delete" type="text" danger onClick={() => modal.confirm({ title: '删除这个附件及存储文件？', content: '原文件也会删除；若存储暂不可用，系统会记录请求并重试。', okText: '删除附件', cancelText: '保留', onOk: async () => { await deleteTaskAttachment(task.id, item.id); await load(); onChanged(); } })}>删除</Button>]}><List.Item.Meta title={item.file_name} description={`${Math.max(1, Math.round(item.file_size / 1024))} KB · ${taskDate(item.created_at)}`} /></List.Item>} />{task.can_update && <Upload accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" showUploadList={false} disabled={busy} beforeUpload={async file => { await run(() => uploadTaskAttachment(task.id, file), '附件已上传'); return false; }}><Button icon={<UploadOutlined />} loading={busy}>上传文档（最大 50 MB）</Button></Upload>}</> },
+        { key: 'logs', label: '流转历史', children: <Timeline className={styles.history} items={logs.map(log => ({ children: <><strong>{log.operator?.name || '协作成员'} · {actionNames[log.action_type] || '更新任务'}</strong>{historyText(log) && <p>{historyText(log)}</p>}{log.comment && <p>{log.comment}</p>}<small>{dayjs(log.created_at).format('YYYY-MM-DD HH:mm')}</small></> }))} /> },
+      ]} />
+      <AssignmentModal task={task} mode={assignment} onClose={() => setAssignment(null)} onSaved={async () => { onChanged(); await load(); }} />
+    </>}
+  </Drawer>;
+}

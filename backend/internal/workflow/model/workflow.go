@@ -59,6 +59,8 @@ func (FlowDefinitionVersion) TableName() string {
 //
 // Status values: 0=running, 1=completed, 2=terminated, 3=suspended.
 type FlowInstance struct {
+	DefinitionName      string     `gorm:"->;-:migration" json:"definition_name"`
+	InitiatorName       string     `gorm:"->;-:migration" json:"initiator_name"`
 	ID                  uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
 	DefinitionID        uuid.UUID  `gorm:"type:uuid;index;not null" json:"definition_id"`
 	DefinitionVersionID uuid.UUID  `gorm:"type:uuid;not null" json:"definition_version_id"`
@@ -85,21 +87,27 @@ func (FlowInstance) TableName() string {
 // Status values: 0=pending, 1=approved, 2=rejected, 3=transferred,
 // 4=withdrawn, 5=cancelled.
 type FlowTask struct {
-	ID          uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
-	InstanceID  uuid.UUID  `gorm:"type:uuid;index;not null" json:"instance_id"`
-	NodeID      string     `gorm:"type:varchar(100);not null" json:"node_id"`
-	NodeName    string     `gorm:"type:varchar(200)" json:"node_name"`
-	TaskType    string     `gorm:"type:varchar(50);default:approval" json:"task_type"`
-	AssigneeID  *uuid.UUID `gorm:"type:uuid;index" json:"assignee_id"`
-	Status      int        `gorm:"type:smallint;default:0;index" json:"status"`
-	Action      string     `gorm:"type:varchar(50)" json:"action"`
-	Comment     string     `gorm:"type:text" json:"comment"`
-	FormData    []byte     `gorm:"type:jsonb" json:"form_data"`
-	DueDate     *time.Time `json:"due_date"`
-	ClaimedAt   *time.Time `json:"claimed_at"`
-	CompletedAt *time.Time `json:"completed_at"`
-	CreatedAt   time.Time  `gorm:"index" json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
+	DefinitionName string     `gorm:"->;-:migration" json:"definition_name"`
+	AssigneeName   string     `gorm:"->;-:migration" json:"assignee_name"`
+	InstanceStatus int        `gorm:"->;-:migration" json:"instance_status"`
+	BusinessType   string     `gorm:"->;-:migration" json:"business_type"`
+	BusinessKey    string     `gorm:"->;-:migration" json:"business_key"`
+	ActivationID   *uuid.UUID `gorm:"type:uuid;index:idx_flow_tasks_activation" json:"activation_id,omitempty"`
+	ID             uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
+	InstanceID     uuid.UUID  `gorm:"type:uuid;index;not null" json:"instance_id"`
+	NodeID         string     `gorm:"type:varchar(100);not null" json:"node_id"`
+	NodeName       string     `gorm:"type:varchar(200)" json:"node_name"`
+	TaskType       string     `gorm:"type:varchar(50);default:approval" json:"task_type"`
+	AssigneeID     *uuid.UUID `gorm:"type:uuid;index" json:"assignee_id"`
+	Status         int        `gorm:"type:smallint;default:0;index" json:"status"`
+	Action         string     `gorm:"type:varchar(50)" json:"action"`
+	Comment        string     `gorm:"type:text" json:"comment"`
+	FormData       []byte     `gorm:"type:jsonb" json:"form_data"`
+	DueDate        *time.Time `json:"due_date"`
+	ClaimedAt      *time.Time `json:"claimed_at"`
+	CompletedAt    *time.Time `json:"completed_at"`
+	CreatedAt      time.Time  `gorm:"index" json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
 }
 
 // TableName overrides the default GORM table name.
@@ -110,18 +118,19 @@ func (FlowTask) TableName() string {
 // FlowHistory records every significant operation in a flow instance,
 // providing a full audit trail of process execution.
 type FlowHistory struct {
-	ID         uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
-	InstanceID uuid.UUID  `gorm:"type:uuid;index;not null" json:"instance_id"`
-	TaskID     *uuid.UUID `gorm:"type:uuid" json:"task_id"`
-	NodeID     string     `gorm:"type:varchar(100)" json:"node_id"`
-	NodeName   string     `gorm:"type:varchar(200)" json:"node_name"`
-	NodeType   string     `gorm:"type:varchar(50)" json:"node_type"`
-	OperatorID *uuid.UUID `gorm:"type:uuid;index" json:"operator_id"`
-	Action     string     `gorm:"type:varchar(50);not null" json:"action"`
-	Comment    string     `gorm:"type:text" json:"comment"`
-	FromNodeID string     `gorm:"type:varchar(100)" json:"from_node_id"`
-	ToNodeID   string     `gorm:"type:varchar(100)" json:"to_node_id"`
-	CreatedAt  time.Time  `gorm:"index" json:"created_at"`
+	OperatorName string     `gorm:"->;-:migration" json:"operator_name"`
+	ID           uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
+	InstanceID   uuid.UUID  `gorm:"type:uuid;index;not null" json:"instance_id"`
+	TaskID       *uuid.UUID `gorm:"type:uuid" json:"task_id"`
+	NodeID       string     `gorm:"type:varchar(100)" json:"node_id"`
+	NodeName     string     `gorm:"type:varchar(200)" json:"node_name"`
+	NodeType     string     `gorm:"type:varchar(50)" json:"node_type"`
+	OperatorID   *uuid.UUID `gorm:"type:uuid;index" json:"operator_id"`
+	Action       string     `gorm:"type:varchar(50);not null" json:"action"`
+	Comment      string     `gorm:"type:text" json:"comment"`
+	FromNodeID   string     `gorm:"type:varchar(100)" json:"from_node_id"`
+	ToNodeID     string     `gorm:"type:varchar(100)" json:"to_node_id"`
+	CreatedAt    time.Time  `gorm:"index" json:"created_at"`
 }
 
 // TableName overrides the default GORM table name.

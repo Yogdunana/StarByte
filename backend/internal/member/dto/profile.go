@@ -1,6 +1,10 @@
 package dto
 
-import "time"
+import (
+	"time"
+
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
+)
 
 // NamedRef 部门/职位摘要。
 type NamedRef struct {
@@ -41,8 +45,9 @@ type UpdateProfileRequest struct {
 
 // UpdateProfileStatusRequest 变更档案状态。
 type UpdateProfileStatusRequest struct {
-	Status int16  `json:"status" binding:"required,oneof=0 1 2"`
-	Reason string `json:"reason" binding:"required,max=500"`
+	Scope  *rbacModel.DataScopeCondition `json:"-" form:"-"`
+	Status int16                         `json:"status" binding:"required,oneof=0 1 2"`
+	Reason string                        `json:"reason" binding:"required,max=500"`
 }
 
 // ProfileResponse 档案详情。

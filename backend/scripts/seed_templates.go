@@ -33,8 +33,8 @@ var seedTemplatesData = []seedTemplate{
 	{
 		Code: "interview_result", Name: "面试结果", Category: "interview",
 		Title:  "面试结果：{{.result}}",
-		Body:   "{{.real_name}}，你的面试结果为 {{.result}}。{{.comment}}",
-		Schema: `{"real_name":"string","result":"string","comment":"string"}`,
+		Body:   "{{.real_name}}，你的面试结果为 {{.result}}。请在申请进度页查看后续安排。",
+		Schema: `{"real_name":"string","result":"string"}`,
 	},
 	{
 		Code: "meeting_notice", Name: "会议通知", Category: "meeting",

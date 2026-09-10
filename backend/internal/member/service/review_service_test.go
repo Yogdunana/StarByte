@@ -4,12 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Yogdunana/StarByte/backend/internal/member/dto"
-	"github.com/Yogdunana/StarByte/backend/internal/member/model"
-	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Yogdunana/StarByte/backend/internal/member/dto"
+	"github.com/Yogdunana/StarByte/backend/internal/member/model"
+	"github.com/Yogdunana/StarByte/backend/pkg/response"
 )
 
 func TestApprove_MemberCreatesProfile(t *testing.T) {
@@ -114,24 +115,20 @@ func TestReject_Pending(t *testing.T) {
 	require.Equal(t, model.AppRejected, out.Status)
 }
 
-func TestSyncFromInterview_ApproveWhenInterviewing(t *testing.T) {
-	apps := &mockAppRepo{}
-	profs := &mockProfRepo{}
-	svc := NewMemberService(apps, profs, nil)
-	id := uuid.New()
-	userID := uuid.New()
-	apps.On("GetByID", mock.Anything, id).Return(&model.MemberApplication{
-		ID: id, UserID: userID, Type: model.ApplicantOfficer, Status: model.AppInterviewing,
-		RealName: "王五", StudentNo: "2024003",
-	}, nil)
-	profs.On("GetByUserID", mock.Anything, userID).Return(nil, nil)
-	profs.On("GetByStudentNo", mock.Anything, "2024003", (*uuid.UUID)(nil)).Return(nil, nil)
-	profs.On("Create", mock.Anything, mock.AnythingOfType("*model.MemberProfile")).Return(nil)
-	apps.On("Update", mock.Anything, mock.AnythingOfType("*model.MemberApplication")).Return(nil)
-	apps.On("CreateHistory", mock.Anything, mock.AnythingOfType("*model.ApplicationHistory")).Return(nil)
-	apps.On("GetByIDWithNames", mock.Anything, id).Return(&model.ApplicationWithNames{
-		MemberApplication: model.MemberApplication{ID: id, Status: model.AppApproved},
-	}, nil)
-	err := svc.SyncFromInterview(context.Background(), uuid.New(), id, 1, "面试通过")
-	require.NoError(t, err)
+func TestSyncFromInterviewNeverChangesAdmissionDecision(t *testing.T) {
+	for _, result := range []int16{1, 2, 3} {
+		apps, profs := &mockAppRepo{}, &mockProfRepo{}
+		svc := NewMemberService(apps, profs, nil)
+		id, userID := uuid.New(), uuid.New()
+		app := &model.MemberApplication{ID: id, UserID: userID, Type: model.ApplicantOfficer, Status: model.AppInterviewing}
+		apps.On("GetByID", mock.Anything, id).Return(app, nil)
+		apps.On("CreateHistory", mock.Anything, mock.MatchedBy(func(h *model.ApplicationHistory) bool {
+			return h.FromStatus == model.AppInterviewing && h.ToStatus == model.AppInterviewing && h.Comment == "面试结果已记录，等待正式签字审批"
+		})).Return(nil).Once()
+		require.NoError(t, svc.SyncFromInterview(context.Background(), uuid.New(), id, result, "PRIVATE_ASSESSMENT"))
+		require.Equal(t, model.AppInterviewing, app.Status)
+		require.Empty(t, profs.Calls)
+		apps.AssertNotCalled(t, "Update", mock.Anything, mock.Anything)
+		apps.AssertExpectations(t)
+	}
 }

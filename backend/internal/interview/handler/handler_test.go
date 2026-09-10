@@ -9,14 +9,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Yogdunana/StarByte/backend/internal/interview/dto"
-	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
-	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Yogdunana/StarByte/backend/internal/interview/dto"
+	"github.com/Yogdunana/StarByte/backend/internal/interview/service"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
+	"github.com/Yogdunana/StarByte/backend/pkg/response"
 )
 
 type mockSvc struct{ mock.Mock }
@@ -32,8 +34,8 @@ func (m *mockSvc) ListSessions(ctx context.Context, viewer uuid.UUID, req *dto.L
 	args := m.Called(ctx, viewer, req, scope)
 	return args.Get(0).([]*dto.SessionResponse), args.Get(1).(int64), args.Error(2)
 }
-func (m *mockSvc) GetSession(ctx context.Context, id uuid.UUID, scope *rbacModel.DataScopeCondition) (*dto.SessionResponse, error) {
-	args := m.Called(ctx, id, scope)
+func (m *mockSvc) GetSession(ctx context.Context, viewer service.Viewer, id uuid.UUID) (*dto.SessionResponse, error) {
+	args := m.Called(ctx, id, viewer)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -81,8 +83,8 @@ func (m *mockSvc) ListInterviews(ctx context.Context, viewer uuid.UUID, req *dto
 	args := m.Called(ctx, viewer, req, scope)
 	return args.Get(0).([]*dto.InterviewResponse), args.Get(1).(int64), args.Error(2)
 }
-func (m *mockSvc) GetInterview(ctx context.Context, id uuid.UUID, scope *rbacModel.DataScopeCondition) (*dto.InterviewResponse, error) {
-	args := m.Called(ctx, id, scope)
+func (m *mockSvc) GetInterview(ctx context.Context, viewer service.Viewer, id uuid.UUID) (*dto.InterviewResponse, error) {
+	args := m.Called(ctx, id, viewer)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -127,7 +129,7 @@ func (m *mockSvc) SubmitEvaluations(ctx context.Context, evaluator, id uuid.UUID
 	}
 	return args.Get(0).(*dto.EvaluationSummary), args.Error(1)
 }
-func (m *mockSvc) GetEvaluations(ctx context.Context, id uuid.UUID) (*dto.EvaluationSummary, error) {
+func (m *mockSvc) GetEvaluations(ctx context.Context, viewer service.Viewer, id uuid.UUID) (*dto.EvaluationSummary, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -169,7 +171,7 @@ func (m *mockSvc) UpdateDimension(ctx context.Context, id uuid.UUID, req *dto.Up
 func (m *mockSvc) DeleteDimension(ctx context.Context, id uuid.UUID) error {
 	return m.Called(ctx, id).Error(0)
 }
-func (m *mockSvc) Stats(ctx context.Context, q *dto.StatsQuery) (*dto.StatsResponse, error) {
+func (m *mockSvc) Stats(ctx context.Context, viewer service.Viewer, q *dto.StatsQuery) (*dto.StatsResponse, error) {
 	args := m.Called(ctx, q)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -190,7 +192,7 @@ func TestCreateSession_Handler(t *testing.T) {
 	h := NewInterviewHandler(svc)
 	uid := uuid.New()
 	r := gin.New()
-	r.POST("/interviews/sessions", withUser(uid), h.CreateSession)
+	r.POST("/interviews/sessions", withUser(uid), func(c *gin.Context) { c.Set("data_scope_condition", &rbacModel.DataScopeCondition{}); c.Next() }, h.CreateSession)
 	svc.On("CreateSession", mock.Anything, uid, mock.AnythingOfType("*dto.CreateSessionRequest")).
 		Return(&dto.SessionResponse{Title: "一面", Status: 0}, nil)
 	now := time.Now()

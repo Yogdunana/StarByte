@@ -1,9 +1,10 @@
 package handler
 
 import (
+	"github.com/gin-gonic/gin"
+
 	"github.com/Yogdunana/StarByte/backend/internal/interview/dto"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/gin-gonic/gin"
 )
 
 // CreateSession 创建面试场次
@@ -27,6 +28,9 @@ func (h *InterviewHandler) CreateSession(c *gin.Context) {
 	var req dto.CreateSessionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+	if !canManageDepartment(c, req.DepartmentID) {
 		return
 	}
 	out, err := h.svc.CreateSession(c.Request.Context(), userID, &req)
@@ -84,7 +88,7 @@ func (h *InterviewHandler) GetSession(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	out, err := h.svc.GetSession(c.Request.Context(), id, dataScope(c))
+	out, err := h.svc.GetSession(c.Request.Context(), viewer(c), id)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -113,6 +117,9 @@ func (h *InterviewHandler) UpdateSession(c *gin.Context) {
 	var req dto.UpdateSessionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+	if req.DepartmentID != nil && !canManageDepartment(c, *req.DepartmentID) {
 		return
 	}
 	out, err := h.svc.UpdateSession(c.Request.Context(), id, &req)

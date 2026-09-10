@@ -22,6 +22,7 @@ export const MemberTypeMap: StatusMap = {
 };
 
 export const ProfileStatusMap: StatusMap = {
+  3: { color: 'processing', text: '候补期' },
   0: { color: 'success', text: '正常' },
   1: { color: 'error', text: '禁用' },
   2: { color: 'default', text: '已退出' },

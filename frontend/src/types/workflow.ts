@@ -9,13 +9,16 @@ export type DesignerNodeType =
   | 'timer'
   | 'notify';
 
-export type AssigneeStrategy = 'static' | 'role' | 'dept_leader' | 'initiator';
+export type AssigneeStrategy = 'static' | 'role' | 'dept_leader' | 'initiator' | 'business_role';
 export type ApprovalType = 'single' | 'all' | 'any' | 'ratio';
 export type TimerUnit = 'minutes' | 'hours' | 'days';
 export type NotifyChannel = 'in_app' | 'email';
 export type ConditionOperator = '==' | '!=' | '>' | '<' | '>=' | '<=';
 
 export interface ApprovalConfig {
+  businessType?: string;
+  admissionStage?: string;
+  admissionRole?: string;
   assigneeStrategy: AssigneeStrategy;
   assignees?: string[];
   roleId?: string;

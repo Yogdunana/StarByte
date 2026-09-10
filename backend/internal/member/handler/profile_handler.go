@@ -3,9 +3,10 @@ package handler
 import (
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/Yogdunana/StarByte/backend/internal/member/dto"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/gin-gonic/gin"
 )
 
 // ListProfiles 档案列表
@@ -169,6 +170,7 @@ func (h *MemberHandler) UpdateProfileStatus(c *gin.Context) {
 		response.BadRequest(c, "参数错误: "+err.Error())
 		return
 	}
+	req.Scope = dataScope(c)
 	result, err := h.svc.UpdateProfileStatus(c.Request.Context(), userID, id, &req)
 	if err != nil {
 		response.Error(c, err)

@@ -3,13 +3,15 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
+
+	"github.com/google/uuid"
 
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/task/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/task/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/google/uuid"
 )
 
 func (s *taskService) ListComments(ctx context.Context, viewer, taskID uuid.UUID, scope *rbacModel.DataScopeCondition) ([]dto.CommentResponse, error) {
@@ -27,15 +29,24 @@ func (s *taskService) ListComments(ctx context.Context, viewer, taskID uuid.UUID
 	return out, nil
 }
 
-func (s *taskService) AddComment(ctx context.Context, taskID, operator uuid.UUID, req *dto.CommentRequest) (*dto.CommentResponse, error) {
+func (s *taskService) addComment(ctx context.Context, taskID, operator uuid.UUID, req *dto.CommentRequest) (*dto.CommentResponse, error) {
 	t, err := s.mustTask(ctx, taskID)
 	if err != nil {
 		return nil, err
 	}
+	if _, ok := model.ViewerFromContext(ctx); !ok && !canViewTask(t, operator, nil) {
+		return nil, response.NewError(response.CodeTaskNoAccess, "无权操作该任务")
+	}
 	if model.IsClosed(t.Status) {
 		return nil, response.NewError(response.CodeTaskClosed, "任务已关闭，无法操作")
 	}
-	ids := s.resolveMentions(ctx, req.Content, req.Mentions)
+	if req == nil || strings.TrimSpace(req.Content) == "" {
+		return nil, response.NewError(response.CodeBadRequest, "评论内容不能为空")
+	}
+	ids, err := s.resolveMentions(ctx, req.Content, req.Mentions)
+	if err != nil {
+		return nil, err
+	}
 	now := time.Now()
 	c := &model.TaskComment{
 		ID:        uuid.New(),
@@ -49,15 +60,30 @@ func (s *taskService) AddComment(ctx context.Context, taskID, operator uuid.UUID
 	if err := s.comments.Create(ctx, c); err != nil {
 		return nil, fmt.Errorf("create comment: %w", err)
 	}
-	s.addLog(ctx, taskID, operator, model.ActionComment, "", c.ID.String(), "")
+	if err := s.addLog(ctx, taskID, operator, model.ActionComment, "", c.ID.String(), ""); err != nil {
+		return nil, err
+	}
 	mentionUUIDs := parseUUIDList(ids)
-	s.notifyUsers(ctx, mentionUUIDs, tplTaskMention, t, req.Content)
+	for _, id := range mentionUUIDs {
+		if canViewTask(t, id, nil) {
+			s.notifyUsers(ctx, []uuid.UUID{id}, tplTaskMention, t, req.Content)
+		} else {
+			redacted := *t
+			redacted.Title = "协作任务"
+			redacted.DueDate = nil
+			s.notifyUsers(ctx, []uuid.UUID{id}, tplTaskMention, &redacted, "有人在任务讨论中提及你。内容仅对有权限的成员开放。")
+		}
+	}
 	return s.getComment(ctx, c.ID)
 }
 
-func (s *taskService) UpdateComment(ctx context.Context, taskID, commentID, operator uuid.UUID, content string) (*dto.CommentResponse, error) {
-	if _, err := s.mustTask(ctx, taskID); err != nil {
+func (s *taskService) updateComment(ctx context.Context, taskID, commentID, operator uuid.UUID, content string) (*dto.CommentResponse, error) {
+	task, err := s.mustTask(ctx, taskID)
+	if err != nil {
 		return nil, err
+	}
+	if model.IsClosed(task.Status) {
+		return nil, response.NewError(response.CodeTaskClosed, "任务已关闭，无法修改评论")
 	}
 	c, err := s.mustComment(ctx, commentID, taskID)
 	if err != nil {
@@ -66,8 +92,15 @@ func (s *taskService) UpdateComment(ctx context.Context, taskID, commentID, oper
 	if c.AuthorID != operator {
 		return nil, response.NewError(response.CodeTaskNoAccess, "无权操作该任务")
 	}
+	if strings.TrimSpace(content) == "" {
+		return nil, response.NewError(response.CodeBadRequest, "评论内容不能为空")
+	}
+	ids, err := s.resolveMentions(ctx, content, nil)
+	if err != nil {
+		return nil, err
+	}
 	c.Content = content
-	c.Mentions = encodeJSONList(s.resolveMentions(ctx, content, nil))
+	c.Mentions = encodeJSONList(ids)
 	c.UpdatedAt = time.Now()
 	if err := s.comments.Update(ctx, c); err != nil {
 		return nil, fmt.Errorf("update comment: %w", err)
@@ -75,9 +108,13 @@ func (s *taskService) UpdateComment(ctx context.Context, taskID, commentID, oper
 	return s.getComment(ctx, c.ID)
 }
 
-func (s *taskService) DeleteComment(ctx context.Context, taskID, commentID, operator uuid.UUID) error {
-	if _, err := s.mustTask(ctx, taskID); err != nil {
+func (s *taskService) deleteComment(ctx context.Context, taskID, commentID, operator uuid.UUID) error {
+	task, err := s.mustTask(ctx, taskID)
+	if err != nil {
 		return err
+	}
+	if model.IsClosed(task.Status) {
+		return response.NewError(response.CodeTaskClosed, "任务已关闭，无法修改评论")
 	}
 	c, err := s.mustComment(ctx, commentID, taskID)
 	if err != nil {
@@ -108,17 +145,20 @@ func (s *taskService) getComment(ctx context.Context, id uuid.UUID) (*dto.Commen
 	if err != nil || c == nil {
 		return nil, response.NewError(response.CodeTaskCommentGone, "评论不存在")
 	}
-	u, _ := s.tasks.GetUser(ctx, c.AuthorID)
+	u, err := s.tasks.GetUser(ctx, c.AuthorID)
+	if err != nil {
+		return nil, fmt.Errorf("lookup comment author: %w", err)
+	}
 	named := model.TaskCommentNamed{TaskComment: *c, AuthorName: displayName(u)}
 	out := mapComment(named)
 	return &out, nil
 }
 
-func (s *taskService) resolveMentions(ctx context.Context, content string, extra []string) []string {
+func (s *taskService) resolveMentions(ctx context.Context, content string, extra []string) ([]string, error) {
 	names := parseMentionNames(content)
 	users, err := s.tasks.FindUsersByUsername(ctx, names)
 	if err != nil {
-		users = nil
+		return nil, fmt.Errorf("resolve mentioned usernames: %w", err)
 	}
 	seen := map[string]struct{}{}
 	out := make([]string, 0, len(users)+len(extra))
@@ -139,12 +179,16 @@ func (s *taskService) resolveMentions(ctx context.Context, content string, extra
 		if _, ok := seen[key]; ok {
 			continue
 		}
-		if u, _ := s.tasks.GetUser(ctx, *id); u != nil {
+		u, err := s.tasks.GetUser(ctx, *id)
+		if err != nil {
+			return nil, fmt.Errorf("resolve mentioned user: %w", err)
+		}
+		if u != nil {
 			seen[key] = struct{}{}
 			out = append(out, key)
 		}
 	}
-	return out
+	return out, nil
 }
 
 func parseUUIDList(raw []string) []uuid.UUID {

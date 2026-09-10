@@ -277,6 +277,11 @@ export interface MemberReviewer {
 }
 
 export interface MemberApplication {
+  admission_version?: number;
+  admission_revision?: number;
+  admission_stage?: string;
+  historical_review_required?: boolean;
+  probation_until?: string;
   id: string;
   user_id: string;
   username?: string;
@@ -557,6 +562,9 @@ export interface MeetingOrganizer {
 }
 
 export interface Meeting {
+  can_manage?: boolean;
+  can_update?: boolean;
+  can_delete?: boolean;
   id: string;
   title: string;
   description?: string;
@@ -597,6 +605,9 @@ export interface MeetingAttendee {
 export type VoteStatus = 0 | 1 | 2 | 3;
 
 export interface MeetingVote {
+  electorate_frozen: boolean;
+  eligible_count: number;
+  can_vote: boolean;
   id: string;
   meeting_id: string;
   title: string;
@@ -702,6 +713,15 @@ export interface TaskBrief {
 }
 
 export interface Task {
+  can_cancel?: boolean;
+  workflow_stage?: string;
+  workflow_instance_id?: string;
+  can_update?: boolean;
+  can_delete?: boolean;
+  can_assign?: boolean;
+  can_transfer?: boolean;
+  can_comment?: boolean;
+  can_urge?: boolean;
   id: string;
   title: string;
   description?: string;
@@ -763,6 +783,7 @@ export interface TaskStats {
 }
 
 export interface CreateTaskParams {
+  workflow?: { reviewer_id: string; acceptor_id: string; assignment?: { mode: string; role_id?: string } };
   title: string;
   description?: string;
   priority?: TaskPriority;
@@ -774,6 +795,7 @@ export interface CreateTaskParams {
 }
 
 export interface UpdateTaskParams {
+  clear_due_date?: boolean;
   title?: string;
   description?: string;
   priority?: TaskPriority;
