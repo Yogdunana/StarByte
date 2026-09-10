@@ -250,7 +250,7 @@ const routes: AppRouteObject[] = [
       },
       {
         path: 'activity',
-        meta: { title: '活动管理', icon: 'CalendarOutlined' },
+        meta: { title: '活动管理', icon: 'TrophyOutlined' },
         children: [
           {
             path: 'list',

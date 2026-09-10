@@ -64,6 +64,7 @@ const iconMap: Record<string, React.FC> = {
   DollarOutlined,
   AlertOutlined,
   FileProtectOutlined,
+  TrophyOutlined,
 };
 
 function hasMenuPermission(permissions: string[], meta?: RouteMeta): boolean {

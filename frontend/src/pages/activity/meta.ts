@@ -1,19 +1,19 @@
-import type { ActivityStatus, RegistrationStatus } from '@/api/activity';
+import type { StatusMap } from '@/types/common';
 
-export const ActivityStatusMap: Record<ActivityStatus, { text: string; color: string }> = {
-  0: { text: '草稿', color: 'default' },
-  1: { text: '报名中', color: 'processing' },
-  2: { text: '进行中', color: 'success' },
-  3: { text: '已结束', color: 'default' },
-  4: { text: '已取消', color: 'error' },
+export const ActivityStatusMap: StatusMap = {
+  0: { color: 'default', text: '草稿' },
+  1: { color: 'processing', text: '报名中' },
+  2: { color: 'success', text: '进行中' },
+  3: { color: 'default', text: '已结束' },
+  4: { color: 'error', text: '已取消' },
 };
 
-export const RegistrationStatusMap: Record<RegistrationStatus, { text: string; color: string }> = {
-  0: { text: '待审批', color: 'warning' },
-  1: { text: '已通过', color: 'success' },
-  2: { text: '已拒绝', color: 'error' },
-  3: { text: '候补', color: 'processing' },
-  4: { text: '已取消', color: 'default' },
+export const RegistrationStatusMap: StatusMap = {
+  0: { color: 'warning', text: '待审批' },
+  1: { color: 'success', text: '已通过' },
+  2: { color: 'error', text: '已拒绝' },
+  3: { color: 'processing', text: '候补' },
+  4: { color: 'default', text: '已取消' },
 };
 
 export const ActivityCategoryOptions = [

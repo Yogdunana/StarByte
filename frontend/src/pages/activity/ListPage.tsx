@@ -3,26 +3,24 @@ import { useNavigate } from 'react-router-dom';
 import { Button, Card, Input, Select, Space, Table, Tag, message } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import StatusTag from '@/components/StatusTag/StatusTag';
 import { usePermission } from '@/hooks/usePermission';
 import {
-  getActivityList, deleteActivity, startActivity, endActivity, cancelActivity,
+  cancelActivity, createActivity, deleteActivity, endActivity, getActivityList,
+  startActivity, updateActivity,
 } from '@/api/activity';
 import type { Activity, ActivityStatus } from '@/api/activity';
-import { ActivityStatusMap, ActivityCategoryOptions } from './meta';
+import { ActivityStatusMap } from './meta';
 import FormModal from './FormModal';
 
 const ListPage: React.FC = () => {
   const nav = useNavigate();
   const canCreate = usePermission('activity:create');
-  const canUpdate = usePermission('activity:update');
-  const canDelete = usePermission('activity:delete');
   const canManage = usePermission('activity:manage');
   const [list, setList] = useState<Activity[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(10);
   const [status, setStatus] = useState<ActivityStatus | undefined>();
-  const [category, setCategory] = useState<string>();
   const [keyword, setKeyword] = useState('');
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
@@ -31,85 +29,49 @@ const ListPage: React.FC = () => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getActivityList({ page, page_size: pageSize, status, category, keyword });
+      const res = await getActivityList({ page, page_size: 10, status, keyword });
       setList(res.list);
       setTotal(res.total);
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, status, category, keyword]);
+  }, [page, status, keyword]);
 
   useEffect(() => { void load(); }, [load]);
 
-  const onEdit = (a: Activity) => { setEditing(a); setOpen(true); };
-  const onCreate = () => { setEditing(null); setOpen(true); };
-
-  const onDelete = async (a: Activity) => {
-    await deleteActivity(a.id);
-    message.success('删除成功');
-    load();
-  };
-
-  const onStart = async (a: Activity) => {
-    await startActivity(a.id);
-    message.success('活动已开始');
-    load();
-  };
-
-  const onEnd = async (a: Activity) => {
-    await endActivity(a.id);
-    message.success('活动已结束');
-    load();
-  };
-
-  const onCancel = async (a: Activity) => {
-    await cancelActivity(a.id);
-    message.success('活动已取消');
-    load();
-  };
-
   const columns: ColumnsType<Activity> = [
+    { title: '标题', dataIndex: 'title', render: (v: string, r) => <Button type="link" style={{ padding: 0 }} onClick={() => nav(`/activity/${r.id}`)}>{v}</Button> },
+    { title: '分类', dataIndex: 'category', width: 100, render: (v?: string) => v || '-' },
+    { title: '地点', dataIndex: 'location', width: 140, render: (v?: string) => v || '-' },
+    { title: '开始', dataIndex: 'start_time', width: 160, render: (v: string) => v?.replace('T', ' ').slice(0, 16) },
+    { title: '组织者', key: 'org', width: 100, render: (_, r) => r.organizer?.name || '-' },
     {
-      title: '活动标题', dataIndex: 'title', key: 'title',
-      render: (v, r) => <a onClick={() => nav(`/activity/${r.id}`)}>{v}</a>,
+      title: '报名/上限',
+      key: 'n',
+      width: 90,
+      render: (_, r) => `${r.registered_count}/${r.max_participants === 0 ? '不限' : r.max_participants}`,
     },
-    { title: '分类', dataIndex: 'category', key: 'category', width: 100 },
+    { title: '状态', dataIndex: 'status', width: 90, render: (v: number) => <StatusTag status={v} mapping={ActivityStatusMap} /> },
     {
-      title: '状态', dataIndex: 'status', key: 'status', width: 90,
-      render: (s: ActivityStatus) => {
-        const m = ActivityStatusMap[s];
-        return <Tag color={m.color}>{m.text}</Tag>;
-      },
-    },
-    { title: '时间', dataIndex: 'start_time', key: 'start_time', width: 160 },
-    { title: '地点', dataIndex: 'location', key: 'location', width: 120 },
-    {
-      title: '报名/上限', key: 'participants', width: 110,
-      render: (_, r) => (
-        <span>{r.registered_count}/{r.max_participants > 0 ? r.max_participants : '不限'}</span>
-      ),
-    },
-    {
-      title: '操作', key: 'action', width: 240, fixed: 'right',
-      render: (_, r) => (
-        <Space size={4}>
-          {canUpdate && r.status === 1 && (
-            <Button size="small" type="link" onClick={() => onStart(r)}>开始</Button>
+      title: '操作',
+      width: 280,
+      render: (_, record) => (
+        <Space wrap>
+          <Button type="link" size="small" onClick={() => nav(`/activity/${record.id}`)}>详情</Button>
+          {canManage && (record.status === 0 || record.status === 1) && (
+            <Button type="link" size="small" onClick={() => { setEditing(record); setOpen(true); }}>编辑</Button>
           )}
-          {canUpdate && r.status === 2 && (
-            <Button size="small" type="link" onClick={() => onEnd(r)}>结束</Button>
+          {canManage && record.status === 1 && (
+            <Button type="link" size="small" onClick={() => startActivity(record.id).then(load)}>开始</Button>
           )}
-          {canUpdate && (r.status === 1 || r.status === 2) && (
-            <Button size="small" type="link" danger onClick={() => onCancel(r)}>取消</Button>
+          {canManage && record.status === 2 && (
+            <Button type="link" size="small" onClick={() => endActivity(record.id).then(load)}>结束</Button>
           )}
-          {canUpdate && (r.status === 0 || r.status === 1) && (
-            <Button size="small" type="link" onClick={() => onEdit(r)}>编辑</Button>
+          {canManage && (record.status === 0 || record.status === 1 || record.status === 2) && (
+            <Button type="link" size="small" onClick={() => cancelActivity(record.id).then(load)}>取消</Button>
           )}
-          {canDelete && r.status !== 2 && (
-            <Button size="small" type="link" danger onClick={() => onDelete(r)}>删除</Button>
-          )}
-          {canManage && (
-            <Button size="small" type="link" onClick={() => nav(`/activity/${r.id}`)}>管理</Button>
+          {canManage && (record.status === 0 || record.status === 3 || record.status === 4) && (
+            <Button type="link" size="small" danger onClick={() => deleteActivity(record.id).then(load)}>删除</Button>
           )}
         </Space>
       ),
@@ -117,35 +79,56 @@ const ListPage: React.FC = () => {
   ];
 
   return (
-    <Card>
-      <Space style={{ marginBottom: 16 }} wrap>
-        {canCreate && (
-          <Button type="primary" icon={<PlusOutlined />} onClick={onCreate}>新建活动</Button>
-        )}
+    <Card
+      title="活动列表"
+      extra={canCreate && (
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditing(null); setOpen(true); }}>
+          新建活动
+        </Button>
+      )}
+    >
+      <Space style={{ marginBottom: 16 }}>
+        <Input.Search allowClear placeholder="搜索标题/地点" onSearch={(v) => { setKeyword(v); setPage(1); }} />
         <Select
-          placeholder="状态" allowClear style={{ width: 120 }}
-          value={status} onChange={(v) => { setStatus(v); setPage(1); }}
+          allowClear
+          placeholder="状态"
+          style={{ width: 140 }}
+          value={status}
+          onChange={(v) => { setStatus(v); setPage(1); }}
           options={Object.entries(ActivityStatusMap).map(([k, v]) => ({ value: Number(k), label: v.text }))}
-        />
-        <Select
-          placeholder="分类" allowClear style={{ width: 120 }}
-          value={category} onChange={(v) => { setCategory(v); setPage(1); }}
-          options={ActivityCategoryOptions}
-        />
-        <Input.Search
-          placeholder="搜索标题/地点" allowClear style={{ width: 220 }}
-          onSearch={(v) => { setKeyword(v); setPage(1); }}
         />
       </Space>
       <Table
-        rowKey="id" columns={columns} dataSource={list} loading={loading}
-        pagination={{ current: page, pageSize, total, showSizeChanger: false }}
-        onChange={(p) => setPage(p.current || 1)}
+        rowKey="id"
+        loading={loading}
+        columns={columns}
+        dataSource={list}
+        pagination={{ current: page, total, pageSize: 10, onChange: setPage }}
       />
       <FormModal
-        open={open} editing={editing}
-        onClose={() => setOpen(false)}
-        onSaved={() => { setOpen(false); load(); }}
+        open={open}
+        editing={editing}
+        onCancel={() => setOpen(false)}
+        onSubmit={async (values) => {
+          if (editing) {
+            await updateActivity(editing.id, values);
+            message.success('已更新');
+          } else {
+            await createActivity({
+              title: String(values.title),
+              description: values.description ? String(values.description) : undefined,
+              category: values.category ? String(values.category) : undefined,
+              tags: Array.isArray(values.tags) ? (values.tags as string[]) : undefined,
+              location: values.location ? String(values.location) : undefined,
+              max_participants: values.max_participants != null ? Number(values.max_participants) : undefined,
+              start_time: String(values.start_time),
+              end_time: String(values.end_time),
+            });
+            message.success('已创建');
+          }
+          setOpen(false);
+          await load();
+        }}
       />
     </Card>
   );
