@@ -195,6 +195,4 @@ function ononSubmitWrap(
   void onSubmit(v.rating, v.comment);
 }
 
-void InputNumber;
-
 export default DetailPage;
