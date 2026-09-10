@@ -117,6 +117,10 @@ func (s *meetingService) castVote(ctx context.Context, voteID, userID uuid.UUID,
 	if err != nil {
 		return err
 	}
+	if v.IsAnonymous {
+		// Unique role weights would identify the voter from option totals.
+		weight = 1
+	}
 
 	now := time.Now()
 	rec := &model.VoteRecord{
@@ -141,6 +145,9 @@ func (s *meetingService) VoteResult(ctx context.Context, id uuid.UUID) (*dto.Vot
 	if err != nil {
 		return nil, err
 	}
+	if v.Status != model.VoteClosed && !model.ViewerFromContext(ctx).CanManage {
+		return nil, response.NewError(response.CodeVoteResultPending, "投票未结束，无法查看结果")
+	}
 	opts, err := s.votes.ListOptions(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("list options: %w", err)
@@ -157,9 +164,16 @@ func (s *meetingService) VoteResult(ctx context.Context, id uuid.UUID) (*dto.Vot
 	items := make([]dto.VoteResultItem, 0, len(opts))
 	for _, o := range opts {
 		a := agg[o.OptionKey]
-		items = append(items, dto.VoteResultItem{
+		item := dto.VoteResultItem{
 			OptionKey: o.OptionKey, OptionLabel: o.OptionText, Count: a.Count, WeightTotal: a.Weight,
-		})
+		}
+		if v.IsAnonymous {
+			item.WeightTotal = 0
+		}
+		items = append(items, item)
+	}
+	if v.IsAnonymous {
+		totalW = 0
 	}
 	return &dto.VoteResultResponse{
 		ID: v.ID.String(), Title: v.Title, VoteType: v.VoteType, IsAnonymous: v.IsAnonymous,

@@ -82,6 +82,10 @@ func TestCastVoteRules(t *testing.T) {
 	requireAppError(t, err, response.CodeVoteDuplicate)
 	_, err = svc.MyVote(context.Background(), vid, org)
 	require.NoError(t, err)
+	_, err = svc.VoteResult(context.Background(), vid)
+	requireAppError(t, err, response.CodeVoteResultPending)
+	_, err = svc.CloseVote(context.Background(), vid)
+	require.NoError(t, err)
 	res, err := svc.VoteResult(context.Background(), vid)
 	require.NoError(t, err)
 	require.Equal(t, 1, res.TotalVoters)
@@ -90,7 +94,7 @@ func TestCastVoteRules(t *testing.T) {
 }
 
 func TestAnonymousMyVoteHidden(t *testing.T) {
-	svc, mm, _, _ := newTestSvc()
+	svc, mm, _, vv := newTestSvc()
 	m, org := seedMeeting(t, svc, mm, model.MeetingOngoing)
 	vote, err := svc.CreateVote(context.Background(), m.ID, &dto.CreateVoteRequest{
 		Title: "匿名", VoteType: 1, IsAnonymous: true,
@@ -101,6 +105,25 @@ func TestAnonymousMyVoteHidden(t *testing.T) {
 	require.NoError(t, svc.CastVote(context.Background(), vid, org, "a"))
 	_, err = svc.MyVote(context.Background(), vid, org)
 	requireAppError(t, err, response.CodeVoteAnonymousHidden)
+	_, err = svc.VoteResult(context.Background(), vid)
+	requireAppError(t, err, response.CodeVoteResultPending)
+	manage := model.WithViewer(context.Background(), model.Viewer{CanManage: true})
+	open, err := svc.VoteResult(manage, vid)
+	require.NoError(t, err)
+	require.Equal(t, model.VoteOpen, open.Status)
+	require.Equal(t, 0.0, open.TotalWeight)
+	_, err = svc.CloseVote(context.Background(), vid)
+	require.NoError(t, err)
+	res, err := svc.VoteResult(context.Background(), vid)
+	require.NoError(t, err)
+	require.Equal(t, 1, res.TotalVoters)
+	require.Equal(t, 0.0, res.TotalWeight)
+	for _, rec := range vv.records {
+		if rec.VoteID == vid {
+			require.Equal(t, 1.0, rec.Weight)
+			require.Nil(t, rec.VoterID)
+		}
+	}
 }
 
 func TestWeightedVoteUsesPosition(t *testing.T) {
@@ -114,6 +137,10 @@ func TestWeightedVoteUsesPosition(t *testing.T) {
 	require.NoError(t, err)
 	vid := uuid.MustParse(vote.ID)
 	require.NoError(t, svc.CastVote(context.Background(), vid, org, "yes"))
+	_, err = svc.VoteResult(context.Background(), vid)
+	requireAppError(t, err, response.CodeVoteResultPending)
+	_, err = svc.CloseVote(context.Background(), vid)
+	require.NoError(t, err)
 	res, err := svc.VoteResult(context.Background(), vid)
 	require.NoError(t, err)
 	require.Equal(t, 5.0, res.TotalWeight)

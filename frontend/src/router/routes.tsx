@@ -234,8 +234,8 @@ const routes: AppRouteObject[] = [
           },
           {
             path: 'vote',
-            element: lazyGuarded(MeetingWeightPage, 'meeting:read'),
-            meta: { title: '投票权重', permission: 'meeting:read' },
+            element: lazyGuarded(MeetingWeightPage, 'meeting:manage'),
+            meta: { title: '投票权重', permission: 'meeting:manage' },
           },
           {
             path: 'checkin',

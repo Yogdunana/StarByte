@@ -254,6 +254,7 @@ func TestHttpStatusFromCode(t *testing.T) {
 		{CodeForbidden, http.StatusForbidden},
 		{CodeWorkflowTaskNoAccess, http.StatusForbidden},
 		{CodeVoteNoAccess, http.StatusForbidden},
+		{CodeVoteResultPending, http.StatusForbidden},
 		{CodeMeetingNotAttendee, http.StatusForbidden},
 		{CodeNotFound, http.StatusNotFound},
 		{CodeConflict, http.StatusConflict},

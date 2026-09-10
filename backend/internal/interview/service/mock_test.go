@@ -91,6 +91,10 @@ func (m *mockInterviewRepo) ListInterviewers(ctx context.Context, interviewIDs [
 	args := m.Called(ctx, interviewIDs)
 	return args.Get(0).([]model.InterviewerNamed), args.Error(1)
 }
+func (m *mockInterviewRepo) IsAssignedToSession(ctx context.Context, sessionID, interviewerID uuid.UUID) (bool, error) {
+	args := m.Called(ctx, sessionID, interviewerID)
+	return args.Bool(0), args.Error(1)
+}
 func (m *mockInterviewRepo) HasInterviewerConflict(ctx context.Context, interviewerID uuid.UUID, start, end time.Time, exclude uuid.UUID) (bool, error) {
 	args := m.Called(ctx, interviewerID, start, end, exclude)
 	return args.Bool(0), args.Error(1)

@@ -22,6 +22,7 @@ type InterviewRepo interface {
 	FindBySessionApplicant(ctx context.Context, sessionID, applicantID uuid.UUID) (*model.Interview, error)
 	ReplaceInterviewers(ctx context.Context, interviewID uuid.UUID, rows []model.Interviewer) error
 	ListInterviewers(ctx context.Context, interviewIDs []uuid.UUID) ([]model.InterviewerNamed, error)
+	IsAssignedToSession(ctx context.Context, sessionID, interviewerID uuid.UUID) (bool, error)
 	HasInterviewerConflict(ctx context.Context, interviewerID uuid.UUID, start, end time.Time, exclude uuid.UUID) (bool, error)
 	MarkAbsentBySession(ctx context.Context, sessionID uuid.UUID) error
 	GetUser(ctx context.Context, id uuid.UUID) (*model.NamedUser, error)
@@ -160,6 +161,15 @@ func (r *interviewRepo) ListInterviewers(ctx context.Context, interviewIDs []uui
 		Where("ii.interview_id IN ?", interviewIDs).
 		Find(&rows).Error
 	return rows, err
+}
+
+func (r *interviewRepo) IsAssignedToSession(ctx context.Context, sessionID, interviewerID uuid.UUID) (bool, error) {
+	var n int64
+	err := r.db.WithContext(ctx).Table("interview_interviewers AS ii").
+		Joins("JOIN interviews i ON i.id = ii.interview_id").
+		Where("i.session_id = ? AND ii.interviewer_id = ? AND i.status <> ?", sessionID, interviewerID, model.InterviewCancelled).
+		Count(&n).Error
+	return n > 0, err
 }
 
 func (r *interviewRepo) HasInterviewerConflict(ctx context.Context, interviewerID uuid.UUID, start, end time.Time, exclude uuid.UUID) (bool, error) {

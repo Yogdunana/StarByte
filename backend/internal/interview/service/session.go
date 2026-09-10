@@ -70,7 +70,13 @@ func (s *interviewService) GetSession(ctx context.Context, viewer Viewer, id uui
 		owner = *row.CreatedBy
 	}
 	if !canAccessInterview(viewer.Scope, owner, row.DepartmentID, viewer.ID) {
-		return nil, response.NewError(response.CodeForbidden, "无权访问该面试场次")
+		assigned, err := s.records.IsAssignedToSession(ctx, id, viewer.ID)
+		if err != nil {
+			return nil, fmt.Errorf("check session interviewer: %w", err)
+		}
+		if !assigned {
+			return nil, response.NewError(response.CodeForbidden, "无权访问该面试场次")
+		}
 	}
 	return mapSession(row), nil
 }

@@ -47,7 +47,7 @@ type VoteResultItem struct {
 	OptionKey   string  `json:"option_key"`
 	OptionLabel string  `json:"option_label"`
 	Count       int     `json:"count"`
-	WeightTotal float64 `json:"weight_total"`
+	WeightTotal float64 `json:"weight_total,omitempty"`
 }
 
 type VoteResultResponse struct {
@@ -58,7 +58,7 @@ type VoteResultResponse struct {
 	Status      int16            `json:"status"`
 	Results     []VoteResultItem `json:"results"`
 	TotalVoters int              `json:"total_voters"`
-	TotalWeight float64          `json:"total_weight"`
+	TotalWeight float64          `json:"total_weight,omitempty"`
 	StartTime   *time.Time       `json:"start_time,omitempty"`
 	EndTime     *time.Time       `json:"end_time,omitempty"`
 }

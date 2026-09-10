@@ -95,7 +95,7 @@ func RegisterRoutes(
 	voteManage := withMeetingScope(withPermission(votes, "meeting:manage", cacheService), "meeting:manage", cacheService, db, deptRepo)
 	voteManage.POST("/:id/close", h.CloseVote)
 
-	sysRead := withPermission(r, "meeting:read", cacheService)
+	sysRead := withPermission(r, "meeting:manage", cacheService)
 	sysRead.GET("/system/vote-weight-config", h.GetWeightConfig)
 	sysWrite := withPermission(r, "system:config", cacheService)
 	sysWrite.PUT("/system/vote-weight-config", h.UpdateWeightConfig)

@@ -310,7 +310,7 @@ func httpStatusFromCode(code int) int {
 		return http.StatusBadRequest
 	case CodeUnauthorized:
 		return http.StatusUnauthorized
-	case CodeForbidden, CodeWorkflowTaskNoAccess, CodeVoteNoAccess, CodeMeetingNotAttendee, CodeTaskNoAccess:
+	case CodeForbidden, CodeWorkflowTaskNoAccess, CodeVoteNoAccess, CodeVoteResultPending, CodeMeetingNotAttendee, CodeTaskNoAccess:
 		return http.StatusForbidden
 	case CodeNotFound:
 		return http.StatusNotFound

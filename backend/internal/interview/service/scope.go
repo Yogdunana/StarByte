@@ -17,8 +17,8 @@ func rewriteSessionScope(scope *rbacModel.DataScopeCondition, userID uuid.UUID) 
 	}
 	if scope.IsSelf {
 		return &rbacModel.DataScopeCondition{
-			Query: "s.created_by = ?",
-			Args:  []interface{}{userID},
+			Query: "s.created_by = ? OR s.id IN (SELECT i.session_id FROM interviews i JOIN interview_interviewers ii ON i.id = ii.interview_id WHERE ii.interviewer_id = ? AND i.session_id IS NOT NULL)",
+			Args:  []interface{}{userID, userID},
 		}
 	}
 	q := strings.ReplaceAll(scope.Query, "department_id", "s.department_id")
