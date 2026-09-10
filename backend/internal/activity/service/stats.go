@@ -17,7 +17,7 @@ func (s *activityService) GetStats(ctx context.Context, activityID uuid.UUID) (*
 		return nil, fmt.Errorf("get activity: %w", err)
 	}
 	if a == nil {
-		return nil, response.NewError(CodeActivityNotFound, "活动不存在")
+		return nil, response.NewError(response.CodeActivityNotFound, "活动不存在")
 	}
 
 	approvedCount, err := s.regs.CountByActivityAndStatus(ctx, activityID, model.RegApproved)
@@ -78,7 +78,7 @@ func (s *activityService) SubmitSurvey(ctx context.Context, activityID, userID u
 		return fmt.Errorf("get activity: %w", err)
 	}
 	if a == nil {
-		return response.NewError(CodeActivityNotFound, "活动不存在")
+		return response.NewError(response.CodeActivityNotFound, "活动不存在")
 	}
 	if a.Status != model.ActivityEnded {
 		return response.NewError(response.CodeSurveyNotEnded, "活动未结束，暂不能评价")
@@ -90,7 +90,7 @@ func (s *activityService) SubmitSurvey(ctx context.Context, activityID, userID u
 		return fmt.Errorf("get registration: %w", err)
 	}
 	if reg == nil || reg.CheckinStatus != model.CheckinDone {
-		return response.NewError(CodeCheckinNotApproved, "仅已签到参与者可评价")
+		return response.NewError(response.CodeCheckinNotApproved, "仅已签到参与者可评价")
 	}
 
 	existing, err := s.surveys.GetByActivityAndUser(ctx, activityID, userID)
@@ -98,7 +98,7 @@ func (s *activityService) SubmitSurvey(ctx context.Context, activityID, userID u
 		return fmt.Errorf("check survey: %w", err)
 	}
 	if existing != nil {
-		return response.NewError(CodeSurveyAlreadySubmitted, "已提交过评价")
+		return response.NewError(response.CodeSurveyAlreadySubmitted, "已提交过评价")
 	}
 
 	survey := &model.ActivitySurvey{

@@ -18,10 +18,10 @@ func (s *activityService) Checkin(ctx context.Context, activityID, userID uuid.U
 		return nil, fmt.Errorf("get activity: %w", err)
 	}
 	if a == nil {
-		return nil, response.NewError(CodeActivityNotFound, "活动不存在")
+		return nil, response.NewError(response.CodeActivityNotFound, "活动不存在")
 	}
 	if a.Status != model.ActivityOpen && a.Status != model.ActivityOngoing {
-		return nil, response.NewError(CodeActivityInvalidState, "活动不在签到时间")
+		return nil, response.NewError(response.CodeActivityInvalidState, "活动不在签到时间")
 	}
 
 	reg, err := s.regs.GetByActivityAndUser(ctx, activityID, userID)
@@ -29,10 +29,10 @@ func (s *activityService) Checkin(ctx context.Context, activityID, userID uuid.U
 		return nil, fmt.Errorf("get registration: %w", err)
 	}
 	if reg == nil {
-		return nil, response.NewError(CodeRegistrationNotFound, "未找到报名记录")
+		return nil, response.NewError(response.CodeRegistrationNotFound, "未找到报名记录")
 	}
 	if reg.Status != model.RegApproved {
-		return nil, response.NewError(CodeCheckinNotApproved, "报名未通过，无法签到")
+		return nil, response.NewError(response.CodeCheckinNotApproved, "报名未通过，无法签到")
 	}
 	if reg.CheckinStatus == model.CheckinDone {
 		return nil, response.NewError(response.CodeCheckinAlreadyDone, "已签到，请勿重复签到")

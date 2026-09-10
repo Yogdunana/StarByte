@@ -18,10 +18,10 @@ func (s *activityService) Register(ctx context.Context, activityID, userID uuid.
 		return nil, fmt.Errorf("get activity: %w", err)
 	}
 	if a == nil {
-		return nil, response.NewError(CodeActivityNotFound, "活动不存在")
+		return nil, response.NewError(response.CodeActivityNotFound, "活动不存在")
 	}
 	if a.Status != model.ActivityOpen {
-		return nil, response.NewError(CodeActivityInvalidState, "活动不在报名中")
+		return nil, response.NewError(response.CodeActivityInvalidState, "活动不在报名中")
 	}
 
 	// 检查是否重复报名
@@ -30,7 +30,7 @@ func (s *activityService) Register(ctx context.Context, activityID, userID uuid.
 		return nil, fmt.Errorf("check registration: %w", err)
 	}
 	if existing != nil && existing.Status != model.RegCancelled {
-		return nil, response.NewError(CodeRegistrationExists, "你已报名该活动")
+		return nil, response.NewError(response.CodeRegistrationExists, "你已报名该活动")
 	}
 
 	// 计算已通过人数
@@ -94,7 +94,7 @@ func (s *activityService) CancelRegistration(ctx context.Context, activityID, us
 		return fmt.Errorf("get registration: %w", err)
 	}
 	if reg == nil || reg.Status == model.RegCancelled {
-		return response.NewError(CodeRegistrationNotFound, "未找到报名记录")
+		return response.NewError(response.CodeRegistrationNotFound, "未找到报名记录")
 	}
 	reg.Status = model.RegCancelled
 	if err := s.regs.Update(ctx, reg); err != nil {
@@ -123,7 +123,7 @@ func (s *activityService) ApproveRegistration(ctx context.Context, activityID, u
 		return nil, fmt.Errorf("get activity: %w", err)
 	}
 	if a == nil {
-		return nil, response.NewError(CodeActivityNotFound, "活动不存在")
+		return nil, response.NewError(response.CodeActivityNotFound, "活动不存在")
 	}
 
 	reg, err := s.regs.GetByActivityAndUser(ctx, activityID, userID)
@@ -131,7 +131,7 @@ func (s *activityService) ApproveRegistration(ctx context.Context, activityID, u
 		return nil, fmt.Errorf("get registration: %w", err)
 	}
 	if reg == nil {
-		return nil, response.NewError(CodeRegistrationNotFound, "报名记录不存在")
+		return nil, response.NewError(response.CodeRegistrationNotFound, "报名记录不存在")
 	}
 
 	if approve {

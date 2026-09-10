@@ -80,7 +80,7 @@ func (s *activityService) UpdateActivity(ctx context.Context, id uuid.UUID, req 
 		return nil, fmt.Errorf("get activity: %w", err)
 	}
 	if a == nil {
-		return nil, response.NewError(CodeActivityNotFound, "活动不存在")
+		return nil, response.NewError(response.CodeActivityNotFound, "活动不存在")
 	}
 	if a.Status != model.ActivityDraft && a.Status != model.ActivityOpen {
 		return nil, response.NewError(response.CodeActivityInvalidState, "当前状态不允许修改")
@@ -139,7 +139,7 @@ func (s *activityService) DeleteActivity(ctx context.Context, id uuid.UUID) erro
 		return fmt.Errorf("get activity: %w", err)
 	}
 	if a == nil {
-		return response.NewError(CodeActivityNotFound, "活动不存在")
+		return response.NewError(response.CodeActivityNotFound, "活动不存在")
 	}
 	if a.Status == model.ActivityOngoing {
 		return response.NewError(response.CodeActivityInvalidState, "进行中的活动不能删除")
@@ -172,7 +172,7 @@ func (s *activityService) StartActivity(ctx context.Context, id uuid.UUID) (*dto
 		return nil, fmt.Errorf("get activity: %w", err)
 	}
 	if a == nil {
-		return nil, response.NewError(CodeActivityNotFound, "活动不存在")
+		return nil, response.NewError(response.CodeActivityNotFound, "活动不存在")
 	}
 	if a.Status != model.ActivityOpen {
 		return nil, response.NewError(response.CodeActivityInvalidState, "只有报名中的活动可以开始")
@@ -191,7 +191,7 @@ func (s *activityService) EndActivity(ctx context.Context, id uuid.UUID) (*dto.A
 		return nil, fmt.Errorf("get activity: %w", err)
 	}
 	if a == nil {
-		return nil, response.NewError(CodeActivityNotFound, "活动不存在")
+		return nil, response.NewError(response.CodeActivityNotFound, "活动不存在")
 	}
 	if a.Status != model.ActivityOngoing {
 		return nil, response.NewError(response.CodeActivityInvalidState, "只有进行中的活动可以结束")
@@ -210,7 +210,7 @@ func (s *activityService) CancelActivity(ctx context.Context, id uuid.UUID, reas
 		return nil, fmt.Errorf("get activity: %w", err)
 	}
 	if a == nil {
-		return nil, response.NewError(CodeActivityNotFound, "活动不存在")
+		return nil, response.NewError(response.CodeActivityNotFound, "活动不存在")
 	}
 	if a.Status == model.ActivityEnded || a.Status == model.ActivityCancelled {
 		return nil, response.NewError(response.CodeActivityInvalidState, "活动已结束或已取消")
@@ -228,7 +228,7 @@ func (s *activityService) getActivityResponse(ctx context.Context, id uuid.UUID)
 		return nil, fmt.Errorf("get activity with names: %w", err)
 	}
 	if row == nil {
-		return nil, response.NewError(CodeActivityNotFound, "活动不存在")
+		return nil, response.NewError(response.CodeActivityNotFound, "活动不存在")
 	}
 	return toActivityResponse(row), nil
 }
