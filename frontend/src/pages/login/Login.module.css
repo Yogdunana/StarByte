@@ -201,6 +201,8 @@
 @media (max-width: 767px) {
   .container {
     display: block;
+    height: auto;
+    overflow: visible;
     padding: 0;
   }
   .left { display: none; }
