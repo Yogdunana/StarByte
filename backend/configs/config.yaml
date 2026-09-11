@@ -49,6 +49,15 @@ email:
   password: ""
   from: ""
 
+# 学校统一认证（金智 IDS / CAS）。本地默认关闭，校园网生产见 config.prod.yaml。
+cas:
+  enabled: false
+  server_url: "https://authserver.smbu.edu.cn/authserver"
+  service_url: ""
+  frontend_url: ""
+  allow_auto_provision: true
+  default_role: member
+
 # CORS
 cors:
   allowed_origins:

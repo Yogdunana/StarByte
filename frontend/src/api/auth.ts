@@ -1,5 +1,13 @@
 import request from './request';
-import type { LoginRequest, LoginResponse, RefreshResponse, RegisterRequest, UserInfo } from '@/types/api';
+import type {
+  CASExchangeResponse,
+  CASStatusResponse,
+  LoginRequest,
+  LoginResponse,
+  RefreshResponse,
+  RegisterRequest,
+  UserInfo,
+} from '@/types/api';
 
 // 登录
 export function login(params: LoginRequest): Promise<LoginResponse> {
@@ -30,4 +38,18 @@ export function getCurrentUser(): Promise<UserInfo> {
 // 修改密码
 export function changePassword(params: { old_password: string; new_password: string }): Promise<void> {
   return request.put('/auth/password', params);
+}
+
+export function getCasStatus(): Promise<CASStatusResponse> {
+  return request.get('/auth/cas/status');
+}
+
+export function getCasLoginURL(redirect?: string): string {
+  const base = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+  const query = redirect ? `?redirect=${encodeURIComponent(redirect)}` : '';
+  return `${base}/auth/cas/login${query}`;
+}
+
+export function exchangeCasCode(code: string): Promise<CASExchangeResponse> {
+  return request.post('/auth/cas/exchange', { code });
 }

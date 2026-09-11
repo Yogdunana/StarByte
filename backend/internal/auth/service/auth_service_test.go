@@ -65,6 +65,19 @@ func (m *mockUserRepo) UpdateLastLogin(ctx context.Context, id uuid.UUID, ip str
 	return args.Error(0)
 }
 
+func (m *mockUserRepo) GetByIdentity(ctx context.Context, identityType, identityValue string) (*model.User, error) {
+	args := m.Called(ctx, identityType, identityValue)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.User), args.Error(1)
+}
+
+func (m *mockUserRepo) CreateIdentity(ctx context.Context, ident *model.UserIdentity) error {
+	args := m.Called(ctx, ident)
+	return args.Error(0)
+}
+
 // mockAuthRepo mocks the auth repo for testing.
 type mockAuthRepo struct {
 	mock.Mock

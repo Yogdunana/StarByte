@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, Card, Tabs, message } from 'antd';
-import { UserOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Form, Input, Button, Card, Tabs, Divider, message } from 'antd';
+import { UserOutlined, LockOutlined, MailOutlined, BankOutlined } from '@ant-design/icons';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { login, selectIsAuthenticated } from '@/store/slices/authSlice';
 import { fetchCurrentUser } from '@/store/slices/userSlice';
-import { register } from '@/api/auth';
+import { getCasLoginURL, getCasStatus, register } from '@/api/auth';
 import { AppDispatch } from '@/store';
 import styles from './Login.module.css';
 import GlassOrb from '@/components/GlassOrb/GlassOrb';
@@ -38,12 +38,16 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+const envCasEnabled = import.meta.env.VITE_CAS_ENABLED === 'true';
+
 const Login: React.FC = () => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('login');
   const [loading, setLoading] = useState(false);
+  const [casEnabled, setCasEnabled] = useState(envCasEnabled);
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const dispatch = useDispatch<AppDispatch>();
   const isAuthenticated = useSelector(selectIsAuthenticated);
 
@@ -53,6 +57,18 @@ const Login: React.FC = () => {
       navigate(getRedirectPath(location.state), { replace: true });
     }
   }, [isAuthenticated, navigate, location.state]);
+
+  useEffect(() => {
+    getCasStatus()
+      .then((s) => setCasEnabled(Boolean(s?.enabled)))
+      .catch(() => setCasEnabled(envCasEnabled));
+  }, []);
+
+  useEffect(() => {
+    if (searchParams.get('cas_error')) {
+      message.error(t('login.casError'));
+    }
+  }, [searchParams, t]);
 
   // 登录
   const handleLogin = async (values: { username: string; password: string }) => {
@@ -160,6 +176,24 @@ const Login: React.FC = () => {
                   {t('login.submit')}
                 </Button>
               </Form.Item>
+
+              {casEnabled && (
+                <>
+                  <Divider plain>{t('login.or')}</Divider>
+                  <Button
+                    block
+                    size="large"
+                    icon={<BankOutlined />}
+                    className={styles.casBtn}
+                    onClick={() => {
+                      window.location.assign(getCasLoginURL(getRedirectPath(location.state)));
+                    }}
+                  >
+                    {t('login.cas')}
+                  </Button>
+                  <p className={styles.casHint}>{t('login.casHint')}</p>
+                </>
+              )}
 
               <div className={styles.switchTab}>
                 {t('login.hint')}

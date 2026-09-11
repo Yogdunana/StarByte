@@ -47,8 +47,19 @@ minio:
   bucket: starbyte
   use_ssl: true
 
+# 漏测先用校园网 IP；service/frontend 留空则按请求 Host 自动拼。
+# 有域名后再设 CAS_SERVICE_URL / CAS_FRONTEND_URL，或继续留空走访问地址。
+cas:
+  enabled: true
+  server_url: "https://authserver.smbu.edu.cn/authserver"
+  service_url: ""
+  frontend_url: ""
+  allow_auto_provision: true
+  default_role: member
+
 cors:
   allowed_origins:
+    - "https://starbyte.smbu.edu.cn"
     - "https://starbyte.com"
     - "https://www.starbyte.com"
   allowed_methods:
