@@ -85,6 +85,22 @@ func (s *admissionService) Objection(ctx context.Context, viewer, id uuid.UUID, 
 			return fmt.Errorf("save objection: %w", err)
 		}
 		members := &memberService{apps: repo.NewApplicationRepo(tx)}
-		return members.recordAppHistory(ctx, id, model.AppApproved, app.Status, &viewer, req.Comment, map[string]interface{}{"objection_id": objection.ID, "action": req.Action})
+		return members.recordAppHistory(ctx, id, model.AppApproved, app.Status, &viewer, publicObjectionHistory(req.Action), map[string]interface{}{
+			"objection_id": objection.ID, "action": req.Action, "internal_comment": req.Comment,
+		})
 	})
+}
+
+func publicObjectionHistory(action string) string {
+	switch action {
+	case "raise":
+		return "候补期已提出异议，等待中心复核"
+	case "center_review":
+		return "候补期异议已提交中心复核，等待会长裁决"
+	case "uphold":
+		return "候补期异议成立，终止录用"
+	case "dismiss":
+		return "候补期异议不成立，继续候补"
+	}
+	return "候补期异议已记录"
 }

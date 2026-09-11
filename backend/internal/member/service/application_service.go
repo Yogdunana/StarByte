@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -124,13 +125,15 @@ func (s *memberService) MyApplications(ctx context.Context, userID uuid.UUID) ([
 }
 
 func (s *memberService) ApplicationHistory(ctx context.Context, viewer, id uuid.UUID, scope *rbacModel.DataScopeCondition) ([]dto.ApplicationHistoryResponse, error) {
-	if _, err := s.GetApplication(ctx, viewer, id, scope); err != nil {
+	app, err := s.GetApplication(ctx, viewer, id, scope)
+	if err != nil {
 		return nil, err
 	}
 	rows, err := s.apps.ListHistory(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("list application history: %w", err)
 	}
+	applicant := app.UserID == viewer.String()
 	out := make([]dto.ApplicationHistoryResponse, 0, len(rows))
 	for _, h := range rows {
 		item := dto.ApplicationHistoryResponse{
@@ -143,9 +146,29 @@ func (s *memberService) ApplicationHistory(ctx context.Context, viewer, id uuid.
 		if h.OperatorID != nil {
 			item.OperatorID = h.OperatorID.String()
 		}
+		if action := objectionHistoryAction(h.Extra); action != "" {
+			item.Comment = publicObjectionHistory(action)
+			if applicant {
+				item.OperatorID = ""
+			}
+		}
 		out = append(out, item)
 	}
 	return out, nil
+}
+
+func objectionHistoryAction(extra []byte) string {
+	if len(extra) == 0 {
+		return ""
+	}
+	var payload struct {
+		ObjectionID string `json:"objection_id"`
+		Action      string `json:"action"`
+	}
+	if err := json.Unmarshal(extra, &payload); err != nil || payload.ObjectionID == "" {
+		return ""
+	}
+	return payload.Action
 }
 
 func (s *memberService) ListDepartments(ctx context.Context) ([]dto.DepartmentOption, error) {
