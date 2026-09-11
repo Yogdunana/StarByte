@@ -120,6 +120,36 @@ var seedTemplatesData = []seedTemplate{
 		Body:   "{{.real_name}}，合同「{{.title}}」将于 {{.expired_at}} 到期。",
 		Schema: `{"real_name":"string","title":"string","expired_at":"string"}`,
 	},
+	{
+		Code: "activity_registered", Name: "活动报名成功", Category: "activity",
+		Title:  "报名成功：{{.title}}",
+		Body:   "你已成功报名活动「{{.title}}」，时间 {{.start_time}}，地点 {{.location}}。",
+		Schema: `{"title":"string","start_time":"string","location":"string"}`,
+	},
+	{
+		Code: "activity_waitlist", Name: "活动候补", Category: "activity",
+		Title:  "已进入候补队列：{{.title}}",
+		Body:   "活动「{{.title}}」名额已满，你已进入候补队列，如有空位将自动递补。",
+		Schema: `{"title":"string","start_time":"string","location":"string"}`,
+	},
+	{
+		Code: "activity_approved", Name: "活动报名通过", Category: "activity",
+		Title:  "报名已通过：{{.title}}",
+		Body:   "你报名的活动「{{.title}}」已通过，时间 {{.start_time}}，地点 {{.location}}。",
+		Schema: `{"title":"string","start_time":"string","location":"string"}`,
+	},
+	{
+		Code: "activity_rejected", Name: "活动报名被拒", Category: "activity",
+		Title:  "报名未通过：{{.title}}",
+		Body:   "很遗憾，你报名的活动「{{.title}}」未通过审核。",
+		Schema: `{"title":"string","start_time":"string","location":"string"}`,
+	},
+	{
+		Code: "activity_starting", Name: "活动即将开始", Category: "activity",
+		Title:  "活动即将开始：{{.title}}",
+		Body:   "活动「{{.title}}」将于 {{.start_time}} 在 {{.location}} 开始，请准时参加。",
+		Schema: `{"title":"string","start_time":"string","location":"string"}`,
+	},
 }
 
 func seedTemplates(db *gorm.DB) error {

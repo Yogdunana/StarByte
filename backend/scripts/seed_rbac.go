@@ -127,6 +127,8 @@ func allSeedPermissions() []seedPerm {
 		seedPerm{Name: "合同创建", Code: "contract:create", Resource: "contract", Action: "create"},
 		seedPerm{Name: "合同管理", Code: "contract:manage", Resource: "contract", Action: "manage"},
 	)
+	perms = append(perms, moduleCRUD("activity", "活动")...)
+	perms = append(perms, seedPerm{Name: "活动管理", Code: "activity:manage", Resource: "activity", Action: "manage"})
 	return perms
 }
 
@@ -217,11 +219,12 @@ func seedRolePermissions(db *gorm.DB) error {
 		FROM roles r CROSS JOIN permissions p
 		WHERE r.code = 'minister' AND (
 			p.action = 'read'
-			OR (p.resource IN ('member','interview','meeting','task','internship','file','workflow','notification','finance','discipline','contract')
+			OR (p.resource IN ('member','interview','meeting','task','internship','file','workflow','notification','finance','discipline','contract','activity')
 			    AND p.action IN ('create','update'))
 			OR (p.resource = 'member' AND p.action IN ('approve','export','manage'))
 			OR (p.resource = 'interview' AND p.action IN ('manage','evaluate'))
 			OR (p.resource = 'meeting' AND p.action = 'manage')
+			OR (p.resource = 'activity' AND p.action = 'manage')
 			OR (p.resource = 'task' AND p.action IN ('assign','transfer','comment'))
 			OR (p.resource = 'internship' AND p.action = 'evaluate')
 			OR (p.resource = 'finance' AND p.action = 'manage')
@@ -243,7 +246,7 @@ func seedRolePermissions(db *gorm.DB) error {
 		FROM roles r CROSS JOIN permissions p
 		WHERE r.code = 'vice_minister' AND p.resource <> 'interview_private' AND (
 			p.action = 'read'
-			OR (p.resource IN ('member','interview','meeting','task','internship','file','finance','discipline','contract')
+			OR (p.resource IN ('member','interview','meeting','task','internship','file','finance','discipline','contract','activity')
 			    AND p.action = 'create')
 			OR (p.resource = 'task' AND p.action IN ('update','comment'))
 			OR (p.resource = 'form' AND p.action IN ('write', 'submit'))
@@ -263,6 +266,7 @@ func officerPermCodes() []string {
 	return []string{
 		"user:read", "member:read", "member:create",
 		"interview:read", "interview:evaluate", "meeting:read",
+		"activity:read", "activity:create", "activity:update",
 		"task:read", "task:create", "task:update", "task:comment",
 		"file:read", "file:create",
 		"internship:read", "internship:create", "internship:update", "internship:delete",
@@ -274,6 +278,7 @@ func officerPermCodes() []string {
 func memberPermCodes() []string {
 	return []string{
 		"user:read", "member:read", "meeting:read", "task:read",
+		"activity:read",
 		"file:read", "file:create", "internship:read", "internship:create", "internship:update", "internship:delete",
 		"form:submit", "discipline:read",
 	}
