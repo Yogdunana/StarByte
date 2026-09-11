@@ -2,9 +2,12 @@ package identity
 
 import (
 	"context"
+	"strings"
 
 	authsvc "github.com/Yogdunana/StarByte/backend/internal/auth/service"
+	"github.com/Yogdunana/StarByte/backend/internal/member/model"
 	"github.com/Yogdunana/StarByte/backend/internal/member/repo"
+	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
 )
 
@@ -60,4 +63,52 @@ func (l *Lookup) GetByUserID(ctx context.Context, userID uuid.UUID) (*authsvc.Me
 		ident.PositionID = row.PositionID.String()
 	}
 	return ident, nil
+}
+
+// EnsureStudentNo 把学号写入人员档案；无档案则创建最小记录。学号已被他人占用时拒绝。
+func (l *Lookup) EnsureStudentNo(ctx context.Context, userID uuid.UUID, studentNo, realName string) error {
+	if l == nil || l.profiles == nil || userID == uuid.Nil {
+		return nil
+	}
+	studentNo = strings.TrimSpace(studentNo)
+	if studentNo == "" {
+		return nil
+	}
+	realName = strings.TrimSpace(realName)
+	existingByNo, err := l.profiles.GetByStudentNo(ctx, studentNo, nil)
+	if err != nil {
+		return err
+	}
+	if existingByNo != nil && existingByNo.UserID != userID {
+		return response.NewError(response.CodeMemberStudentExists, "该学号已绑定其他账号")
+	}
+	p, err := l.profiles.GetByUserID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if p == nil {
+		return l.profiles.Create(ctx, &model.MemberProfile{
+			ID:         uuid.New(),
+			UserID:     userID,
+			RealName:   realName,
+			StudentNo:  studentNo,
+			MemberType: model.MemberTypeMember,
+			Status:     model.ProfileActive,
+		})
+	}
+	changed := false
+	if strings.TrimSpace(p.StudentNo) == "" {
+		p.StudentNo = studentNo
+		changed = true
+	} else if p.StudentNo != studentNo {
+		return response.NewError(response.CodeMemberStudentExists, "该账号已绑定其他学号")
+	}
+	if strings.TrimSpace(p.RealName) == "" && realName != "" {
+		p.RealName = realName
+		changed = true
+	}
+	if !changed {
+		return nil
+	}
+	return l.profiles.Update(ctx, p)
 }

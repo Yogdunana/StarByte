@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -74,7 +75,8 @@ func (s stubValidator) Validate(context.Context, string, string) (*CASPrincipal,
 }
 
 type stubIdentity struct {
-	byNo map[string]uuid.UUID
+	byNo    map[string]uuid.UUID
+	ensured []ensuredProfile
 }
 
 func (s *stubIdentity) GetByUserID(context.Context, uuid.UUID) (*MemberIdentity, error) {
@@ -86,6 +88,20 @@ func (s *stubIdentity) GetUserIDByStudentNo(_ context.Context, studentNo string)
 		return uuid.Nil, nil
 	}
 	return s.byNo[studentNo], nil
+}
+
+type ensuredProfile struct {
+	userID    uuid.UUID
+	studentNo string
+	realName  string
+}
+
+func (s *stubIdentity) EnsureStudentNo(_ context.Context, userID uuid.UUID, studentNo, realName string) error {
+	if s == nil {
+		return nil
+	}
+	s.ensured = append(s.ensured, ensuredProfile{userID: userID, studentNo: studentNo, realName: realName})
+	return nil
 }
 
 func casTestService(store *memCASStore, validator TicketValidator, users *mockUserRepo) *authService {
@@ -117,6 +133,13 @@ func TestSanitizeCASUsername(t *testing.T) {
 	assert.Equal(t, "20210001", sanitizeCASUsername(" 20210001 "))
 	assert.Equal(t, "", sanitizeCASUsername("a b"))
 	assert.Equal(t, "", sanitizeCASUsername("../../../etc"))
+}
+
+func TestSanitizeChosenUsername(t *testing.T) {
+	assert.Equal(t, "alice_wang", sanitizeChosenUsername(" alice_wang "))
+	assert.Equal(t, "", sanitizeChosenUsername("ab"))
+	assert.Equal(t, "", sanitizeChosenUsername("alice wang"))
+	assert.Equal(t, "", sanitizeChosenUsername("alice-wang"))
 }
 
 func TestParseCASXML_Success(t *testing.T) {
@@ -196,35 +219,86 @@ func TestCompleteCASCallback_ExistingUser(t *testing.T) {
 	assert.Contains(t, loc, "http://10.0.0.8/login/cas?code=")
 }
 
-func TestCompleteCASCallback_AutoProvision(t *testing.T) {
+func TestCompleteCASCallback_UnknownNeedsRegistration(t *testing.T) {
 	store := newMemCASStore()
 	require.NoError(t, store.PutState(context.Background(), "st2", `{"redirect":"/dashboard","origin":"http://10.0.0.8","service":"http://10.0.0.8/api/v1/auth/cas/callback"}`, time.Minute))
 	users := &mockUserRepo{}
 	users.On("GetByIdentity", mock.Anything, identityTypeCAS, "20219999").Return((*model.User)(nil), nil)
-	users.On("GetByUsername", mock.Anything, "20219999").Return((*model.User)(nil), nil)
+
+	svc := casTestService(store, stubValidator{p: &CASPrincipal{
+		User:       "20219999",
+		Attributes: map[string]string{"name": "王五", "mail": "wang@smbu.edu.cn"},
+	}}, users)
+	svc.identity = &stubIdentity{}
+
+	loc, err := svc.CompleteCASCallback(context.Background(), "ST-2", "st2", "2.2.2.2", "ua", "http://10.0.0.8")
+	require.NoError(t, err)
+	assert.Contains(t, loc, "/login/cas?code=")
+	users.AssertNotCalled(t, "Create", mock.Anything, mock.Anything, mock.Anything)
+
+	code := strings.TrimPrefix(loc, "http://10.0.0.8/login/cas?code=")
+	out, err := svc.ExchangeCASCode(context.Background(), code)
+	require.NoError(t, err)
+	assert.True(t, out.NeedsRegistration)
+	assert.Equal(t, "20219999", out.StudentNo)
+	assert.Equal(t, "王五", out.RealName)
+	assert.Equal(t, "wang@smbu.edu.cn", out.Email)
+	assert.NotEmpty(t, out.RegistrationToken)
+	assert.Empty(t, out.AccessToken)
+}
+
+func TestRegisterWithCASToken_CreatesUserAndBinds(t *testing.T) {
+	store := newMemCASStore()
+	require.NoError(t, store.PutState(context.Background(), "st2", `{"redirect":"/tasks","origin":"http://10.0.0.8","service":"http://10.0.0.8/api/v1/auth/cas/callback"}`, time.Minute))
+	users := &mockUserRepo{}
+	users.On("GetByIdentity", mock.Anything, identityTypeCAS, "20219999").Return((*model.User)(nil), nil)
+	users.On("GetByUsername", mock.Anything, "alice_wang").Return((*model.User)(nil), nil)
 	users.On("Create", mock.Anything, (*gorm.DB)(nil), mock.AnythingOfType("*model.User")).Return(nil).Run(func(args mock.Arguments) {
 		u := args.Get(2).(*model.User)
-		assert.Equal(t, "20219999", u.Username)
+		assert.Equal(t, "alice_wang", u.Username)
 		assert.Equal(t, "王五", u.RealName)
+		assert.NotEqual(t, "20219999", u.Username)
 	})
-	users.On("CreateIdentity", mock.Anything, mock.AnythingOfType("*model.UserIdentity")).Return(nil)
-	users.On("UpdateLastLogin", mock.Anything, mock.Anything, "2.2.2.2").Return(nil)
+	users.On("CreateIdentity", mock.Anything, mock.AnythingOfType("*model.UserIdentity")).Return(nil).Run(func(args mock.Arguments) {
+		ident := args.Get(1).(*model.UserIdentity)
+		assert.Equal(t, identityTypeCAS, ident.IdentityType)
+		assert.Equal(t, "20219999", ident.IdentityValue)
+	})
+	users.On("UpdateLastLogin", mock.Anything, mock.Anything, "9.9.9.9").Return(nil)
 
+	ident := &stubIdentity{}
 	svc := casTestService(store, stubValidator{p: &CASPrincipal{
 		User:       "20219999",
 		Attributes: map[string]string{"name": "王五"},
 	}}, users)
-	svc.identity = &stubIdentity{}
+	svc.identity = ident
 	authRepo := svc.authRepo.(*mockAuthRepo)
 	perm := svc.permCacheSvc.(*mockPermCache)
 	authRepo.On("StoreRefreshToken", mock.Anything, "test-refresh-token-uuid", mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).Return(nil)
-	authRepo.On("StoreSession", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), "2.2.2.2", "ua", mock.Anything).Return(nil)
+	authRepo.On("StoreSession", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), "9.9.9.9", "ua", mock.Anything).Return(nil)
 	perm.On("GetUserPermissionsAndSuperAdmin", mock.Anything, mock.Anything).Return([]string{}, false, nil)
 	perm.On("GetUserRoleCodes", mock.Anything, mock.Anything).Return([]string{"member"}, nil)
 
 	loc, err := svc.CompleteCASCallback(context.Background(), "ST-2", "st2", "2.2.2.2", "ua", "http://10.0.0.8")
 	require.NoError(t, err)
-	assert.Contains(t, loc, "/login/cas?code=")
+	code := strings.TrimPrefix(loc, "http://10.0.0.8/login/cas?code=")
+	ex, err := svc.ExchangeCASCode(context.Background(), code)
+	require.NoError(t, err)
+	require.True(t, ex.NeedsRegistration)
+
+	out, err := svc.RegisterWithCASToken(context.Background(), &dto.CASRegisterRequest{
+		Token:    ex.RegistrationToken,
+		Username: "alice_wang",
+		Password: "Passw0rd!",
+		RealName: "王五",
+	}, "9.9.9.9", "ua")
+	require.NoError(t, err)
+	assert.NotEmpty(t, out.AccessToken)
+	assert.Equal(t, "/tasks", out.Redirect)
+	require.Len(t, ident.ensured, 1)
+	assert.Equal(t, "20219999", ident.ensured[0].studentNo)
+	assert.Equal(t, "王五", ident.ensured[0].realName)
+	users.AssertExpectations(t)
 }
 
 func TestExchangeCASCode(t *testing.T) {

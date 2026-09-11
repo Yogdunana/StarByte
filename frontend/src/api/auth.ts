@@ -1,6 +1,7 @@
 import request from './request';
 import type {
   CASExchangeResponse,
+  CASRegisterRequest,
   CASStatusResponse,
   LoginRequest,
   LoginResponse,
@@ -52,4 +53,8 @@ export function getCasLoginURL(redirect?: string): string {
 
 export function exchangeCasCode(code: string): Promise<CASExchangeResponse> {
   return request.post('/auth/cas/exchange', { code });
+}
+
+export function registerWithCasToken(params: CASRegisterRequest): Promise<CASExchangeResponse> {
+  return request.post('/auth/cas/register', params);
 }

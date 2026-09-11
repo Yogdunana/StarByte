@@ -53,6 +53,9 @@ func (s *sessionStub) CompleteCASCallback(context.Context, string, string, strin
 func (s *sessionStub) ExchangeCASCode(context.Context, string) (*dto.CASExchangeResponse, error) {
 	return nil, nil
 }
+func (s *sessionStub) RegisterWithCASToken(context.Context, *dto.CASRegisterRequest, string, string) (*dto.CASExchangeResponse, error) {
+	return nil, nil
+}
 
 func TestListSessions_OK(t *testing.T) {
 	h := NewAuthHandler(&sessionStub{list: &dto.SessionListResponse{List: []dto.SessionView{{TokenID: "j1"}}, Total: 1}})

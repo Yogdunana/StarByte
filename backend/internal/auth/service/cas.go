@@ -22,11 +22,14 @@ import (
 )
 
 const (
-	identityTypeCAS     = "cas"
-	casStateTTL         = 10 * time.Minute
-	casExchangeTTL      = 60 * time.Second
-	casUsernameMaxLen   = 50
-	casRedirectFallback = "/dashboard"
+	identityTypeCAS         = "cas"
+	casStateTTL             = 10 * time.Minute
+	casExchangeTTL          = 60 * time.Second
+	casRegisterTTL          = 15 * time.Minute
+	casUsernameMaxLen       = 50
+	casRedirectFallback     = "/dashboard"
+	casExchangeKindLogin    = "login"
+	casExchangeKindRegister = "register"
 )
 
 // CASDeps wires optional campus CAS login. All fields may be nil when CAS is off.
@@ -104,9 +107,12 @@ func (s *authService) CompleteCASCallback(ctx context.Context, ticket, state, ip
 	if err != nil || principal == nil || strings.TrimSpace(principal.User) == "" {
 		return casFrontendError(rec.Origin, "ticket_invalid"), nil
 	}
-	user, err := s.resolveOrProvisionCASUser(ctx, principal)
+	user, err := s.resolveCASUser(ctx, principal)
 	if err != nil {
 		return casFrontendError(rec.Origin, "user_resolve"), nil
+	}
+	if user == nil {
+		return s.issueCASRegistration(ctx, rec, principal, ip, userAgent)
 	}
 	if user.Status == 1 {
 		return casFrontendError(rec.Origin, "disabled_user"), nil
@@ -122,7 +128,11 @@ func (s *authService) CompleteCASCallback(ctx context.Context, ticket, state, ip
 	if err != nil {
 		return casFrontendError(rec.Origin, "code"), nil
 	}
-	payload, err := json.Marshal(casExchangePayload{Login: *tokens, Redirect: rec.Redirect})
+	payload, err := json.Marshal(casExchangePayload{
+		Kind:     casExchangeKindLogin,
+		Login:    *tokens,
+		Redirect: rec.Redirect,
+	})
 	if err != nil {
 		return casFrontendError(rec.Origin, "code"), nil
 	}
@@ -155,18 +165,136 @@ func (s *authService) ExchangeCASCode(ctx context.Context, code string) (*dto.CA
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		return nil, response.NewError(response.CodeTokenInvalid, "统一认证凭证无效")
 	}
+	if payload.Kind == casExchangeKindRegister || payload.Pending != nil {
+		return s.reissueCASRegistration(ctx, &payload)
+	}
 	return &dto.CASExchangeResponse{
 		LoginResponse: payload.Login,
 		Redirect:      sanitizeRedirect(payload.Redirect),
 	}, nil
 }
 
-type casExchangePayload struct {
-	Login    dto.LoginResponse `json:"login"`
-	Redirect string            `json:"redirect"`
+// RegisterWithCASToken creates a local user from a one-time CAS registration continuation.
+func (s *authService) RegisterWithCASToken(ctx context.Context, req *dto.CASRegisterRequest, ip, userAgent string) (*dto.CASExchangeResponse, error) {
+	if !s.casEnabled() {
+		return nil, response.NewError(response.CodeNotImplemented, "学校统一认证暂未开通")
+	}
+	if req == nil {
+		return nil, response.NewError(response.CodeBadRequest, "参数错误")
+	}
+	token := strings.TrimSpace(req.Token)
+	if token == "" {
+		return nil, response.NewError(response.CodeBadRequest, "缺少注册凭证")
+	}
+	if s.casStore == nil {
+		return nil, response.NewError(response.CodeInternalError, "CAS 未配置")
+	}
+	username := sanitizeChosenUsername(req.Username)
+	if username == "" {
+		return nil, response.NewError(response.CodeBadRequest, "用户名须为 3-50 位字母、数字或下划线")
+	}
+	if !utils.ValidatePasswordStrength(req.Password) {
+		return nil, response.NewError(response.CodePasswordTooWeak, "密码强度不足：至少 8 位，需包含字母和数字")
+	}
+	raw, err := s.casStore.TakeCode(ctx, token)
+	if err == goredis.Nil || len(raw) == 0 {
+		return nil, response.NewError(response.CodeTokenInvalid, "统一认证凭证已失效，请重新登录")
+	}
+	if err != nil {
+		return nil, fmt.Errorf("take cas register token: %w", err)
+	}
+	var payload casExchangePayload
+	if err := json.Unmarshal(raw, &payload); err != nil || payload.Pending == nil {
+		return nil, response.NewError(response.CodeTokenInvalid, "统一认证凭证无效")
+	}
+	pending := payload.Pending
+	if pending.CASUser == "" {
+		return nil, response.NewError(response.CodeTokenInvalid, "统一认证凭证无效")
+	}
+
+	if existing, err := s.userRepo.GetByIdentity(ctx, identityTypeCAS, pending.CASUser); err != nil {
+		return nil, fmt.Errorf("lookup cas identity: %w", err)
+	} else if existing != nil {
+		return nil, response.NewError(response.CodeUserExists, "该校园账号已绑定本地用户")
+	}
+
+	taken, err := s.userRepo.GetByUsername(ctx, username)
+	if err != nil {
+		return nil, fmt.Errorf("check username: %w", err)
+	}
+	if taken != nil {
+		// 用户名冲突时把续传凭证写回，避免填表失败后必须重新走 CAS。
+		_ = s.casStore.PutCode(ctx, token, raw, casRegisterTTL)
+		return nil, response.NewError(response.CodeUserExists, "用户名已存在")
+	}
+
+	realName := strings.TrimSpace(req.RealName)
+	if realName == "" {
+		realName = pending.RealName
+	}
+	email := strings.TrimSpace(req.Email)
+	if email == "" {
+		email = pending.Email
+	}
+	hash, err := utils.HashPassword(req.Password)
+	if err != nil {
+		return nil, fmt.Errorf("hash password: %w", err)
+	}
+	user := &model.User{
+		ID:           uuid.New(),
+		Username:     username,
+		PasswordHash: hash,
+		RealName:     realName,
+		Email:        email,
+		Status:       0,
+	}
+	if err := s.userRepo.Create(ctx, nil, user); err != nil {
+		return nil, fmt.Errorf("create cas user: %w", err)
+	}
+	if err := s.bindCASIdentity(ctx, user.ID, pending.CASUser); err != nil {
+		return nil, fmt.Errorf("bind cas identity: %w", err)
+	}
+	if pending.StudentNo != "" && s.identity != nil {
+		if err := s.identity.EnsureStudentNo(ctx, user.ID, pending.StudentNo, realName); err != nil {
+			return nil, err
+		}
+	}
+	if s.casRole != nil {
+		_ = s.casRole.AssignDefault(ctx, user.ID)
+	}
+	if ip == "" {
+		ip = pending.IP
+	}
+	if userAgent == "" {
+		userAgent = pending.UserAgent
+	}
+	tokens, err := s.issueSession(ctx, user, ip, userAgent)
+	if err != nil {
+		return nil, err
+	}
+	return &dto.CASExchangeResponse{
+		LoginResponse: *tokens,
+		Redirect:      sanitizeRedirect(payload.Redirect),
+	}, nil
 }
 
-func (s *authService) resolveOrProvisionCASUser(ctx context.Context, p *CASPrincipal) (*model.User, error) {
+type casExchangePayload struct {
+	Kind     string              `json:"kind,omitempty"`
+	Login    dto.LoginResponse   `json:"login"`
+	Pending  *casPendingIdentity `json:"pending,omitempty"`
+	Redirect string              `json:"redirect"`
+}
+
+type casPendingIdentity struct {
+	CASUser   string `json:"cas_user"`
+	StudentNo string `json:"student_no"`
+	RealName  string `json:"real_name"`
+	Email     string `json:"email"`
+	IP        string `json:"ip,omitempty"`
+	UserAgent string `json:"user_agent,omitempty"`
+}
+
+func (s *authService) resolveCASUser(ctx context.Context, p *CASPrincipal) (*model.User, error) {
 	casUser := sanitizeCASUsername(p.User)
 	if casUser == "" {
 		return nil, response.NewError(response.CodeInvalidCredentials, "CAS 未返回有效账号")
@@ -196,10 +324,86 @@ func (s *authService) resolveOrProvisionCASUser(ctx context.Context, p *CASPrinc
 			}
 		}
 	}
-	if s.cas == nil || !s.cas.AllowAutoProvision {
-		return nil, response.NewError(response.CodeUserNotFound, "本地没有对应账号，请先完成入会或联系管理员")
+	if s.canAutoProvision(casUser, studentNo) {
+		return s.provisionCASUser(ctx, p, casUser)
 	}
-	return s.provisionCASUser(ctx, p, casUser)
+	return nil, nil
+}
+
+func (s *authService) canAutoProvision(casUser, studentNo string) bool {
+	if s == nil || s.cas == nil || !s.cas.AllowAutoProvision {
+		return false
+	}
+	return !wouldSetUsernameToStudentNo(casUser, studentNo)
+}
+
+func wouldSetUsernameToStudentNo(casUser, studentNo string) bool {
+	if casUser == "" {
+		return true
+	}
+	if studentNo != "" && casUser == studentNo {
+		return true
+	}
+	return isMostlyDigits(casUser)
+}
+
+func (s *authService) issueCASRegistration(ctx context.Context, rec casStateRecord, p *CASPrincipal, ip, userAgent string) (string, error) {
+	casUser := sanitizeCASUsername(p.User)
+	if casUser == "" {
+		return casFrontendError(rec.Origin, "user_resolve"), nil
+	}
+	code, err := randomHex(16)
+	if err != nil {
+		return casFrontendError(rec.Origin, "code"), nil
+	}
+	payload, err := json.Marshal(casExchangePayload{
+		Kind: casExchangeKindRegister,
+		Pending: &casPendingIdentity{
+			CASUser:   casUser,
+			StudentNo: pickStudentNo(p, casUser),
+			RealName:  pickRealName(p),
+			Email:     pickAttr(p, "email", "mail"),
+			IP:        ip,
+			UserAgent: userAgent,
+		},
+		Redirect: rec.Redirect,
+	})
+	if err != nil {
+		return casFrontendError(rec.Origin, "code"), nil
+	}
+	if err := s.casStore.PutCode(ctx, code, payload, casRegisterTTL); err != nil {
+		return casFrontendError(rec.Origin, "code"), nil
+	}
+	return casFrontendSuccess(rec.Origin, code), nil
+}
+
+func (s *authService) reissueCASRegistration(ctx context.Context, payload *casExchangePayload) (*dto.CASExchangeResponse, error) {
+	if payload == nil || payload.Pending == nil {
+		return nil, response.NewError(response.CodeTokenInvalid, "统一认证凭证无效")
+	}
+	token, err := randomHex(16)
+	if err != nil {
+		return nil, fmt.Errorf("cas register token: %w", err)
+	}
+	raw, err := json.Marshal(casExchangePayload{
+		Kind:     casExchangeKindRegister,
+		Pending:  payload.Pending,
+		Redirect: sanitizeRedirect(payload.Redirect),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("cas register token: %w", err)
+	}
+	if err := s.casStore.PutCode(ctx, token, raw, casRegisterTTL); err != nil {
+		return nil, fmt.Errorf("store cas register token: %w", err)
+	}
+	return &dto.CASExchangeResponse{
+		Redirect:          sanitizeRedirect(payload.Redirect),
+		NeedsRegistration: true,
+		RegistrationToken: token,
+		StudentNo:         payload.Pending.StudentNo,
+		RealName:          payload.Pending.RealName,
+		Email:             payload.Pending.Email,
+	}, nil
 }
 
 func (s *authService) provisionCASUser(ctx context.Context, p *CASPrincipal, casUser string) (*model.User, error) {
@@ -372,6 +576,19 @@ func sanitizeCASUsername(raw string) string {
 	}
 	for _, r := range raw {
 		if r > unicode.MaxASCII || r <= 32 || strings.ContainsRune(" /\\?&#%=", r) {
+			return ""
+		}
+	}
+	return raw
+}
+
+func sanitizeChosenUsername(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if len(raw) < 3 || len(raw) > casUsernameMaxLen {
+		return ""
+	}
+	for _, r := range raw {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_') {
 			return ""
 		}
 	}

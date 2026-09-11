@@ -3,7 +3,10 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/notification/service"
@@ -44,7 +47,8 @@ type WSHandler struct {
 }
 
 // NewWSHandler 创建 WebSocket 处理器
-// allowedOrigins 为空时允许所有来源（开发模式），非空时仅允许列表中的来源
+// allowedOrigins 为空时允许所有来源（开发模式）；非空时允许空 Origin、
+// CORS 白名单中的来源，以及与请求 Host 同主机的 Origin（忽略端口差异）。
 func NewWSHandler(hub service.HubManager, jwtConfig *config.JWTConfig, allowedOrigins []string) *WSHandler {
 	originSet := make(map[string]bool)
 	for _, origin := range allowedOrigins {
@@ -57,18 +61,44 @@ func NewWSHandler(hub service.HubManager, jwtConfig *config.JWTConfig, allowedOr
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 			CheckOrigin: func(r *http.Request) bool {
-				// 未配置允许来源时，允许所有（开发模式）
-				if len(originSet) == 0 {
-					return true
-				}
-				origin := r.Header.Get("Origin")
-				if origin == "" {
-					return true // 非浏览器客户端（如 curl）无 Origin 头
-				}
-				return originSet[origin]
+				return checkWSOrigin(r, originSet)
 			},
 		},
 	}
+}
+
+// checkWSOrigin 校验 WebSocket 升级请求的 Origin。
+// 允许：空 Origin、开发模式（白名单为空）、CORS 白名单命中、与请求 Host 同主机。
+func checkWSOrigin(r *http.Request, allowed map[string]bool) bool {
+	if len(allowed) == 0 {
+		return true
+	}
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+	if allowed[origin] {
+		return true
+	}
+	return originMatchesRequestHost(origin, r.Host)
+}
+
+func originMatchesRequestHost(origin, reqHost string) bool {
+	u, err := url.Parse(origin)
+	if err != nil || u.Host == "" {
+		return false
+	}
+	return strings.EqualFold(stripHostPort(u.Host), stripHostPort(reqHost))
+}
+
+func stripHostPort(host string) string {
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		return h
+	}
+	if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
+		return host[1 : len(host)-1]
+	}
+	return host
 }
 
 // HandleConnection GET /ws/notifications

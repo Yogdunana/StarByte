@@ -137,13 +137,60 @@ func TestCompleteCASCallback_NoAutoProvision(t *testing.T) {
 	require.NoError(t, store.PutState(context.Background(), "st", `{"origin":"http://10.0.0.8","service":"http://10.0.0.8/cb"}`, time.Minute))
 	users := &mockUserRepo{}
 	users.On("GetByIdentity", mock.Anything, identityTypeCAS, "nobody").Return((*model.User)(nil), nil)
-	users.On("GetByUsername", mock.Anything, "nobody").Return((*model.User)(nil), nil)
 	svc := casTestService(store, stubValidator{p: &CASPrincipal{User: "nobody"}}, users)
 	svc.cas.AllowAutoProvision = false
 	svc.identity = &stubIdentity{}
 	loc, err := svc.CompleteCASCallback(context.Background(), "ST", "st", "", "", "http://10.0.0.8")
 	require.NoError(t, err)
-	assert.Contains(t, loc, "user_resolve")
+	assert.Contains(t, loc, "/login/cas?code=")
+	users.AssertNotCalled(t, "Create", mock.Anything, mock.Anything, mock.Anything)
+
+	code := loc[len("http://10.0.0.8/login/cas?code="):]
+	out, err := svc.ExchangeCASCode(context.Background(), code)
+	require.NoError(t, err)
+	assert.True(t, out.NeedsRegistration)
+}
+
+func TestRegisterWithCASToken_UsernameTakenKeepsToken(t *testing.T) {
+	store := newMemCASStore()
+	pending, _ := json.Marshal(casExchangePayload{
+		Kind: casExchangeKindRegister,
+		Pending: &casPendingIdentity{
+			CASUser:   "20218888",
+			StudentNo: "20218888",
+			RealName:  "赵六",
+		},
+		Redirect: "/dashboard",
+	})
+	require.NoError(t, store.PutCode(context.Background(), "reg1", pending, time.Minute))
+	users := &mockUserRepo{}
+	users.On("GetByIdentity", mock.Anything, identityTypeCAS, "20218888").Return((*model.User)(nil), nil)
+	users.On("GetByUsername", mock.Anything, "taken_user").Return(&model.User{Username: "taken_user"}, nil)
+	svc := casTestService(store, stubValidator{}, users)
+
+	_, err := svc.RegisterWithCASToken(context.Background(), &dto.CASRegisterRequest{
+		Token:    "reg1",
+		Username: "taken_user",
+		Password: "Passw0rd!",
+	}, "", "")
+	require.Error(t, err)
+	assert.Equal(t, response.CodeUserExists, err.(*response.AppError).Code)
+
+	out, err := svc.RegisterWithCASToken(context.Background(), &dto.CASRegisterRequest{
+		Token:    "reg1",
+		Username: "ok_user",
+		Password: "weak",
+	}, "", "")
+	require.Error(t, err)
+	assert.Equal(t, response.CodePasswordTooWeak, err.(*response.AppError).Code)
+	assert.Nil(t, out)
+}
+
+func TestWouldSetUsernameToStudentNo(t *testing.T) {
+	assert.True(t, wouldSetUsernameToStudentNo("20210001", "20210001"))
+	assert.True(t, wouldSetUsernameToStudentNo("20210001", ""))
+	assert.False(t, wouldSetUsernameToStudentNo("alice", ""))
+	assert.False(t, wouldSetUsernameToStudentNo("alice", "20210001"))
 }
 
 func TestExchangeCASCode_Errors(t *testing.T) {
