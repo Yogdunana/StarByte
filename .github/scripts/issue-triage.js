@@ -1,4 +1,4 @@
-function parseComment(body, { login, known, isPR }) {
+function parseComment(body, { login, known, isPR, assignees = [], isOpen = true }) {
   const knownSet = known instanceof Set ? known : new Set(known);
   const toAdd = new Set();
   const toRemove = new Set();
@@ -90,20 +90,32 @@ function parseComment(body, { login, known, isPR }) {
     }
   }
 
-  if (!isPR && /我来认领/.test(body)) {
-    toAssign.add(login);
-    addStatus('status:claimed');
+  const isAssignee = assignees.includes(login);
+  const isOpenIssue = !isPR && isOpen;
+  let notice = '';
+
+  function hasPhrase(re) {
+    return body.split(/\r?\n/).some((line) => re.test(line));
   }
-  if (!isPR && /放弃认领/.test(body)) {
+
+  if (isOpenIssue && hasPhrase(/^\s*我来认领/)) {
+    if (assignees.length && !isAssignee) {
+      notice = `@${login} 该 Issue 已分配给 ${assignees.map((a) => '@' + a).join('、')}，请先沟通再认领。`;
+    } else {
+      toAssign.add(login);
+      addStatus('status:claimed');
+    }
+  }
+  if (isOpenIssue && isAssignee && hasPhrase(/^\s*放弃认领/)) {
     toUnassign.add(login);
     addStatus('status:available');
   }
-  if (/开始开发/.test(body)) addStatus('status:in-progress');
-  if (/提交审查|提交评审/.test(body)) addStatus('status:review');
+  if (isOpenIssue && isAssignee && hasPhrase(/^\s*开始开发/)) addStatus('status:in-progress');
+  if (isOpenIssue && isAssignee && hasPhrase(/^\s*(?:提交审查|提交评审)/)) addStatus('status:review');
 
   for (const name of toRemove) toAdd.delete(name);
 
-  return { toAdd, toRemove, toAssign, toUnassign, unknown };
+  return { toAdd, toRemove, toAssign, toUnassign, unknown, notice };
 }
 
 async function issueTriage({ github, context }) {
@@ -122,8 +134,20 @@ async function issueTriage({ github, context }) {
   );
 
   const currentLabels = (issue.labels || []).map((l) => l.name);
-  const { toAdd, toRemove, toAssign, toUnassign, unknown } = parseComment(body, { login, known, isPR });
+  const assignees = (issue.assignees || []).map((a) => a.login);
+  const isOpen = issue.state === 'open';
+  const { toAdd, toRemove, toAssign, toUnassign, unknown, notice } = parseComment(body, {
+    login,
+    known,
+    isPR,
+    assignees,
+    isOpen,
+  });
   const errors = [];
+
+  if (notice) {
+    await github.rest.issues.createComment({ owner, repo, issue_number, body: notice });
+  }
 
   if (!toAdd.size && !toRemove.size && !toAssign.size && !toUnassign.size) {
     if (unknown.length) {
