@@ -14,7 +14,7 @@ import {
 } from '@/api/activity';
 import type { Activity, ActivityQRCode, ActivityStats, Registration } from '@/api/activity';
 import { formatDateTime } from '@/utils/format';
-import { ActivityStatusMap, RegistrationStatusMap } from './meta';
+import { ActivityStatusMap, RegistrationStatusMap, registerSuccessText } from './meta';
 
 const DetailPage: React.FC = () => {
   const { id = '' } = useParams();
@@ -156,7 +156,7 @@ const DetailPage: React.FC = () => {
 
       <Space wrap style={{ marginBottom: 16 }}>
         {canRegister && (
-          <Button type="primary" onClick={() => registerActivity(id).then(() => { message.success('报名成功'); return load(); })}>
+          <Button type="primary" onClick={() => registerActivity(id).then((reg) => { message.success(registerSuccessText(reg.status)); return load(); })}>
             我要报名
           </Button>
         )}

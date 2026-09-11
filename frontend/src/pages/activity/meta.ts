@@ -8,6 +8,10 @@ export const ActivityStatusMap: StatusMap = {
   4: { color: 'error', text: '已取消' },
 };
 
+export function registerSuccessText(status: number): string {
+  return status === 3 ? '已加入候补' : '报名成功';
+}
+
 export const RegistrationStatusMap: StatusMap = {
   0: { color: 'warning', text: '待审批' },
   1: { color: 'success', text: '已通过' },

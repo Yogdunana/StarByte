@@ -34,6 +34,18 @@ func (m *memActivities) Update(_ context.Context, a *model.Activity) error {
 	return m.Create(context.Background(), a)
 }
 
+func (m *memActivities) UpdateCheckinToken(_ context.Context, id uuid.UUID, secret string, nonce int64) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	row := m.items[id]
+	if row == nil || row.DeletedAt.Valid {
+		return fmt.Errorf("activity not found")
+	}
+	row.CheckinSecret = secret
+	row.CheckinNonce = nonce
+	return nil
+}
+
 func (m *memActivities) Delete(_ context.Context, id uuid.UUID) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

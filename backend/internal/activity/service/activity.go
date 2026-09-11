@@ -61,16 +61,35 @@ func (s *activityService) CreateActivity(ctx context.Context, operator uuid.UUID
 	return s.getActivityResponse(ctx, a.ID)
 }
 
+func (s *activityService) withLockedActivity(ctx context.Context, id uuid.UUID, fn func(tx *activityService, a *model.Activity) error) error {
+	return s.withTx(ctx, func(tx *activityService) error {
+		a, err := tx.activities.GetByIDForUpdate(ctx, id)
+		if err != nil {
+			return fmt.Errorf("get activity: %w", err)
+		}
+		if a == nil {
+			return response.NewError(response.CodeActivityNotFound, "活动不存在")
+		}
+		return fn(tx, a)
+	})
+}
+
 func (s *activityService) UpdateActivity(ctx context.Context, id uuid.UUID, req *dto.UpdateActivityRequest) (*dto.ActivityResponse, error) {
-	a, err := s.activities.GetByID(ctx, id)
+	err := s.withLockedActivity(ctx, id, func(tx *activityService, a *model.Activity) error {
+		if err := applyActivityUpdate(a, req); err != nil {
+			return err
+		}
+		return tx.activities.Update(ctx, a)
+	})
 	if err != nil {
-		return nil, fmt.Errorf("get activity: %w", err)
+		return nil, err
 	}
-	if a == nil {
-		return nil, response.NewError(response.CodeActivityNotFound, "活动不存在")
-	}
+	return s.getActivityResponse(ctx, id)
+}
+
+func applyActivityUpdate(a *model.Activity, req *dto.UpdateActivityRequest) error {
 	if a.Status != model.ActivityDraft && a.Status != model.ActivityOpen {
-		return nil, response.NewError(response.CodeActivityInvalidState, "当前状态不允许修改")
+		return response.NewError(response.CodeActivityInvalidState, "当前状态不允许修改")
 	}
 
 	if req.Title != nil {
@@ -98,7 +117,7 @@ func (s *activityService) UpdateActivity(ctx context.Context, id uuid.UUID, req 
 	}
 	if req.MaxParticipants != nil {
 		if *req.MaxParticipants < 0 {
-			return nil, response.NewError(response.CodeBadRequest, "人数上限不能为负数")
+			return response.NewError(response.CodeBadRequest, "人数上限不能为负数")
 		}
 		a.MaxParticipants = *req.MaxParticipants
 	}
@@ -124,17 +143,13 @@ func (s *activityService) UpdateActivity(ctx context.Context, id uuid.UUID, req 
 			a.CheckinRadiusM = req.CheckinRadiusM
 		}
 		if err := validateGeoInput(a.Latitude, a.Longitude, a.CheckinRadiusM, true); err != nil {
-			return nil, err
+			return err
 		}
 	}
 	if a.EndTime.Before(a.StartTime) {
-		return nil, response.NewError(response.CodeBadRequest, "结束时间不能早于开始时间")
+		return response.NewError(response.CodeBadRequest, "结束时间不能早于开始时间")
 	}
-
-	if err := s.activities.Update(ctx, a); err != nil {
-		return nil, fmt.Errorf("update activity: %w", err)
-	}
-	return s.getActivityResponse(ctx, a.ID)
+	return nil
 }
 
 func (s *activityService) DeleteActivity(ctx context.Context, id uuid.UUID) error {
@@ -168,55 +183,43 @@ func (s *activityService) ListActivities(ctx context.Context, req *dto.ListActiv
 }
 
 func (s *activityService) StartActivity(ctx context.Context, id uuid.UUID) (*dto.ActivityResponse, error) {
-	a, err := s.activities.GetByID(ctx, id)
+	err := s.withLockedActivity(ctx, id, func(tx *activityService, a *model.Activity) error {
+		if a.Status != model.ActivityOpen {
+			return response.NewError(response.CodeActivityInvalidState, "只有报名中的活动可以开始")
+		}
+		a.Status = model.ActivityOngoing
+		return tx.activities.Update(ctx, a)
+	})
 	if err != nil {
-		return nil, fmt.Errorf("get activity: %w", err)
-	}
-	if a == nil {
-		return nil, response.NewError(response.CodeActivityNotFound, "活动不存在")
-	}
-	if a.Status != model.ActivityOpen {
-		return nil, response.NewError(response.CodeActivityInvalidState, "只有报名中的活动可以开始")
-	}
-	a.Status = model.ActivityOngoing
-	if err := s.activities.Update(ctx, a); err != nil {
-		return nil, fmt.Errorf("start activity: %w", err)
+		return nil, err
 	}
 	return s.getActivityResponse(ctx, id)
 }
 
 func (s *activityService) EndActivity(ctx context.Context, id uuid.UUID) (*dto.ActivityResponse, error) {
-	a, err := s.activities.GetByID(ctx, id)
+	err := s.withLockedActivity(ctx, id, func(tx *activityService, a *model.Activity) error {
+		if a.Status != model.ActivityOngoing {
+			return response.NewError(response.CodeActivityInvalidState, "只有进行中的活动可以结束")
+		}
+		a.Status = model.ActivityEnded
+		return tx.activities.Update(ctx, a)
+	})
 	if err != nil {
-		return nil, fmt.Errorf("get activity: %w", err)
-	}
-	if a == nil {
-		return nil, response.NewError(response.CodeActivityNotFound, "活动不存在")
-	}
-	if a.Status != model.ActivityOngoing {
-		return nil, response.NewError(response.CodeActivityInvalidState, "只有进行中的活动可以结束")
-	}
-	a.Status = model.ActivityEnded
-	if err := s.activities.Update(ctx, a); err != nil {
-		return nil, fmt.Errorf("end activity: %w", err)
+		return nil, err
 	}
 	return s.getActivityResponse(ctx, id)
 }
 
 func (s *activityService) CancelActivity(ctx context.Context, id uuid.UUID, reason string) (*dto.ActivityResponse, error) {
-	a, err := s.activities.GetByID(ctx, id)
+	err := s.withLockedActivity(ctx, id, func(tx *activityService, a *model.Activity) error {
+		if a.Status == model.ActivityEnded || a.Status == model.ActivityCancelled {
+			return response.NewError(response.CodeActivityInvalidState, "活动已结束或已取消")
+		}
+		a.Status = model.ActivityCancelled
+		return tx.activities.Update(ctx, a)
+	})
 	if err != nil {
-		return nil, fmt.Errorf("get activity: %w", err)
-	}
-	if a == nil {
-		return nil, response.NewError(response.CodeActivityNotFound, "活动不存在")
-	}
-	if a.Status == model.ActivityEnded || a.Status == model.ActivityCancelled {
-		return nil, response.NewError(response.CodeActivityInvalidState, "活动已结束或已取消")
-	}
-	a.Status = model.ActivityCancelled
-	if err := s.activities.Update(ctx, a); err != nil {
-		return nil, fmt.Errorf("cancel activity: %w", err)
+		return nil, err
 	}
 	return s.getActivityResponse(ctx, id)
 }

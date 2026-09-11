@@ -106,41 +106,39 @@ func (s *activityService) validateGPSCheckin(a *model.Activity, req *dto.Checkin
 }
 
 func (s *activityService) IssueCheckinQR(ctx context.Context, activityID uuid.UUID) (*dto.QRCodeResponse, error) {
-	a, err := s.activities.GetByID(ctx, activityID)
-	if err != nil {
-		return nil, fmt.Errorf("get activity: %w", err)
-	}
-	if a == nil {
-		return nil, response.NewError(response.CodeActivityNotFound, "活动不存在")
-	}
-	if a.Status != model.ActivityOpen && a.Status != model.ActivityOngoing {
-		return nil, response.NewError(response.CodeActivityInvalidState, "当前状态不能签发签到码")
-	}
-	if a.CheckinSecret == "" {
-		secret, err := newCheckinSecret()
-		if err != nil {
-			return nil, fmt.Errorf("generate checkin secret: %w", err)
+	var out *dto.QRCodeResponse
+	err := s.withLockedActivity(ctx, activityID, func(tx *activityService, a *model.Activity) error {
+		if a.Status != model.ActivityOpen && a.Status != model.ActivityOngoing {
+			return response.NewError(response.CodeActivityInvalidState, "当前状态不能签发签到码")
 		}
-		a.CheckinSecret = secret
-	}
-	a.CheckinNonce++
-	if err := s.activities.Update(ctx, a); err != nil {
-		return nil, fmt.Errorf("rotate checkin nonce: %w", err)
-	}
-	exp := s.clock().Add(s.tokenTTL)
-	token := signCheckinToken(a.CheckinSecret, a.ID, a.CheckinNonce, exp)
-	path := "/activity/checkin?activity_id=" + a.ID.String() + "&token=" + token
-	png, err := qrcode.Encode(path, qrcode.Medium, 256)
-	if err != nil {
-		return nil, fmt.Errorf("encode qr: %w", err)
-	}
-	return &dto.QRCodeResponse{
-		ActivityID:  a.ID.String(),
-		Token:       token,
-		ExpiresAt:   formatTime(exp),
-		CheckinPath: path,
-		PNGBase64:   base64.StdEncoding.EncodeToString(png),
-	}, nil
+		if a.CheckinSecret == "" {
+			secret, err := newCheckinSecret()
+			if err != nil {
+				return fmt.Errorf("generate checkin secret: %w", err)
+			}
+			a.CheckinSecret = secret
+		}
+		a.CheckinNonce++
+		if err := tx.activities.UpdateCheckinToken(ctx, a.ID, a.CheckinSecret, a.CheckinNonce); err != nil {
+			return fmt.Errorf("rotate checkin nonce: %w", err)
+		}
+		exp := tx.clock().Add(tx.tokenTTL)
+		token := signCheckinToken(a.CheckinSecret, a.ID, a.CheckinNonce, exp)
+		path := "/activity/checkin?activity_id=" + a.ID.String() + "&token=" + token
+		png, err := qrcode.Encode(path, qrcode.Medium, 256)
+		if err != nil {
+			return fmt.Errorf("encode qr: %w", err)
+		}
+		out = &dto.QRCodeResponse{
+			ActivityID:  a.ID.String(),
+			Token:       token,
+			ExpiresAt:   formatTime(exp),
+			CheckinPath: path,
+			PNGBase64:   base64.StdEncoding.EncodeToString(png),
+		}
+		return nil
+	})
+	return out, err
 }
 
 func formatTime(t time.Time) string {

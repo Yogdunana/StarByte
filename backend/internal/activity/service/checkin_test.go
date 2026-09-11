@@ -11,6 +11,33 @@ import (
 	"github.com/google/uuid"
 )
 
+func TestIssueCheckinQR_AfterStart_KeepsOngoing(t *testing.T) {
+	svc, aa, _, _, _ := newTestSvc()
+	resp := mustActivity(t, svc, uuid.New(), 10)
+	activityID, _ := uuid.Parse(resp.ID)
+	user := uuid.New()
+	if _, err := svc.Register(context.Background(), activityID, user); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.StartActivity(context.Background(), activityID); err != nil {
+		t.Fatal(err)
+	}
+	token := mustIssueToken(t, svc, activityID)
+	got, err := aa.GetByID(context.Background(), activityID)
+	if err != nil || got == nil {
+		t.Fatalf("GetByID: %v %v", got, err)
+	}
+	if got.Status != model.ActivityOngoing {
+		t.Errorf("status = %d, want ongoing after issuing QR", got.Status)
+	}
+	if _, err := svc.Checkin(context.Background(), activityID, user, &dto.CheckinRequest{
+		Method: model.CheckinMethodQR,
+		Token:  token,
+	}); err != nil {
+		t.Fatalf("checkin after start+QR: %v", err)
+	}
+}
+
 func TestCheckin_QR_Success(t *testing.T) {
 	svc, _, _, _, _ := newTestSvc()
 	resp := mustActivity(t, svc, uuid.New(), 10)

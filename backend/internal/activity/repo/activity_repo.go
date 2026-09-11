@@ -19,6 +19,7 @@ type ActivityRepo interface {
 	GetByIDForUpdate(ctx context.Context, id uuid.UUID) (*model.Activity, error)
 	GetByIDWithNames(ctx context.Context, id uuid.UUID) (*model.ActivityWithNames, error)
 	List(ctx context.Context, req *dto.ListActivityRequest) ([]model.ActivityWithNames, int64, error)
+	UpdateCheckinToken(ctx context.Context, id uuid.UUID, secret string, nonce int64) error
 	GetUser(ctx context.Context, id uuid.UUID) (*model.NamedUser, error)
 }
 
@@ -34,6 +35,15 @@ func (r *activityRepo) Create(ctx context.Context, a *model.Activity) error {
 
 func (r *activityRepo) Update(ctx context.Context, a *model.Activity) error {
 	return r.db.WithContext(ctx).Save(a).Error
+}
+
+func (r *activityRepo) UpdateCheckinToken(ctx context.Context, id uuid.UUID, secret string, nonce int64) error {
+	return r.db.WithContext(ctx).Model(&model.Activity{}).
+		Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"checkin_secret": secret,
+			"checkin_nonce":  nonce,
+		}).Error
 }
 
 func (r *activityRepo) Delete(ctx context.Context, id uuid.UUID) error {
@@ -85,8 +95,10 @@ func (r *activityRepo) GetByIDWithNames(ctx context.Context, id uuid.UUID) (*mod
 	return &row, nil
 }
 
-func (r *activityRepo) List(ctx context.Context, req *dto.ListActivityRequest) ([]model.ActivityWithNames, int64, error) {
-	q := r.namedQuery(ctx)
+func (r *activityRepo) applyListFilters(q *gorm.DB, req *dto.ListActivityRequest) *gorm.DB {
+	if req == nil {
+		return q
+	}
 	if req.Status != nil {
 		q = q.Where("a.status = ?", *req.Status)
 	}
@@ -103,13 +115,20 @@ func (r *activityRepo) List(ctx context.Context, req *dto.ListActivityRequest) (
 	if req.EndDate != "" {
 		q = q.Where("a.start_time <= ?", req.EndDate+" 23:59:59")
 	}
+	return q
+}
+
+func (r *activityRepo) List(ctx context.Context, req *dto.ListActivityRequest) ([]model.ActivityWithNames, int64, error) {
+	// Count 必须避开 namedQuery 里的 COUNT(*) 子查询，否则 GORM 会把整行扫进 int64。
+	countQ := r.applyListFilters(r.db.WithContext(ctx).Table("activities AS a").Where("a.deleted_at IS NULL"), req)
 	var total int64
-	if err := q.Count(&total).Error; err != nil {
+	if err := countQ.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 	page, size := normalizePage(req.Page, req.PageSize)
 	var rows []model.ActivityWithNames
-	err := q.Order("a.start_time DESC").Offset((page - 1) * size).Limit(size).Find(&rows).Error
+	err := r.applyListFilters(r.namedQuery(ctx), req).
+		Order("a.start_time DESC").Offset((page - 1) * size).Limit(size).Find(&rows).Error
 	return rows, total, err
 }
 
