@@ -72,6 +72,28 @@ func (s *stubSvc) RSVP(context.Context, uuid.UUID, uuid.UUID, int16, *rbacModel.
 	return nil
 }
 func (s *stubSvc) DispatchDueReminders(context.Context, string, func(string)) error { return nil }
+func (s *stubSvc) ImportTimetable(context.Context, uuid.UUID, string, []byte, time.Time, *rbacModel.DataScopeCondition) (*dto.ImportResult, error) {
+	return &dto.ImportResult{}, nil
+}
+func (s *stubSvc) ImportICS(context.Context, uuid.UUID, string, []byte, string, *rbacModel.DataScopeCondition) (*dto.ImportResult, error) {
+	return &dto.ImportResult{}, nil
+}
+func (s *stubSvc) GoogleStatus(context.Context, uuid.UUID) (*dto.GoogleStatusResponse, error) {
+	return &dto.GoogleStatusResponse{}, nil
+}
+func (s *stubSvc) GoogleConnectURL(context.Context, uuid.UUID) (*dto.GoogleConnectResponse, error) {
+	return &dto.GoogleConnectResponse{}, nil
+}
+func (s *stubSvc) GoogleCallback(context.Context, uuid.UUID, string, string, *rbacModel.DataScopeCondition) (*dto.GoogleStatusResponse, error) {
+	return &dto.GoogleStatusResponse{}, nil
+}
+func (s *stubSvc) GoogleDisconnect(context.Context, uuid.UUID) error { return nil }
+func (s *stubSvc) GoogleSync(context.Context, uuid.UUID, *rbacModel.DataScopeCondition) (*dto.ImportResult, error) {
+	return &dto.ImportResult{}, nil
+}
+func (s *stubSvc) DispatchGoogleSync(context.Context, string, func(string)) error { return nil }
+func (s *stubSvc) ParseGoogleState(string) (uuid.UUID, error)                     { return uuid.Nil, nil }
+func (s *stubSvc) FrontendRedirect() string                                       { return "" }
 
 func testRouter(svc *stubSvc) *gin.Engine {
 	gin.SetMode(gin.TestMode)

@@ -1,3 +1,70 @@
+.schedule-body {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .schedule-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.schedule-layers {
+  background: #fff;
+  border-radius: 16px;
+  padding: 14px 14px 16px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.schedule-layers-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 8px;
+}
+
+.schedule-layer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+.schedule-layer-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.schedule-layer-tag {
+  margin-inline-end: 0;
+  font-size: 11px;
+}
+
+.schedule-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.schedule-google {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.schedule-hint {
+  color: #64748b;
+  font-size: 12px;
+  margin: 0;
+}
+
 .schedule-page .page-shell {
   background: #fff;
   border-radius: 16px;

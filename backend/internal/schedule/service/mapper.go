@@ -16,7 +16,7 @@ func mapCalendar(row *model.CalendarNamed, viewer uuid.UUID, scope *rbacModel.Da
 	}
 	return &dto.CalendarResponse{
 		ID: row.ID.String(), Name: row.Name, Description: row.Description,
-		CalendarType: row.CalendarType, Color: row.Color,
+		CalendarType: row.CalendarType, Source: model.NormalizeSource(row.Source), SourceKey: row.SourceKey, Color: row.Color,
 		Owner:        dto.Person{ID: row.OwnerID.String(), Name: row.OwnerName},
 		DepartmentID: dept, DepartmentName: row.DepartmentName, MemberRole: row.MemberRole,
 		CanEdit:   canEditCalendar(scope, &row.Calendar, viewer, row.MemberRole),
@@ -77,10 +77,10 @@ func displayName(realName, username string) string {
 	return username
 }
 
-func defaultColor(c string) string {
+func defaultColor(c, source string) string {
 	c = strings.TrimSpace(c)
 	if c == "" {
-		return "#2563eb"
+		return model.DefaultLayerColor(source)
 	}
 	return c
 }

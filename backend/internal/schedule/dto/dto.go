@@ -40,6 +40,8 @@ type CalendarResponse struct {
 	Name           string    `json:"name"`
 	Description    string    `json:"description"`
 	CalendarType   int16     `json:"calendar_type"`
+	Source         string    `json:"source"`
+	SourceKey      string    `json:"source_key,omitempty"`
 	Color          string    `json:"color"`
 	Owner          Person    `json:"owner"`
 	DepartmentID   string    `json:"department_id,omitempty"`
@@ -149,4 +151,29 @@ type AttendeeResponse struct {
 	ID       string `json:"id"`
 	User     Person `json:"user"`
 	Response int16  `json:"response"`
+}
+
+// ImportResult 是课表 / ICS / Google 拉取后的图层写入结果。
+type ImportResult struct {
+	CalendarID string            `json:"calendar_id"`
+	Calendar   *CalendarResponse `json:"calendar,omitempty"`
+	EventCount int               `json:"event_count"`
+	Replaced   bool              `json:"replaced"`
+	Source     string            `json:"source"`
+}
+
+type GoogleStatusResponse struct {
+	Configured bool   `json:"configured"`
+	Connected  bool   `json:"connected"`
+	Email      string `json:"email,omitempty"`
+	CalendarID string `json:"calendar_id,omitempty"`
+}
+
+type GoogleConnectResponse struct {
+	AuthURL string `json:"auth_url"`
+}
+
+type GoogleCallbackRequest struct {
+	Code  string `json:"code" binding:"required"`
+	State string `json:"state"`
 }

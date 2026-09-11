@@ -11,6 +11,8 @@ export interface CalendarItem {
   name: string;
   description: string;
   calendar_type: number;
+  source?: 'personal' | 'timetable' | 'import' | 'google' | string;
+  source_key?: string;
   color: string;
   owner: SchedulePerson;
   department_id?: string;
@@ -19,6 +21,21 @@ export interface CalendarItem {
   can_edit: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface ImportResult {
+  calendar_id: string;
+  calendar?: CalendarItem;
+  event_count: number;
+  replaced: boolean;
+  source: string;
+}
+
+export interface GoogleStatus {
+  configured: boolean;
+  connected: boolean;
+  email?: string;
+  calendar_id?: string;
 }
 
 export interface ScheduleEvent {
@@ -102,4 +119,38 @@ export function deleteEvent(id: string): Promise<void> {
 
 export function setEventReminders(id: string, minutes: number[]): Promise<unknown> {
   return request.post(`/schedules/events/${id}/remind`, { minutes });
+}
+
+function multipartHeaders(): { 'Content-Type': undefined } {
+  return { 'Content-Type': undefined };
+}
+
+export function importTimetable(file: File, semesterStart: string): Promise<ImportResult> {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('semester_start', semesterStart);
+  return request.post('/schedules/imports/timetable', form, { headers: multipartHeaders() });
+}
+
+export function importICS(file: File, calendarId?: string): Promise<ImportResult> {
+  const form = new FormData();
+  form.append('file', file);
+  if (calendarId) form.append('calendar_id', calendarId);
+  return request.post('/schedules/imports/ics', form, { headers: multipartHeaders() });
+}
+
+export function googleStatus(): Promise<GoogleStatus> {
+  return request.get('/schedules/google/status');
+}
+
+export function googleConnect(): Promise<{ auth_url: string }> {
+  return request.get('/schedules/google/connect');
+}
+
+export function googleDisconnect(): Promise<void> {
+  return request.post('/schedules/google/disconnect');
+}
+
+export function googleSync(): Promise<ImportResult> {
+  return request.post('/schedules/google/sync');
 }

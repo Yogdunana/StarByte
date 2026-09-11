@@ -52,7 +52,7 @@ func (s *scheduleService) CreateCalendar(ctx context.Context, operator uuid.UUID
 	now := time.Now()
 	row := &model.Calendar{
 		ID: uuid.New(), Name: strings.TrimSpace(req.Name), Description: strings.TrimSpace(req.Description),
-		CalendarType: req.CalendarType, Color: defaultColor(req.Color), OwnerID: owner,
+		CalendarType: req.CalendarType, Source: model.SourcePersonal, Color: defaultColor(req.Color, model.SourcePersonal), OwnerID: owner,
 		DepartmentID: dept, CreatedAt: now, UpdatedAt: now,
 	}
 	if err := s.rows.CreateCalendar(ctx, row); err != nil {
@@ -87,7 +87,7 @@ func (s *scheduleService) UpdateCalendar(ctx context.Context, operator, id uuid.
 		row.Description = strings.TrimSpace(*req.Description)
 	}
 	if req.Color != nil {
-		row.Color = defaultColor(*req.Color)
+		row.Color = defaultColor(*req.Color, row.Source)
 	}
 	if req.DepartmentID != nil && row.CalendarType != model.CalendarPersonal {
 		dept, err := s.resolveDepartment(ctx, operator, row.CalendarType, *req.DepartmentID, scope)
@@ -111,7 +111,7 @@ func (s *scheduleService) DeleteCalendar(ctx context.Context, operator, id uuid.
 	if !canEditCalendar(scope, &row.Calendar, operator, row.MemberRole) {
 		return response.NewError(response.CodeCalendarNoAccess, "无权删除该日历")
 	}
-	if row.CalendarType == model.CalendarPersonal && row.OwnerID == operator && !isAllScope(scope) {
+	if model.IsPersonalLayer(row.CalendarType, row.Source) && row.OwnerID == operator && !isAllScope(scope) {
 		return response.NewError(response.CodeScheduleInvalidState, "个人日历不可删除")
 	}
 	if err := s.rows.DeleteCalendar(ctx, id); err != nil {
@@ -199,7 +199,8 @@ func (s *scheduleService) ensurePersonal(ctx context.Context, owner uuid.UUID) e
 	}
 	now := time.Now()
 	return s.rows.CreateCalendar(ctx, &model.Calendar{
-		ID: uuid.New(), Name: name, CalendarType: model.CalendarPersonal, Color: "#2563eb",
+		ID: uuid.New(), Name: name, CalendarType: model.CalendarPersonal,
+		Source: model.SourcePersonal, Color: model.DefaultLayerColor(model.SourcePersonal),
 		OwnerID: owner, CreatedAt: now, UpdatedAt: now,
 	})
 }

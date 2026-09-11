@@ -46,6 +46,13 @@ type Repository interface {
 	MarkReminderTriggered(ctx context.Context, id uuid.UUID, at time.Time) error
 
 	GetUser(ctx context.Context, id uuid.UUID) (*model.NamedUser, error)
+
+	CalendarBySource(ctx context.Context, owner uuid.UUID, source, sourceKey string) (*model.Calendar, error)
+	ReplaceOriginEvents(ctx context.Context, calendarID uuid.UUID, origin string, rows []model.Event) error
+
+	GetGoogleAccount(ctx context.Context, userID uuid.UUID) (*model.GoogleAccount, error)
+	UpsertGoogleAccount(ctx context.Context, row *model.GoogleAccount) error
+	DeleteGoogleAccount(ctx context.Context, userID uuid.UUID) error
 }
 
 type repository struct{ db *gorm.DB }
@@ -114,7 +121,10 @@ func (r *repository) ListCalendars(ctx context.Context, viewer uuid.UUID, req *d
 
 func (r *repository) PersonalCalendar(ctx context.Context, owner uuid.UUID) (*model.Calendar, error) {
 	var row model.Calendar
-	err := r.db.WithContext(ctx).Where("owner_id = ? AND calendar_type = ?", owner, model.CalendarPersonal).First(&row).Error
+	err := r.db.WithContext(ctx).Where(
+		"owner_id = ? AND calendar_type = ? AND source = ?",
+		owner, model.CalendarPersonal, model.SourcePersonal,
+	).First(&row).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
 	}
@@ -175,7 +185,7 @@ func (r *repository) GetEvent(ctx context.Context, id uuid.UUID) (*model.Event, 
 func (r *repository) eventNamed(ctx context.Context, viewer uuid.UUID) *gorm.DB {
 	return r.db.WithContext(ctx).Table("schedule_events AS e").
 		Select(`e.*,
-			c.name AS calendar_name, c.color AS calendar_color, c.calendar_type, c.owner_id, c.department_id,
+			c.name AS calendar_name, c.color AS calendar_color, c.calendar_type, c.source AS calendar_source, c.owner_id, c.department_id,
 			COALESCE(u.real_name, u.username, '') AS creator_name,
 			COALESCE(cm.role, 0) AS member_role,
 			(SELECT COUNT(*) FROM schedule_event_attendees a WHERE a.event_id = e.id) AS attendee_count`).
@@ -303,6 +313,51 @@ func (r *repository) ListDueReminders(ctx context.Context, now time.Time, limit 
 
 func (r *repository) MarkReminderTriggered(ctx context.Context, id uuid.UUID, at time.Time) error {
 	return r.db.WithContext(ctx).Model(&model.Reminder{}).Where("id = ? AND triggered_at IS NULL", id).Update("triggered_at", at).Error
+}
+
+func (r *repository) CalendarBySource(ctx context.Context, owner uuid.UUID, source, sourceKey string) (*model.Calendar, error) {
+	var row model.Calendar
+	q := r.db.WithContext(ctx).Where("owner_id = ? AND source = ?", owner, source)
+	if source == model.SourceImport && sourceKey != "" {
+		q = q.Where("source_key = ?", sourceKey)
+	}
+	err := q.First(&row).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &row, err
+}
+
+func (r *repository) ReplaceOriginEvents(ctx context.Context, calendarID uuid.UUID, origin string, rows []model.Event) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("calendar_id = ? AND origin = ?", calendarID, origin).Delete(&model.Event{}).Error; err != nil {
+			return err
+		}
+		if len(rows) == 0 {
+			return nil
+		}
+		return tx.CreateInBatches(rows, 100).Error
+	})
+}
+
+func (r *repository) GetGoogleAccount(ctx context.Context, userID uuid.UUID) (*model.GoogleAccount, error) {
+	var row model.GoogleAccount
+	err := r.db.WithContext(ctx).Where("user_id = ?", userID).First(&row).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &row, err
+}
+
+func (r *repository) UpsertGoogleAccount(ctx context.Context, row *model.GoogleAccount) error {
+	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "user_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"calendar_id", "access_token", "refresh_token", "token_expiry", "google_email", "updated_at"}),
+	}).Create(row).Error
+}
+
+func (r *repository) DeleteGoogleAccount(ctx context.Context, userID uuid.UUID) error {
+	return r.db.WithContext(ctx).Where("user_id = ?", userID).Delete(&model.GoogleAccount{}).Error
 }
 
 func (r *repository) GetUser(ctx context.Context, id uuid.UUID) (*model.NamedUser, error) {

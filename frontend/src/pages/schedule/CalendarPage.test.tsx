@@ -14,7 +14,7 @@ vi.mock('react-i18next', () => ({
 
 vi.mock('@/api/schedule', () => ({
   listCalendars: vi.fn().mockResolvedValue({
-    list: [{ id: 'cal-1', name: '我的日历', calendar_type: 1, color: '#2563eb', can_edit: true }],
+    list: [{ id: 'cal-1', name: '我的日历', calendar_type: 1, source: 'personal', color: '#2563eb', can_edit: true }],
     total: 1, page: 1, page_size: 50,
   }),
   rangeEvents: vi.fn().mockResolvedValue([
@@ -28,6 +28,12 @@ vi.mock('@/api/schedule', () => ({
   createEvent: vi.fn(),
   updateEvent: vi.fn(),
   deleteEvent: vi.fn(),
+  importTimetable: vi.fn(),
+  importICS: vi.fn(),
+  googleStatus: vi.fn().mockResolvedValue({ configured: false, connected: false }),
+  googleConnect: vi.fn(),
+  googleDisconnect: vi.fn(),
+  googleSync: vi.fn(),
 }));
 
 describe('CalendarPage', () => {
@@ -37,6 +43,9 @@ describe('CalendarPage', () => {
     expect(screen.getByText('schedule.desc')).toBeInTheDocument();
     expect(screen.getByText('schedule.newCalendar')).toBeInTheDocument();
     expect(screen.getByText('schedule.newEvent')).toBeInTheDocument();
+    expect(screen.getByTestId('schedule-import')).toBeInTheDocument();
+    expect(screen.getByTestId('schedule-layers')).toBeInTheDocument();
+    expect(screen.getByText('schedule.layers')).toBeInTheDocument();
     expect(screen.getByTitle('schedule.view.month')).toBeInTheDocument();
     expect(document.querySelector('.ant-picker-calendar')).toBeTruthy();
   });

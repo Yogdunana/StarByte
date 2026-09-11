@@ -326,7 +326,7 @@ func httpStatusFromCode(code int) int {
 		return http.StatusOK
 	case CodeInternalError:
 		return http.StatusInternalServerError
-	case CodeNotImplemented:
+	case CodeNotImplemented, CodeScheduleGoogleNotReady:
 		return http.StatusNotImplemented
 	default:
 		// All other codes (2xxx-12xxx) are module-specific business

@@ -21,6 +21,7 @@ type memRepo struct {
 	attendees map[uuid.UUID]*model.Attendee
 	reminders map[uuid.UUID]*model.Reminder
 	users     map[uuid.UUID]*model.NamedUser
+	google    map[uuid.UUID]*model.GoogleAccount
 }
 
 func newMem() *memRepo {
@@ -28,6 +29,7 @@ func newMem() *memRepo {
 		cals: map[uuid.UUID]*model.Calendar{}, members: map[uuid.UUID]*model.CalendarMember{},
 		events: map[uuid.UUID]*model.Event{}, attendees: map[uuid.UUID]*model.Attendee{},
 		reminders: map[uuid.UUID]*model.Reminder{}, users: map[uuid.UUID]*model.NamedUser{},
+		google: map[uuid.UUID]*model.GoogleAccount{},
 	}
 }
 
@@ -129,7 +131,7 @@ func (m *memRepo) PersonalCalendar(_ context.Context, owner uuid.UUID) (*model.C
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for _, row := range m.cals {
-		if row.OwnerID == owner && row.CalendarType == model.CalendarPersonal {
+		if row.OwnerID == owner && row.CalendarType == model.CalendarPersonal && model.NormalizeSource(row.Source) == model.SourcePersonal {
 			cp := *row
 			return &cp, nil
 		}
@@ -439,4 +441,61 @@ func (m *memRepo) GetUser(_ context.Context, id uuid.UUID) (*model.NamedUser, er
 	}
 	cp := *u
 	return &cp, nil
+}
+
+func (m *memRepo) CalendarBySource(_ context.Context, owner uuid.UUID, source, sourceKey string) (*model.Calendar, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, row := range m.cals {
+		if row.OwnerID != owner || model.NormalizeSource(row.Source) != source {
+			continue
+		}
+		if source == model.SourceImport && sourceKey != "" && row.SourceKey != sourceKey {
+			continue
+		}
+		cp := *row
+		return &cp, nil
+	}
+	return nil, nil
+}
+
+func (m *memRepo) ReplaceOriginEvents(_ context.Context, calendarID uuid.UUID, origin string, rows []model.Event) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for id, ev := range m.events {
+		if ev.CalendarID == calendarID && ev.Origin == origin {
+			delete(m.events, id)
+		}
+	}
+	for i := range rows {
+		cp := rows[i]
+		m.events[cp.ID] = &cp
+	}
+	return nil
+}
+
+func (m *memRepo) GetGoogleAccount(_ context.Context, userID uuid.UUID) (*model.GoogleAccount, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	row := m.google[userID]
+	if row == nil {
+		return nil, nil
+	}
+	cp := *row
+	return &cp, nil
+}
+
+func (m *memRepo) UpsertGoogleAccount(_ context.Context, row *model.GoogleAccount) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	cp := *row
+	m.google[row.UserID] = &cp
+	return nil
+}
+
+func (m *memRepo) DeleteGoogleAccount(_ context.Context, userID uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.google, userID)
+	return nil
 }

@@ -357,6 +357,7 @@ func main() {
 	calSvc := scheduleService.New(scheduleRepo.New(database.DB()), scheduleService.NewNotifier(notifSvc))
 	calH := scheduleHandler.New(calSvc)
 	schedService.RegisterHandler("schedule_reminder", "扫描并推送到期日程提醒", calSvc.DispatchDueReminders)
+	schedService.RegisterHandler("schedule_google_sync", "Google 日历同步挂钩（需用户已授权）", calSvc.DispatchGoogleSync)
 
 	// 数据字典
 	dictR := dictRepo.NewDictRepository(database.DB())
@@ -404,6 +405,7 @@ func main() {
 
 		// 注册仍由 user handler 处理
 		public.POST("/auth/register", userHandler.Register)
+		scheduleHandler.RegisterPublicRoutes(public, calH)
 	}
 
 	// 10b. 需要鉴权的路由

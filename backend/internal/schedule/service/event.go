@@ -90,7 +90,7 @@ func (s *scheduleService) CreateEvent(ctx context.Context, operator uuid.UUID, r
 		Description: strings.TrimSpace(req.Description), Location: strings.TrimSpace(req.Location),
 		StartAt: req.StartAt, EndAt: req.EndAt, AllDay: req.AllDay, Color: strings.TrimSpace(req.Color),
 		Status: model.EventConfirmed, Recurrence: rule, RecurrenceUntil: req.RecurrenceUntil,
-		MeetingID: meetingID, CreatedBy: operator, CreatedAt: now, UpdatedAt: now,
+		MeetingID: meetingID, Origin: model.OriginManual, CreatedBy: operator, CreatedAt: now, UpdatedAt: now,
 	}
 	if err := s.rows.CreateEvent(ctx, row); err != nil {
 		return nil, fmt.Errorf("create event: %w", err)

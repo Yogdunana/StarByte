@@ -22,6 +22,16 @@ const (
 	AttendeeTentative int16 = 3
 
 	RemindApp int16 = 1
+
+	SourcePersonal  = "personal"
+	SourceTimetable = "timetable"
+	SourceImport    = "import"
+	SourceGoogle    = "google"
+
+	OriginManual    = "manual"
+	OriginGenerated = "generated"
+	OriginICS       = "ics"
+	OriginGoogle    = "google"
 )
 
 func ValidCalendarType(t int16) bool {
@@ -54,4 +64,37 @@ func ValidRemindMinutes(m int) bool {
 
 func ValidAttendeeResponse(s int16) bool {
 	return s >= AttendeePending && s <= AttendeeTentative
+}
+
+func ValidSource(s string) bool {
+	switch s {
+	case "", SourcePersonal, SourceTimetable, SourceImport, SourceGoogle:
+		return true
+	default:
+		return false
+	}
+}
+
+func NormalizeSource(s string) string {
+	if s == "" {
+		return SourcePersonal
+	}
+	return s
+}
+
+func DefaultLayerColor(source string) string {
+	switch NormalizeSource(source) {
+	case SourceTimetable:
+		return "#059669"
+	case SourceImport:
+		return "#d97706"
+	case SourceGoogle:
+		return "#4285f4"
+	default:
+		return "#2563eb"
+	}
+}
+
+func IsPersonalLayer(calendarType int16, source string) bool {
+	return calendarType == CalendarPersonal && NormalizeSource(source) == SourcePersonal
 }

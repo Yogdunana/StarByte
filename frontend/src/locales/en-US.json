@@ -196,11 +196,24 @@
     "status": { "0": "Draft", "1": "Active", "2": "Expired", "3": "Terminated" }
   },
   "schedule": {
-    "eyebrow": "Personal and shared calendars",
+    "eyebrow": "Layered calendars",
     "title": "Schedule",
-    "desc": "Month / week / day / agenda views. Lists never take a client owner_id. Recurrence is limited to daily / weekly / monthly.",
+    "desc": "Each calendar is a toggleable layer. Timetable imports go to a dedicated timetable layer, not personal events. Lists never take a client owner_id.",
     "newCalendar": "New calendar",
     "newEvent": "New event",
+    "import": "Import",
+    "importKind": "Import type",
+    "importTimetable": "SMBU timetable XLSX",
+    "importICS": "ICS calendar",
+    "importFile": "File",
+    "chooseFile": "Choose file",
+    "importNeedFile": "Please choose a file",
+    "importTarget": "Target layer",
+    "importTargetHint": "Leave empty to create an import layer. Re-importing the same source overwrites generated events.",
+    "semesterStart": "Week 1 Monday",
+    "semesterStartHint": "semester_start: ISO date of the Monday of week 1. The year/term in the sheet title is metadata only.",
+    "imported": "Imported {{n}} events",
+    "layers": "Layers",
     "allCalendars": "All calendars",
     "calendar": "Calendar",
     "calendarName": "Name",
@@ -216,6 +229,15 @@
     "recurrenceLabel": "Repeat",
     "view": { "month": "Month", "week": "Week", "day": "Day", "agenda": "Agenda" },
     "type": { "1": "Personal", "2": "Department", "3": "Project" },
-    "recurrence": { "none": "None", "daily": "Daily", "weekly": "Weekly", "monthly": "Monthly" }
+    "source": { "personal": "Personal", "timetable": "Timetable", "import": "Import", "google": "Google" },
+    "recurrence": { "none": "None", "daily": "Daily", "weekly": "Weekly", "monthly": "Monthly" },
+    "google": {
+      "title": "Google Calendar",
+      "notConfigured": "GOOGLE_CALENDAR_* env vars are unset. The source=google interface is ready.",
+      "connect": "Connect Google",
+      "connected": "Connected",
+      "sync": "Sync now",
+      "disconnect": "Disconnect"
+    }
   }
 }

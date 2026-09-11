@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"net/http"
+	"time"
 
 	notifdto "github.com/Yogdunana/StarByte/backend/internal/notification/dto"
 	notifsvc "github.com/Yogdunana/StarByte/backend/internal/notification/service"
@@ -52,13 +54,27 @@ type Service interface {
 	SetReminders(ctx context.Context, operator, id uuid.UUID, minutes []int, scope *rbacModel.DataScopeCondition) ([]dto.ReminderResponse, error)
 	RSVP(ctx context.Context, operator, id uuid.UUID, response int16, scope *rbacModel.DataScopeCondition) error
 	DispatchDueReminders(ctx context.Context, payload string, logf func(string)) error
+
+	ImportTimetable(ctx context.Context, operator uuid.UUID, filename string, raw []byte, semesterStart time.Time, scope *rbacModel.DataScopeCondition) (*dto.ImportResult, error)
+	ImportICS(ctx context.Context, operator uuid.UUID, filename string, raw []byte, calendarID string, scope *rbacModel.DataScopeCondition) (*dto.ImportResult, error)
+
+	GoogleStatus(ctx context.Context, operator uuid.UUID) (*dto.GoogleStatusResponse, error)
+	GoogleConnectURL(ctx context.Context, operator uuid.UUID) (*dto.GoogleConnectResponse, error)
+	GoogleCallback(ctx context.Context, operator uuid.UUID, code, state string, scope *rbacModel.DataScopeCondition) (*dto.GoogleStatusResponse, error)
+	GoogleDisconnect(ctx context.Context, operator uuid.UUID) error
+	GoogleSync(ctx context.Context, operator uuid.UUID, scope *rbacModel.DataScopeCondition) (*dto.ImportResult, error)
+	DispatchGoogleSync(ctx context.Context, payload string, logf func(string)) error
+	ParseGoogleState(state string) (uuid.UUID, error)
+	FrontendRedirect() string
 }
 
 type scheduleService struct {
 	rows   repo.Repository
 	notify Notifier
+	google GoogleSettings
+	httpDo func(*http.Request) (*http.Response, error)
 }
 
 func New(rows repo.Repository, notify Notifier) Service {
-	return &scheduleService{rows: rows, notify: notify}
+	return &scheduleService{rows: rows, notify: notify, google: LoadGoogleSettings()}
 }

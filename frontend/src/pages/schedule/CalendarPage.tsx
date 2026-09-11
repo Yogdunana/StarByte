@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Badge, Button, Calendar, Card, DatePicker, Form, Input, Modal, Select, Space, Table, Tag, message,
+  Badge, Button, Calendar, Card, Checkbox, DatePicker, Form, Input, Modal, Radio, Select, Space, Table, Tag, Upload, message,
 } from 'antd';
-import type { CalendarProps } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import type { CalendarProps, UploadFile } from 'antd';
+import { ImportOutlined, PlusOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
@@ -13,15 +13,32 @@ import {
   createCalendar,
   createEvent,
   deleteEvent,
+  googleConnect,
+  googleDisconnect,
+  googleStatus,
+  googleSync,
+  importICS,
+  importTimetable,
   listCalendars,
   rangeEvents,
   updateEvent,
   type CalendarItem,
+  type GoogleStatus,
   type ScheduleEvent,
 } from '@/api/schedule';
 import './schedule.css';
 
 type ViewMode = 'month' | 'week' | 'day' | 'agenda';
+
+const VIS_KEY = 'schedule.layerVisibility';
+
+function loadVisibility(): Record<string, boolean> {
+  try {
+    return JSON.parse(localStorage.getItem(VIS_KEY) || '{}') as Record<string, boolean>;
+  } catch {
+    return {};
+  }
+}
 
 const CalendarPage: React.FC = () => {
   const { t } = useTranslation();
@@ -32,13 +49,16 @@ const CalendarPage: React.FC = () => {
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [view, setView] = useState<ViewMode>('month');
   const [cursor, setCursor] = useState(dayjs());
-  const [calendarId, setCalendarId] = useState<string>();
+  const [visible, setVisible] = useState<Record<string, boolean>>(loadVisibility);
   const [loading, setLoading] = useState(false);
   const [openCal, setOpenCal] = useState(false);
   const [openEv, setOpenEv] = useState(false);
+  const [openImport, setOpenImport] = useState(false);
   const [editing, setEditing] = useState<ScheduleEvent | null>(null);
+  const [gStatus, setGStatus] = useState<GoogleStatus | null>(null);
   const [calForm] = Form.useForm();
   const [evForm] = Form.useForm();
+  const [importForm] = Form.useForm();
 
   const windowRange = useMemo(() => {
     if (view === 'day') {
@@ -52,7 +72,16 @@ const CalendarPage: React.FC = () => {
 
   const loadCals = useCallback(async () => {
     const res = await listCalendars({ page: 1, page_size: 50 });
-    setCals(res.list || []);
+    const list = res.list || [];
+    setCals(list);
+    setVisible((prev) => {
+      const next = { ...prev };
+      list.forEach((c) => {
+        if (next[c.id] === undefined) next[c.id] = true;
+      });
+      localStorage.setItem(VIS_KEY, JSON.stringify(next));
+      return next;
+    });
   }, []);
 
   const loadEvents = useCallback(async () => {
@@ -61,18 +90,39 @@ const CalendarPage: React.FC = () => {
       const list = await rangeEvents({
         start: windowRange.start.toISOString(),
         end: windowRange.end.toISOString(),
-        calendar_id: calendarId,
       });
       setEvents(list || []);
     } finally {
       setLoading(false);
     }
-  }, [calendarId, windowRange.end, windowRange.start]);
+  }, [windowRange.end, windowRange.start]);
+
+  const loadGoogle = useCallback(async () => {
+    try {
+      setGStatus(await googleStatus());
+    } catch {
+      setGStatus({ configured: false, connected: false });
+    }
+  }, []);
 
   useEffect(() => { void loadCals().catch(() => undefined); }, [loadCals]);
   useEffect(() => { void loadEvents().catch(() => undefined); }, [loadEvents]);
+  useEffect(() => { void loadGoogle(); }, [loadGoogle]);
 
-  const eventsOn = (day: Dayjs) => events.filter((e) => dayjs(e.start_at).isSame(day, 'day'));
+  const toggleLayer = (id: string, checked: boolean) => {
+    setVisible((prev) => {
+      const next = { ...prev, [id]: checked };
+      localStorage.setItem(VIS_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const layerEvents = useMemo(
+    () => events.filter((e) => visible[e.calendar_id] !== false),
+    [events, visible],
+  );
+
+  const eventsOn = (day: Dayjs) => layerEvents.filter((e) => dayjs(e.start_at).isSame(day, 'day'));
 
   const monthCell: CalendarProps<Dayjs>['cellRender'] = (date) => {
     const items = eventsOn(date);
@@ -94,7 +144,7 @@ const CalendarPage: React.FC = () => {
     evForm.resetFields();
     const start = (day || cursor).hour(10).minute(0).second(0);
     evForm.setFieldsValue({
-      calendar_id: calendarId || cals[0]?.id,
+      calendar_id: cals.find((c) => (c.source || 'personal') === 'personal')?.id || cals[0]?.id,
       start_at: start,
       end_at: start.add(1, 'hour'),
       recurrence: 'none',
@@ -118,14 +168,14 @@ const CalendarPage: React.FC = () => {
   };
 
   const visibleList = useMemo(() => {
-    if (view === 'agenda') return events;
-    return events.filter((e) => {
+    if (view === 'agenda') return layerEvents;
+    return layerEvents.filter((e) => {
       const d = dayjs(e.start_at);
       if (view === 'day') return d.isSame(cursor, 'day');
       if (view === 'week') return d.isAfter(cursor.startOf('week').subtract(1, 'second')) && d.isBefore(cursor.endOf('week').add(1, 'second'));
       return d.isSame(cursor, 'month');
     });
-  }, [cursor, events, view]);
+  }, [cursor, layerEvents, view]);
 
   return (
     <div className="schedule-page">
@@ -135,79 +185,111 @@ const CalendarPage: React.FC = () => {
         description={t('schedule.desc')}
         actions={canCreate ? (
           <Space>
+            <Button icon={<ImportOutlined />} onClick={() => { importForm.resetFields(); setOpenImport(true); }} data-testid="schedule-import">
+              {t('schedule.import')}
+            </Button>
             <Button onClick={() => { calForm.resetFields(); setOpenCal(true); }}>{t('schedule.newCalendar')}</Button>
             <Button type="primary" icon={<PlusOutlined />} onClick={() => openCreate()}>{t('schedule.newEvent')}</Button>
           </Space>
         ) : undefined}
       />
-      <Card className="page-shell">
-        <Space wrap style={{ marginBottom: 16 }}>
-          <Select
-            value={view}
-            style={{ width: 120 }}
-            data-testid="schedule-view"
-            onChange={(v: ViewMode) => setView(v)}
-            options={[
-              { value: 'month', label: t('schedule.view.month') },
-              { value: 'week', label: t('schedule.view.week') },
-              { value: 'day', label: t('schedule.view.day') },
-              { value: 'agenda', label: t('schedule.view.agenda') },
-            ]}
-          />
-          <DatePicker value={cursor} onChange={(v) => v && setCursor(v)} />
-          <Select
-            allowClear
-            placeholder={t('schedule.allCalendars')}
-            style={{ minWidth: 180 }}
-            value={calendarId}
-            onChange={setCalendarId}
-            options={cals.map((c) => ({ value: c.id, label: c.name }))}
-          />
-        </Space>
-        {view === 'month' && (
-          <Calendar
-            value={cursor}
-            onChange={setCursor}
-            cellRender={monthCell}
-          />
-        )}
-        {view !== 'month' && (
-          <Table
-            rowKey={(r) => `${r.id}-${r.start_at}`}
-            loading={loading}
-            dataSource={visibleList}
-            pagination={view === 'agenda' ? { pageSize: 10 } : false}
-            onRow={(record) => ({ onClick: () => openEdit(record) })}
-            columns={[
-              { title: t('schedule.eventTitle'), dataIndex: 'title' },
-              { title: t('schedule.calendar'), dataIndex: 'calendar_name', width: 140 },
-              {
-                title: t('schedule.time'),
-                width: 280,
-                render: (_, r) => `${dayjs(r.start_at).format('YYYY-MM-DD HH:mm')} – ${dayjs(r.end_at).format('HH:mm')}`,
-              },
-              { title: t('schedule.location'), dataIndex: 'location', width: 140, render: (v: string) => v || '-' },
-              {
-                title: t('schedule.recurrenceLabel'),
-                dataIndex: 'recurrence',
-                width: 100,
-                render: (v: string) => <Tag>{t(`schedule.recurrence.${v || 'none'}`)}</Tag>,
-              },
-              {
-                title: t('common.actions'),
-                width: 80,
-                render: (_, r) => canDelete && r.can_edit ? (
-                  <Button type="link" danger size="small" onClick={(e) => {
-                    e.stopPropagation();
-                    void deleteEvent(r.id).then(() => { message.success(t('common.deleted')); void loadEvents(); });
-                  }}
-                  >{t('common.delete')}</Button>
-                ) : null,
-              },
-            ]}
-          />
-        )}
-      </Card>
+      <div className="schedule-body">
+        <aside className="schedule-layers" data-testid="schedule-layers">
+          <div className="schedule-layers-title">{t('schedule.layers')}</div>
+          {cals.map((c) => (
+            <label key={c.id} className="schedule-layer">
+              <span className="schedule-dot" style={{ background: c.color || '#2563eb' }} />
+              <Checkbox
+                checked={visible[c.id] !== false}
+                onChange={(e) => toggleLayer(c.id, e.target.checked)}
+              />
+              <span className="schedule-layer-name">{c.name}</span>
+              <Tag className="schedule-layer-tag">{t(`schedule.source.${c.source || 'personal'}`)}</Tag>
+            </label>
+          ))}
+          {canCreate && (
+            <div className="schedule-google">
+              <div className="schedule-layers-title">{t('schedule.google.title')}</div>
+              {!gStatus?.configured && <p className="schedule-hint">{t('schedule.google.notConfigured')}</p>}
+              {gStatus?.configured && !gStatus.connected && (
+                <Button size="small" onClick={() => {
+                  void googleConnect().then((r) => { window.location.href = r.auth_url; });
+                }}
+                >{t('schedule.google.connect')}</Button>
+              )}
+              {gStatus?.connected && (
+                <Space direction="vertical" size={6}>
+                  <span>{gStatus.email || t('schedule.google.connected')}</span>
+                  <Space>
+                    <Button size="small" onClick={() => { void googleSync().then((r) => { message.success(t('schedule.imported', { n: r.event_count })); void loadCals(); void loadEvents(); }); }}>{t('schedule.google.sync')}</Button>
+                    <Button size="small" onClick={() => { void googleDisconnect().then(() => { message.success(t('common.deleted')); void loadGoogle(); void loadCals(); }); }}>{t('schedule.google.disconnect')}</Button>
+                  </Space>
+                </Space>
+              )}
+            </div>
+          )}
+        </aside>
+        <Card className="page-shell">
+          <Space wrap style={{ marginBottom: 16 }}>
+            <Select
+              value={view}
+              style={{ width: 120 }}
+              data-testid="schedule-view"
+              onChange={(v: ViewMode) => setView(v)}
+              options={[
+                { value: 'month', label: t('schedule.view.month') },
+                { value: 'week', label: t('schedule.view.week') },
+                { value: 'day', label: t('schedule.view.day') },
+                { value: 'agenda', label: t('schedule.view.agenda') },
+              ]}
+            />
+            <DatePicker value={cursor} onChange={(v) => v && setCursor(v)} />
+          </Space>
+          {view === 'month' && (
+            <Calendar
+              value={cursor}
+              onChange={setCursor}
+              cellRender={monthCell}
+            />
+          )}
+          {view !== 'month' && (
+            <Table
+              rowKey={(r) => `${r.id}-${r.start_at}`}
+              loading={loading}
+              dataSource={visibleList}
+              pagination={view === 'agenda' ? { pageSize: 10 } : false}
+              onRow={(record) => ({ onClick: () => openEdit(record) })}
+              columns={[
+                { title: t('schedule.eventTitle'), dataIndex: 'title' },
+                { title: t('schedule.calendar'), dataIndex: 'calendar_name', width: 140 },
+                {
+                  title: t('schedule.time'),
+                  width: 280,
+                  render: (_, r) => `${dayjs(r.start_at).format('YYYY-MM-DD HH:mm')} – ${dayjs(r.end_at).format('HH:mm')}`,
+                },
+                { title: t('schedule.location'), dataIndex: 'location', width: 140, render: (v: string) => v || '-' },
+                {
+                  title: t('schedule.recurrenceLabel'),
+                  dataIndex: 'recurrence',
+                  width: 100,
+                  render: (v: string) => <Tag>{t(`schedule.recurrence.${v || 'none'}`)}</Tag>,
+                },
+                {
+                  title: t('common.actions'),
+                  width: 80,
+                  render: (_, r) => canDelete && r.can_edit ? (
+                    <Button type="link" danger size="small" onClick={(e) => {
+                      e.stopPropagation();
+                      void deleteEvent(r.id).then(() => { message.success(t('common.deleted')); void loadEvents(); });
+                    }}
+                    >{t('common.delete')}</Button>
+                  ) : null,
+                },
+              ]}
+            />
+          )}
+        </Card>
+      </div>
 
       <Modal
         open={openCal}
@@ -289,6 +371,64 @@ const CalendarPage: React.FC = () => {
               <Select mode="multiple" options={[5, 15, 30, 60].map((m) => ({ value: m, label: t('schedule.minutes', { n: m }) }))} />
             </Form.Item>
           )}
+        </Form>
+      </Modal>
+
+      <Modal
+        open={openImport}
+        title={t('schedule.import')}
+        onCancel={() => setOpenImport(false)}
+        onOk={() => importForm.submit()}
+        destroyOnHidden
+      >
+        <Form
+          form={importForm}
+          layout="vertical"
+          initialValues={{ kind: 'timetable' }}
+          onFinish={(values: { kind: 'timetable' | 'ics'; semester_start?: Dayjs; calendar_id?: string; file?: UploadFile[] }) => {
+            const file = values.file?.[0]?.originFileObj;
+            if (!file) {
+              message.error(t('schedule.importNeedFile'));
+              return;
+            }
+            const run = values.kind === 'timetable'
+              ? importTimetable(file, values.semester_start ? values.semester_start.format('YYYY-MM-DD') : '')
+              : importICS(file, values.calendar_id);
+            void run.then((r) => {
+              message.success(t('schedule.imported', { n: r.event_count }));
+              setOpenImport(false);
+              void loadCals();
+              void loadEvents();
+            });
+          }}
+        >
+          <Form.Item name="kind" label={t('schedule.importKind')}>
+            <Radio.Group>
+              <Radio.Button value="timetable">{t('schedule.importTimetable')}</Radio.Button>
+              <Radio.Button value="ics">{t('schedule.importICS')}</Radio.Button>
+            </Radio.Group>
+          </Form.Item>
+          <Form.Item noStyle shouldUpdate={(p, c) => p.kind !== c.kind}>
+            {({ getFieldValue }) => getFieldValue('kind') === 'timetable' ? (
+              <Form.Item
+                name="semester_start"
+                label={t('schedule.semesterStart')}
+                extra={t('schedule.semesterStartHint')}
+                rules={[{ required: true }]}
+              >
+                <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            ) : (
+              <Form.Item name="calendar_id" label={t('schedule.importTarget')} extra={t('schedule.importTargetHint')}>
+                <Select allowClear options={cals.map((c) => ({ value: c.id, label: c.name }))} />
+              </Form.Item>
+            )}
+          </Form.Item>
+          <Form.Item name="file" label={t('schedule.importFile')} valuePropName="fileList" getValueFromEvent={(e: { fileList?: UploadFile[] }) => e?.fileList}>
+            <Upload beforeUpload={() => false} maxCount={1} accept=".xlsx,.xls,.ics">
+              <Button>{t('schedule.chooseFile')}</Button>
+            </Upload>
+          </Form.Item>
         </Form>
       </Modal>
     </div>

@@ -45,10 +45,17 @@ func RegisterRoutes(
 	read.GET("/events/range", h.RangeEvents)
 	read.GET("/events", h.ListEvents)
 	read.GET("/events/:id", h.GetEvent)
+	read.GET("/google/status", h.GoogleStatus)
 
 	create := withScope(g, "schedule:create", cache, db, deptRepo)
 	create.POST("/calendars", h.CreateCalendar)
 	create.POST("/events", h.CreateEvent)
+	create.POST("/imports/timetable", h.ImportTimetable)
+	create.POST("/imports/ics", h.ImportICS)
+	create.GET("/google/connect", h.GoogleConnect)
+	create.POST("/google/callback", h.GoogleCallbackPOST)
+	create.POST("/google/disconnect", h.GoogleDisconnect)
+	create.POST("/google/sync", h.GoogleSync)
 
 	update := withScope(g, "schedule:update", cache, db, deptRepo)
 	update.PUT("/calendars/:id", h.UpdateCalendar)
@@ -61,4 +68,9 @@ func RegisterRoutes(
 	del := withScope(g, "schedule:delete", cache, db, deptRepo)
 	del.DELETE("/calendars/:id", h.DeleteCalendar)
 	del.DELETE("/events/:id", h.DeleteEvent)
+}
+
+// RegisterPublicRoutes 注册无需 JWT 的 Google OAuth 回调（redirect_uri 指向 API 时）。
+func RegisterPublicRoutes(r *gin.RouterGroup, h *Handler) {
+	r.GET("/schedules/google/callback", h.GoogleCallbackGET)
 }

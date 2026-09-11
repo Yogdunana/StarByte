@@ -11,6 +11,8 @@ type Calendar struct {
 	Name         string     `gorm:"type:varchar(200);not null" json:"name"`
 	Description  string     `gorm:"type:text;not null;default:''" json:"description"`
 	CalendarType int16      `gorm:"type:smallint;not null;default:1" json:"calendar_type"`
+	Source       string     `gorm:"type:varchar(32);not null;default:personal" json:"source"`
+	SourceKey    string     `gorm:"type:varchar(200);not null;default:''" json:"source_key"`
 	Color        string     `gorm:"type:varchar(16);not null;default:'#2563eb'" json:"color"`
 	OwnerID      uuid.UUID  `gorm:"type:uuid;not null" json:"owner_id"`
 	DepartmentID *uuid.UUID `gorm:"type:uuid" json:"department_id"`
@@ -57,6 +59,8 @@ type Event struct {
 	Recurrence      string     `gorm:"type:varchar(16);not null;default:'none'" json:"recurrence"`
 	RecurrenceUntil *time.Time `json:"recurrence_until"`
 	MeetingID       *uuid.UUID `gorm:"type:uuid" json:"meeting_id"`
+	Origin          string     `gorm:"type:varchar(32);not null;default:manual" json:"origin"`
+	ExternalUID     string     `gorm:"type:varchar(200);not null;default:''" json:"external_uid"`
 	CreatedBy       uuid.UUID  `gorm:"type:uuid;not null" json:"created_by"`
 	CreatedAt       time.Time  `json:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at"`
@@ -69,6 +73,7 @@ type EventNamed struct {
 	CalendarName    string     `gorm:"column:calendar_name"`
 	CalendarColor   string     `gorm:"column:calendar_color"`
 	CalendarType    int16      `gorm:"column:calendar_type"`
+	CalendarSource  string     `gorm:"column:calendar_source"`
 	OwnerID         uuid.UUID  `gorm:"column:owner_id"`
 	DepartmentID    *uuid.UUID `gorm:"column:department_id"`
 	CreatorName     string     `gorm:"column:creator_name"`
@@ -119,3 +124,17 @@ type NamedUser struct {
 	Username     string
 	DepartmentID *uuid.UUID
 }
+
+type GoogleAccount struct {
+	ID           uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
+	UserID       uuid.UUID  `gorm:"type:uuid;not null" json:"user_id"`
+	CalendarID   *uuid.UUID `gorm:"type:uuid" json:"calendar_id"`
+	AccessToken  string     `gorm:"type:text;not null;default:''" json:"-"`
+	RefreshToken string     `gorm:"type:text;not null;default:''" json:"-"`
+	TokenExpiry  *time.Time `json:"-"`
+	GoogleEmail  string     `gorm:"type:varchar(200);not null;default:''" json:"google_email"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+}
+
+func (GoogleAccount) TableName() string { return "schedule_google_accounts" }

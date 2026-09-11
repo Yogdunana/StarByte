@@ -79,3 +79,9 @@ cors:
   expose_headers:
     - "X-Request-Id"
   allow_credentials: false
+
+# Google Calendar 单向拉取（密钥只用环境变量，勿提交真实值）
+google_calendar:
+  client_id: ""
+  client_secret: ""
+  redirect_uri: ""
