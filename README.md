@@ -246,11 +246,13 @@ OAuth / 学校 CAS / 移动端仍属二期。
 
 ## 贡献指南
 
+不需要 Collaborator。Fork 后推到自己的仓库，再向本仓库开 Pull Request。完整步骤见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
 1. Fork 本仓库
 2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
 3. 提交更改 (`git commit -m 'feat: add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
+4. 推送到 **你的 Fork** (`git push origin feature/AmazingFeature`)
+5. 开启 Pull Request（base：`Yogdunana/StarByte` `main`）
 
 ## License
 

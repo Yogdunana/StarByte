@@ -4,12 +4,15 @@
 
 ## 快速上手
 
+**不需要把贡献者加成 Collaborator。** 仓库是公开的：Fork 后向本仓库提 PR 即可。Collaborator（Write）只给需要直接推送到本仓库的维护者；普通贡献者不要申请、也不要被加上。
+
 ### 1. 环境准备
 
 ```bash
-# 克隆仓库
-git clone https://github.com/Yogdunana/StarByte.git
+# 先在 GitHub 点 Fork，再克隆你自己的仓库（不要直接 clone 上游）
+git clone https://github.com/<你的用户名>/StarByte.git
 cd StarByte
+git remote add upstream https://github.com/Yogdunana/StarByte.git
 
 # 后端环境（需要 Go 1.22+）
 cd backend
@@ -42,9 +45,10 @@ cd ../frontend && npm run dev
 ### 3. 开发流程
 
 ```bash
-# 1. 从 main 拉取最新代码
+# 1. 从上游 main 拉取最新代码
+git fetch upstream
 git checkout main
-git pull origin main
+git merge upstream/main
 
 # 2. 创建开发分支
 git checkout -b feature/your-feature-name
@@ -62,10 +66,13 @@ cd frontend && npm run lint
 git add .
 git commit -m "feat: 添加 xxx 功能"
 
-# 6. 推送并创建 PR
+# 6. 推送到你的 Fork（不是 Yogdunana/StarByte）
 git push origin feature/your-feature-name
-# 在 GitHub 上创建 Pull Request
 ```
+
+然后在 GitHub 打开你的 Fork，点 **Contribute → Open pull request**，base 选 `Yogdunana/StarByte` 的 `main`。
+
+首次从 Fork 提 PR 时，上游 CI 可能显示 *Waiting for approval*。这不需要 Collaborator：仓库维护者在该 PR 上点一次 **Approve and run workflows** 即可。之后同一贡献者的后续 PR 一般会自动跑。
 
 ## 开发规范
 
