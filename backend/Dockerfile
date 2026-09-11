@@ -3,18 +3,19 @@
 # ─────────────────────────────────────────────────────────
 FROM alpine:3.19 AS migrate-builder
 
+# 校园网默认：经 ghfast.top 拉 GitHub Release，避免直连 github.com
 RUN apk add --no-cache curl tar && \
-    curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz && \
+    curl -fsSL https://ghfast.top/https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz && \
     mv migrate /usr/local/bin/migrate
 
 # ─────────────────────────────────────────────────────────
-# Stage 2: 安装 MinIO mc 客户端
+# Stage 2: MinIO mc 占位（不从 dl.min.io 下载）
+# 生产 compose 请设 SKIP_BUCKET_CREATE=true；桶可在控制台手动创建一次。
+# 入口脚本在 SKIP_BUCKET_CREATE=true 时不会调用 mc。
 # ─────────────────────────────────────────────────────────
 FROM alpine:3.19 AS mc-builder
 
-RUN apk add --no-cache curl && \
-    curl -L https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc && \
-    chmod +x /usr/local/bin/mc
+RUN printf '%s\n' '#!/bin/sh' 'exit 0' > /usr/local/bin/mc && chmod +x /usr/local/bin/mc
 
 # ─────────────────────────────────────────────────────────
 # Stage 3: 构建 Go 二进制
@@ -27,7 +28,8 @@ WORKDIR /app
 
 # 先复制依赖文件，利用 Docker 缓存
 COPY go.mod go.sum ./
-RUN go mod download
+# 校园网默认 GOPROXY，避免直连 proxy.golang.org
+RUN go env -w GOPROXY=https://goproxy.cn,direct && go mod download
 
 # 复制源码并构建
 COPY . .
@@ -49,7 +51,7 @@ COPY --from=builder /app/starbyte-server .
 COPY --from=builder /app/migrations ./migrations
 COPY --from=builder /app/configs ./configs
 
-# 复制迁移工具和 MinIO 客户端
+# 复制迁移工具和 MinIO 客户端（mc 为占位脚本，见 Stage 2）
 COPY --from=migrate-builder /usr/local/bin/migrate /usr/local/bin/migrate
 COPY --from=mc-builder /usr/local/bin/mc /usr/local/bin/mc
 

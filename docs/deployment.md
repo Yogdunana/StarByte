@@ -7,10 +7,20 @@
 ```bash
 git clone https://github.com/Yogdunana/StarByte.git
 cd StarByte
-cp deploy/.env.example deploy/.env   # 按需改密码、JWT_SECRET
+cp deploy/.env.example deploy/.env   # 按需改密码、JWT_SECRET；内网保持 SKIP_BUCKET_CREATE=true
 docker compose -f deploy/docker-compose.yml up -d --build
 docker compose -f deploy/docker-compose.yml ps
 ```
+
+### 校园网 / 内网构建
+
+校园服务器通常无法直连 GitHub、`dl.min.io`、`proxy.golang.org`。后端 `Dockerfile` 已按校园默认写好，**不必再 sed**：
+
+- **golang-migrate v4.17.0**：经 `https://ghfast.top/https://github.com/...` 下载
+- **Go modules**：`go env -w GOPROXY=https://goproxy.cn,direct` 后再 `go mod download`
+- **MinIO mc**：镜像内是 `exit 0` 占位脚本，不从 `dl.min.io` 拉客户端。生产请设 `SKIP_BUCKET_CREATE=true`（`deploy/.env.example` 默认已是），在 MinIO 控制台手动创建一次 `starbyte` 桶
+
+前端基础镜像仍是 docker.io 的 `node:20-alpine` / `nginx:1.27-alpine`。仓库不写死未验证的国内 registry。若 `docker pull` 失败，用已配置的 Docker Hub 镜像源拉取，或在可联网机器上 `docker pull` 后 `tag` / `save` 导入内网。
 
 启动后：
 
