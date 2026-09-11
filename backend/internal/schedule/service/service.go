@@ -73,8 +73,9 @@ type scheduleService struct {
 	notify Notifier
 	google GoogleSettings
 	httpDo func(*http.Request) (*http.Response, error)
+	feeds  []LayerFeed
 }
 
-func New(rows repo.Repository, notify Notifier) Service {
-	return &scheduleService{rows: rows, notify: notify, google: LoadGoogleSettings()}
+func New(rows repo.Repository, notify Notifier, feeds ...LayerFeed) Service {
+	return &scheduleService{rows: rows, notify: notify, google: LoadGoogleSettings(), feeds: feeds}
 }

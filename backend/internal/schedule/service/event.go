@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -21,6 +22,9 @@ func (s *scheduleService) ListEvents(ctx context.Context, viewer uuid.UUID, req 
 		cid, err := uuid.Parse(req.CalendarID)
 		if err != nil {
 			return nil, 0, 0, 0, response.NewError(response.CodeBadRequest, "无效的日历ID")
+		}
+		if feed := s.feedByCalendar(cid); feed != nil {
+			return s.pageFeedEvents(ctx, viewer, feed, req)
 		}
 		if _, err := s.requireCalendarView(ctx, viewer, cid, scope); err != nil {
 			return nil, 0, 0, 0, err
@@ -45,6 +49,15 @@ func (s *scheduleService) RangeEvents(ctx context.Context, viewer uuid.UUID, req
 	if req.End.Sub(req.Start) > 400*24*time.Hour {
 		return nil, response.NewError(response.CodeBadRequest, "查询窗口不能超过 400 天")
 	}
+	if strings.TrimSpace(req.CalendarID) != "" {
+		cid, err := uuid.Parse(req.CalendarID)
+		if err != nil {
+			return nil, response.NewError(response.CodeBadRequest, "无效的日历ID")
+		}
+		if feed := s.feedByCalendar(cid); feed != nil {
+			return feed.Events(ctx, viewer, req.Start, req.End)
+		}
+	}
 	var rows []*dto.EventResponse
 	for page := 1; page <= 50; page++ {
 		listReq := &dto.ListEventRequest{CalendarID: req.CalendarID, Start: req.Start, End: req.End, Page: page, PageSize: 200}
@@ -68,6 +81,13 @@ func (s *scheduleService) RangeEvents(ctx context.Context, viewer uuid.UUID, req
 			cp.OccurrenceStart = &start
 			expanded = append(expanded, &cp)
 		}
+	}
+	if strings.TrimSpace(req.CalendarID) == "" {
+		extra, err := s.collectFeedEvents(ctx, viewer, req.Start, req.End)
+		if err != nil {
+			return nil, err
+		}
+		expanded = append(expanded, extra...)
 	}
 	return expanded, nil
 }
@@ -118,6 +138,11 @@ func (s *scheduleService) CreateEvent(ctx context.Context, operator uuid.UUID, r
 func (s *scheduleService) GetEvent(ctx context.Context, viewer, id uuid.UUID, scope *rbacModel.DataScopeCondition) (*dto.EventResponse, error) {
 	row, memberRole, isAttendee, err := s.loadVisibleEvent(ctx, viewer, id, scope)
 	if err != nil {
+		if projected, lookErr := s.lookupFeedEvent(ctx, viewer, id, err); lookErr != nil {
+			return nil, lookErr
+		} else if projected != nil {
+			return projected, nil
+		}
 		return nil, err
 	}
 	out := mapEvent(row, viewer, scope, memberRole)
@@ -141,7 +166,7 @@ func (s *scheduleService) GetEvent(ctx context.Context, viewer, id uuid.UUID, sc
 func (s *scheduleService) UpdateEvent(ctx context.Context, operator, id uuid.UUID, req *dto.UpdateEventRequest, scope *rbacModel.DataScopeCondition) (*dto.EventResponse, error) {
 	row, memberRole, _, err := s.loadVisibleEvent(ctx, operator, id, scope)
 	if err != nil {
-		return nil, err
+		return nil, s.denyProjectedWrite(ctx, operator, id, err)
 	}
 	if !canEditEvent(scope, row, operator, memberRole) {
 		return nil, response.NewError(response.CodeScheduleNoAccess, "无权修改该日程")
@@ -213,7 +238,7 @@ func (s *scheduleService) UpdateEvent(ctx context.Context, operator, id uuid.UUI
 func (s *scheduleService) DeleteEvent(ctx context.Context, operator, id uuid.UUID, scope *rbacModel.DataScopeCondition) error {
 	row, memberRole, _, err := s.loadVisibleEvent(ctx, operator, id, scope)
 	if err != nil {
-		return err
+		return s.denyProjectedWrite(ctx, operator, id, err)
 	}
 	if !canEditEvent(scope, row, operator, memberRole) {
 		return response.NewError(response.CodeScheduleNoAccess, "无权删除该日程")
@@ -227,7 +252,7 @@ func (s *scheduleService) DeleteEvent(ctx context.Context, operator, id uuid.UUI
 func (s *scheduleService) SetReminders(ctx context.Context, operator, id uuid.UUID, minutes []int, scope *rbacModel.DataScopeCondition) ([]dto.ReminderResponse, error) {
 	row, memberRole, _, err := s.loadVisibleEvent(ctx, operator, id, scope)
 	if err != nil {
-		return nil, err
+		return nil, s.denyProjectedWrite(ctx, operator, id, err)
 	}
 	if !canEditEvent(scope, row, operator, memberRole) {
 		return nil, response.NewError(response.CodeScheduleNoAccess, "无权设置提醒")
@@ -247,7 +272,7 @@ func (s *scheduleService) RSVP(ctx context.Context, operator, id uuid.UUID, stat
 		return response.NewError(response.CodeBadRequest, "回复状态不合法")
 	}
 	if _, _, _, err := s.loadVisibleEvent(ctx, operator, id, scope); err != nil {
-		return err
+		return s.denyProjectedWrite(ctx, operator, id, err)
 	}
 	att, err := s.rows.GetAttendee(ctx, id, operator)
 	if err != nil {
@@ -456,6 +481,64 @@ func firstTime(a, b *time.Time) *time.Time {
 		return a
 	}
 	return b
+}
+
+func (s *scheduleService) pageFeedEvents(ctx context.Context, viewer uuid.UUID, feed LayerFeed, req *dto.ListEventRequest) ([]*dto.EventResponse, int64, int, int, error) {
+	start, end := req.Start, req.End
+	if start.IsZero() || end.IsZero() || !end.After(start) {
+		end = time.Now().Add(200 * 24 * time.Hour)
+		start = time.Now().Add(-200 * 24 * time.Hour)
+	}
+	rows, err := feed.Events(ctx, viewer, start, end)
+	if err != nil {
+		return nil, 0, 0, 0, err
+	}
+	if kw := strings.TrimSpace(req.Keyword); kw != "" {
+		filtered := rows[:0]
+		for _, row := range rows {
+			if strings.Contains(strings.ToLower(row.Title), strings.ToLower(kw)) {
+				filtered = append(filtered, row)
+			}
+		}
+		rows = filtered
+	}
+	page, size := normalizePage(req.Page, req.PageSize)
+	total := int64(len(rows))
+	from := (page - 1) * size
+	if from >= len(rows) {
+		return []*dto.EventResponse{}, total, page, size, nil
+	}
+	to := from + size
+	if to > len(rows) {
+		to = len(rows)
+	}
+	return rows[from:to], total, page, size, nil
+}
+
+func (s *scheduleService) lookupFeedEvent(ctx context.Context, viewer, id uuid.UUID, orig error) (*dto.EventResponse, error) {
+	if !isAppCode(orig, response.CodeScheduleNotFound) {
+		return nil, orig
+	}
+	return s.feedEvent(ctx, viewer, id)
+}
+
+func (s *scheduleService) denyProjectedWrite(ctx context.Context, viewer, id uuid.UUID, orig error) error {
+	if !isAppCode(orig, response.CodeScheduleNotFound) {
+		return orig
+	}
+	row, err := s.feedEvent(ctx, viewer, id)
+	if err != nil {
+		return err
+	}
+	if row != nil {
+		return response.NewError(response.CodeScheduleInvalidState, "系统图层事件只读")
+	}
+	return orig
+}
+
+func isAppCode(err error, code int) bool {
+	var app *response.AppError
+	return errors.As(err, &app) && app.Code == code
 }
 
 func eventFromResponse(row *dto.EventResponse) *model.Event {

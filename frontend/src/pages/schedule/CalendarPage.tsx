@@ -7,6 +7,7 @@ import { ImportOutlined, PlusOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { usePermission } from '@/hooks/usePermission';
 import PageIntro from '@/components/PageIntro/PageIntro';
 import {
@@ -42,6 +43,7 @@ function loadVisibility(): Record<string, boolean> {
 
 const CalendarPage: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const canCreate = usePermission('schedule:create');
   const canUpdate = usePermission('schedule:update');
   const canDelete = usePermission('schedule:delete');
@@ -131,7 +133,14 @@ const CalendarPage: React.FC = () => {
       <ul className="schedule-dots">
         {items.slice(0, 3).map((e) => (
           <li key={`${e.id}-${e.start_at}`}>
-            <Badge color={e.color || e.calendar_color || '#2563eb'} text={e.title} />
+            <button
+              type="button"
+              className="schedule-event-chip"
+              data-testid={`schedule-event-${e.id}`}
+              onClick={(ev) => { ev.stopPropagation(); openEvent(e); }}
+            >
+              <Badge color={e.color || e.calendar_color || '#2563eb'} text={e.title} />
+            </button>
           </li>
         ))}
         {items.length > 3 && <li className="schedule-more">+{items.length - 3}</li>}
@@ -144,7 +153,7 @@ const CalendarPage: React.FC = () => {
     evForm.resetFields();
     const start = (day || cursor).hour(10).minute(0).second(0);
     evForm.setFieldsValue({
-      calendar_id: cals.find((c) => (c.source || 'personal') === 'personal')?.id || cals[0]?.id,
+      calendar_id: editableCals.find((c) => (c.source || 'personal') === 'personal')?.id || editableCals[0]?.id,
       start_at: start,
       end_at: start.add(1, 'hour'),
       recurrence: 'none',
@@ -153,7 +162,13 @@ const CalendarPage: React.FC = () => {
     setOpenEv(true);
   };
 
-  const openEdit = (ev: ScheduleEvent) => {
+  const editableCals = useMemo(() => cals.filter((c) => c.can_edit), [cals]);
+
+  const openEvent = (ev: ScheduleEvent) => {
+    if (ev.link) {
+      navigate(ev.link);
+      return;
+    }
     if (!ev.can_edit || !canUpdate) return;
     setEditing(ev);
     evForm.setFieldsValue({
@@ -258,7 +273,7 @@ const CalendarPage: React.FC = () => {
               loading={loading}
               dataSource={visibleList}
               pagination={view === 'agenda' ? { pageSize: 10 } : false}
-              onRow={(record) => ({ onClick: () => openEdit(record) })}
+              onRow={(record) => ({ onClick: () => openEvent(record) })}
               columns={[
                 { title: t('schedule.eventTitle'), dataIndex: 'title' },
                 { title: t('schedule.calendar'), dataIndex: 'calendar_name', width: 140 },
@@ -359,7 +374,7 @@ const CalendarPage: React.FC = () => {
           }}
         >
           <Form.Item name="calendar_id" label={t('schedule.calendar')}>
-            <Select options={cals.map((c) => ({ value: c.id, label: c.name }))} />
+            <Select options={editableCals.map((c) => ({ value: c.id, label: c.name }))} />
           </Form.Item>
           <Form.Item name="title" label={t('schedule.eventTitle')} rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item name="location" label={t('schedule.location')}><Input /></Form.Item>
@@ -426,7 +441,7 @@ const CalendarPage: React.FC = () => {
               </Form.Item>
             ) : (
               <Form.Item name="calendar_id" label={t('schedule.importTarget')} extra={t('schedule.importTargetHint')}>
-                <Select allowClear options={cals.map((c) => ({ value: c.id, label: c.name }))} />
+                <Select allowClear options={editableCals.map((c) => ({ value: c.id, label: c.name }))} />
               </Form.Item>
             )}
           </Form.Item>

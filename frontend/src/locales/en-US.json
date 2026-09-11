@@ -198,7 +198,7 @@
   "schedule": {
     "eyebrow": "Layered calendars",
     "title": "Schedule",
-    "desc": "Each calendar is a toggleable layer. Timetable imports go to a dedicated timetable layer, not personal events. Lists never take a client owner_id.",
+    "desc": "Each calendar is a toggleable layer. Timetable imports go to a dedicated timetable layer. Activities and interviews are read-only projections and are not written to schedule_events. Lists never take a client owner_id.",
     "newCalendar": "New calendar",
     "newEvent": "New event",
     "import": "Import",
@@ -229,7 +229,7 @@
     "recurrenceLabel": "Repeat",
     "view": { "month": "Month", "week": "Week", "day": "Day", "agenda": "Agenda" },
     "type": { "1": "Personal", "2": "Department", "3": "Project" },
-    "source": { "personal": "Personal", "timetable": "Timetable", "import": "Import", "google": "Google" },
+    "source": { "personal": "Personal", "timetable": "Timetable", "import": "Import", "google": "Google", "activity": "Activity", "interview": "Interview" },
     "recurrence": { "none": "None", "daily": "Daily", "weekly": "Weekly", "monthly": "Monthly" },
     "google": {
       "title": "Google Calendar",

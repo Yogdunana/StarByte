@@ -58,6 +58,8 @@ export interface ScheduleEvent {
   attendee_count: number;
   occurrence_start?: string;
   can_edit: boolean;
+  source?: string;
+  link?: string;
   reminders?: Array<{ id: string; minutes_before: number }>;
 }
 

@@ -354,7 +354,12 @@ func main() {
 	taskReminder.Start()
 
 	// 日程 / 日历（#78，/schedules；勿与 /system/scheduler 混淆）
-	calSvc := scheduleService.New(scheduleRepo.New(database.DB()), scheduleService.NewNotifier(notifSvc))
+	calSvc := scheduleService.New(
+		scheduleRepo.New(database.DB()),
+		scheduleService.NewNotifier(notifSvc),
+		scheduleService.NewActivityFeed(database.DB()),
+		scheduleService.NewInterviewFeed(database.DB()),
+	)
 	calH := scheduleHandler.New(calSvc)
 	schedService.RegisterHandler("schedule_reminder", "扫描并推送到期日程提醒", calSvc.DispatchDueReminders)
 	schedService.RegisterHandler("schedule_google_sync", "Google 日历同步挂钩（需用户已授权）", calSvc.DispatchGoogleSync)

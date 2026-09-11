@@ -39,7 +39,7 @@ func TestSeedTemplates_AtLeastFive(t *testing.T) {
 	for _, tpl := range seedTemplatesData {
 		codes[tpl.Code] = true
 	}
-	for _, need := range []string{"member_approved", "interview_invite", "meeting_notice", "discipline_notice", "task_assigned", "activity_registered", "activity_waitlist"} {
+	for _, need := range []string{"member_approved", "interview_invite", "meeting_notice", "discipline_notice", "task_assigned", "activity_registered", "activity_waitlist", "schedule_reminder"} {
 		assert.True(t, codes[need], "missing template %s", need)
 	}
 }

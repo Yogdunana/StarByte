@@ -136,6 +136,8 @@ type EventResponse struct {
 	Reminders       []ReminderResponse `json:"reminders,omitempty"`
 	OccurrenceStart *time.Time         `json:"occurrence_start,omitempty"`
 	CanEdit         bool               `json:"can_edit"`
+	Source          string             `json:"source,omitempty"`
+	Link            string             `json:"link,omitempty"`
 	CreatedAt       time.Time          `json:"created_at"`
 	UpdatedAt       time.Time          `json:"updated_at"`
 }

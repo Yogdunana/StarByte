@@ -56,7 +56,7 @@ func mapEvent(row *model.EventNamed, viewer uuid.UUID, scope *rbacModel.DataScop
 		Color: color, Status: row.Status, Recurrence: row.Recurrence, RecurrenceUntil: row.RecurrenceUntil,
 		MeetingID: meeting, Creator: dto.Person{ID: row.CreatedBy.String(), Name: row.CreatorName},
 		AttendeeCount: row.AttendeeCount, CanEdit: canEditEvent(scope, row, viewer, memberRole),
-		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+		Source: model.NormalizeSource(row.CalendarSource), CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	}
 }
 

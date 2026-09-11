@@ -198,7 +198,7 @@
   "schedule": {
     "eyebrow": "图层日历",
     "title": "日程管理",
-    "desc": "侧栏每个日历是一层，可单独显示/隐藏。课表导入写入独立 timetable 层，不会混进个人事件。列表不接受客户端 owner_id。",
+    "desc": "侧栏每个日历是一层，可单独显示/隐藏。课表导入写入独立 timetable 层；活动与面试是只读投影，不会写入 schedule_events。列表不接受客户端 owner_id。",
     "newCalendar": "新建日历",
     "newEvent": "新建事件",
     "import": "导入",
@@ -229,7 +229,7 @@
     "recurrenceLabel": "重复",
     "view": { "month": "月", "week": "周", "day": "日", "agenda": "议程" },
     "type": { "1": "个人", "2": "部门", "3": "项目/共享" },
-    "source": { "personal": "个人", "timetable": "课表", "import": "导入", "google": "Google" },
+    "source": { "personal": "个人", "timetable": "课表", "import": "导入", "google": "Google", "activity": "活动", "interview": "面试" },
     "recurrence": { "none": "不重复", "daily": "每天", "weekly": "每周", "monthly": "每月" },
     "google": {
       "title": "Google 日历",

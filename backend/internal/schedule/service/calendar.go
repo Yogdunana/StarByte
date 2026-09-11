@@ -24,12 +24,16 @@ func (s *scheduleService) ListCalendars(ctx context.Context, viewer uuid.UUID, r
 	if err != nil {
 		return nil, 0, 0, 0, fmt.Errorf("list calendars: %w", err)
 	}
-	out := make([]*dto.CalendarResponse, 0, len(rows))
+	out := make([]*dto.CalendarResponse, 0, len(rows)+len(s.feeds))
 	for i := range rows {
 		out = append(out, mapCalendar(&rows[i], viewer, scope))
 	}
+	virtuals := s.virtualCalendars(viewer, req)
 	page, size := normalizePage(req.Page, req.PageSize)
-	return out, total, page, size, nil
+	if page == 1 {
+		out = append(out, virtuals...)
+	}
+	return out, total + int64(len(virtuals)), page, size, nil
 }
 
 func (s *scheduleService) CreateCalendar(ctx context.Context, operator uuid.UUID, req *dto.CreateCalendarRequest, scope *rbacModel.DataScopeCondition) (*dto.CalendarResponse, error) {
@@ -62,6 +66,9 @@ func (s *scheduleService) CreateCalendar(ctx context.Context, operator uuid.UUID
 }
 
 func (s *scheduleService) GetCalendar(ctx context.Context, viewer, id uuid.UUID, scope *rbacModel.DataScopeCondition) (*dto.CalendarResponse, error) {
+	if feed := s.feedByCalendar(id); feed != nil {
+		return feed.Calendar(viewer), nil
+	}
 	row, err := s.mustCalendar(ctx, id, viewer)
 	if err != nil {
 		return nil, err
@@ -73,12 +80,9 @@ func (s *scheduleService) GetCalendar(ctx context.Context, viewer, id uuid.UUID,
 }
 
 func (s *scheduleService) UpdateCalendar(ctx context.Context, operator, id uuid.UUID, req *dto.UpdateCalendarRequest, scope *rbacModel.DataScopeCondition) (*dto.CalendarResponse, error) {
-	row, err := s.mustCalendar(ctx, id, operator)
+	row, err := s.requireCalendarEdit(ctx, operator, id, scope)
 	if err != nil {
 		return nil, err
-	}
-	if !canEditCalendar(scope, &row.Calendar, operator, row.MemberRole) {
-		return nil, response.NewError(response.CodeCalendarNoAccess, "无权修改该日历")
 	}
 	if req.Name != nil {
 		row.Name = strings.TrimSpace(*req.Name)
@@ -104,12 +108,9 @@ func (s *scheduleService) UpdateCalendar(ctx context.Context, operator, id uuid.
 }
 
 func (s *scheduleService) DeleteCalendar(ctx context.Context, operator, id uuid.UUID, scope *rbacModel.DataScopeCondition) error {
-	row, err := s.mustCalendar(ctx, id, operator)
+	row, err := s.requireCalendarEdit(ctx, operator, id, scope)
 	if err != nil {
 		return err
-	}
-	if !canEditCalendar(scope, &row.Calendar, operator, row.MemberRole) {
-		return response.NewError(response.CodeCalendarNoAccess, "无权删除该日历")
 	}
 	if model.IsPersonalLayer(row.CalendarType, row.Source) && row.OwnerID == operator && !isAllScope(scope) {
 		return response.NewError(response.CodeScheduleInvalidState, "个人日历不可删除")
@@ -260,6 +261,16 @@ func (s *scheduleService) mustCalendar(ctx context.Context, id, viewer uuid.UUID
 }
 
 func (s *scheduleService) requireCalendarView(ctx context.Context, viewer, id uuid.UUID, scope *rbacModel.DataScopeCondition) (*model.CalendarNamed, error) {
+	if feed := s.feedByCalendar(id); feed != nil {
+		cal := feed.Calendar(viewer)
+		return &model.CalendarNamed{
+			Calendar: model.Calendar{
+				ID: id, Name: cal.Name, CalendarType: cal.CalendarType,
+				Source: cal.Source, Color: cal.Color, OwnerID: viewer,
+			},
+			MemberRole: model.MemberViewer,
+		}, nil
+	}
 	row, err := s.mustCalendar(ctx, id, viewer)
 	if err != nil {
 		return nil, err
@@ -271,6 +282,9 @@ func (s *scheduleService) requireCalendarView(ctx context.Context, viewer, id uu
 }
 
 func (s *scheduleService) requireCalendarEdit(ctx context.Context, operator, id uuid.UUID, scope *rbacModel.DataScopeCondition) (*model.CalendarNamed, error) {
+	if s.feedByCalendar(id) != nil {
+		return nil, response.NewError(response.CodeScheduleInvalidState, "系统图层只读，不可管理")
+	}
 	row, err := s.mustCalendar(ctx, id, operator)
 	if err != nil {
 		return nil, err

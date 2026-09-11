@@ -27,6 +27,8 @@ const (
 	SourceTimetable = "timetable"
 	SourceImport    = "import"
 	SourceGoogle    = "google"
+	SourceActivity  = "activity"
+	SourceInterview = "interview"
 
 	OriginManual    = "manual"
 	OriginGenerated = "generated"
@@ -68,7 +70,7 @@ func ValidAttendeeResponse(s int16) bool {
 
 func ValidSource(s string) bool {
 	switch s {
-	case "", SourcePersonal, SourceTimetable, SourceImport, SourceGoogle:
+	case "", SourcePersonal, SourceTimetable, SourceImport, SourceGoogle, SourceActivity, SourceInterview:
 		return true
 	default:
 		return false
@@ -90,6 +92,10 @@ func DefaultLayerColor(source string) string {
 		return "#d97706"
 	case SourceGoogle:
 		return "#4285f4"
+	case SourceActivity:
+		return "#7c3aed"
+	case SourceInterview:
+		return "#db2777"
 	default:
 		return "#2563eb"
 	}
