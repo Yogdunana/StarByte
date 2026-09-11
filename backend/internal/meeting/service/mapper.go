@@ -80,13 +80,3 @@ func mapVote(v *model.Vote, options []model.VoteOption, hasVoted bool) *dto.Vote
 		CreatedAt:   v.CreatedAt,
 	}
 }
-
-func displayName(u *model.NamedUser) string {
-	if u == nil {
-		return ""
-	}
-	if u.RealName != "" {
-		return u.RealName
-	}
-	return u.Username
-}
