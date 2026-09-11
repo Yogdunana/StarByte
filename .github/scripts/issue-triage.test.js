@@ -60,6 +60,19 @@ describe('parseComment phrases', () => {
     assert.equal(r.toAssign.size, 0);
   });
 
+  it('同一条评论认领后可以立刻开始开发', () => {
+    const r = parse('我来认领\n开始开发');
+    assert.deepEqual([...r.toAssign], ['alice']);
+    assert.ok(r.toAdd.has('status:in-progress'));
+    assert.ok(!r.toAdd.has('status:claimed'));
+  });
+
+  it('/assign 后同一条评论可以提交审查', () => {
+    const r = parse('/assign @me\n提交审查');
+    assert.deepEqual([...r.toAssign], ['alice']);
+    assert.ok(r.toAdd.has('status:review'));
+  });
+
   it('/label 仍可改已有标签', () => {
     const r = parse('/label module:backend');
     assert.ok(r.toAdd.has('module:backend'));

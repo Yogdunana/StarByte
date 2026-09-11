@@ -106,12 +106,15 @@ function parseComment(body, { login, known, isPR, assignees = [], isOpen = true 
       addStatus('status:claimed');
     }
   }
-  if (isOpenIssue && isAssignee && hasPhrase(/^\s*放弃认领/)) {
+
+  const willBeAssignee = (assignees.includes(login) || toAssign.has(login)) && !toUnassign.has(login);
+
+  if (isOpenIssue && willBeAssignee && hasPhrase(/^\s*放弃认领/)) {
     toUnassign.add(login);
     addStatus('status:available');
   }
-  if (isOpenIssue && isAssignee && hasPhrase(/^\s*开始开发/)) addStatus('status:in-progress');
-  if (isOpenIssue && isAssignee && hasPhrase(/^\s*(?:提交审查|提交评审)/)) addStatus('status:review');
+  if (isOpenIssue && willBeAssignee && hasPhrase(/^\s*开始开发/)) addStatus('status:in-progress');
+  if (isOpenIssue && willBeAssignee && hasPhrase(/^\s*(?:提交审查|提交评审)/)) addStatus('status:review');
 
   for (const name of toRemove) toAdd.delete(name);
 
