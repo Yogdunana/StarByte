@@ -145,3 +145,33 @@ func TestWeightedVoteUsesPosition(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 5.0, res.TotalWeight)
 }
+
+type denyManageAccess struct{}
+
+func (denyManageAccess) CanAccess(_ context.Context, _ uuid.UUID, viewer model.Viewer) (bool, error) {
+	return !viewer.Manage, nil
+}
+
+func (denyManageAccess) AllowedIDs(_ context.Context, ids []uuid.UUID, viewer model.Viewer) (map[uuid.UUID]bool, error) {
+	out := make(map[uuid.UUID]bool, len(ids))
+	for _, id := range ids {
+		out[id] = !viewer.Manage
+	}
+	return out, nil
+}
+
+func TestVoteResultPendingWhenManageScopeMissesMeeting(t *testing.T) {
+	svc, mm, _, _ := newTestSvc()
+	svc.access = denyManageAccess{}
+	m, org := seedMeeting(t, svc, mm, model.MeetingOngoing)
+	vote, err := svc.CreateVote(context.Background(), m.ID, &dto.CreateVoteRequest{
+		Title: "方向", VoteType: model.VoteEqual,
+		Options: []dto.VoteOptionInput{{Key: "web", Label: "Web"}, {Key: "ai", Label: "AI"}},
+	})
+	require.NoError(t, err)
+	vid := uuid.MustParse(vote.ID)
+	require.NoError(t, svc.CastVote(context.Background(), vid, org, "web"))
+	otherDept := model.WithViewer(context.Background(), model.Viewer{CanManage: true})
+	_, err = svc.VoteResult(otherDept, vid)
+	requireAppError(t, err, response.CodeVoteResultPending)
+}

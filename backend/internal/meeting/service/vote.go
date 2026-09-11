@@ -145,8 +145,14 @@ func (s *meetingService) VoteResult(ctx context.Context, id uuid.UUID) (*dto.Vot
 	if err != nil {
 		return nil, err
 	}
-	if v.Status != model.VoteClosed && !model.ViewerFromContext(ctx).CanManage {
-		return nil, response.NewError(response.CodeVoteResultPending, "投票未结束，无法查看结果")
+	if v.Status != model.VoteClosed {
+		ok, err := s.canPreviewLiveResult(ctx, v.MeetingID)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, response.NewError(response.CodeVoteResultPending, "投票未结束，无法查看结果")
+		}
 	}
 	opts, err := s.votes.ListOptions(ctx, id)
 	if err != nil {

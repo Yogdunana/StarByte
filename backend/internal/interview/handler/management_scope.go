@@ -25,12 +25,15 @@ func (h *InterviewHandler) canManageSession(c *gin.Context, id uuid.UUID) bool {
 	if !managementIdentity(c) {
 		return false
 	}
-	if _, err := h.svc.GetSession(c.Request.Context(), viewer(c), id); err != nil {
+	sess, err := h.svc.GetSession(c.Request.Context(), viewer(c), id)
+	if err != nil {
 		response.Error(c, err)
 		c.Abort()
 		return false
 	}
-	return true
+	// Assigned interviewers may read a session; mutating it still requires
+	// department management scope, matching meeting attendance vs manage.
+	return canManageDepartment(c, sess.DepartmentID)
 }
 
 func (h *InterviewHandler) requireManagedSession(c *gin.Context) {

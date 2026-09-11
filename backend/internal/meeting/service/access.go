@@ -26,6 +26,22 @@ func (s *meetingService) requireMeetingAccess(ctx context.Context, id uuid.UUID)
 	return nil
 }
 
+// canPreviewLiveResult is true only when the viewer holds meeting:manage for
+// this meeting. A global CanManage flag (any department) is not enough.
+func (s *meetingService) canPreviewLiveResult(ctx context.Context, meetingID uuid.UUID) (bool, error) {
+	viewer := model.ViewerFromContext(ctx)
+	if !viewer.CanManage {
+		return false, nil
+	}
+	if s.access == nil {
+		return true, nil
+	}
+	candidate := viewer
+	candidate.Scope = viewer.ManageScope
+	candidate.Manage = true
+	return s.access.CanAccess(ctx, meetingID, candidate)
+}
+
 // Batch capabilities per page, using the same scope policy as mutation endpoints.
 func (s *meetingService) meetingCapabilities(ctx context.Context, rows []*dto.MeetingResponse) error {
 	if s.access == nil || len(rows) == 0 {
