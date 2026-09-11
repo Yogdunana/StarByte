@@ -38,11 +38,13 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+const envCasEnabled = import.meta.env.VITE_CAS_ENABLED === 'true';
+
 const Login: React.FC = () => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('login');
   const [loading, setLoading] = useState(false);
-  const [casEnabled, setCasEnabled] = useState(true);
+  const [casEnabled, setCasEnabled] = useState(envCasEnabled);
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -59,7 +61,7 @@ const Login: React.FC = () => {
   useEffect(() => {
     getCasStatus()
       .then((s) => setCasEnabled(Boolean(s?.enabled)))
-      .catch(() => setCasEnabled(true));
+      .catch(() => setCasEnabled(envCasEnabled));
   }, []);
 
   useEffect(() => {
