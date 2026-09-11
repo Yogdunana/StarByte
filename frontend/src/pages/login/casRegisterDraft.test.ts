@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   clearCASRegisterDraft,
   draftFromExchange,
+  isStudentIdLikeUsername,
   loadCASRegisterDraft,
   saveCASRegisterDraft,
 } from './casRegisterDraft';
@@ -24,6 +25,13 @@ describe('casRegisterDraft', () => {
     });
     clearCASRegisterDraft();
     expect(loadCASRegisterDraft()).toBeNull();
+  });
+
+  it('rejects student-id-like usernames', () => {
+    expect(isStudentIdLikeUsername('20219999', '20219999')).toBe(true);
+    expect(isStudentIdLikeUsername('20212222', '20219999')).toBe(true);
+    expect(isStudentIdLikeUsername('alice_wang', '20219999')).toBe(false);
+    expect(isStudentIdLikeUsername('alice', 'alice')).toBe(true);
   });
 
   it('builds a draft from exchange needs_registration payload', () => {

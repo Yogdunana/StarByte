@@ -39,6 +39,18 @@ export function clearCASRegisterDraft(): void {
   sessionStorage.removeItem(CAS_REGISTER_STORAGE_KEY);
 }
 
+export function isStudentIdLikeUsername(username: string, studentNo?: string): boolean {
+  const value = username.trim();
+  if (!value) return false;
+  const ownStudentNo = studentNo?.trim() ?? '';
+  if (ownStudentNo && value === ownStudentNo) return true;
+  let digits = 0;
+  for (const ch of value) {
+    if (ch >= '0' && ch <= '9') digits += 1;
+  }
+  return digits >= Math.floor((value.length * 3) / 4);
+}
+
 export function draftFromExchange(result: {
   registration_token?: string;
   student_no?: string;

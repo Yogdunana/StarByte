@@ -151,6 +151,170 @@ func TestCompleteCASCallback_NoAutoProvision(t *testing.T) {
 	assert.True(t, out.NeedsRegistration)
 }
 
+func TestRegisterWithCASToken_CreateFailsKeepsToken(t *testing.T) {
+	store := newMemCASStore()
+	pending, _ := json.Marshal(casExchangePayload{
+		Kind: casExchangeKindRegister,
+		Pending: &casPendingIdentity{
+			CASUser:   "20217777",
+			StudentNo: "20217777",
+			RealName:  "钱七",
+		},
+		Redirect: "/dashboard",
+	})
+	require.NoError(t, store.PutCode(context.Background(), "reg-create", pending, time.Minute))
+	users := &mockUserRepo{}
+	users.On("GetByIdentity", mock.Anything, identityTypeCAS, "20217777").Return((*model.User)(nil), nil)
+	users.On("GetByUsername", mock.Anything, "new_user").Return((*model.User)(nil), nil)
+	users.On("Create", mock.Anything, (*gorm.DB)(nil), mock.AnythingOfType("*model.User")).Return(errors.New("duplicate username"))
+	svc := casTestService(store, stubValidator{}, users)
+	svc.identity = &stubIdentity{}
+
+	_, err := svc.RegisterWithCASToken(context.Background(), &dto.CASRegisterRequest{
+		Token:    "reg-create",
+		Username: "new_user",
+		Password: "Passw0rd!",
+	}, "", "")
+	require.Error(t, err)
+	users.AssertNotCalled(t, "HardDelete", mock.Anything, mock.Anything)
+
+	raw, err := store.TakeCode(context.Background(), "reg-create")
+	require.NoError(t, err)
+	assert.NotEmpty(t, raw)
+}
+
+func TestRegisterWithCASToken_BindConflictRollsBackAndKeepsToken(t *testing.T) {
+	store := newMemCASStore()
+	pending, _ := json.Marshal(casExchangePayload{
+		Kind: casExchangeKindRegister,
+		Pending: &casPendingIdentity{
+			CASUser:   "20216666",
+			StudentNo: "20216666",
+			RealName:  "孙八",
+		},
+		Redirect: "/dashboard",
+	})
+	require.NoError(t, store.PutCode(context.Background(), "reg-bind", pending, time.Minute))
+	other := &model.User{ID: uuid.New(), Username: "already_bound"}
+	users := &mockUserRepo{}
+	users.On("GetByIdentity", mock.Anything, identityTypeCAS, "20216666").Return((*model.User)(nil), nil).Once()
+	users.On("GetByUsername", mock.Anything, "fresh_user").Return((*model.User)(nil), nil)
+	users.On("Create", mock.Anything, (*gorm.DB)(nil), mock.AnythingOfType("*model.User")).Return(nil)
+	users.On("GetByIdentity", mock.Anything, identityTypeCAS, "20216666").Return(other, nil)
+	users.On("HardDelete", mock.Anything, mock.Anything).Return(nil)
+	svc := casTestService(store, stubValidator{}, users)
+	svc.identity = &stubIdentity{}
+
+	_, err := svc.RegisterWithCASToken(context.Background(), &dto.CASRegisterRequest{
+		Token:    "reg-bind",
+		Username: "fresh_user",
+		Password: "Passw0rd!",
+	}, "", "")
+	require.Error(t, err)
+	var appErr *response.AppError
+	require.ErrorAs(t, err, &appErr)
+	assert.Equal(t, response.CodeUserExists, appErr.Code)
+	users.AssertCalled(t, "HardDelete", mock.Anything, mock.Anything)
+	users.AssertNotCalled(t, "CreateIdentity", mock.Anything, mock.Anything)
+
+	raw, err := store.TakeCode(context.Background(), "reg-bind")
+	require.NoError(t, err)
+	assert.NotEmpty(t, raw)
+}
+
+func TestRegisterWithCASToken_EnsureStudentNoFailsRollsBackAndKeepsToken(t *testing.T) {
+	store := newMemCASStore()
+	pending, _ := json.Marshal(casExchangePayload{
+		Kind: casExchangeKindRegister,
+		Pending: &casPendingIdentity{
+			CASUser:   "20215555",
+			StudentNo: "20215555",
+			RealName:  "周九",
+		},
+		Redirect: "/dashboard",
+	})
+	require.NoError(t, store.PutCode(context.Background(), "reg-stu", pending, time.Minute))
+	users := &mockUserRepo{}
+	users.On("GetByIdentity", mock.Anything, identityTypeCAS, "20215555").Return((*model.User)(nil), nil)
+	users.On("GetByUsername", mock.Anything, "stu_user").Return((*model.User)(nil), nil)
+	users.On("Create", mock.Anything, (*gorm.DB)(nil), mock.AnythingOfType("*model.User")).Return(nil)
+	users.On("CreateIdentity", mock.Anything, mock.AnythingOfType("*model.UserIdentity")).Return(nil)
+	users.On("HardDelete", mock.Anything, mock.Anything).Return(nil)
+	svc := casTestService(store, stubValidator{}, users)
+	svc.identity = &stubIdentity{ensureErr: response.NewError(response.CodeMemberStudentExists, "该学号已绑定其他账号")}
+
+	_, err := svc.RegisterWithCASToken(context.Background(), &dto.CASRegisterRequest{
+		Token:    "reg-stu",
+		Username: "stu_user",
+		Password: "Passw0rd!",
+		RealName: "周九",
+	}, "", "")
+	require.Error(t, err)
+	assert.Equal(t, response.CodeMemberStudentExists, err.(*response.AppError).Code)
+	users.AssertCalled(t, "HardDelete", mock.Anything, mock.Anything)
+
+	raw, err := store.TakeCode(context.Background(), "reg-stu")
+	require.NoError(t, err)
+	assert.NotEmpty(t, raw)
+}
+
+func TestRegisterWithCASToken_RejectsStudentNoUsername(t *testing.T) {
+	store := newMemCASStore()
+	pending, _ := json.Marshal(casExchangePayload{
+		Kind: casExchangeKindRegister,
+		Pending: &casPendingIdentity{
+			CASUser:   "20219999",
+			StudentNo: "20219999",
+		},
+		Redirect: "/dashboard",
+	})
+	require.NoError(t, store.PutCode(context.Background(), "reg-sid", pending, time.Minute))
+	svc := casTestService(store, stubValidator{}, &mockUserRepo{})
+
+	_, err := svc.RegisterWithCASToken(context.Background(), &dto.CASRegisterRequest{
+		Token:    "reg-sid",
+		Username: "20219999",
+		Password: "Passw0rd!",
+	}, "", "")
+	require.Error(t, err)
+	assert.Equal(t, response.CodeBadRequest, err.(*response.AppError).Code)
+
+	raw, err := store.TakeCode(context.Background(), "reg-sid")
+	require.NoError(t, err)
+	assert.NotEmpty(t, raw)
+}
+
+func TestRegisterWithCASToken_RejectsUsernameTakenAsStudentNo(t *testing.T) {
+	store := newMemCASStore()
+	pending, _ := json.Marshal(casExchangePayload{
+		Kind: casExchangeKindRegister,
+		Pending: &casPendingIdentity{
+			CASUser:   "cas-bob",
+			StudentNo: "20214444",
+			RealName:  "李四",
+		},
+		Redirect: "/dashboard",
+	})
+	require.NoError(t, store.PutCode(context.Background(), "reg-squat", pending, time.Minute))
+	users := &mockUserRepo{}
+	users.On("GetByIdentity", mock.Anything, identityTypeCAS, "cas-bob").Return((*model.User)(nil), nil)
+	users.On("GetByUsername", mock.Anything, "alice").Return((*model.User)(nil), nil)
+	svc := casTestService(store, stubValidator{}, users)
+	svc.identity = &stubIdentity{byNo: map[string]uuid.UUID{"alice": uuid.New()}}
+
+	_, err := svc.RegisterWithCASToken(context.Background(), &dto.CASRegisterRequest{
+		Token:    "reg-squat",
+		Username: "alice",
+		Password: "Passw0rd!",
+	}, "", "")
+	require.Error(t, err)
+	assert.Equal(t, response.CodeUserExists, err.(*response.AppError).Code)
+
+	raw, err := store.TakeCode(context.Background(), "reg-squat")
+	require.NoError(t, err)
+	assert.NotEmpty(t, raw)
+}
+
 func TestRegisterWithCASToken_UsernameTakenKeepsToken(t *testing.T) {
 	store := newMemCASStore()
 	pending, _ := json.Marshal(casExchangePayload{
@@ -191,6 +355,21 @@ func TestWouldSetUsernameToStudentNo(t *testing.T) {
 	assert.True(t, wouldSetUsernameToStudentNo("20210001", ""))
 	assert.False(t, wouldSetUsernameToStudentNo("alice", ""))
 	assert.False(t, wouldSetUsernameToStudentNo("alice", "20210001"))
+}
+
+func TestRejectChosenUsername(t *testing.T) {
+	assert.Error(t, rejectChosenUsername("20210001", &casPendingIdentity{StudentNo: "20210001"}))
+	assert.Error(t, rejectChosenUsername("alice", &casPendingIdentity{StudentNo: "alice"}))
+	assert.NoError(t, rejectChosenUsername("alice_wang", &casPendingIdentity{CASUser: "20210001", StudentNo: "20210001"}))
+}
+
+func TestRestoreRegisterToken_ExpiredDoesNotPutBack(t *testing.T) {
+	store := newMemCASStore()
+	svc := casTestService(store, stubValidator{}, nil)
+	raw := []byte(`{"kind":"register"}`)
+	svc.restoreRegisterToken(context.Background(), "gone", raw, &casExchangePayload{ExpiresAt: time.Now().Add(-time.Minute).Unix()})
+	_, err := store.TakeCode(context.Background(), "gone")
+	require.Error(t, err)
 }
 
 func TestExchangeCASCode_Errors(t *testing.T) {

@@ -36,6 +36,7 @@
     "minChars": "At least {{n}} characters",
     "usernameLen": "Username must be 3-20 characters",
     "usernamePattern": "Only letters, numbers and underscore",
+    "usernameNotStudentNo": "Username cannot be a student ID or mostly digits",
     "realNameRequired": "Enter real name",
     "emailRequired": "Enter email",
     "emailInvalid": "Enter a valid email",

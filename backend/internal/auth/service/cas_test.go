@@ -75,8 +75,9 @@ func (s stubValidator) Validate(context.Context, string, string) (*CASPrincipal,
 }
 
 type stubIdentity struct {
-	byNo    map[string]uuid.UUID
-	ensured []ensuredProfile
+	byNo      map[string]uuid.UUID
+	ensured   []ensuredProfile
+	ensureErr error
 }
 
 func (s *stubIdentity) GetByUserID(context.Context, uuid.UUID) (*MemberIdentity, error) {
@@ -99,6 +100,9 @@ type ensuredProfile struct {
 func (s *stubIdentity) EnsureStudentNo(_ context.Context, userID uuid.UUID, studentNo, realName string) error {
 	if s == nil {
 		return nil
+	}
+	if s.ensureErr != nil {
+		return s.ensureErr
 	}
 	s.ensured = append(s.ensured, ensuredProfile{userID: userID, studentNo: studentNo, realName: realName})
 	return nil

@@ -9,7 +9,7 @@ import { registerWithCasToken } from '@/api/auth';
 import { setToken } from '@/store/slices/authSlice';
 import { fetchCurrentUser } from '@/store/slices/userSlice';
 import type { AppDispatch } from '@/store';
-import { clearCASRegisterDraft, loadCASRegisterDraft } from './casRegisterDraft';
+import { clearCASRegisterDraft, isStudentIdLikeUsername, loadCASRegisterDraft } from './casRegisterDraft';
 import styles from './Login.module.css';
 
 function safeRedirect(path: string | undefined): string {
@@ -107,6 +107,15 @@ const CasRegister: React.FC = () => {
                 { required: true, message: t('login.usernameOnlyRequired') },
                 { min: 3, max: 20, message: t('login.usernameLen') },
                 { pattern: /^[a-zA-Z0-9_]+$/, message: t('login.usernamePattern') },
+                {
+                  validator(_, value) {
+                    if (!value) return Promise.resolve();
+                    if (isStudentIdLikeUsername(String(value), draft.student_no)) {
+                      return Promise.reject(new Error(t('login.usernameNotStudentNo')));
+                    }
+                    return Promise.resolve();
+                  },
+                },
               ]}
             >
               <Input prefix={<UserOutlined />} autoComplete="username" placeholder={t('login.username')} />
