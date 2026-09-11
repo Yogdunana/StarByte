@@ -150,6 +150,12 @@ var seedTemplatesData = []seedTemplate{
 		Body:   "活动「{{.title}}」将于 {{.start_time}} 在 {{.location}} 开始，请准时参加。",
 		Schema: `{"title":"string","start_time":"string","location":"string"}`,
 	},
+	{
+		Code: "schedule_reminder", Name: "日程提醒", Category: "schedule",
+		Title:  "日程提醒：{{.title}}",
+		Body:   "「{{.title}}」将于 {{.start_at}} 开始（提前 {{.minutes}} 分钟）。",
+		Schema: `{"title":"string","start_at":"string","minutes":"string"}`,
+	},
 }
 
 func seedTemplates(db *gorm.DB) error {

@@ -7,15 +7,16 @@ package config
 //  2. configs/config.{APP_ENV}.yaml — environment-specific overrides (dev/test/prod)
 //  3. Environment variables       — sensitive values injected at runtime
 type Config struct {
-	Server   ServerConfig   `yaml:"server"`
-	Database DatabaseConfig `yaml:"database"`
-	Redis    RedisConfig    `yaml:"redis"`
-	JWT      JWTConfig      `yaml:"jwt"`
-	Logger   LoggerConfig   `yaml:"logger"`
-	MinIO    MinIOConfig    `yaml:"minio"`
-	Email    EmailConfig    `yaml:"email"`
-	CORS     CORSConfig     `yaml:"cors"`
-	CAS      CASConfig      `yaml:"cas"`
+	Server         ServerConfig         `yaml:"server"`
+	Database       DatabaseConfig       `yaml:"database"`
+	Redis          RedisConfig          `yaml:"redis"`
+	JWT            JWTConfig            `yaml:"jwt"`
+	Logger         LoggerConfig         `yaml:"logger"`
+	MinIO          MinIOConfig          `yaml:"minio"`
+	Email          EmailConfig          `yaml:"email"`
+	CORS           CORSConfig           `yaml:"cors"`
+	CAS            CASConfig            `yaml:"cas"`
+	GoogleCalendar GoogleCalendarConfig `yaml:"google_calendar"`
 }
 
 // ServerConfig holds the HTTP server settings.
@@ -95,6 +96,13 @@ type CASConfig struct {
 }
 
 // CORSConfig holds the Cross-Origin Resource Sharing settings.
+// GoogleCalendarConfig is optional; secrets come from env, never commit them.
+type GoogleCalendarConfig struct {
+	ClientID     string `yaml:"client_id"`
+	ClientSecret string `yaml:"client_secret"`
+	RedirectURI  string `yaml:"redirect_uri"`
+}
+
 type CORSConfig struct {
 	AllowedOrigins   []string `yaml:"allowed_origins"`
 	AllowedMethods   []string `yaml:"allowed_methods"`

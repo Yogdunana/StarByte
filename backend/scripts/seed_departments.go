@@ -139,6 +139,7 @@ var departmentRefTables = []string{
 	"internship_records",
 	"finance_budgets",
 	"finance_records",
+	"calendars",
 }
 
 func lookupDeptID(db *gorm.DB, code string) (string, error) {

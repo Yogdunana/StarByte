@@ -59,6 +59,9 @@ import (
 	rbacHandler "github.com/Yogdunana/StarByte/backend/internal/rbac/handler"
 	rbacRepo "github.com/Yogdunana/StarByte/backend/internal/rbac/repo"
 	rbacService "github.com/Yogdunana/StarByte/backend/internal/rbac/service"
+	scheduleHandler "github.com/Yogdunana/StarByte/backend/internal/schedule/handler"
+	scheduleRepo "github.com/Yogdunana/StarByte/backend/internal/schedule/repo"
+	scheduleService "github.com/Yogdunana/StarByte/backend/internal/schedule/service"
 	schedHandler "github.com/Yogdunana/StarByte/backend/internal/scheduler/handler"
 	schedRepo "github.com/Yogdunana/StarByte/backend/internal/scheduler/repo"
 	schedService "github.com/Yogdunana/StarByte/backend/internal/scheduler/service"
@@ -350,6 +353,17 @@ func main() {
 	taskReminder := taskService.NewReminderScheduler(tkSvc)
 	taskReminder.Start()
 
+	// 日程 / 日历（#78，/schedules；勿与 /system/scheduler 混淆）
+	calSvc := scheduleService.New(
+		scheduleRepo.New(database.DB()),
+		scheduleService.NewNotifier(notifSvc),
+		scheduleService.NewActivityFeed(database.DB()),
+		scheduleService.NewInterviewFeed(database.DB()),
+	)
+	calH := scheduleHandler.New(calSvc)
+	schedService.RegisterHandler("schedule_reminder", "扫描并推送到期日程提醒", calSvc.DispatchDueReminders)
+	schedService.RegisterHandler("schedule_google_sync", "Google 日历同步挂钩（需用户已授权）", calSvc.DispatchGoogleSync)
+
 	// 数据字典
 	dictR := dictRepo.NewDictRepository(database.DB())
 	dictSvc := dictService.NewDictService(dictR, dictService.NewRedisCache(redis.Client()))
@@ -396,6 +410,7 @@ func main() {
 
 		// 注册仍由 user handler 处理
 		public.POST("/auth/register", userHandler.Register)
+		scheduleHandler.RegisterPublicRoutes(public, calH)
 	}
 
 	// 10b. 需要鉴权的路由
@@ -440,6 +455,9 @@ func main() {
 
 		// 任务流转（/tasks，不与 /workflow/tasks 冲突）
 		taskHandler.RegisterRoutes(protected, tkH, cacheService, database.DB(), deptRepo)
+
+		// 日程管理（/schedules，#78）
+		scheduleHandler.RegisterRoutes(protected, calH, cacheService, database.DB(), deptRepo)
 
 		// IT 实习管理（/internships, /system/internship-config）
 		internshipHandler.RegisterRoutes(protected, internH, cacheService, database.DB(), deptRepo)

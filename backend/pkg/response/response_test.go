@@ -256,7 +256,11 @@ func TestHttpStatusFromCode(t *testing.T) {
 		{CodeVoteNoAccess, http.StatusForbidden},
 		{CodeVoteResultPending, http.StatusForbidden},
 		{CodeMeetingNotAttendee, http.StatusForbidden},
+		{CodeScheduleNoAccess, http.StatusForbidden},
+		{CodeCalendarNoAccess, http.StatusForbidden},
 		{CodeNotFound, http.StatusNotFound},
+		{CodeScheduleNotFound, http.StatusNotFound},
+		{CodeCalendarNotFound, http.StatusNotFound},
 		{CodeConflict, http.StatusConflict},
 		{CodeTooManyReq, http.StatusTooManyRequests},
 		{CodeRateLimited, http.StatusTooManyRequests},
@@ -384,6 +388,15 @@ func TestModuleRanges(t *testing.T) {
 	assert.Equal(t, 27001, CodeActivityNotFound)
 	assert.Equal(t, 27013, CodeCheckinGPSNotConfigured)
 	assert.True(t, CodeActivityNotFound > ModuleRanges["duty"][1], "activity must not collide with duty 26000-26999")
+
+	r, ok = ModuleRanges["schedule"]
+	assert.True(t, ok)
+	assert.Equal(t, 29000, r[0])
+	assert.Equal(t, 29999, r[1])
+	assert.Equal(t, 29001, CodeScheduleNotFound)
+	assert.Equal(t, 29002, CodeScheduleNoAccess)
+	assert.True(t, r[0] > ModuleRanges["internship"][1], "schedule must not collide with internship 10000-10999")
+	assert.True(t, r[0] > ModuleRanges["activity"][1], "schedule must not collide with activity 27000-27999")
 }
 
 // ========== TranslateGORMError tests ==========

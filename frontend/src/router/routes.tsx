@@ -63,6 +63,7 @@ const FormSubmissionsPage = lazy(() => import('@/pages/form-designer/Submissions
 const FinancePage = lazy(() => import('@/pages/finance/FinancePage'));
 const DisciplinePage = lazy(() => import('@/pages/discipline/DisciplinePage'));
 const ContractPage = lazy(() => import('@/pages/contract/ContractPage'));
+const SchedulePage = lazy(() => import('@/pages/schedule/CalendarPage'));
 const Forbidden = lazy(() => import('@/pages/error/Forbidden'));
 const NotFound = lazy(() => import('@/pages/error/NotFound'));
 
@@ -284,6 +285,11 @@ const routes: AppRouteObject[] = [
             meta: { title: '活动详情', permission: 'activity:read', hidden: true },
           },
         ],
+      },
+      {
+        path: 'schedule',
+        element: lazyGuarded(SchedulePage, 'schedule:read'),
+        meta: { title: '日程日历', icon: 'CarryOutOutlined', permission: 'schedule:read' },
       },
       {
         path: 'task',

@@ -310,9 +310,9 @@ func httpStatusFromCode(code int) int {
 		return http.StatusBadRequest
 	case CodeUnauthorized:
 		return http.StatusUnauthorized
-	case CodeForbidden, CodeWorkflowTaskNoAccess, CodeVoteNoAccess, CodeVoteResultPending, CodeMeetingNotAttendee, CodeTaskNoAccess:
+	case CodeForbidden, CodeWorkflowTaskNoAccess, CodeVoteNoAccess, CodeVoteResultPending, CodeMeetingNotAttendee, CodeTaskNoAccess, CodeScheduleNoAccess, CodeCalendarNoAccess:
 		return http.StatusForbidden
-	case CodeNotFound:
+	case CodeNotFound, CodeScheduleNotFound, CodeCalendarNotFound, CodeScheduleAttendeeGone:
 		return http.StatusNotFound
 	case CodeConflict:
 		return http.StatusConflict
@@ -326,7 +326,7 @@ func httpStatusFromCode(code int) int {
 		return http.StatusOK
 	case CodeInternalError:
 		return http.StatusInternalServerError
-	case CodeNotImplemented:
+	case CodeNotImplemented, CodeScheduleGoogleNotReady:
 		return http.StatusNotImplemented
 	default:
 		// All other codes (2xxx-12xxx) are module-specific business

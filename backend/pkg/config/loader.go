@@ -116,6 +116,9 @@ func Load(path string) (*Config, error) {
 //	CAS_FRONTEND_URL       — cas.frontend_url
 //	CAS_ALLOW_AUTO_PROVISION — cas.allow_auto_provision
 //	CAS_DEFAULT_ROLE       — cas.default_role
+//	GOOGLE_CALENDAR_CLIENT_ID     — google_calendar.client_id
+//	GOOGLE_CALENDAR_CLIENT_SECRET — google_calendar.client_secret
+//	GOOGLE_CALENDAR_REDIRECT_URI  — google_calendar.redirect_uri
 func applyEnvOverrides(cfg *Config) {
 	// Server
 	cfg.Server.Port = getEnvInt("SERVER_PORT", cfg.Server.Port)
@@ -173,6 +176,10 @@ func applyEnvOverrides(cfg *Config) {
 	cfg.CAS.FrontendURL = getEnv("CAS_FRONTEND_URL", cfg.CAS.FrontendURL)
 	cfg.CAS.AllowAutoProvision = getEnvBool("CAS_ALLOW_AUTO_PROVISION", cfg.CAS.AllowAutoProvision)
 	cfg.CAS.DefaultRole = getEnv("CAS_DEFAULT_ROLE", cfg.CAS.DefaultRole)
+
+	cfg.GoogleCalendar.ClientID = getEnv("GOOGLE_CALENDAR_CLIENT_ID", cfg.GoogleCalendar.ClientID)
+	cfg.GoogleCalendar.ClientSecret = getEnv("GOOGLE_CALENDAR_CLIENT_SECRET", cfg.GoogleCalendar.ClientSecret)
+	cfg.GoogleCalendar.RedirectURI = getEnv("GOOGLE_CALENDAR_REDIRECT_URI", cfg.GoogleCalendar.RedirectURI)
 }
 
 // getEnv returns the value of an environment variable or a fallback.
