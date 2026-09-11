@@ -30,6 +30,8 @@ package response
 //	23000-23999 Finance (#22)
 //	24000-24999 Discipline (#23)
 //	25000-25999 Contract (#24)
+//	26000-26999 Duty (reserved; #154)
+//	27000-27999 Activity (#52)
 //
 //	Note: issue #71 asked for 9000-9499, but that range is already owned by
 //	the task module (9000-9999). Export therefore uses 17000-17999 (after
@@ -261,6 +263,24 @@ const (
 	CodeContractTemplateGone  = 25004 // 合同模板不存在
 	CodeContractInvalidType   = 25005 // 合同类型不合法
 	CodeContractInvalidPeriod = 25006 // 开始/结束日期不合法
+
+	// ===== Duty (#154 预留, 26000-26999) =====
+	// 值班模块占用本段。活动模块不得使用 26000。
+
+	// ===== Activity (#52, 27000-27999) =====
+	CodeActivityNotFound        = 27001 // 活动不存在
+	CodeActivityInvalidState    = 27002 // 活动状态不允许该操作
+	CodeActivityFull            = 27003 // 报名人数已满
+	CodeRegistrationExists      = 27004 // 重复报名
+	CodeRegistrationNotFound    = 27005 // 报名记录不存在
+	CodeCheckinFailed           = 27006 // 签到失败
+	CodeCheckinAlreadyDone      = 27007 // 已签到，请勿重复
+	CodeCheckinNotApproved      = 27008 // 报名未通过，无法签到
+	CodeSurveyAlreadySubmitted  = 27009 // 已提交过评价
+	CodeSurveyNotEnded          = 27010 // 活动未结束，暂不能评价
+	CodeCheckinTokenInvalid     = 27011 // 签到令牌无效或已过期
+	CodeCheckinGPSRejected      = 27012 // GPS 签到超出围栏
+	CodeCheckinGPSNotConfigured = 27013 // 活动未配置地点半径，拒绝 GPS 签到
 )
 
 // ModuleRanges maps each module name to its error-code range [min, max].
@@ -291,4 +311,6 @@ var ModuleRanges = map[string][2]int{
 	"finance":      {23000, 23999},
 	"discipline":   {24000, 24999},
 	"contract":     {25000, 25999},
+	"duty":         {26000, 26999},
+	"activity":     {27000, 27999},
 }

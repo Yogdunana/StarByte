@@ -13,6 +13,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 
+	activityHandler "github.com/Yogdunana/StarByte/backend/internal/activity/handler"
+	activityRepo "github.com/Yogdunana/StarByte/backend/internal/activity/repo"
+	activityService "github.com/Yogdunana/StarByte/backend/internal/activity/service"
 	auditHandler "github.com/Yogdunana/StarByte/backend/internal/audit/handler"
 	auditRepo "github.com/Yogdunana/StarByte/backend/internal/audit/repo"
 	auditService "github.com/Yogdunana/StarByte/backend/internal/audit/service"
@@ -313,6 +316,14 @@ func main() {
 	mtH := meetingHandler.NewMeetingHandler(mtSvc)
 	schedService.RegisterHandler("meeting_vote_expiry", "按截止时间关闭会议投票", meetingService.NewVoteExpiryJob(database.DB()))
 
+	// 活动管理与报名系统（/activities，#52）
+	actActivityRepo := activityRepo.NewActivityRepo(database.DB())
+	actRegRepo := activityRepo.NewRegistrationRepo(database.DB())
+	actSurveyRepo := activityRepo.NewSurveyRepo(database.DB())
+	actNotifier := activityService.NewNotifier(notifSvc)
+	actSvc := activityService.NewActivityService(actActivityRepo, actRegRepo, actSurveyRepo, actNotifier, database.DB())
+	actH := activityHandler.NewActivityHandler(actSvc)
+
 	// 运行时业务配置（#47，复用 configs 表，不改 pkg/config YAML）
 	cfgRows := cfgstoreRepo.NewConfigRepo(database.DB())
 	cfgStore := configstore.New(redis.Client(), &cfgstoreRepo.BackendAdapter{Rows: cfgRows})
@@ -423,6 +434,9 @@ func main() {
 
 		// 会议管理 + 投票（/meetings, /votes, /system/vote-weight-config）
 		meetingHandler.RegisterRoutes(protected, mtH, cacheService, database.DB(), deptRepo)
+
+		// 活动管理与报名系统（/activities）
+		activityHandler.RegisterRoutes(protected, actH, cacheService)
 
 		// 任务流转（/tasks，不与 /workflow/tasks 冲突）
 		taskHandler.RegisterRoutes(protected, tkH, cacheService, database.DB(), deptRepo)
