@@ -9,13 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"go.uber.org/zap"
-
-	activityHandler "github.com/Yogdunana/StarByte/backend/internal/activity/handler"
-	activityRepo "github.com/Yogdunana/StarByte/backend/internal/activity/repo"
-	activityService "github.com/Yogdunana/StarByte/backend/internal/activity/service"
 	auditHandler "github.com/Yogdunana/StarByte/backend/internal/audit/handler"
 	auditRepo "github.com/Yogdunana/StarByte/backend/internal/audit/repo"
 	auditService "github.com/Yogdunana/StarByte/backend/internal/audit/service"
@@ -30,6 +23,12 @@ import (
 	dictHandler "github.com/Yogdunana/StarByte/backend/internal/dict/handler"
 	dictRepo "github.com/Yogdunana/StarByte/backend/internal/dict/repo"
 	dictService "github.com/Yogdunana/StarByte/backend/internal/dict/service"
+	dutyHandler "github.com/Yogdunana/StarByte/backend/internal/duty/handler"
+	dutyRepo "github.com/Yogdunana/StarByte/backend/internal/duty/repo"
+	dutyService "github.com/Yogdunana/StarByte/backend/internal/duty/service"
+	equipHandler "github.com/Yogdunana/StarByte/backend/internal/equipment/handler"
+	equipRepo "github.com/Yogdunana/StarByte/backend/internal/equipment/repo"
+	equipService "github.com/Yogdunana/StarByte/backend/internal/equipment/service"
 	exportHandler "github.com/Yogdunana/StarByte/backend/internal/export/handler"
 	exportRepo "github.com/Yogdunana/StarByte/backend/internal/export/repo"
 	exportService "github.com/Yogdunana/StarByte/backend/internal/export/service"
@@ -88,6 +87,9 @@ import (
 	"github.com/Yogdunana/StarByte/backend/pkg/redis"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/Yogdunana/StarByte/backend/pkg/storage"
+	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.uber.org/zap"
 )
 
 // @title StarByte API
@@ -205,12 +207,6 @@ func main() {
 	authSvc := authService.NewAuthService(
 		authR, userRepo, &cfg.JWT, cacheService, eventBus,
 		memberidentity.NewLookup(memberProfRepo),
-		&authService.CASDeps{
-			Config:     &cfg.CAS,
-			Store:      authRepo.NewCASStore(redis.Client()),
-			Validator:  authService.NewHTTPTicketValidator(cfg.CAS.ServerURL, nil),
-			AssignRole: authService.NewRoleAssigner(database.DB(), roleRepo, cfg.CAS.DefaultRole),
-		},
 	)
 	authH := authHandler.NewAuthHandler(authSvc)
 
@@ -290,13 +286,8 @@ func main() {
 	// 入会申请 + 人员档案
 	memberAppRepo := memberRepo.NewApplicationRepo(database.DB())
 	interviewStarter := memberService.NewInterviewStarter(wfHandlers.DefinitionRepo, wfHandlers.InstanceService)
-	if err := wfHandlers.RegisterBusinessApprover("member_application", memberService.NewAdmissionApprover(database.DB())); err != nil {
-		logger.Fatal("register admission workflow", zap.Error(err))
-	}
-	admissionSvc := memberService.NewAdmissionServiceWithWorkflow(database.DB(), wfHandlers.Engine, cacheService)
-	schedService.RegisterHandler("admission_maintenance", "检查候补到期并按异议状态转正", admissionSvc.Maintenance)
-	memberSvc := memberService.NewMemberService(memberAppRepo, memberProfRepo, interviewStarter, admissionSvc)
-	memberH := memberHandler.NewMemberHandler(memberSvc, admissionSvc)
+	memberSvc := memberService.NewMemberService(memberAppRepo, memberProfRepo, interviewStarter)
+	memberH := memberHandler.NewMemberHandler(memberSvc)
 
 	// 面试管理
 	ivSessionRepo := interviewRepo.NewSessionRepo(database.DB())
@@ -312,17 +303,8 @@ func main() {
 	mtAttendeeRepo := meetingRepo.NewAttendeeRepo(database.DB())
 	mtVoteRepo := meetingRepo.NewVoteRepo(database.DB())
 	mtNotifier := meetingService.NewNotifier(notifSvc)
-	mtSvc := meetingService.NewMeetingService(mtMeetingRepo, mtAgendaRepo, mtAttendeeRepo, mtVoteRepo, mtNotifier, database.DB())
+	mtSvc := meetingService.NewMeetingService(mtMeetingRepo, mtAgendaRepo, mtAttendeeRepo, mtVoteRepo, mtNotifier)
 	mtH := meetingHandler.NewMeetingHandler(mtSvc)
-	schedService.RegisterHandler("meeting_vote_expiry", "按截止时间关闭会议投票", meetingService.NewVoteExpiryJob(database.DB()))
-
-	// 活动管理与报名系统（/activities，#52）
-	actActivityRepo := activityRepo.NewActivityRepo(database.DB())
-	actRegRepo := activityRepo.NewRegistrationRepo(database.DB())
-	actSurveyRepo := activityRepo.NewSurveyRepo(database.DB())
-	actNotifier := activityService.NewNotifier(notifSvc)
-	actSvc := activityService.NewActivityService(actActivityRepo, actRegRepo, actSurveyRepo, actNotifier, database.DB())
-	actH := activityHandler.NewActivityHandler(actSvc)
 
 	// 运行时业务配置（#47，复用 configs 表，不改 pkg/config YAML）
 	cfgRows := cfgstoreRepo.NewConfigRepo(database.DB())
@@ -341,11 +323,7 @@ func main() {
 	tkCommentRepo := taskRepo.NewCommentRepo(database.DB())
 	tkAttachRepo := taskRepo.NewAttachmentRepo(database.DB())
 	tkNotifier := taskService.NewNotifier(notifSvc)
-	tkSvc := taskService.NewTaskService(tkTaskRepo, tkLogRepo, tkCommentRepo, tkAttachRepo, tkNotifier, fileSvc, objectStore, database.DB())
-	if err := wfHandlers.RegisterBusinessApprover("collaboration_task", taskService.NewTaskApprover(database.DB())); err != nil {
-		logger.Fatal("register task workflow", zap.Error(err))
-	}
-	tkSvc.SetWorkflowEngine(wfHandlers.Engine)
+	tkSvc := taskService.NewTaskService(tkTaskRepo, tkLogRepo, tkCommentRepo, tkAttachRepo, tkNotifier, fileSvc, objectStore)
 	tkH := taskHandler.NewTaskHandler(tkSvc)
 	taskReminder := taskService.NewReminderScheduler(tkSvc)
 	taskReminder.Start()
@@ -418,7 +396,7 @@ func main() {
 		rbacHandler.RegisterRoutes(protected, database.DB(), roleHandler, permHandler, deptHandler, posHandler, cacheService, deptRepo)
 
 		// 工作流引擎模块
-		wfHandler.RegisterRoutes(protected, wfHandlers.Definition, wfHandlers.Instance, wfHandlers.Task, wfHandler.RouteSecurity{DB: database.DB(), Cache: cacheService, Departments: deptRepo})
+		wfHandler.RegisterRoutes(protected, wfHandlers.Definition, wfHandlers.Instance, wfHandlers.Task)
 
 		// 通知模块路由
 		notifHandler.RegisterRoutes(protected, protected, notificationHandler, templateHandler, wsHandler, emailHandler, cacheService)
@@ -434,9 +412,6 @@ func main() {
 
 		// 会议管理 + 投票（/meetings, /votes, /system/vote-weight-config）
 		meetingHandler.RegisterRoutes(protected, mtH, cacheService, database.DB(), deptRepo)
-
-		// 活动管理与报名系统（/activities）
-		activityHandler.RegisterRoutes(protected, actH, cacheService)
 
 		// 任务流转（/tasks，不与 /workflow/tasks 冲突）
 		taskHandler.RegisterRoutes(protected, tkH, cacheService, database.DB(), deptRepo)
@@ -476,6 +451,22 @@ func main() {
 		formSvc := formService.New(formRepo.New(database.DB()))
 		formH := formHandler.NewFormHandler(formSvc, cacheService)
 		formHandler.RegisterRoutes(protected, formH, cacheService)
+
+		// 值班/排班管理（/duty，#53）
+		dutySchedRepo := dutyRepo.NewScheduleRepo(database.DB())
+		dutySwapRepo := dutyRepo.NewSwapRepo(database.DB())
+		dutySvc := dutyService.NewDutyService(database.DB(), dutySchedRepo, dutySwapRepo, dutyService.NewDutyNotifier(notifSvc))
+		dutyH := dutyHandler.NewDutyHandler(dutySvc)
+		dutyHandler.RegisterRoutes(protected, dutyH, cacheService)
+
+		// 物资/设备借用管理（/equipment，#54）
+		equipItemRepo := equipRepo.NewEquipmentRepo(database.DB())
+		equipBorrowRepo := equipRepo.NewBorrowRepo(database.DB())
+		equipMaintRepo := equipRepo.NewMaintenanceRepo(database.DB())
+		equipInvRepo := equipRepo.NewInventoryRepo(database.DB())
+		equipSvc := equipService.NewEquipmentService(database.DB(), equipItemRepo, equipBorrowRepo, equipMaintRepo, equipInvRepo, equipService.NewEquipmentNotifier(notifSvc))
+		equipH := equipHandler.NewEquipmentHandler(equipSvc)
+		equipHandler.RegisterRoutes(protected, equipH, cacheService)
 
 		// 财务 / 处分 / 合同（#22 #23 #24）
 		registerPhase1Ops(protected, database.DB(), cacheService, deptRepo, notifSvc, wfHandlers.DefinitionRepo, wfHandlers.InstanceService)

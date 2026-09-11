@@ -13,8 +13,6 @@ import ComingSoon from '@/pages/error/ComingSoon';
 
 // 页面组件
 const Login = lazy(() => import('@/pages/login/Login'));
-const CasCallback = lazy(() => import('@/pages/login/CasCallback'));
-const CasRegister = lazy(() => import('@/pages/login/CasRegister'));
 const Dashboard = lazy(() => import('@/pages/dashboard/Dashboard'));
 const BigScreenPage = lazy(() => import('@/pages/dashboard/bigscreen/BigScreenPage'));
 const UserList = lazy(() => import('@/pages/user/UserList'));
@@ -43,17 +41,12 @@ const MeetingListPage = lazy(() => import('@/pages/meeting/ListPage'));
 const MeetingDetailPage = lazy(() => import('@/pages/meeting/DetailPage'));
 const MeetingCheckinPage = lazy(() => import('@/pages/meeting/CheckinPage'));
 const MeetingWeightPage = lazy(() => import('@/pages/meeting/WeightPage'));
-const ActivityListPage = lazy(() => import('@/pages/activity/ListPage'));
-const ActivityDetailPage = lazy(() => import('@/pages/activity/DetailPage'));
-const ActivityCheckinPage = lazy(() => import('@/pages/activity/CheckinPage'));
 const TaskListPage = lazy(() => import('@/pages/task/ListPage'));
 const TaskBoardPage = lazy(() => import('@/pages/task/BoardPage'));
 const TaskMyPage = lazy(() => import('@/pages/task/MyPage'));
 const InternshipListPage = lazy(() => import('@/pages/internship/ListPage'));
 const InternshipMyPage = lazy(() => import('@/pages/internship/MyPage'));
 const InternshipStatsPage = lazy(() => import('@/pages/internship/StatsPage'));
-const WorkflowTodo = lazy(() => import('@/pages/workflow/runtime/TodoPage'));
-const WorkflowInstances = lazy(() => import('@/pages/workflow/runtime/InstancePage'));
 const WorkflowDesigner = lazy(() => import('@/pages/workflow/designer/DesignerPage'));
 const StatsOverviewPage = lazy(() => import('@/pages/stats/OverviewPage'));
 const FormListPage = lazy(() => import('@/pages/form-designer/ListPage'));
@@ -63,6 +56,8 @@ const FormSubmissionsPage = lazy(() => import('@/pages/form-designer/Submissions
 const FinancePage = lazy(() => import('@/pages/finance/FinancePage'));
 const DisciplinePage = lazy(() => import('@/pages/discipline/DisciplinePage'));
 const ContractPage = lazy(() => import('@/pages/contract/ContractPage'));
+const DutySchedulePage = lazy(() => import('@/pages/duty/SchedulePage'));
+const EquipmentPage = lazy(() => import('@/pages/equipment/EquipmentPage'));
 const Forbidden = lazy(() => import('@/pages/error/Forbidden'));
 const NotFound = lazy(() => import('@/pages/error/NotFound'));
 
@@ -117,16 +112,6 @@ const routes: AppRouteObject[] = [
     path: '/login',
     element: lazyWrap(Login),
     meta: { title: '登录', public: true, hidden: true },
-  },
-  {
-    path: '/login/cas',
-    element: lazyWrap(CasCallback),
-    meta: { title: '统一认证', public: true, hidden: true },
-  },
-  {
-    path: '/register/cas',
-    element: lazyWrap(CasRegister),
-    meta: { title: '绑定账号', public: true, hidden: true },
   },
   {
     path: '/dashboard/bigscreen',
@@ -194,7 +179,6 @@ const routes: AppRouteObject[] = [
         path: 'member',
         meta: { title: '会员管理', icon: 'TeamOutlined' },
         children: [
-          { path: 'applications', element: <Navigate to="/member/application" replace />, meta: { hidden: true } },
           {
             path: 'application',
             element: lazyWrap(ApplicationPage),
@@ -249,8 +233,8 @@ const routes: AppRouteObject[] = [
           },
           {
             path: 'vote',
-            element: lazyGuarded(MeetingWeightPage, 'meeting:manage'),
-            meta: { title: '投票权重', permission: 'meeting:manage' },
+            element: lazyGuarded(MeetingWeightPage, 'meeting:read'),
+            meta: { title: '投票权重', permission: 'meeting:read' },
           },
           {
             path: 'checkin',
@@ -261,27 +245,6 @@ const routes: AppRouteObject[] = [
             path: ':id',
             element: lazyGuarded(MeetingDetailPage, 'meeting:read'),
             meta: { title: '会议详情', permission: 'meeting:read', hidden: true },
-          },
-        ],
-      },
-      {
-        path: 'activity',
-        meta: { title: '活动管理', icon: 'CalendarOutlined' },
-        children: [
-          {
-            path: 'list',
-            element: lazyGuarded(ActivityListPage, 'activity:read'),
-            meta: { title: '活动列表', permission: 'activity:read' },
-          },
-          {
-            path: 'checkin',
-            element: lazyWrap(ActivityCheckinPage),
-            meta: { title: '活动签到', hidden: true },
-          },
-          {
-            path: ':id',
-            element: lazyGuarded(ActivityDetailPage, 'activity:read'),
-            meta: { title: '活动详情', permission: 'activity:read', hidden: true },
           },
         ],
       },
@@ -312,22 +275,22 @@ const routes: AppRouteObject[] = [
         children: [
           {
             path: 'designer',
-            element: lazyGuarded(WorkflowDesigner, 'workflow:read'),
-            meta: { title: '流程设计', permission: 'workflow:read' },
+            element: lazyWrap(WorkflowDesigner),
+            meta: { title: '流程设计' },
           },
           {
             path: 'designer/:id',
-            element: lazyGuarded(WorkflowDesigner, 'workflow:read'),
-            meta: { title: '流程设计', permission: 'workflow:read', hidden: true },
+            element: lazyWrap(WorkflowDesigner),
+            meta: { title: '流程设计', hidden: true },
           },
           {
             path: 'instances',
-            element: lazyWrap(WorkflowInstances),
+            element: <ComingSoon i18nKey="placeholder.workflowInstances" />,
             meta: { title: '流程实例' },
           },
           {
             path: 'todo',
-            element: lazyWrap(WorkflowTodo),
+            element: <ComingSoon i18nKey="placeholder.todo" />,
             meta: { title: '我的待办' },
           },
         ],
@@ -367,6 +330,16 @@ const routes: AppRouteObject[] = [
         path: 'contract',
         element: lazyGuarded(ContractPage, 'contract:read'),
         meta: { title: '合同管理', icon: 'FileProtectOutlined', permission: 'contract:read' },
+      },
+      {
+        path: 'duty',
+        element: lazyGuarded(DutySchedulePage, 'duty:read'),
+        meta: { title: '值班排班', icon: 'CalendarOutlined', permission: 'duty:read' },
+      },
+      {
+        path: 'equipment',
+        element: lazyGuarded(EquipmentPage, 'equipment:read'),
+        meta: { title: '物资管理', icon: 'ToolOutlined', permission: 'equipment:read' },
       },
       {
         path: 'forms',
