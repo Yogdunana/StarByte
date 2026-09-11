@@ -3,7 +3,7 @@
 # 依赖：bash + docker compose。不打印 .env 密钥值。
 set -euo pipefail
 
-VERSION="1.0.1"
+VERSION="1.0.2"
 CONF_FILE="/etc/starbyte.conf"
 
 usage() {
@@ -132,16 +132,24 @@ compose() {
   docker compose "${args[@]}" "$@"
 }
 
-# 从 .env 取键值到变量，不向终端打印
+# 从 .env 取键值到变量，不向终端打印。
+# 与 compose env-file 一致：后者覆盖前者；去掉行尾 CR 与成对包裹引号。
 env_get() {
   local key="$1"
   local file="$ROOT/deploy/.env"
-  local line=""
+  local line="" val=""
   [[ -f "$file" ]] || return 1
-  # 与 compose env-file 一致：后者覆盖前者
   line="$(grep -E "^${key}=" "$file" | tail -n1 || true)"
   [[ -n "$line" ]] || return 1
-  printf '%s' "${line#*=}"
+  val="${line#*=}"
+  val="${val%$'\r'}"
+  if [[ ${#val} -ge 2 ]]; then
+    case "$val" in
+      \"*\") val="${val:1:${#val}-2}" ;;
+      \'*\') val="${val:1:${#val}-2}" ;;
+    esac
+  fi
+  printf '%s' "$val"
 }
 
 env_has_key() {
@@ -328,17 +336,30 @@ cmd_env_check() {
 }
 
 pick_backup_dir() {
+  local dir
   if mkdir -p /var/backups/starbyte 2>/dev/null && [[ -w /var/backups/starbyte ]]; then
-    printf '%s' /var/backups/starbyte
-    return
+    dir=/var/backups/starbyte
+  else
+    dir="$ROOT/backups"
+    mkdir -p "$dir"
   fi
-  mkdir -p "$ROOT/backups"
-  printf '%s' "$ROOT/backups"
+  chmod 0700 "$dir" 2>/dev/null || true
+  printf '%s' "$dir"
+}
+
+# 先建 0600 空文件再重定向，避免默认 umask 写出 0644
+secure_create() {
+  local path="$1" mode="${2:-600}"
+  umask 077
+  : > "$path"
+  chmod "$mode" "$path"
 }
 
 cmd_backup() {
   need_docker
-  local dest stamp dump notes
+  local dest stamp dump notes old_umask
+  old_umask="$(umask)"
+  umask 077
   dest="$(pick_backup_dir)"
   stamp="$(date +%Y%m%d-%H%M%S)"
   dump="$dest/postgres-${stamp}.sql"
@@ -351,14 +372,18 @@ cmd_backup() {
   db="${db:-starbyte}"
 
   log "Postgres dump → $dump"
+  secure_create "$dump" 600
   if docker exec starbyte-postgres pg_dump -U "$user" "$db" > "$dump"; then
+    chmod 600 "$dump"
     ok "已写入 $dump"
   else
     err "pg_dump 失败（容器 starbyte-postgres 是否在运行？）"
     rm -f "$dump"
+    umask "$old_umask"
     exit 1
   fi
 
+  secure_create "$notes" 600
   {
     echo "StarByte 备份说明  $stamp"
     echo "Postgres dump: $dump"
@@ -377,6 +402,8 @@ cmd_backup() {
     echo ""
     echo "不要 docker compose down -v。"
   } > "$notes"
+  chmod 600 "$notes"
+  umask "$old_umask"
 
   log "说明: $notes"
   log "volume / MinIO 路径见该说明文件（未打包对象存储二进制，请另行复制卷）。"
