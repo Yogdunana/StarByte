@@ -4,17 +4,48 @@
 
 ## 快速上手
 
-仓库是公开的：**提 PR 不需要 Write。** Fork 后向本仓库开 Pull Request 即可。不要给普通贡献者 Write（那是直接推本仓库的权限）。
+仓库是公开的：**提 PR 不需要 Write。** Fork 后向本仓库开 Pull Request 即可。不要给普通贡献者 Write / Maintain / Admin——那些角色都能 merge。
 
-自己在网页上改 Issue 的 **label / assignees** 需要 **Triage**（管 Issue，不能推代码）。维护者在 [Collaborators](https://github.com/Yogdunana/StarByte/settings/access) 把人加成 **Triage**，不要选 Write。
+GitHub 没有「所有人都能在网页右侧点选 label/assignee、但没有 merge」的开关。本仓库用 Action 代执行，**任何能评论的人**都可以自己改 labels 和 assignees，这条路径**没有 push / merge 权限**。
 
 | 角色 | 给谁 | 能做什么 |
 |------|------|----------|
-| Read（默认） | 所有人 | 看代码、开 Issue、评论、Fork 提 PR |
-| **Triage** | 常规贡献者 | 改 labels / assignees、关闭或重开 Issue；**不能 push** |
-| Write | 维护者 | 直接推本仓库，并包含 Triage 全部能力 |
+| Read（默认） | 所有人 | 看代码、开 Issue、评论、Fork 提 PR；用下面的评论命令改 labels / assignees |
+| Write | 仅维护者 | 直接推本仓库并 merge；不要为了改 Issue 去申请 |
 
-维护者邀请入口：[Settings → Collaborators](https://github.com/Yogdunana/StarByte/settings/access)，角色选 **Triage**。对方接受邀请后，才能在 Issue 页自己点 labels / assignees。当前仍是 Read、需要补 Triage 的人：`Joker-coding122`、`Amyzzzght`、`rzy99`、`mzk-cloud`、`xie91613`。`Bug1009` 和 `windmirror-pixel` 已是 Write，已能改。
+### 改 label / assignee
+
+在 Issue 或 PR 下发一条评论即可（合入 `main` 后生效）。可用仓库里已有的标签，不能新建标签。
+
+```
+我来认领
+```
+
+```
+放弃认领
+```
+
+```
+开始开发
+```
+
+```
+提交审查
+```
+
+```
+/label status:claimed module:backend
+/unlabel status:available
+/assign @me
+/unassign @someone
+```
+
+也可以一行一个已有标签：
+
+```
++status:in-progress
+-status:claimed
+```
 
 ### 1. 环境准备
 
@@ -49,9 +80,8 @@ cd ../frontend && npm run dev
 ### 2. 领取任务
 
 1. 查看 [GitHub Issues](https://github.com/Yogdunana/StarByte/issues) 中的待办任务
-2. 选择你感兴趣的 Issue，评论 `我来认领`
-3. 有 **Triage** 时：把自己加到 Assignees，加上 `status:claimed`，去掉 `status:available`
-4. 还没有 Triage 时：评论发出后，仓库的 Issue claim Action 会代为 assign 并改 status 标签（需已合入 `main`）。任意 label 的网页点选仍需维护者授予 Triage
+2. 选择你感兴趣的 Issue，评论 `我来认领`（Action 会把你设为 Assignee，并改成 `status:claimed`）
+3. 之后用 `/label`、`/unlabel`、`/assign`、`/unassign` 自己改标签和经办人；没有 merge 权限
 
 ### 3. 开发流程
 

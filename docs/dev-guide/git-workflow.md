@@ -61,7 +61,7 @@ new_feature          # 没有前缀，驼峰
 
 外部贡献者 **不要** 申请 Write。请 Fork 本仓库，把改动推到自己的 Fork，再对 `Yogdunana/StarByte` 开 Pull Request。`git push origin` 只应推到自己的远程，直接推 `Yogdunana/StarByte` 会被拒绝（这是正常的）。
 
-自己改 Issue 的 labels / assignees 需要 **Triage**（不是 Write）。维护者在仓库 Settings → Collaborators 邀请时角色选 Triage。
+任何人都可以在 Issue / PR 评论里用 `/label`、`/unlabel`、`/assign`、`/unassign`（或 `我来认领`）改标签和经办人。这由仓库 Action 代执行，没有 merge 权限。不要为了改 Issue 去申请 Write。
 
 ### 3.1 开始新功能
 

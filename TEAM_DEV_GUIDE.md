@@ -716,7 +716,7 @@ GitHub 账户名：[你的 GitHub 用户名]
 关联分支：feature/[issue-number]-[brief-description]
 ```
 
-评论发出后：有 Triage 的人自己设置 Assignee 和 `status:claimed`；没有 Triage 时由 Issue claim Action 代为分配。然后即可开始开发。
+评论发出后：Issue triage Action 会设置 Assignee 和 `status:claimed`。然后即可开始开发。其它标签用 `/label` / `/unlabel` 自己改。
 
 #### 步骤 2：检查需求变更（每次开始编码前必做）
 
@@ -836,7 +836,7 @@ GitHub 账户名：[你的 GitHub 用户名]
 **认领限制**：
 - 每人**最多同时认领 2 个 Issue**
 - **禁止同时认领 2 个 P0/P1 高优先级 Issue**（可 1 个 P1 + 1 个 P2，或 1 个 P2 + 1 个 P3）
-- 若需放弃认领：评论 `放弃认领`（Action 会去掉你的 Assignee 并恢复 `status:available`）。有 Triage 时也可以自己改 labels / assignees
+- 若需放弃认领：评论 `放弃认领`（Action 会去掉你的 Assignee 并恢复 `status:available`）。改其它标签用 `/label` / `/unlabel`，不必申请 Write
 
 ### 9.2 认领格式（强制）
 
@@ -849,12 +849,12 @@ GitHub 账户名：[你的 GitHub 用户名]
 关联分支：feature/[issue-number]-[brief-description]
 ```
 
-认领后由 **Triage 贡献者自己**（或 Issue claim Action）完成：
+认领后由仓库的 Issue triage Action 完成（任何评论者都可以，没有 merge 权限）：
 1. 将你设为 Issue 的 Assignee
 2. 添加 `status:claimed` 标签
 3. 移除 `status:available` 标签
 
-有 Triage 的人可直接在 Issue 页改 labels / assignees，不必等维护者。还没有 Triage 时，评论 `我来认领` / `放弃认领` / `开始开发` / `提交审查`，Action 会代为改 Assignee 和 `status:*` 标签。任意其它标签的网页点选仍需维护者授予 Triage。
+之后自己改 labels / assignees，在评论里写 `/label …`、`/unlabel …`、`/assign @user`、`/unassign @user`，或一行 `+已有标签` / `-已有标签`。不要申请 Write。
 
 **三重防撞机制**：评论区认领记录 + GitHub Assignees + `status:claimed` 标签，三者缺一不可。缺任一项则认领无效，Issue 保持 `status:available`。
 
