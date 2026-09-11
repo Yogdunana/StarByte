@@ -98,12 +98,13 @@ POST /api/v1/contracts
 - `POST /auth/login` `POST /auth/register` `POST /auth/refresh` `POST /auth/logout`
 - `GET /auth/me` `PUT /auth/password`
 - `GET /auth/sessions` 及强制下线；OAuth/企微接口预留
-- 学校 CAS（一期校园网 `starbyte.smbu.edu.cn` ↔ `authserver.smbu.edu.cn`）
+- 学校 CAS（校园网 ↔ `authserver.smbu.edu.cn`）
   - `GET /auth/cas/status` 是否开通
   - `GET /auth/cas/login?redirect=/dashboard` 302 到金智 `/authserver/login`
-  - `GET /auth/cas/callback?ticket=&state=` 验 ST 后 302 到 `/login/cas?code=`
+  - `GET /auth/cas/callback?ticket=` 验 ST 后 302 到 `/login/cas?code=`（state 走 Cookie，callback 路径固定）
   - `POST /auth/cas/exchange` `{ "code" }` 换本系统 JWT（复用 #17 签发）
-  - `service` 必须与信息化备案地址完全一致：`https://starbyte.smbu.edu.cn/api/v1/auth/cas/callback`
+  - 漏测无域名：用浏览器访问的 IP 拼 `http://<IP>/api/v1/auth/cas/callback` 给信息化备案
+  - 有域名后可设 `CAS_SERVICE_URL` / `CAS_FRONTEND_URL`，或继续留空跟访问地址走
 - `GET /users` `POST /users` `GET|PUT|DELETE /users/:id`
 - `GET /user/me` `PUT /user/profile` `PUT /user/password`
 

@@ -84,12 +84,12 @@ type EmailConfig struct {
 }
 
 // CASConfig holds campus Central Authentication Service (金智 IDS) settings.
-// Phase 1 is intranet-only: https://starbyte.smbu.edu.cn against authserver.smbu.edu.cn.
+// 漏测阶段没有域名：service_url / frontend_url 留空，按浏览器访问的 IP 自动拼接。
 type CASConfig struct {
 	Enabled            bool   `yaml:"enabled"`
 	ServerURL          string `yaml:"server_url"`           // e.g. https://authserver.smbu.edu.cn/authserver
-	ServiceURL         string `yaml:"service_url"`          // callback, must match school whitelist exactly
-	FrontendURL        string `yaml:"frontend_url"`         // e.g. https://starbyte.smbu.edu.cn
+	ServiceURL         string `yaml:"service_url"`          // empty = {origin}/api/v1/auth/cas/callback
+	FrontendURL        string `yaml:"frontend_url"`         // empty = same origin as the browser request
 	AllowAutoProvision bool   `yaml:"allow_auto_provision"` // create local user on first CAS login
 	DefaultRole        string `yaml:"default_role"`         // role code assigned to auto-provisioned users
 }

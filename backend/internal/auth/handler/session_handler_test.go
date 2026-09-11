@@ -44,8 +44,10 @@ func (s *sessionStub) KickUserSessions(context.Context, string) error { return s
 func (s *sessionStub) CASStatus() dto.CASStatusResponse {
 	return dto.CASStatusResponse{Enabled: false}
 }
-func (s *sessionStub) BuildCASLoginURL(context.Context, string) (string, error) { return "", nil }
-func (s *sessionStub) CompleteCASCallback(context.Context, string, string, string, string) (string, error) {
+func (s *sessionStub) BuildCASLoginURL(context.Context, string, string) (*dto.CASLoginStart, error) {
+	return nil, nil
+}
+func (s *sessionStub) CompleteCASCallback(context.Context, string, string, string, string, string) (string, error) {
 	return "", nil
 }
 func (s *sessionStub) ExchangeCASCode(context.Context, string) (*dto.CASExchangeResponse, error) {

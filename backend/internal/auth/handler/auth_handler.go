@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/Yogdunana/StarByte/backend/internal/auth/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/auth/service"
@@ -235,12 +236,23 @@ func (h *AuthHandler) CASLogin(c *gin.Context) {
 		response.NotImplemented(c, "学校统一认证暂未开通")
 		return
 	}
-	loc, err := h.authService.BuildCASLoginURL(c.Request.Context(), c.Query("redirect"))
+	origin := requestPublicOrigin(c)
+	start, err := h.authService.BuildCASLoginURL(c.Request.Context(), c.Query("redirect"), origin)
 	if err != nil {
 		response.Error(c, err)
 		return
 	}
-	c.Redirect(http.StatusFound, loc)
+	secure := strings.HasPrefix(origin, "https://")
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     casStateCookie,
+		Value:    start.State,
+		Path:     "/",
+		MaxAge:   600,
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: http.SameSiteLaxMode,
+	})
+	c.Redirect(http.StatusFound, start.Location)
 }
 
 // CASCallback handles GET /api/v1/auth/cas/callback
@@ -256,12 +268,18 @@ func (h *AuthHandler) CASCallback(c *gin.Context) {
 		response.NotImplemented(c, "学校统一认证暂未开通")
 		return
 	}
+	state := c.Query("state")
+	if ck, err := c.Request.Cookie(casStateCookie); err == nil && ck.Value != "" {
+		state = ck.Value
+	}
+	http.SetCookie(c.Writer, &http.Cookie{Name: casStateCookie, Path: "/", MaxAge: -1})
 	loc, err := h.authService.CompleteCASCallback(
 		c.Request.Context(),
 		c.Query("ticket"),
-		c.Query("state"),
+		state,
 		c.ClientIP(),
 		c.GetHeader("User-Agent"),
+		requestPublicOrigin(c),
 	)
 	if err != nil {
 		response.Error(c, err)
@@ -342,4 +360,34 @@ func RegisterRoutes(
 			registerSessionRoutes(authProtected, handler, cacheService)
 		}
 	}
+}
+
+const casStateCookie = "starbyte_cas_state"
+
+func requestPublicOrigin(c *gin.Context) string {
+	if c == nil || c.Request == nil {
+		return ""
+	}
+	proto := strings.TrimSpace(c.GetHeader("X-Forwarded-Proto"))
+	if i := strings.Index(proto, ","); i >= 0 {
+		proto = strings.TrimSpace(proto[:i])
+	}
+	if proto == "" {
+		if c.Request.TLS != nil {
+			proto = "https"
+		} else {
+			proto = "http"
+		}
+	}
+	host := strings.TrimSpace(c.GetHeader("X-Forwarded-Host"))
+	if i := strings.Index(host, ","); i >= 0 {
+		host = strings.TrimSpace(host[:i])
+	}
+	if host == "" {
+		host = c.Request.Host
+	}
+	if proto == "" || host == "" {
+		return ""
+	}
+	return proto + "://" + host
 }

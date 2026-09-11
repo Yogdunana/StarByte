@@ -96,8 +96,6 @@ func casTestService(store *memCASStore, validator TicketValidator, users *mockUs
 	svc.cas = &config.CASConfig{
 		Enabled:            true,
 		ServerURL:          "https://authserver.smbu.edu.cn/authserver",
-		ServiceURL:         "https://starbyte.smbu.edu.cn/api/v1/auth/cas/callback",
-		FrontendURL:        "https://starbyte.smbu.edu.cn",
 		AllowAutoProvision: true,
 		DefaultRole:        "member",
 	}
@@ -160,23 +158,24 @@ func TestParseCASJSON_Success(t *testing.T) {
 func TestBuildCASLoginURL(t *testing.T) {
 	store := newMemCASStore()
 	svc := casTestService(store, stubValidator{}, nil)
-	loc, err := svc.BuildCASLoginURL(context.Background(), "/tasks")
+	start, err := svc.BuildCASLoginURL(context.Background(), "/tasks", "http://10.0.0.8")
 	require.NoError(t, err)
-	assert.Contains(t, loc, "https://authserver.smbu.edu.cn/authserver/login?service=")
-	assert.Contains(t, loc, "starbyte.smbu.edu.cn")
+	assert.Contains(t, start.Location, "https://authserver.smbu.edu.cn/authserver/login?service=")
+	assert.Contains(t, start.Location, "10.0.0.8")
+	assert.Equal(t, "http://10.0.0.8/api/v1/auth/cas/callback", start.Service)
 	assert.Len(t, store.state, 1)
 }
 
 func TestBuildCASLoginURL_Disabled(t *testing.T) {
 	svc, _, _, _ := setupTestService()
-	_, err := svc.BuildCASLoginURL(context.Background(), "/")
+	_, err := svc.BuildCASLoginURL(context.Background(), "/", "http://10.0.0.8")
 	require.Error(t, err)
 	assert.Equal(t, response.CodeNotImplemented, err.(*response.AppError).Code)
 }
 
 func TestCompleteCASCallback_ExistingUser(t *testing.T) {
 	store := newMemCASStore()
-	require.NoError(t, store.PutState(context.Background(), "st1", "/dashboard", time.Minute))
+	require.NoError(t, store.PutState(context.Background(), "st1", `{"redirect":"/dashboard","origin":"http://10.0.0.8","service":"http://10.0.0.8/api/v1/auth/cas/callback"}`, time.Minute))
 	userID := uuid.New()
 	users := &mockUserRepo{}
 	users.On("GetByIdentity", mock.Anything, identityTypeCAS, "20210001").Return(&model.User{
@@ -192,14 +191,14 @@ func TestCompleteCASCallback_ExistingUser(t *testing.T) {
 	perm.On("GetUserPermissionsAndSuperAdmin", mock.Anything, userID).Return([]string{"member:read"}, false, nil)
 	perm.On("GetUserRoleCodes", mock.Anything, userID).Return([]string{"member"}, nil)
 
-	loc, err := svc.CompleteCASCallback(context.Background(), "ST-1", "st1", "1.1.1.1", "ua")
+	loc, err := svc.CompleteCASCallback(context.Background(), "ST-1", "st1", "1.1.1.1", "ua", "http://10.0.0.8")
 	require.NoError(t, err)
-	assert.Contains(t, loc, "https://starbyte.smbu.edu.cn/login/cas?code=")
+	assert.Contains(t, loc, "http://10.0.0.8/login/cas?code=")
 }
 
 func TestCompleteCASCallback_AutoProvision(t *testing.T) {
 	store := newMemCASStore()
-	require.NoError(t, store.PutState(context.Background(), "st2", "/dashboard", time.Minute))
+	require.NoError(t, store.PutState(context.Background(), "st2", `{"redirect":"/dashboard","origin":"http://10.0.0.8","service":"http://10.0.0.8/api/v1/auth/cas/callback"}`, time.Minute))
 	users := &mockUserRepo{}
 	users.On("GetByIdentity", mock.Anything, identityTypeCAS, "20219999").Return((*model.User)(nil), nil)
 	users.On("GetByUsername", mock.Anything, "20219999").Return((*model.User)(nil), nil)
@@ -223,7 +222,7 @@ func TestCompleteCASCallback_AutoProvision(t *testing.T) {
 	perm.On("GetUserPermissionsAndSuperAdmin", mock.Anything, mock.Anything).Return([]string{}, false, nil)
 	perm.On("GetUserRoleCodes", mock.Anything, mock.Anything).Return([]string{"member"}, nil)
 
-	loc, err := svc.CompleteCASCallback(context.Background(), "ST-2", "st2", "2.2.2.2", "ua")
+	loc, err := svc.CompleteCASCallback(context.Background(), "ST-2", "st2", "2.2.2.2", "ua", "http://10.0.0.8")
 	require.NoError(t, err)
 	assert.Contains(t, loc, "/login/cas?code=")
 }
@@ -244,7 +243,15 @@ func TestExchangeCASCode(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestCASServiceURLIncludesState(t *testing.T) {
-	u := casServiceURL("https://starbyte.smbu.edu.cn/api/v1/auth/cas/callback", "abc")
-	assert.Equal(t, "https://starbyte.smbu.edu.cn/api/v1/auth/cas/callback?state=abc", u)
+func TestResolveCASURLs_FromIP(t *testing.T) {
+	service, origin, err := resolveCASURLs(&config.CASConfig{}, "http://10.0.0.8")
+	require.NoError(t, err)
+	assert.Equal(t, "http://10.0.0.8", origin)
+	assert.Equal(t, "http://10.0.0.8/api/v1/auth/cas/callback", service)
+}
+
+func TestSanitizePublicOrigin(t *testing.T) {
+	assert.Equal(t, "http://10.0.0.8", sanitizePublicOrigin("http://10.0.0.8/login"))
+	assert.Equal(t, "", sanitizePublicOrigin("javascript:alert(1)"))
+	assert.Equal(t, "", sanitizePublicOrigin("//evil.example"))
 }

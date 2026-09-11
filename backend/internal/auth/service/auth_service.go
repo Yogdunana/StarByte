@@ -30,8 +30,8 @@ type AuthService interface {
 	KickSession(ctx context.Context, tokenID string) error
 	KickUserSessions(ctx context.Context, userID string) error
 	CASStatus() dto.CASStatusResponse
-	BuildCASLoginURL(ctx context.Context, redirect string) (string, error)
-	CompleteCASCallback(ctx context.Context, ticket, state, ip, userAgent string) (string, error)
+	BuildCASLoginURL(ctx context.Context, redirect, publicOrigin string) (*dto.CASLoginStart, error)
+	CompleteCASCallback(ctx context.Context, ticket, state, ip, userAgent, publicOrigin string) (string, error)
 	ExchangeCASCode(ctx context.Context, code string) (*dto.CASExchangeResponse, error)
 }
 

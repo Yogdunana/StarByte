@@ -53,8 +53,8 @@ email:
 cas:
   enabled: false
   server_url: "https://authserver.smbu.edu.cn/authserver"
-  service_url: "https://starbyte.smbu.edu.cn/api/v1/auth/cas/callback"
-  frontend_url: "https://starbyte.smbu.edu.cn"
+  service_url: ""
+  frontend_url: ""
   allow_auto_provision: true
   default_role: member
 

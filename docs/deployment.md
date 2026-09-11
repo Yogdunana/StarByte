@@ -16,7 +16,7 @@ docker compose -f deploy/docker-compose.yml ps
 
 | 服务 | 地址 |
 |------|------|
-| 前端 | 校园网 https://starbyte.smbu.edu.cn （容器 80） |
+| 前端 | 漏测：校园网 `http://<服务器IP>/`（容器 80）；有域名后再绑 `starbyte.smbu.edu.cn` |
 | API | http://localhost:8080/api/v1 |
 | 健康检查 | http://localhost:8080/health 、`/health/ready` |
 | Metrics | http://localhost:8080/metrics |
@@ -41,19 +41,21 @@ APP_ENV=prod make seed
 4. 种子：`APP_ENV=prod make seed`。
 5. 前端：`cd frontend && npm ci && npm run build`，用 Nginx 托管 `dist/` 并把 `/api/` 反代到后端。
 
-## 学校统一认证（一期仅校园网）
+## 学校统一认证（漏测先用 IP）
 
 - 登录页「学校统一认证」跳到 `https://authserver.smbu.edu.cn/authserver/login`
-- 回调：`https://starbyte.smbu.edu.cn/api/v1/auth/cas/callback`（须与信息化备案一字不差）
+- **漏测没有域名**：用校园网 IP 打开系统（`http://<服务器IP>/`）。`service` / 回跳按访问 Host 自动拼，信息化备案：
+  `http://<服务器IP>/api/v1/auth/cas/callback`
+- 有 `starbyte.smbu.edu.cn` 后再改备案，或设 `CAS_SERVICE_URL` / `CAS_FRONTEND_URL`
 - 环境变量见 `backend/.env.example` 的 `CAS_*`
-- 外网 `starbyte.com` 检测校内 IP 后 301 到 `starbyte.smbu.edu.cn` 属二期，本期不接
+- 外网 `starbyte.com` 检测校内 IP 后 301 属二期
 
 ## Nginx 反向代理（示例）
 
 ```nginx
 server {
     listen 80;
-    server_name starbyte.smbu.edu.cn;
+    server_name _;
     root /var/www/starbyte/dist;
     index index.html;
 
@@ -79,7 +81,7 @@ server {
 
 ## HTTPS
 
-用学校证书或 Let's Encrypt 终止 TLS，再反代到上面的 80/8080。不要单独做 `auth.` 子域，CAS 回调走 `https://starbyte.smbu.edu.cn/api/v1/auth/cas/callback`。
+漏测可先 HTTP + IP。有证书后再终止 TLS。不要单独做 `auth.` 子域，CAS 回调与站点同 Host：`http(s)://<IP或域名>/api/v1/auth/cas/callback`。
 
 ## 数据库备份与恢复
 

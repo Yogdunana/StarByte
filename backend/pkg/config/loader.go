@@ -316,12 +316,6 @@ func setDefaults(cfg *Config) {
 	if cfg.CAS.ServerURL == "" {
 		cfg.CAS.ServerURL = "https://authserver.smbu.edu.cn/authserver"
 	}
-	if cfg.CAS.ServiceURL == "" {
-		cfg.CAS.ServiceURL = "https://starbyte.smbu.edu.cn/api/v1/auth/cas/callback"
-	}
-	if cfg.CAS.FrontendURL == "" {
-		cfg.CAS.FrontendURL = "https://starbyte.smbu.edu.cn"
-	}
 	if cfg.CAS.DefaultRole == "" {
 		cfg.CAS.DefaultRole = "member"
 	}

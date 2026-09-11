@@ -94,8 +94,9 @@ services:
       # 一期校园网 CAS（authserver.smbu.edu.cn）
       CAS_ENABLED: ${CAS_ENABLED:-true}
       CAS_SERVER_URL: ${CAS_SERVER_URL:-https://authserver.smbu.edu.cn/authserver}
-      CAS_SERVICE_URL: ${CAS_SERVICE_URL:-https://starbyte.smbu.edu.cn/api/v1/auth/cas/callback}
-      CAS_FRONTEND_URL: ${CAS_FRONTEND_URL:-https://starbyte.smbu.edu.cn}
+      # 漏测无域名：留空则按浏览器访问的 IP 自动拼 callback / 回跳
+      CAS_SERVICE_URL: ${CAS_SERVICE_URL:-}
+      CAS_FRONTEND_URL: ${CAS_FRONTEND_URL:-}
       CAS_ALLOW_AUTO_PROVISION: ${CAS_ALLOW_AUTO_PROVISION:-true}
       CAS_DEFAULT_ROLE: ${CAS_DEFAULT_ROLE:-member}
       # 迁移控制

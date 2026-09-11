@@ -47,76 +47,89 @@ func (s *authService) CASStatus() dto.CASStatusResponse {
 }
 
 // BuildCASLoginURL stores state and returns the CAS /login redirect.
-func (s *authService) BuildCASLoginURL(ctx context.Context, redirect string) (string, error) {
+// publicOrigin 是浏览器实际访问地址（http://IP 或后续域名）；漏测无域名时靠它拼 service。
+func (s *authService) BuildCASLoginURL(ctx context.Context, redirect, publicOrigin string) (*dto.CASLoginStart, error) {
 	if !s.casEnabled() {
-		return "", response.NewError(response.CodeNotImplemented, "学校统一认证暂未开通")
+		return nil, response.NewError(response.CodeNotImplemented, "学校统一认证暂未开通")
 	}
-	if s.casStore == nil || s.cas.ServiceURL == "" || s.cas.ServerURL == "" {
-		return "", response.NewError(response.CodeInternalError, "CAS 配置不完整")
+	if s.casStore == nil || s.cas.ServerURL == "" {
+		return nil, response.NewError(response.CodeInternalError, "CAS 配置不完整")
+	}
+	service, origin, err := resolveCASURLs(s.cas, publicOrigin)
+	if err != nil {
+		return nil, err
 	}
 	state, err := randomHex(16)
 	if err != nil {
-		return "", fmt.Errorf("cas state: %w", err)
+		return nil, fmt.Errorf("cas state: %w", err)
 	}
-	if err := s.casStore.PutState(ctx, state, sanitizeRedirect(redirect), casStateTTL); err != nil {
-		return "", fmt.Errorf("store cas state: %w", err)
+	payload, err := json.Marshal(casStateRecord{
+		Redirect: sanitizeRedirect(redirect),
+		Origin:   origin,
+		Service:  service,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("cas state: %w", err)
 	}
-	service := casServiceURL(s.cas.ServiceURL, state)
+	if err := s.casStore.PutState(ctx, state, string(payload), casStateTTL); err != nil {
+		return nil, fmt.Errorf("store cas state: %w", err)
+	}
 	login := strings.TrimRight(s.cas.ServerURL, "/") + "/login?service=" + url.QueryEscape(service)
-	return login, nil
+	return &dto.CASLoginStart{Location: login, State: state, Service: service}, nil
 }
 
 // CompleteCASCallback validates the ST, issues JWT, and returns the frontend exchange URL.
-func (s *authService) CompleteCASCallback(ctx context.Context, ticket, state, ip, userAgent string) (string, error) {
+func (s *authService) CompleteCASCallback(ctx context.Context, ticket, state, ip, userAgent, publicOrigin string) (string, error) {
+	_, fallbackOrigin, _ := resolveCASURLs(s.cas, publicOrigin)
 	if !s.casEnabled() {
-		return s.casFrontendError("disabled"), nil
+		return casFrontendError(fallbackOrigin, "disabled"), nil
 	}
 	ticket = strings.TrimSpace(ticket)
 	state = strings.TrimSpace(state)
 	if ticket == "" || state == "" {
-		return s.casFrontendError("missing_ticket"), nil
+		return casFrontendError(fallbackOrigin, "missing_ticket"), nil
 	}
 	if s.casStore == nil || s.casValidator == nil {
-		return s.casFrontendError("not_configured"), nil
+		return casFrontendError(fallbackOrigin, "not_configured"), nil
 	}
-	redirect, ok, err := s.casStore.TakeState(ctx, state)
+	raw, ok, err := s.casStore.TakeState(ctx, state)
 	if err != nil {
-		return s.casFrontendError("state_error"), nil
+		return casFrontendError(fallbackOrigin, "state_error"), nil
 	}
 	if !ok {
-		return s.casFrontendError("state_expired"), nil
+		return casFrontendError(fallbackOrigin, "state_expired"), nil
 	}
-	service := casServiceURL(s.cas.ServiceURL, state)
-	principal, err := s.casValidator.Validate(ctx, service, ticket)
+	rec := parseCASState(raw, fallbackOrigin)
+	principal, err := s.casValidator.Validate(ctx, rec.Service, ticket)
 	if err != nil || principal == nil || strings.TrimSpace(principal.User) == "" {
-		return s.casFrontendError("ticket_invalid"), nil
+		return casFrontendError(rec.Origin, "ticket_invalid"), nil
 	}
 	user, err := s.resolveOrProvisionCASUser(ctx, principal)
 	if err != nil {
-		return s.casFrontendError("user_resolve"), nil
+		return casFrontendError(rec.Origin, "user_resolve"), nil
 	}
 	if user.Status == 1 {
-		return s.casFrontendError("disabled_user"), nil
+		return casFrontendError(rec.Origin, "disabled_user"), nil
 	}
 	if user.Status == 2 {
-		return s.casFrontendError("locked_user"), nil
+		return casFrontendError(rec.Origin, "locked_user"), nil
 	}
 	tokens, err := s.issueSession(ctx, user, ip, userAgent)
 	if err != nil {
-		return s.casFrontendError("token"), nil
+		return casFrontendError(rec.Origin, "token"), nil
 	}
 	code, err := randomHex(16)
 	if err != nil {
-		return s.casFrontendError("code"), nil
+		return casFrontendError(rec.Origin, "code"), nil
 	}
-	payload, err := json.Marshal(casExchangePayload{Login: *tokens, Redirect: redirect})
+	payload, err := json.Marshal(casExchangePayload{Login: *tokens, Redirect: rec.Redirect})
 	if err != nil {
-		return s.casFrontendError("code"), nil
+		return casFrontendError(rec.Origin, "code"), nil
 	}
 	if err := s.casStore.PutCode(ctx, code, payload, casExchangeTTL); err != nil {
-		return s.casFrontendError("code"), nil
+		return casFrontendError(rec.Origin, "code"), nil
 	}
-	return s.casFrontendSuccess(code), nil
+	return casFrontendSuccess(rec.Origin, code), nil
 }
 
 // ExchangeCASCode consumes a one-time callback code and returns the JWT pair.
@@ -259,32 +272,101 @@ func (s *authService) touchCASProfile(ctx context.Context, user *model.User, p *
 	}
 }
 
-func (s *authService) casFrontendSuccess(code string) string {
-	base := strings.TrimRight(s.cas.FrontendURL, "/")
+type casStateRecord struct {
+	Redirect string `json:"redirect"`
+	Origin   string `json:"origin"`
+	Service  string `json:"service"`
+}
+
+func parseCASState(raw, fallbackOrigin string) casStateRecord {
+	rec := casStateRecord{Redirect: casRedirectFallback, Origin: sanitizePublicOrigin(fallbackOrigin)}
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		if rec.Origin != "" {
+			rec.Service = rec.Origin + "/api/v1/auth/cas/callback"
+		}
+		return rec
+	}
+	if strings.HasPrefix(raw, "{") {
+		var parsed casStateRecord
+		if json.Unmarshal([]byte(raw), &parsed) == nil {
+			if parsed.Redirect != "" {
+				rec.Redirect = sanitizeRedirect(parsed.Redirect)
+			}
+			if origin := sanitizePublicOrigin(parsed.Origin); origin != "" {
+				rec.Origin = origin
+			}
+			if parsed.Service != "" {
+				rec.Service = parsed.Service
+			}
+		}
+	} else {
+		rec.Redirect = sanitizeRedirect(raw)
+	}
+	if rec.Service == "" && rec.Origin != "" {
+		rec.Service = rec.Origin + "/api/v1/auth/cas/callback"
+	}
+	return rec
+}
+
+func resolveCASURLs(cfg *config.CASConfig, requestOrigin string) (serviceURL, frontendOrigin string, err error) {
+	origin := ""
+	if cfg != nil {
+		origin = sanitizePublicOrigin(cfg.FrontendURL)
+	}
+	if origin == "" {
+		origin = sanitizePublicOrigin(requestOrigin)
+	}
+	if origin == "" && cfg != nil && strings.TrimSpace(cfg.ServiceURL) != "" {
+		if u, perr := url.Parse(strings.TrimSpace(cfg.ServiceURL)); perr == nil {
+			origin = sanitizePublicOrigin(u.Scheme + "://" + u.Host)
+		}
+	}
+	if origin == "" {
+		return "", "", response.NewError(response.CodeBadRequest, "无法确定访问地址，请用校园网 IP 打开系统")
+	}
+	service := ""
+	if cfg != nil {
+		service = strings.TrimSpace(cfg.ServiceURL)
+	}
+	if service == "" {
+		service = origin + "/api/v1/auth/cas/callback"
+	}
+	return service, origin, nil
+}
+
+func sanitizePublicOrigin(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.User != nil || u.Host == "" {
+		return ""
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return ""
+	}
+	return u.Scheme + "://" + u.Host
+}
+
+func casFrontendSuccess(origin, code string) string {
+	base := sanitizePublicOrigin(origin)
 	if base == "" {
-		base = "https://starbyte.smbu.edu.cn"
+		return "/login/cas?code=" + url.QueryEscape(code)
 	}
 	return base + "/login/cas?code=" + url.QueryEscape(code)
 }
 
-func (s *authService) casFrontendError(reason string) string {
-	base := strings.TrimRight(s.cas.FrontendURL, "/")
-	if base == "" {
-		base = "https://starbyte.smbu.edu.cn"
-	}
+func casFrontendError(origin, reason string) string {
 	if reason == "" {
 		reason = "unknown"
 	}
-	return base + "/login?cas_error=" + url.QueryEscape(reason)
-}
-
-func casServiceURL(serviceURL, state string) string {
-	u := strings.TrimSpace(serviceURL)
-	sep := "?"
-	if strings.Contains(u, "?") {
-		sep = "&"
+	base := sanitizePublicOrigin(origin)
+	if base == "" {
+		return "/login?cas_error=" + url.QueryEscape(reason)
 	}
-	return u + sep + "state=" + url.QueryEscape(state)
+	return base + "/login?cas_error=" + url.QueryEscape(reason)
 }
 
 func sanitizeRedirect(p string) string {

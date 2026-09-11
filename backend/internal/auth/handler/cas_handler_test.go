@@ -68,10 +68,13 @@ func (s casStubService) KickUserSessions(context.Context, string) error { return
 func (s casStubService) CASStatus() dto.CASStatusResponse {
 	return dto.CASStatusResponse{Enabled: s.enabled}
 }
-func (s casStubService) BuildCASLoginURL(context.Context, string) (string, error) {
-	return s.login, s.err
+func (s casStubService) BuildCASLoginURL(context.Context, string, string) (*dto.CASLoginStart, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return &dto.CASLoginStart{Location: s.login, State: "st-cookie", Service: "http://10.0.0.8/api/v1/auth/cas/callback"}, nil
 }
-func (s casStubService) CompleteCASCallback(context.Context, string, string, string, string) (string, error) {
+func (s casStubService) CompleteCASCallback(context.Context, string, string, string, string, string) (string, error) {
 	return s.cb, s.err
 }
 func (s casStubService) ExchangeCASCode(context.Context, string) (*dto.CASExchangeResponse, error) {
@@ -85,20 +88,33 @@ func TestCASLogin_Redirect(t *testing.T) {
 	})
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/auth/cas/login?redirect=/tasks", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/cas/login?redirect=/tasks", nil)
+	req.Host = "10.0.0.8"
+	c.Request = req
 	h.CASLogin(c)
 	assert.Equal(t, http.StatusFound, w.Code)
 	assert.Contains(t, w.Header().Get("Location"), "authserver.smbu.edu.cn")
+	assert.Contains(t, w.Header().Get("Set-Cookie"), casStateCookie)
 }
 
 func TestCASCallback_Redirect(t *testing.T) {
-	h := NewAuthHandler(casStubService{cb: "https://starbyte.smbu.edu.cn/login/cas?code=abc"})
+	h := NewAuthHandler(casStubService{cb: "http://10.0.0.8/login/cas?code=abc"})
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/auth/cas/callback?ticket=ST-1&state=s", nil)
 	h.CASCallback(c)
 	assert.Equal(t, http.StatusFound, w.Code)
 	assert.Contains(t, w.Header().Get("Location"), "/login/cas?code=abc")
+}
+
+func TestRequestPublicOrigin_UsesForwardedIP(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/auth/cas/login", nil)
+	c.Request.Host = "127.0.0.1:8080"
+	c.Request.Header.Set("X-Forwarded-Proto", "http")
+	c.Request.Header.Set("X-Forwarded-Host", "10.0.0.8")
+	assert.Equal(t, "http://10.0.0.8", requestPublicOrigin(c))
 }
 
 func TestCASExchange_OK(t *testing.T) {

@@ -224,7 +224,7 @@ module/
 
 - **主键策略**：UUID v4，不使用自增 ID
 - **多身份关联**：一个用户可关联多个学号（本科/研究生），通过 `user_identities` 表管理
-- **登录方式**：账号密码（一期）+ 校园网 CAS（`authserver.smbu.edu.cn`，回调 `starbyte.smbu.edu.cn`）；预留微信/OAuth
+- **登录方式**：账号密码（一期）+ 校园网 CAS（`authserver.smbu.edu.cn`，漏测按访问 IP 回调）；预留微信/OAuth
 - **密码加密**：bcrypt
 - **Token 机制**：Access Token（15分钟） + Refresh Token（7天），支持黑名单
 

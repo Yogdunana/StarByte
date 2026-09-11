@@ -47,6 +47,13 @@ type CASStatusResponse struct {
 	Enabled bool `json:"enabled"`
 }
 
+// CASLoginStart 跳转学校 CAS 所需的 Location 与短时 state（写入 Cookie）
+type CASLoginStart struct {
+	Location string `json:"location"`
+	State    string `json:"state"`
+	Service  string `json:"service"`
+}
+
 // CASExchangeResponse 兑换 CAS 回调 code 后的登录结果
 type CASExchangeResponse struct {
 	LoginResponse
