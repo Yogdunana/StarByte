@@ -22,13 +22,33 @@ WHERE r.code IN ('president', 'super_admin', 'vice_president')
   AND p.code IN ('schedule:read', 'schedule:create', 'schedule:update', 'schedule:delete')
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
--- 部长 / 副部长 / 干事：部门范围（与 seed_rbac data_scope 一致）
+-- 干事：四权，部门范围（与 seed officerPermCodes 一致）
 INSERT INTO role_permissions (id, role_id, permission_id, data_scope)
 SELECT uuid_generate_v4(), r.id, p.id, 'department'
 FROM roles r
 CROSS JOIN permissions p
-WHERE r.code IN ('officer', 'minister', 'vice_minister')
+WHERE r.code = 'officer'
   AND p.code IN ('schedule:read', 'schedule:create', 'schedule:update', 'schedule:delete')
+ON CONFLICT (role_id, permission_id) DO NOTHING;
+
+-- 部长：read/create/update，无 delete（与 seed_rbac 一致）
+INSERT INTO role_permissions (id, role_id, permission_id, data_scope)
+SELECT uuid_generate_v4(), r.id, p.id, 'department'
+FROM roles r
+CROSS JOIN permissions p
+WHERE r.code = 'minister'
+  AND p.code IN ('schedule:read', 'schedule:create', 'schedule:update')
+ON CONFLICT (role_id, permission_id) DO NOTHING;
+
+-- 副部长：read/create，无 update/delete（与 seed_rbac 一致）
+-- 写入接口按权限码门禁，再按资源 schedule 取最宽 data_scope；
+-- 若再授予 update/delete，可改删同部门他人部门日历/事件。
+INSERT INTO role_permissions (id, role_id, permission_id, data_scope)
+SELECT uuid_generate_v4(), r.id, p.id, 'department'
+FROM roles r
+CROSS JOIN permissions p
+WHERE r.code = 'vice_minister'
+  AND p.code IN ('schedule:read', 'schedule:create')
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- 会员：仅本人
