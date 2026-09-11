@@ -120,6 +120,12 @@ var seedTemplatesData = []seedTemplate{
 		Body:   "{{.real_name}}，合同「{{.title}}」将于 {{.expired_at}} 到期。",
 		Schema: `{"real_name":"string","title":"string","expired_at":"string"}`,
 	},
+	{
+		Code: "schedule_reminder", Name: "日程提醒", Category: "schedule",
+		Title:  "日程提醒：{{.title}}",
+		Body:   "「{{.title}}」将于 {{.start_at}} 开始（提前 {{.minutes}} 分钟）。",
+		Schema: `{"title":"string","start_at":"string","minutes":"string"}`,
+	},
 }
 
 func seedTemplates(db *gorm.DB) error {

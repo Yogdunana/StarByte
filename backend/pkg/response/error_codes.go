@@ -30,6 +30,7 @@ package response
 //	23000-23999 Finance (#22)
 //	24000-24999 Discipline (#23)
 //	25000-25999 Contract (#24)
+//	29000-29999 Schedule / calendar (#78; issue listed 10500-10999, taken by internship)
 //
 //	Note: issue #71 asked for 9000-9499, but that range is already owned by
 //	the task module (9000-9999). Export therefore uses 17000-17999 (after
@@ -261,6 +262,21 @@ const (
 	CodeContractTemplateGone  = 25004 // 合同模板不存在
 	CodeContractInvalidType   = 25005 // 合同类型不合法
 	CodeContractInvalidPeriod = 25006 // 开始/结束日期不合法
+
+	// ===== Schedule / calendar (#78, 29000-29999) =====
+	// Issue #78 listed 10500-10999; that range is the internship module.
+	// 26000/27000 are reserved for other in-flight modules. Use 29000+.
+	CodeScheduleNotFound          = 29001 // 日程事件不存在
+	CodeScheduleNoAccess          = 29002 // 无权操作该日程
+	CodeScheduleInvalidTime       = 29003 // 开始/结束时间不合法
+	CodeScheduleConflict          = 29004 // 同一日历时间冲突
+	CodeCalendarNotFound          = 29005 // 日历不存在
+	CodeCalendarNoAccess          = 29006 // 无权操作该日历
+	CodeScheduleAttendeeGone      = 29007 // 参与人不存在
+	CodeScheduleReminderInvalid   = 29008 // 提醒参数不合法
+	CodeScheduleRecurrenceLimited = 29009 // 不支持的重复规则
+	CodeScheduleInvalidState      = 29010 // 日程状态不允许该操作
+	CodeScheduleMemberExists      = 29011 // 日历成员已存在
 )
 
 // ModuleRanges maps each module name to its error-code range [min, max].
@@ -291,4 +307,5 @@ var ModuleRanges = map[string][2]int{
 	"finance":      {23000, 23999},
 	"discipline":   {24000, 24999},
 	"contract":     {25000, 25999},
+	"schedule":     {29000, 29999},
 }

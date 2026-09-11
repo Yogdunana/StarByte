@@ -99,6 +99,7 @@
     "/meeting": "Meetings",
     "/meeting/list": "Meeting list",
     "/meeting/vote": "Vote weights",
+    "/schedule": "Calendar",
     "/task": "Tasks",
     "/task/list": "Task list",
     "/task/board": "Board",
@@ -183,5 +184,28 @@
     "expiring": "Expiring soon",
     "type": { "1": "Sponsorship", "2": "Event", "3": "Purchase", "4": "Other" },
     "status": { "0": "Draft", "1": "Active", "2": "Expired", "3": "Terminated" }
+  },
+  "schedule": {
+    "eyebrow": "Personal and shared calendars",
+    "title": "Schedule",
+    "desc": "Month / week / day / agenda views. Lists never take a client owner_id. Recurrence is limited to daily / weekly / monthly.",
+    "newCalendar": "New calendar",
+    "newEvent": "New event",
+    "allCalendars": "All calendars",
+    "calendar": "Calendar",
+    "calendarName": "Name",
+    "calendarType": "Type",
+    "eventTitle": "Title",
+    "location": "Location",
+    "time": "Time",
+    "start": "Start",
+    "end": "End",
+    "description": "Notes",
+    "remind": "Reminders",
+    "minutes": "{{n}} minutes before",
+    "recurrenceLabel": "Repeat",
+    "view": { "month": "Month", "week": "Week", "day": "Day", "agenda": "Agenda" },
+    "type": { "1": "Personal", "2": "Department", "3": "Project" },
+    "recurrence": { "none": "None", "daily": "Daily", "weekly": "Weekly", "monthly": "Monthly" }
   }
 }

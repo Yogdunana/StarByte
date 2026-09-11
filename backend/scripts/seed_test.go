@@ -203,6 +203,23 @@ func TestAllSeedPermissions_IncludesExport(t *testing.T) {
 	assert.False(t, seen["export:delete"])
 }
 
+func TestAllSeedPermissions_IncludesSchedule(t *testing.T) {
+	seen := map[string]bool{}
+	for _, p := range allSeedPermissions() {
+		seen[p.Code] = true
+	}
+	for _, need := range []string{"schedule:read", "schedule:create", "schedule:update", "schedule:delete"} {
+		assert.True(t, seen[need], "missing permission %s", need)
+	}
+}
+
+func TestOfficerAndMemberPerms_IncludeSchedule(t *testing.T) {
+	assert.Contains(t, officerPermCodes(), "schedule:read")
+	assert.Contains(t, officerPermCodes(), "schedule:create")
+	assert.Contains(t, memberPermCodes(), "schedule:read")
+	assert.Contains(t, memberPermCodes(), "schedule:update")
+}
+
 func TestAllSeedPermissions_IncludesOpsModules(t *testing.T) {
 	seen := map[string]bool{}
 	for _, p := range allSeedPermissions() {

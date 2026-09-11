@@ -99,6 +99,7 @@
     "/meeting": "会议管理",
     "/meeting/list": "会议列表",
     "/meeting/vote": "投票权重",
+    "/schedule": "日程日历",
     "/task": "任务流转",
     "/task/list": "任务列表",
     "/task/board": "任务看板",
@@ -183,5 +184,28 @@
     "expiring": "即将到期",
     "type": { "1": "赞助", "2": "活动", "3": "采购", "4": "其他" },
     "status": { "0": "草稿", "1": "生效中", "2": "已到期", "3": "已终止" }
+  },
+  "schedule": {
+    "eyebrow": "个人与共享日历",
+    "title": "日程管理",
+    "desc": "按月/周/日/议程查看事件。列表不接受客户端 owner_id，仅返回你有权看到的日历。重复规则本期仅支持每天/每周/每月。",
+    "newCalendar": "新建日历",
+    "newEvent": "新建事件",
+    "allCalendars": "全部日历",
+    "calendar": "日历",
+    "calendarName": "日历名称",
+    "calendarType": "类型",
+    "eventTitle": "标题",
+    "location": "地点",
+    "time": "时间",
+    "start": "开始",
+    "end": "结束",
+    "description": "说明",
+    "remind": "提醒",
+    "minutes": "提前 {{n}} 分钟",
+    "recurrenceLabel": "重复",
+    "view": { "month": "月", "week": "周", "day": "日", "agenda": "议程" },
+    "type": { "1": "个人", "2": "部门", "3": "项目/共享" },
+    "recurrence": { "none": "不重复", "daily": "每天", "weekly": "每周", "monthly": "每月" }
   }
 }

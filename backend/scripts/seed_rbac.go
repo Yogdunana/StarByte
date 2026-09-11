@@ -74,6 +74,7 @@ func allSeedPermissions() []seedPerm {
 		seedPerm{Name: "任务评论", Code: "task:comment", Resource: "task", Action: "comment"},
 	)
 	perms = append(perms, moduleCRUD("internship", "实习")...)
+	perms = append(perms, moduleCRUD("schedule", "日程")...)
 	perms = append(perms, seedPerm{Name: "实习评价", Code: "internship:evaluate", Resource: "internship", Action: "evaluate"})
 	perms = append(perms, moduleCRUD("workflow", "流程")...)
 	perms = append(perms, moduleCRUD("dict", "字典")...)
@@ -217,7 +218,7 @@ func seedRolePermissions(db *gorm.DB) error {
 		FROM roles r CROSS JOIN permissions p
 		WHERE r.code = 'minister' AND (
 			p.action = 'read'
-			OR (p.resource IN ('member','interview','meeting','task','internship','file','workflow','notification','finance','discipline','contract')
+			OR (p.resource IN ('member','interview','meeting','task','internship','schedule','file','workflow','notification','finance','discipline','contract')
 			    AND p.action IN ('create','update'))
 			OR (p.resource = 'member' AND p.action IN ('approve','export','manage'))
 			OR (p.resource = 'interview' AND p.action IN ('manage','evaluate'))
@@ -243,7 +244,7 @@ func seedRolePermissions(db *gorm.DB) error {
 		FROM roles r CROSS JOIN permissions p
 		WHERE r.code = 'vice_minister' AND p.resource <> 'interview_private' AND (
 			p.action = 'read'
-			OR (p.resource IN ('member','interview','meeting','task','internship','file','finance','discipline','contract')
+			OR (p.resource IN ('member','interview','meeting','task','internship','schedule','file','finance','discipline','contract')
 			    AND p.action = 'create')
 			OR (p.resource = 'task' AND p.action IN ('update','comment'))
 			OR (p.resource = 'form' AND p.action IN ('write', 'submit'))
@@ -266,6 +267,7 @@ func officerPermCodes() []string {
 		"task:read", "task:create", "task:update", "task:comment",
 		"file:read", "file:create",
 		"internship:read", "internship:create", "internship:update", "internship:delete",
+		"schedule:read", "schedule:create", "schedule:update", "schedule:delete",
 		"form:read", "form:submit",
 		"discipline:read",
 	}
@@ -275,6 +277,7 @@ func memberPermCodes() []string {
 	return []string{
 		"user:read", "member:read", "meeting:read", "task:read",
 		"file:read", "file:create", "internship:read", "internship:create", "internship:update", "internship:delete",
+		"schedule:read", "schedule:create", "schedule:update", "schedule:delete",
 		"form:submit", "discipline:read",
 	}
 }
