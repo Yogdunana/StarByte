@@ -32,7 +32,7 @@ backend:
       cpu: 500m
       memory: 512Mi
   env:
-    appEnv: production
+    appEnv: prod
     configPath: configs/config.yaml
     logLevel: info
     casEnabled: "true"

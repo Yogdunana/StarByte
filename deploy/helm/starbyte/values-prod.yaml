@@ -26,7 +26,7 @@ backend:
       cpu: 1000m
       memory: 1Gi
   env:
-    appEnv: production
+    appEnv: prod
     logLevel: warn
   probes:
     liveness:

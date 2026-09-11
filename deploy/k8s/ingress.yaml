@@ -28,6 +28,13 @@ spec:
                 name: starbyte-backend
                 port:
                   number: 8080
+          - path: /ws/
+            pathType: Prefix
+            backend:
+              service:
+                name: starbyte-backend
+                port:
+                  number: 8080
           - path: /
             pathType: Prefix
             backend:
