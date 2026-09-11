@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"strings"
+
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/middleware"
 	"github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
@@ -39,4 +41,20 @@ func parseNamedID(c *gin.Context, name string) (uuid.UUID, error) {
 
 func dataScope(c *gin.Context) *rbacModel.DataScopeCondition {
 	return middleware.GetDataScopeFromContext(c)
+}
+
+func requestOrigin(c *gin.Context) string {
+	host := c.Request.Host
+	if host == "" {
+		return ""
+	}
+	proto := strings.TrimSpace(c.GetHeader("X-Forwarded-Proto"))
+	if proto == "" {
+		if c.Request.TLS != nil {
+			proto = "https"
+		} else {
+			proto = "http"
+		}
+	}
+	return proto + "://" + host
 }

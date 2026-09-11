@@ -93,7 +93,7 @@ func (s *stubSvc) GoogleSync(context.Context, uuid.UUID, *rbacModel.DataScopeCon
 }
 func (s *stubSvc) DispatchGoogleSync(context.Context, string, func(string)) error { return nil }
 func (s *stubSvc) ParseGoogleState(string) (uuid.UUID, error)                     { return uuid.Nil, nil }
-func (s *stubSvc) FrontendCallbackRedirect(string, string) string                 { return "" }
+func (s *stubSvc) FrontendCallbackRedirect(string, string, string) string         { return "" }
 func (s *stubSvc) FrontendRedirect() string                                       { return "" }
 
 func testRouter(svc *stubSvc) *gin.Engine {

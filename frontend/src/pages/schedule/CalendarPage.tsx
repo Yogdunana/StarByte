@@ -117,18 +117,29 @@ const CalendarPage: React.FC = () => {
     const code = q.get('code');
     const state = q.get('state') || '';
     if (!code || (q.get('google') !== 'callback' && !state)) return;
-    void googleCallback({ code, state }).then(() => {
-      message.success(t('schedule.google.connected'));
-      void loadGoogle();
-      void loadCals();
-      void loadEvents();
-    }).finally(() => {
+    const lockKey = `schedule.google.bind:${code}`;
+    if (sessionStorage.getItem(lockKey)) return;
+    sessionStorage.setItem(lockKey, 'pending');
+    const clearParams = () => {
       q.delete('code');
       q.delete('state');
       q.delete('google');
       const next = q.toString();
       window.history.replaceState({}, '', `${window.location.pathname}${next ? `?${next}` : ''}`);
+    };
+    void googleCallback({ code, state }).then(() => {
+      sessionStorage.setItem(lockKey, 'done');
+      message.success(t('schedule.google.connected'));
+      void loadGoogle();
+      void loadCals();
+      void loadEvents();
+      clearParams();
+    }).catch(() => {
+      sessionStorage.removeItem(lockKey);
+      message.error(t('schedule.google.bindFailed'));
+      clearParams();
     });
+    // request 拦截器也会 toast 具体错误；这里补充「请重新连接」。
   }, [loadCals, loadEvents, loadGoogle, t]);
 
   const toggleLayer = (id: string, checked: boolean) => {

@@ -223,6 +223,18 @@ func TestSelfScopeCannotAssignForeignDepartment(t *testing.T) {
 	assert.Equal(t, response.CodeCalendarNoAccess, err.(*response.AppError).Code)
 }
 
+func TestFrontendCallbackRedirectFallsBackToRequestOrigin(t *testing.T) {
+	svc, _, _, _, _ := setupSvc(t)
+	assert.Empty(t, svc.FrontendCallbackRedirect("c", "s", ""))
+	got := svc.FrontendCallbackRedirect("abc", "st", "http://10.0.0.8/")
+	assert.Contains(t, got, "http://10.0.0.8/schedule")
+	assert.Contains(t, got, "google=callback")
+	assert.Contains(t, got, "code=abc")
+	svc.google.FrontendURL = "https://starbyte.example/app"
+	got = svc.FrontendCallbackRedirect("abc", "st", "http://10.0.0.8")
+	assert.Contains(t, got, "https://starbyte.example/app/schedule")
+}
+
 func TestGoogleCallbackRequiresMatchingUser(t *testing.T) {
 	svc, _, owner, other, _ := setupSvc(t)
 	svc.google = GoogleSettings{ClientID: "id", ClientSecret: "secret", RedirectURI: "http://localhost/cb"}

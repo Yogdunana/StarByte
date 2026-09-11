@@ -237,7 +237,8 @@
       "connect": "连接 Google",
       "connected": "已连接",
       "sync": "立即同步",
-      "disconnect": "断开"
+      "disconnect": "断开",
+      "bindFailed": "Google 绑定失败，请重新点「连接 Google」"
     }
   }
 }

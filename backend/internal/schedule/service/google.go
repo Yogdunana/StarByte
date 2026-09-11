@@ -200,8 +200,11 @@ func (s *scheduleService) FrontendRedirect() string {
 	return ""
 }
 
-func (s *scheduleService) FrontendCallbackRedirect(code, state string) string {
+func (s *scheduleService) FrontendCallbackRedirect(code, state, requestOrigin string) string {
 	base := strings.TrimRight(s.google.FrontendURL, "/")
+	if base == "" {
+		base = strings.TrimRight(strings.TrimSpace(requestOrigin), "/")
+	}
 	if base == "" {
 		return ""
 	}

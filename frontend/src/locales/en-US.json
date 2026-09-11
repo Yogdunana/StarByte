@@ -237,7 +237,8 @@
       "connect": "Connect Google",
       "connected": "Connected",
       "sync": "Sync now",
-      "disconnect": "Disconnect"
+      "disconnect": "Disconnect",
+      "bindFailed": "Google bind failed. Click Connect Google again."
     }
   }
 }

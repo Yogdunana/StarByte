@@ -123,9 +123,9 @@ func (h *Handler) GoogleCallbackPOST(c *gin.Context) {
 
 func (h *Handler) GoogleCallbackGET(c *gin.Context) {
 	// 公开 GET 只回跳前端，由已登录的 POST /google/callback 绑定，避免把他人日历绑到 state 用户。
-	dest := h.svc.FrontendCallbackRedirect(c.Query("code"), c.Query("state"))
+	dest := h.svc.FrontendCallbackRedirect(c.Query("code"), c.Query("state"), requestOrigin(c))
 	if dest == "" {
-		response.Error(c, response.NewError(response.CodeUnauthorized, "请登录后通过 POST /schedules/google/callback 完成 Google 绑定"))
+		response.Error(c, response.NewError(response.CodeBadRequest, "无法回跳日程页，请设置 CAS_FRONTEND_URL 或从同主机打开后再连接 Google"))
 		return
 	}
 	c.Redirect(302, dest)
