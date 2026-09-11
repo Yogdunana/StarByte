@@ -116,6 +116,7 @@ func (r *userRepo) GetByIdentity(ctx context.Context, identityType, identityValu
 	}
 	var user model.User
 	err := r.db.WithContext(ctx).
+		Select("users.*").
 		Joins("JOIN user_identities ui ON ui.user_id = users.id").
 		Where("ui.identity_type = ? AND ui.identity_value = ?", identityType, identityValue).
 		First(&user).Error

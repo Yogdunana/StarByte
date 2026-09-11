@@ -107,13 +107,13 @@ func TestCASCallback_Redirect(t *testing.T) {
 	assert.Contains(t, w.Header().Get("Location"), "/login/cas?code=abc")
 }
 
-func TestRequestPublicOrigin_UsesForwardedIP(t *testing.T) {
+func TestRequestPublicOrigin_IgnoresForwardedHost(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/auth/cas/login", nil)
-	c.Request.Host = "127.0.0.1:8080"
+	c.Request.Host = "10.0.0.8"
 	c.Request.Header.Set("X-Forwarded-Proto", "http")
-	c.Request.Header.Set("X-Forwarded-Host", "10.0.0.8")
+	c.Request.Header.Set("X-Forwarded-Host", "evil.example")
 	assert.Equal(t, "http://10.0.0.8", requestPublicOrigin(c))
 }
 

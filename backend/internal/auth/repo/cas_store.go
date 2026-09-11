@@ -42,14 +42,13 @@ func (s *casStore) TakeState(ctx context.Context, state string) (string, bool, e
 		return "", false, nil
 	}
 	key := fmt.Sprintf(keyCASState, state)
-	val, err := s.rdb.Get(ctx, key).Result()
+	val, err := s.rdb.GetDel(ctx, key).Result()
 	if err == redis.Nil {
 		return "", false, nil
 	}
 	if err != nil {
 		return "", false, err
 	}
-	_ = s.rdb.Del(ctx, key).Err()
 	return val, true, nil
 }
 
@@ -65,10 +64,9 @@ func (s *casStore) TakeCode(ctx context.Context, code string) ([]byte, error) {
 		return nil, redis.Nil
 	}
 	key := fmt.Sprintf(keyCASCode, code)
-	val, err := s.rdb.Get(ctx, key).Bytes()
+	val, err := s.rdb.GetDel(ctx, key).Bytes()
 	if err != nil {
 		return nil, err
 	}
-	_ = s.rdb.Del(ctx, key).Err()
 	return val, nil
 }

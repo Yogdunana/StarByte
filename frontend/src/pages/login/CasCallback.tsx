@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card, Spin, message } from 'antd';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
@@ -8,7 +8,19 @@ import { exchangeCasCode } from '@/api/auth';
 import { setToken } from '@/store/slices/authSlice';
 import { fetchCurrentUser } from '@/store/slices/userSlice';
 import type { AppDispatch } from '@/store';
+import type { CASExchangeResponse } from '@/types/api';
 import styles from './Login.module.css';
+
+const exchangeByCode = new Map<string, Promise<CASExchangeResponse>>();
+
+function exchangeCasCodeOnce(code: string): Promise<CASExchangeResponse> {
+  let pending = exchangeByCode.get(code);
+  if (!pending) {
+    pending = exchangeCasCode(code);
+    exchangeByCode.set(code, pending);
+  }
+  return pending;
+}
 
 function safeRedirect(path: string | undefined): string {
   if (!path || !path.startsWith('/') || path.startsWith('//')) {
@@ -23,23 +35,28 @@ const CasCallback: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const [busy, setBusy] = useState(true);
+  const applied = useRef(false);
+  const code = params.get('code')?.trim() ?? '';
 
   useEffect(() => {
-    const code = params.get('code')?.trim() ?? '';
     if (!code) {
       message.error(t('login.casFail'));
       navigate('/login', { replace: true });
+      setBusy(false);
       return;
     }
     let cancelled = false;
     (async () => {
       try {
-        const result = await exchangeCasCode(code);
-        if (cancelled) return;
-        dispatch(setToken({
-          accessToken: result.access_token,
-          refreshToken: result.refresh_token,
-        }));
+        const result = await exchangeCasCodeOnce(code);
+        if (cancelled || applied.current) return;
+        applied.current = true;
+        dispatch(
+          setToken({
+            accessToken: result.access_token,
+            refreshToken: result.refresh_token,
+          }),
+        );
         await dispatch(fetchCurrentUser()).unwrap();
         message.success(t('login.success'));
         navigate(safeRedirect(result.redirect), { replace: true });
@@ -55,7 +72,7 @@ const CasCallback: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [dispatch, navigate, params, t]);
+  }, [code, dispatch, navigate, t]);
 
   return (
     <div className={styles.container}>
@@ -63,7 +80,9 @@ const CasCallback: React.FC = () => {
         <Card className={styles.card}>
           <div style={{ textAlign: 'center', padding: 24 }}>
             {busy ? <Spin size="large" /> : null}
-            <p className={styles.formHint} style={{ marginTop: 16 }}>{t('login.casProcessing')}</p>
+            <p className={styles.formHint} style={{ marginTop: 16 }}>
+              {t('login.casProcessing')}
+            </p>
           </div>
         </Card>
       </div>

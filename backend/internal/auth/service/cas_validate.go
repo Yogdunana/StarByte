@@ -40,13 +40,22 @@ func (v *httpTicketValidator) Validate(ctx context.Context, service, ticket stri
 	if v.serverURL == "" {
 		return nil, fmt.Errorf("cas server url is empty")
 	}
-	if p, err := v.fetch(ctx, v.serverURL+"/p3/serviceValidate", service, ticket, true); err == nil && p != nil {
-		return p, nil
+	// ST 一次性。只有 p3 端点不存在/不可达时才回退，避免 200 已耗票后再打 /serviceValidate。
+	p, status, err := v.fetch(ctx, v.serverURL+"/p3/serviceValidate", service, ticket, true)
+	if casValidateUnreachable(status, err) {
+		p, _, err = v.fetch(ctx, v.serverURL+"/serviceValidate", service, ticket, false)
 	}
-	return v.fetch(ctx, v.serverURL+"/serviceValidate", service, ticket, false)
+	return p, err
 }
 
-func (v *httpTicketValidator) fetch(ctx context.Context, endpoint, service, ticket string, wantJSON bool) (*CASPrincipal, error) {
+func casValidateUnreachable(status int, err error) bool {
+	if status == http.StatusNotFound || status == http.StatusMethodNotAllowed || status == http.StatusNotImplemented {
+		return true
+	}
+	return err != nil && status == 0
+}
+
+func (v *httpTicketValidator) fetch(ctx context.Context, endpoint, service, ticket string, wantJSON bool) (*CASPrincipal, int, error) {
 	q := url.Values{}
 	q.Set("service", service)
 	q.Set("ticket", ticket)
@@ -55,25 +64,27 @@ func (v *httpTicketValidator) fetch(ctx context.Context, endpoint, service, tick
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint+"?"+q.Encode(), nil)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	resp, err := v.client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
-		return nil, err
+		return nil, resp.StatusCode, err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("cas validate http %d", resp.StatusCode)
+		return nil, resp.StatusCode, fmt.Errorf("cas validate http %d", resp.StatusCode)
 	}
 	trimmed := strings.TrimSpace(string(body))
 	if strings.HasPrefix(trimmed, "{") {
-		return parseCASJSON(trimmed)
+		p, perr := parseCASJSON(trimmed)
+		return p, resp.StatusCode, perr
 	}
-	return parseCASXML(trimmed)
+	p, perr := parseCASXML(trimmed)
+	return p, resp.StatusCode, perr
 }
 
 func parseCASJSON(raw string) (*CASPrincipal, error) {

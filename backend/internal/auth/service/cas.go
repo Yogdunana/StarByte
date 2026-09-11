@@ -196,14 +196,6 @@ func (s *authService) resolveOrProvisionCASUser(ctx context.Context, p *CASPrinc
 			}
 		}
 	}
-	if user, err := s.userRepo.GetByUsername(ctx, casUser); err != nil {
-		return nil, fmt.Errorf("lookup username: %w", err)
-	} else if user != nil {
-		_ = s.bindCASIdentity(ctx, user.ID, casUser)
-		s.touchCASProfile(ctx, user, p)
-		return user, nil
-	}
-
 	if s.cas == nil || !s.cas.AllowAutoProvision {
 		return nil, response.NewError(response.CodeUserNotFound, "本地没有对应账号，请先完成入会或联系管理员")
 	}
@@ -228,10 +220,6 @@ func (s *authService) provisionCASUser(ctx context.Context, p *CASPrincipal, cas
 		Status:       0,
 	}
 	if err := s.userRepo.Create(ctx, nil, user); err != nil {
-		if existing, getErr := s.userRepo.GetByUsername(ctx, casUser); getErr == nil && existing != nil {
-			_ = s.bindCASIdentity(ctx, existing.ID, casUser)
-			return existing, nil
-		}
 		return nil, fmt.Errorf("create cas user: %w", err)
 	}
 	_ = s.bindCASIdentity(ctx, user.ID, casUser)

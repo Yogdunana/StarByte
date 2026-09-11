@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -88,32 +89,19 @@ func TestCompleteCASCallback_LockedUser(t *testing.T) {
 	assert.Contains(t, loc, "locked_user")
 }
 
-func TestCompleteCASCallback_BindExistingUsername(t *testing.T) {
+func TestCompleteCASCallback_DoesNotBindByUsername(t *testing.T) {
 	store := newMemCASStore()
 	require.NoError(t, store.PutState(context.Background(), "st", `{"origin":"http://10.0.0.8","service":"http://10.0.0.8/cb"}`, time.Minute))
-	userID := uuid.New()
 	users := &mockUserRepo{}
-	users.On("GetByIdentity", mock.Anything, identityTypeCAS, "alice").Return((*model.User)(nil), nil).Once()
-	users.On("GetByUsername", mock.Anything, "alice").Return(&model.User{ID: userID, Username: "alice", RealName: "", Email: ""}, nil)
 	users.On("GetByIdentity", mock.Anything, identityTypeCAS, "alice").Return((*model.User)(nil), nil)
-	users.On("CreateIdentity", mock.Anything, mock.AnythingOfType("*model.UserIdentity")).Return(nil)
-	users.On("Update", mock.Anything, (*gorm.DB)(nil), mock.AnythingOfType("*model.User")).Return(nil)
-	users.On("UpdateLastLogin", mock.Anything, userID, "9.9.9.9").Return(nil)
+	users.On("Create", mock.Anything, (*gorm.DB)(nil), mock.AnythingOfType("*model.User")).Return(fmt.Errorf("duplicate username"))
 
-	svc := casTestService(store, stubValidator{p: &CASPrincipal{
-		User:       "alice",
-		Attributes: map[string]string{"name": "爱丽丝", "email": "a@smbu.edu.cn"},
-	}}, users)
-	authRepo := svc.authRepo.(*mockAuthRepo)
-	perm := svc.permCacheSvc.(*mockPermCache)
-	authRepo.On("StoreRefreshToken", mock.Anything, "test-refresh-token-uuid", userID.String(), mock.AnythingOfType("string"), mock.Anything).Return(nil)
-	authRepo.On("StoreSession", mock.Anything, userID.String(), mock.AnythingOfType("string"), "9.9.9.9", "ua", mock.Anything).Return(nil)
-	perm.On("GetUserPermissionsAndSuperAdmin", mock.Anything, userID).Return([]string{}, false, nil)
-	perm.On("GetUserRoleCodes", mock.Anything, userID).Return([]string{"member"}, nil)
-
+	svc := casTestService(store, stubValidator{p: &CASPrincipal{User: "alice"}}, users)
+	svc.identity = &stubIdentity{}
 	loc, err := svc.CompleteCASCallback(context.Background(), "ST", "st", "9.9.9.9", "ua", "http://10.0.0.8")
 	require.NoError(t, err)
-	assert.Contains(t, loc, "/login/cas?code=")
+	assert.Contains(t, loc, "cas_error=user_resolve")
+	users.AssertNotCalled(t, "CreateIdentity", mock.Anything, mock.Anything)
 }
 
 func TestCompleteCASCallback_BindStudentNo(t *testing.T) {
@@ -267,6 +255,20 @@ func TestHTTPTicketValidator_JSONSuccess(t *testing.T) {
 	assert.Equal(t, "s2", p.User)
 	assert.Equal(t, "王", p.Attributes["name"])
 	assert.Equal(t, "21", p.Attributes["age"])
+}
+
+func TestHTTPTicketValidator_P3FailureDoesNotFallback(t *testing.T) {
+	var hits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		_, _ = w.Write([]byte(`{"serviceResponse":{"authenticationFailure":{"code":"INVALID_TICKET"}}}`))
+	}))
+	defer srv.Close()
+
+	v := NewHTTPTicketValidator(srv.URL, srv.Client())
+	_, err := v.Validate(context.Background(), "http://app/cb", "ST-used")
+	require.Error(t, err)
+	assert.Equal(t, 1, hits)
 }
 
 func TestHTTPTicketValidator_EmptyURL(t *testing.T) {

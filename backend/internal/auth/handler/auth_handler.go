@@ -379,13 +379,8 @@ func requestPublicOrigin(c *gin.Context) string {
 			proto = "http"
 		}
 	}
-	host := strings.TrimSpace(c.GetHeader("X-Forwarded-Host"))
-	if i := strings.Index(host, ","); i >= 0 {
-		host = strings.TrimSpace(host[:i])
-	}
-	if host == "" {
-		host = c.Request.Host
-	}
+	// 不读客户端 X-Forwarded-Host：前端 nginx 不会覆盖它，伪造 Host 会把一次性 code 重定向走。
+	host := strings.TrimSpace(c.Request.Host)
 	if proto == "" || host == "" {
 		return ""
 	}
