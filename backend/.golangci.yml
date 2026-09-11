@@ -14,7 +14,6 @@ linters:
     - gofmt            # 代码格式
     - nolintlint       # nolint 注释检查
   disable:
-    - unused           # 测试文件辅助函数容易误报，后续再加
     - misspell         # 拼写检查（美/英式拼写差异大，后续统一再加）
     - err113
     - gochecknoglobals
