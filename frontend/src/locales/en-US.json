@@ -47,6 +47,7 @@
     "casProcessing": "Finishing campus sign-in…",
     "casFail": "Campus sign-in failed. Try again or use a password.",
     "or": "or",
+    "orLocal": "or use username and password",
     "casError": "Campus sign-in did not complete. Please try again.",
     "casBind": "Bind account",
     "casBindHint": "Campus SSO succeeded. Choose a username and password. Your student ID comes from campus auth and cannot be changed.",

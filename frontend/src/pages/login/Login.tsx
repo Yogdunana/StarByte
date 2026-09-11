@@ -27,7 +27,7 @@ interface RegisterFormValues {
 function getRedirectPath(state: unknown): string {
   if (state && typeof state === 'object' && 'from' in state) {
     const from = (state as LocationFromState).from;
-    if (from?.pathname?.startsWith("/") && !from.pathname.startsWith("//")) return from.pathname;
+    if (from?.pathname?.startsWith('/') && !from.pathname.startsWith('//')) return from.pathname;
   }
   return '/dashboard';
 }
@@ -119,20 +119,33 @@ const Login: React.FC = () => {
     <div className={styles.container}>
       <div className={styles.left}>
         <div className={styles.brand}>
-          <div className={styles.wordmark}>StarByte<span>.</span></div>
-          <p className={styles.kicker}>COMPUTER ASSOCIATION / 计算机协会</p>
-          <h1>从一个想法，<br />到一群人的作品。</h1>
-          <p className={styles.story}>找到志同道合的伙伴，在学习、创造与协作中，一起向前。</p>
-          <div className={styles.connections}><GlassOrb /><span>学习 · 创造 · 协作</span></div>
-          <p className={styles.caption}>一起学习，一起创造。 / BUILT TOGETHER</p>
+          <div className={styles.identity}>
+            <div className={styles.wordmark}>StarByte<span>.</span></div>
+            <p className={styles.kicker}>COMPUTER ASSOCIATION / 计算机协会</p>
+          </div>
+          <div className={styles.message}>
+            <h1>从一个想法，<br />到一群人的作品。</h1>
+            <p className={styles.story}>找到志同道合的伙伴，在学习、创造与协作中，一起向前。</p>
+          </div>
+          <div className={styles.visual}>
+            <div className={styles.connections}>
+              <GlassOrb />
+              <span>学习 · 创造 · 协作</span>
+            </div>
+            <p className={styles.caption}>一起学习，一起创造。 / BUILT TOGETHER</p>
+          </div>
         </div>
       </div>
       <div className={styles.right}>
         <div className={styles.mobileBrand}>StarByte.</div>
         <Card className={styles.card}>
-          <p className={styles.formKicker}>YOUR NEXT CHAPTER</p>
-          <h2>{activeTab === 'login' ? '欢迎回来' : '从这里，加入我们'}</h2>
-          <p className={styles.formHint}>{activeTab === 'login' ? '登录你的账号，继续今天的协作。' : '创建账号后，即可填写入会申请。'}</p>
+          <header className={styles.cardHeader}>
+            <p className={styles.formKicker}>YOUR NEXT CHAPTER</p>
+            <h2>{activeTab === 'login' ? '欢迎回来' : '从这里，加入我们'}</h2>
+            <p className={styles.formHint}>
+              {activeTab === 'login' ? '登录你的账号，继续今天的协作。' : '创建账号后，即可填写入会申请。'}
+            </p>
+          </header>
           <Tabs
             activeKey={activeTab}
             onChange={setActiveTab}
@@ -142,44 +155,9 @@ const Login: React.FC = () => {
           />
 
           {activeTab === 'login' && (
-            <Form
-              name="login"
-              onFinish={handleLogin}
-              size="large"
-              layout="vertical"
-              initialValues={{ username: '', password: '' }}
-            >
-              <Form.Item
-                name="username"
-                label={t('login.username')}
-                rules={[
-                  { required: true, message: t('login.usernameRequired') },
-                  { min: 3, message: t('login.minChars', { n: 3 }) },
-                ]}
-              >
-                <Input autoComplete="username" prefix={<UserOutlined />} placeholder={t('login.usernameOrStudent')} />
-              </Form.Item>
-
-              <Form.Item
-                name="password"
-                label={t('login.password')}
-                rules={[
-                  { required: true, message: t('login.passwordRequired') },
-                  { min: 6, message: t('login.passwordMin') },
-                ]}
-              >
-                <Input.Password autoComplete="current-password" prefix={<LockOutlined />} placeholder={t('login.password')} />
-              </Form.Item>
-
-              <Form.Item>
-                <Button type="primary" htmlType="submit" loading={loading} block>
-                  {t('login.submit')}
-                </Button>
-              </Form.Item>
-
+            <>
               {casEnabled && (
-                <>
-                  <Divider plain>{t('login.or')}</Divider>
+                <div className={styles.casBlock}>
                   <Button
                     block
                     size="large"
@@ -192,14 +170,52 @@ const Login: React.FC = () => {
                     {t('login.cas')}
                   </Button>
                   <p className={styles.casHint}>{t('login.casHint')}</p>
-                </>
+                </div>
               )}
 
-              <div className={styles.switchTab}>
-                {t('login.hint')}
-                <Button type="link" onClick={() => setActiveTab('register')}>{t('login.goRegister')}</Button>
-              </div>
-            </Form>
+              {casEnabled && <Divider plain className={styles.casDivider}>{t('login.orLocal')}</Divider>}
+
+              <Form
+                name="login"
+                onFinish={handleLogin}
+                size="large"
+                layout="vertical"
+                initialValues={{ username: '', password: '' }}
+              >
+                <Form.Item
+                  name="username"
+                  label={t('login.username')}
+                  rules={[
+                    { required: true, message: t('login.usernameRequired') },
+                    { min: 3, message: t('login.minChars', { n: 3 }) },
+                  ]}
+                >
+                  <Input autoComplete="username" prefix={<UserOutlined />} placeholder={t('login.usernameOrStudent')} />
+                </Form.Item>
+
+                <Form.Item
+                  name="password"
+                  label={t('login.password')}
+                  rules={[
+                    { required: true, message: t('login.passwordRequired') },
+                    { min: 6, message: t('login.passwordMin') },
+                  ]}
+                >
+                  <Input.Password autoComplete="current-password" prefix={<LockOutlined />} placeholder={t('login.password')} />
+                </Form.Item>
+
+                <Form.Item className={styles.submitItem}>
+                  <Button type="primary" htmlType="submit" loading={loading} block>
+                    {t('login.submit')}
+                  </Button>
+                </Form.Item>
+
+                <div className={styles.switchTab}>
+                  {t('login.hint')}
+                  <Button type="link" onClick={() => setActiveTab('register')}>{t('login.goRegister')}</Button>
+                </div>
+              </Form>
+            </>
           )}
 
           {activeTab === 'register' && (
@@ -208,6 +224,7 @@ const Login: React.FC = () => {
               onFinish={handleRegister}
               size="large"
               layout="vertical"
+              className={styles.registerForm}
             >
               <Form.Item
                 name="username"
@@ -270,7 +287,7 @@ const Login: React.FC = () => {
                 <Input.Password prefix={<LockOutlined />} placeholder={t('login.confirmPassword')} />
               </Form.Item>
 
-              <Form.Item>
+              <Form.Item className={styles.submitItem}>
                 <Button type="primary" htmlType="submit" loading={loading} block>
                   {t('login.register')}
                 </Button>
