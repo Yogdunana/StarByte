@@ -130,10 +130,14 @@ const CasRegister: React.FC = () => {
               label={t('login.password')}
               rules={[
                 { required: true, message: t('login.passwordRequired') },
-                { min: 8, message: t('login.passwordStrength') },
                 {
-                  pattern: /^(?=.*[A-Za-z])(?=.*\d).+$/,
-                  message: t('login.passwordStrength'),
+                  validator(_, value) {
+                    if (!value) return Promise.resolve();
+                    if (value.length >= 8 && /[A-Za-z]/.test(value) && /\d/.test(value)) {
+                      return Promise.resolve();
+                    }
+                    return Promise.reject(new Error(t('login.passwordStrength')));
+                  },
                 },
               ]}
             >
