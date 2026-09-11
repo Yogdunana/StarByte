@@ -224,7 +224,7 @@ module/
 
 - **主键策略**：UUID v4，不使用自增 ID
 - **多身份关联**：一个用户可关联多个学号（本科/研究生），通过 `user_identities` 表管理
-- **登录方式**：账号密码（一期），预留第三方登录接口（微信扫码等）
+- **登录方式**：账号密码（一期）+ 校园网 CAS（`authserver.smbu.edu.cn`，回调 `starbyte.smbu.edu.cn`）；预留微信/OAuth
 - **密码加密**：bcrypt
 - **Token 机制**：Access Token（15分钟） + Refresh Token（7天），支持黑名单
 
@@ -418,7 +418,7 @@ module/
 - ✅ 前端 i18n（zh-CN / en-US）与亮/暗/跟随系统主题
 
 ### 二期功能
-- 🔲 微信扫码登录 / 第三方登录 / 学校 CAS
+- 🔲 微信扫码登录 / 第三方 OAuth / 外网域名跳转
 - 🔲 入会申请接入流程引擎
 - 🔲 任务流转接入流程引擎
 - 🔲 更多通知渠道（微信公众号、企业微信、短信）
@@ -440,5 +440,5 @@ finance ──► export（一期 /finance/export 返回 1501 预留）
 frontend ──► antd ConfigProvider + i18next（壳层/新模块）
 ```
 
-财务、处分、合同写本系统主库；学校 HAP/CAS 对接属二期，不在本图。
+财务、处分、合同写本系统主库。校园网 CAS（`authserver.smbu.edu.cn`）已接入 auth；学校 HAP / 企微属二期。
 

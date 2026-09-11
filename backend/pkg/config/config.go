@@ -15,6 +15,7 @@ type Config struct {
 	MinIO    MinIOConfig    `yaml:"minio"`
 	Email    EmailConfig    `yaml:"email"`
 	CORS     CORSConfig     `yaml:"cors"`
+	CAS      CASConfig      `yaml:"cas"`
 }
 
 // ServerConfig holds the HTTP server settings.
@@ -80,6 +81,17 @@ type EmailConfig struct {
 	Username string `yaml:"username"`
 	Password string `yaml:"password"`
 	From     string `yaml:"from"`
+}
+
+// CASConfig holds campus Central Authentication Service (金智 IDS) settings.
+// Phase 1 is intranet-only: https://starbyte.smbu.edu.cn against authserver.smbu.edu.cn.
+type CASConfig struct {
+	Enabled            bool   `yaml:"enabled"`
+	ServerURL          string `yaml:"server_url"`           // e.g. https://authserver.smbu.edu.cn/authserver
+	ServiceURL         string `yaml:"service_url"`          // callback, must match school whitelist exactly
+	FrontendURL        string `yaml:"frontend_url"`         // e.g. https://starbyte.smbu.edu.cn
+	AllowAutoProvision bool   `yaml:"allow_auto_provision"` // create local user on first CAS login
+	DefaultRole        string `yaml:"default_role"`         // role code assigned to auto-provisioned users
 }
 
 // CORSConfig holds the Cross-Origin Resource Sharing settings.

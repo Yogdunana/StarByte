@@ -72,6 +72,14 @@ export interface RefreshResponse {
   expires_in: number;
 }
 
+export interface CASStatusResponse {
+  enabled: boolean;
+}
+
+export interface CASExchangeResponse extends LoginResponse {
+  redirect: string;
+}
+
 export interface UserInfo {
   id: string;
   username: string;

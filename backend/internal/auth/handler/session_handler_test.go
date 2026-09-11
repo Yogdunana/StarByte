@@ -41,6 +41,16 @@ func (s *sessionStub) GetUserSessions(context.Context, string) (*dto.UserSession
 }
 func (s *sessionStub) KickSession(context.Context, string) error      { return s.err }
 func (s *sessionStub) KickUserSessions(context.Context, string) error { return s.err }
+func (s *sessionStub) CASStatus() dto.CASStatusResponse {
+	return dto.CASStatusResponse{Enabled: false}
+}
+func (s *sessionStub) BuildCASLoginURL(context.Context, string) (string, error) { return "", nil }
+func (s *sessionStub) CompleteCASCallback(context.Context, string, string, string, string) (string, error) {
+	return "", nil
+}
+func (s *sessionStub) ExchangeCASCode(context.Context, string) (*dto.CASExchangeResponse, error) {
+	return nil, nil
+}
 
 func TestListSessions_OK(t *testing.T) {
 	h := NewAuthHandler(&sessionStub{list: &dto.SessionListResponse{List: []dto.SessionView{{TokenID: "j1"}}, Total: 1}})

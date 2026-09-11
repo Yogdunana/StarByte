@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"strings"
 
 	"github.com/Yogdunana/StarByte/backend/internal/user/model"
 	"github.com/google/uuid"
@@ -17,6 +18,8 @@ type UserRepo interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	List(ctx context.Context, page, pageSize int, keyword string, status *int, departmentID uuid.UUID) ([]model.User, int64, error)
 	UpdateLastLogin(ctx context.Context, id uuid.UUID, ip string) error
+	GetByIdentity(ctx context.Context, identityType, identityValue string) (*model.User, error)
+	CreateIdentity(ctx context.Context, ident *model.UserIdentity) error
 }
 
 type userRepo struct {
@@ -103,4 +106,31 @@ func (r *userRepo) UpdateLastLogin(ctx context.Context, id uuid.UUID, ip string)
 			"last_login_at": gorm.Expr("CURRENT_TIMESTAMP"),
 			"last_login_ip": ip,
 		}).Error
+}
+
+func (r *userRepo) GetByIdentity(ctx context.Context, identityType, identityValue string) (*model.User, error) {
+	identityType = strings.TrimSpace(identityType)
+	identityValue = strings.TrimSpace(identityValue)
+	if identityType == "" || identityValue == "" {
+		return nil, nil
+	}
+	var user model.User
+	err := r.db.WithContext(ctx).
+		Joins("JOIN user_identities ui ON ui.user_id = users.id").
+		Where("ui.identity_type = ? AND ui.identity_value = ?", identityType, identityValue).
+		First(&user).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &user, err
+}
+
+func (r *userRepo) CreateIdentity(ctx context.Context, ident *model.UserIdentity) error {
+	if ident == nil {
+		return nil
+	}
+	if ident.ID == uuid.Nil {
+		ident.ID = uuid.New()
+	}
+	return r.db.WithContext(ctx).Create(ident).Error
 }

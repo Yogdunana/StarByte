@@ -40,7 +40,13 @@
     "emailRequired": "Enter email",
     "emailInvalid": "Enter a valid email",
     "passwordMin": "Password must be at least 6 characters",
-    "passwordMismatch": "Passwords do not match"
+    "passwordMismatch": "Passwords do not match",
+    "cas": "Campus SSO",
+    "casHint": "Sign in with SMBU unified authentication (campus network)",
+    "casProcessing": "Finishing campus sign-in…",
+    "casFail": "Campus sign-in failed. Try again or use a password.",
+    "or": "or",
+    "casError": "Campus sign-in did not complete. Please try again."
   },
   "topbar": {
     "profile": "Profile",

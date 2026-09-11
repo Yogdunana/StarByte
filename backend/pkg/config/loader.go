@@ -110,6 +110,12 @@ func Load(path string) (*Config, error) {
 //	CORS_ALLOWED_HEADERS  — cors.allowed_headers (comma-separated)
 //	CORS_EXPOSE_HEADERS   — cors.expose_headers (comma-separated)
 //	CORS_ALLOW_CREDENTIALS — cors.allow_credentials (true/false)
+//	CAS_ENABLED            — cas.enabled
+//	CAS_SERVER_URL         — cas.server_url
+//	CAS_SERVICE_URL        — cas.service_url
+//	CAS_FRONTEND_URL       — cas.frontend_url
+//	CAS_ALLOW_AUTO_PROVISION — cas.allow_auto_provision
+//	CAS_DEFAULT_ROLE       — cas.default_role
 func applyEnvOverrides(cfg *Config) {
 	// Server
 	cfg.Server.Port = getEnvInt("SERVER_PORT", cfg.Server.Port)
@@ -160,6 +166,13 @@ func applyEnvOverrides(cfg *Config) {
 	cfg.CORS.AllowedHeaders = getEnvCSV("CORS_ALLOWED_HEADERS", cfg.CORS.AllowedHeaders)
 	cfg.CORS.ExposeHeaders = getEnvCSV("CORS_EXPOSE_HEADERS", cfg.CORS.ExposeHeaders)
 	cfg.CORS.AllowCredentials = getEnvBool("CORS_ALLOW_CREDENTIALS", cfg.CORS.AllowCredentials)
+
+	cfg.CAS.Enabled = getEnvBool("CAS_ENABLED", cfg.CAS.Enabled)
+	cfg.CAS.ServerURL = getEnv("CAS_SERVER_URL", cfg.CAS.ServerURL)
+	cfg.CAS.ServiceURL = getEnv("CAS_SERVICE_URL", cfg.CAS.ServiceURL)
+	cfg.CAS.FrontendURL = getEnv("CAS_FRONTEND_URL", cfg.CAS.FrontendURL)
+	cfg.CAS.AllowAutoProvision = getEnvBool("CAS_ALLOW_AUTO_PROVISION", cfg.CAS.AllowAutoProvision)
+	cfg.CAS.DefaultRole = getEnv("CAS_DEFAULT_ROLE", cfg.CAS.DefaultRole)
 }
 
 // getEnv returns the value of an environment variable or a fallback.
@@ -298,6 +311,19 @@ func setDefaults(cfg *Config) {
 	// Email defaults
 	if cfg.Email.SMTPPort == 0 {
 		cfg.Email.SMTPPort = 587
+	}
+
+	if cfg.CAS.ServerURL == "" {
+		cfg.CAS.ServerURL = "https://authserver.smbu.edu.cn/authserver"
+	}
+	if cfg.CAS.ServiceURL == "" {
+		cfg.CAS.ServiceURL = "https://starbyte.smbu.edu.cn/api/v1/auth/cas/callback"
+	}
+	if cfg.CAS.FrontendURL == "" {
+		cfg.CAS.FrontendURL = "https://starbyte.smbu.edu.cn"
+	}
+	if cfg.CAS.DefaultRole == "" {
+		cfg.CAS.DefaultRole = "member"
 	}
 
 	// CORS defaults

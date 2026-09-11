@@ -47,8 +47,18 @@ minio:
   bucket: starbyte
   use_ssl: true
 
+# 一期仅校园网。外网 starbyte.com → 校内 IP 301 到 smbu 域名留待二期。
+cas:
+  enabled: true
+  server_url: "https://authserver.smbu.edu.cn/authserver"
+  service_url: "https://starbyte.smbu.edu.cn/api/v1/auth/cas/callback"
+  frontend_url: "https://starbyte.smbu.edu.cn"
+  allow_auto_provision: true
+  default_role: member
+
 cors:
   allowed_origins:
+    - "https://starbyte.smbu.edu.cn"
     - "https://starbyte.com"
     - "https://www.starbyte.com"
   allowed_methods:

@@ -202,6 +202,12 @@ func main() {
 	authSvc := authService.NewAuthService(
 		authR, userRepo, &cfg.JWT, cacheService, eventBus,
 		memberidentity.NewLookup(memberProfRepo),
+		&authService.CASDeps{
+			Config:     &cfg.CAS,
+			Store:      authRepo.NewCASStore(redis.Client()),
+			Validator:  authService.NewHTTPTicketValidator(cfg.CAS.ServerURL, nil),
+			AssignRole: authService.NewRoleAssigner(database.DB(), roleRepo, cfg.CAS.DefaultRole),
+		},
 	)
 	authH := authHandler.NewAuthHandler(authSvc)
 
