@@ -145,6 +145,7 @@ const CalendarPage: React.FC = () => {
           <Select
             value={view}
             style={{ width: 120 }}
+            data-testid="schedule-view"
             onChange={(v: ViewMode) => setView(v)}
             options={[
               { value: 'month', label: t('schedule.view.month') },
@@ -213,7 +214,7 @@ const CalendarPage: React.FC = () => {
         title={t('schedule.newCalendar')}
         onCancel={() => setOpenCal(false)}
         onOk={() => calForm.submit()}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form
           form={calForm}
@@ -243,7 +244,7 @@ const CalendarPage: React.FC = () => {
         title={editing ? t('common.edit') : t('schedule.newEvent')}
         onCancel={() => setOpenEv(false)}
         onOk={() => evForm.submit()}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form
           form={evForm}
