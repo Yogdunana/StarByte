@@ -246,11 +246,11 @@ const CalendarPage: React.FC = () => {
         </aside>
         <Card className="page-shell">
           <Space wrap style={{ marginBottom: 16 }}>
-            <Select
+            <Radio.Group
               value={view}
-              style={{ width: 120 }}
+              optionType="button"
               data-testid="schedule-view"
-              onChange={(v: ViewMode) => setView(v)}
+              onChange={(e) => setView(e.target.value)}
               options={[
                 { value: 'month', label: t('schedule.view.month') },
                 { value: 'week', label: t('schedule.view.week') },

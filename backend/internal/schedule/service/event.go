@@ -396,14 +396,6 @@ func ignoreOccurrenceTimes(ev model.Event, start, end *time.Time) bool {
 	return false
 }
 
-func (s *scheduleService) replaceAttendees(ctx context.Context, eventID uuid.UUID, ids []string) error {
-	rows, err := s.buildAttendees(ctx, eventID, ids)
-	if err != nil {
-		return err
-	}
-	return s.rows.ReplaceAttendees(ctx, eventID, rows)
-}
-
 func (s *scheduleService) buildAttendees(ctx context.Context, eventID uuid.UUID, ids []string) ([]model.Attendee, error) {
 	seen := map[uuid.UUID]struct{}{}
 	rows := make([]model.Attendee, 0, len(ids))

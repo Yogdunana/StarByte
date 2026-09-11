@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
@@ -65,7 +65,7 @@ describe('CalendarPage', () => {
     expect(screen.getByText('schedule.layers')).toBeInTheDocument();
     expect(screen.getByText('schedule.source.activity')).toBeInTheDocument();
     expect(screen.getByText('schedule.source.interview')).toBeInTheDocument();
-    expect(screen.getByTitle('schedule.view.month')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'schedule.view.month' })).toBeInTheDocument();
     expect(document.querySelector('.ant-picker-calendar')).toBeTruthy();
   });
 
@@ -74,9 +74,7 @@ describe('CalendarPage', () => {
     const user = userEvent.setup();
     render(<MemoryRouter><CalendarPage /></MemoryRouter>);
     await waitFor(() => expect(screen.getByTestId('schedule-layers')).toBeInTheDocument());
-    const viewSelect = screen.getByTestId('schedule-view');
-    fireEvent.mouseDown(viewSelect.querySelector('.ant-select-selector') || viewSelect);
-    await user.click(await screen.findByTitle('schedule.view.agenda'));
+    await user.click(screen.getByText('schedule.view.agenda'));
     await user.click(await screen.findByText('迎新晚会'));
     expect(navigate).toHaveBeenCalledWith('/activity/act-1');
     expect(screen.queryByText('common.edit')).not.toBeInTheDocument();
