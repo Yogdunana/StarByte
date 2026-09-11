@@ -37,6 +37,8 @@ MINIO_SECRET_KEY="${MINIO_SECRET_KEY:-minioadmin}"
 MINIO_BUCKET="${MINIO_BUCKET:-starbyte}"
 MINIO_USE_SSL="${MINIO_USE_SSL:-false}"
 
+# 生产镜像内 mc 可能是占位脚本（不连 dl.min.io）。内网请设 SKIP_BUCKET_CREATE=true，
+# 并在 MinIO 控制台手动创建桶。SKIP_BUCKET_CREATE=false 时若 mc 为 stub 会立刻成功返回。
 if [ "${SKIP_BUCKET_CREATE:-false}" != "true" ]; then
     echo "[entrypoint] 检查 MinIO Bucket: ${MINIO_BUCKET}"
     SCHEME="http"
