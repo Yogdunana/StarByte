@@ -2,9 +2,11 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   min-height: 100dvh;
+  height: 100dvh;
   padding: 24px;
   gap: 20px;
   background: var(--sb-ambient);
+  overflow: hidden;
 }
 
 .left {
@@ -82,16 +84,21 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
 }
 
+.right::before,
+.right::after {
+  content: '';
+  flex: 1 0 0;
+}
+
 .card {
   width: 100%;
   max-width: 440px;
-  margin-block: auto;
+  flex: 0 0 auto;
   border: 1px solid var(--sb-glass-border);
   background: var(--sb-glass);
   backdrop-filter: blur(16px);
@@ -170,6 +177,12 @@
 .registerForm :global(.ant-form-item) { margin-bottom: 14px; }
 .registerForm .submitItem { margin-bottom: 8px; }
 
+.fieldRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 12px;
+}
+
 .mobileBrand { display: none; }
 
 @media (max-width: 1000px) {
@@ -181,13 +194,20 @@
 }
 
 @media (max-width: 767px) {
-  .container { display: block; padding: 0; }
+  .container {
+    display: block;
+    height: auto;
+    overflow: visible;
+    padding: 0;
+  }
   .left { display: none; }
   .right {
     padding: 24px 18px 40px;
     min-height: 100dvh;
-    justify-content: flex-start;
+    overflow: visible;
   }
+  .right::before,
+  .right::after { display: none; }
   .mobileBrand {
     display: block;
     align-self: flex-start;
@@ -197,7 +217,6 @@
     letter-spacing: -1px;
   }
   .card {
-    margin-block: 0;
     backdrop-filter: none;
     background: var(--sb-surface);
     border-radius: 24px;
@@ -205,4 +224,5 @@
   .card :global(.ant-card-body) { padding: 24px 20px 22px; }
   .card h2 { font-size: 26px; }
   .formHint { margin-bottom: 14px; }
+  .fieldRow { grid-template-columns: 1fr; }
 }

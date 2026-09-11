@@ -226,25 +226,27 @@ const Login: React.FC = () => {
               layout="vertical"
               className={styles.registerForm}
             >
-              <Form.Item
-                name="username"
-                label={t('login.username')}
-                rules={[
-                  { required: true, message: t('login.usernameOnlyRequired') },
-                  { min: 3, max: 20, message: t('login.usernameLen') },
-                  { pattern: /^[a-zA-Z0-9_]+$/, message: t('login.usernamePattern') },
-                ]}
-              >
-                <Input prefix={<UserOutlined />} placeholder={t('login.username')} />
-              </Form.Item>
+              <div className={styles.fieldRow}>
+                <Form.Item
+                  name="username"
+                  label={t('login.username')}
+                  rules={[
+                    { required: true, message: t('login.usernameOnlyRequired') },
+                    { min: 3, max: 20, message: t('login.usernameLen') },
+                    { pattern: /^[a-zA-Z0-9_]+$/, message: t('login.usernamePattern') },
+                  ]}
+                >
+                  <Input prefix={<UserOutlined />} placeholder={t('login.username')} />
+                </Form.Item>
 
-              <Form.Item
-                name="real_name"
-                label={t('login.realName')}
-                rules={[{ required: true, message: t('login.realNameRequired') }]}
-              >
-                <Input placeholder={t('login.realName')} />
-              </Form.Item>
+                <Form.Item
+                  name="real_name"
+                  label={t('login.realName')}
+                  rules={[{ required: true, message: t('login.realNameRequired') }]}
+                >
+                  <Input placeholder={t('login.realName')} />
+                </Form.Item>
+              </div>
 
               <Form.Item
                 name="email"
@@ -257,35 +259,37 @@ const Login: React.FC = () => {
                 <Input prefix={<MailOutlined />} placeholder={t('login.email')} />
               </Form.Item>
 
-              <Form.Item
-                name="password"
-                label={t('login.password')}
-                rules={[
-                  { required: true, message: t('login.passwordRequired') },
-                  { min: 6, message: t('login.passwordMin') },
-                ]}
-              >
-                <Input.Password autoComplete="new-password" prefix={<LockOutlined />} placeholder={t('login.password')} />
-              </Form.Item>
+              <div className={styles.fieldRow}>
+                <Form.Item
+                  name="password"
+                  label={t('login.password')}
+                  rules={[
+                    { required: true, message: t('login.passwordRequired') },
+                    { min: 6, message: t('login.passwordMin') },
+                  ]}
+                >
+                  <Input.Password autoComplete="new-password" prefix={<LockOutlined />} placeholder={t('login.password')} />
+                </Form.Item>
 
-              <Form.Item
-                name="confirm_password"
-                label={t('login.confirmPassword')}
-                dependencies={['password']}
-                rules={[
-                  { required: true, message: t('login.passwordRequired') },
-                  ({ getFieldValue }) => ({
-                    validator(_, value) {
-                      if (!value || getFieldValue('password') === value) {
-                        return Promise.resolve();
-                      }
-                      return Promise.reject(new Error(t('login.passwordMismatch')));
-                    },
-                  }),
-                ]}
-              >
-                <Input.Password prefix={<LockOutlined />} placeholder={t('login.confirmPassword')} />
-              </Form.Item>
+                <Form.Item
+                  name="confirm_password"
+                  label={t('login.confirmPassword')}
+                  dependencies={['password']}
+                  rules={[
+                    { required: true, message: t('login.passwordRequired') },
+                    ({ getFieldValue }) => ({
+                      validator(_, value) {
+                        if (!value || getFieldValue('password') === value) {
+                          return Promise.resolve();
+                        }
+                        return Promise.reject(new Error(t('login.passwordMismatch')));
+                      },
+                    }),
+                  ]}
+                >
+                  <Input.Password prefix={<LockOutlined />} placeholder={t('login.confirmPassword')} />
+                </Form.Item>
+              </div>
 
               <Form.Item className={styles.submitItem}>
                 <Button type="primary" htmlType="submit" loading={loading} block>
