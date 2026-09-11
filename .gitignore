@@ -26,6 +26,11 @@ pnpm-debug.log*
 .env.*.local
 *.local
 
+# Kubernetes 明文 Secret（只允许提交 *.example）
+deploy/k8s/secret.yaml
+deploy/k8s/**/secret.yaml
+
+
 # IDE
 .idea/
 .vscode/

@@ -1,0 +1,9 @@
+# Namespace：starbyte。学校内网默认仍走 Docker Compose，本清单仅在明确要上集群时使用。
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: starbyte
+  labels:
+    app.kubernetes.io/name: starbyte
+    app.kubernetes.io/part-of: starbyte
+    app.kubernetes.io/managed-by: kubectl

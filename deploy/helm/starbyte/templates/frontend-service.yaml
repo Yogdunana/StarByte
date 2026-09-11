@@ -1,0 +1,22 @@
+{{- if .Values.frontend.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "starbyte.frontend.fullname" . }}
+  labels:
+    {{- include "starbyte.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  type: {{ .Values.frontend.service.type }}
+  ports:
+    - name: http-frontend
+      port: {{ .Values.frontend.service.port }}
+      targetPort: http-frontend
+      protocol: TCP
+      {{- if and (eq .Values.frontend.service.type "NodePort") .Values.frontend.service.nodePort }}
+      nodePort: {{ .Values.frontend.service.nodePort }}
+      {{- end }}
+  selector:
+    {{- include "starbyte.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+{{- end }}

@@ -1,0 +1,34 @@
+# 依赖 Nginx Ingress Controller 的 canary 注解。内网无 Ingress 时不要 apply。
+# 无 TLS / 无 Let's Encrypt。
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: starbyte-canary-ingress
+  namespace: starbyte
+  labels:
+    app: starbyte
+    track: canary
+  annotations:
+    nginx.ingress.kubernetes.io/canary: "true"
+    nginx.ingress.kubernetes.io/canary-weight: "10"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: starbyte.internal
+      http:
+        paths:
+          - path: /api/
+            pathType: Prefix
+            backend:
+              service:
+                name: starbyte-backend-canary
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: starbyte-frontend-canary
+                port:
+                  number: 80

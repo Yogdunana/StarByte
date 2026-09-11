@@ -1,0 +1,6 @@
+.git
+.gitignore
+*.md
+ci-check.sh
+.DS_Store
+*.tgz

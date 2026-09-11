@@ -213,3 +213,21 @@ jobs:
           if [ $SIZE_MB -gt 100 ]; then
             echo "::warning::前端镜像超过 100MB，建议优化"
           fi
+
+  # ─────────────────────────────────────────────────────────
+  # Helm / Kustomize 静态校验（不部署集群）
+  # ─────────────────────────────────────────────────────────
+  helm-lint:
+    name: Helm Lint & Template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: "v3.14.0"
+
+      - name: helm lint + template 断言
+        run: bash deploy/helm/starbyte/ci-check.sh
+

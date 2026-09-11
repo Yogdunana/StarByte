@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: starbyte-frontend
+  namespace: starbyte
+  labels:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/instance: starbyte
+    app.kubernetes.io/part-of: starbyte
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/instance: starbyte

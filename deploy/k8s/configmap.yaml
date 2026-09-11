@@ -1,0 +1,39 @@
+# 非敏感配置，key 与 docker-compose.yml / backend config.Load 对齐。
+# 密码与 JWT 见 secret.yaml.example。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: starbyte-config
+  namespace: starbyte
+  labels:
+    app.kubernetes.io/name: starbyte
+    app.kubernetes.io/part-of: starbyte
+data:
+  APP_ENV: "prod"
+  TZ: "Asia/Shanghai"
+  CONFIG_PATH: "configs/config.yaml"
+
+  DB_HOST: "postgres-starbyte"
+  DB_PORT: "5432"
+  DB_USER: "starbyte"
+  DB_NAME: "starbyte"
+  DB_SSLMODE: "disable"
+
+  REDIS_HOST: "redis-starbyte"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+
+  MINIO_ENDPOINT: "minio-starbyte:9000"
+  MINIO_USE_SSL: "false"
+  MINIO_BUCKET: "starbyte"
+
+  SKIP_MIGRATION: "false"
+  MIGRATION_FAIL_FATAL: "true"
+  SKIP_BUCKET_CREATE: "false"
+
+  CAS_ENABLED: "true"
+  CAS_SERVER_URL: "https://authserver.smbu.edu.cn/authserver"
+  CAS_SERVICE_URL: ""
+  CAS_FRONTEND_URL: ""
+  CAS_ALLOW_AUTO_PROVISION: "true"
+  CAS_DEFAULT_ROLE: "member"

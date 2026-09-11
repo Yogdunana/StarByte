@@ -1,0 +1,13 @@
+apiVersion: v2
+name: starbyte
+description: StarByte 可选 Kubernetes Helm Chart（学校内网默认仍用 Docker Compose）
+type: application
+version: 1.0.1
+appVersion: "1.0.0"
+keywords:
+  - starbyte
+  - management-system
+  - go
+  - react
+maintainers:
+  - name: StarByte Team

@@ -1,0 +1,40 @@
+# 通过 selector.version 切换流量。patch 时必须保留 app / component，见 switch.sh。
+apiVersion: v1
+kind: Service
+metadata:
+  name: starbyte-backend-bg
+  namespace: starbyte
+  labels:
+    app: starbyte
+    component: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: starbyte
+    component: backend
+    version: blue
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: starbyte-frontend-bg
+  namespace: starbyte
+  labels:
+    app: starbyte
+    component: frontend
+spec:
+  type: ClusterIP
+  selector:
+    app: starbyte
+    component: frontend
+    version: blue
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP

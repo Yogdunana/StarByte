@@ -1,0 +1,22 @@
+{{- if .Values.backend.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "starbyte.backend.fullname" . }}
+  labels:
+    {{- include "starbyte.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  type: {{ .Values.backend.service.type }}
+  ports:
+    - name: http-backend
+      port: {{ .Values.backend.service.port }}
+      targetPort: http-backend
+      protocol: TCP
+      {{- if and (eq .Values.backend.service.type "NodePort") .Values.backend.service.nodePort }}
+      nodePort: {{ .Values.backend.service.nodePort }}
+      {{- end }}
+  selector:
+    {{- include "starbyte.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+{{- end }}

@@ -1,0 +1,133 @@
+# 生产 / 内网集群覆盖。
+# helm upgrade --install starbyte deploy/helm/starbyte \
+#   -n starbyte --create-namespace \
+#   -f deploy/helm/starbyte/values-prod.yaml
+#
+# 部署前必须：
+# 1. 集群中已有 Secret（默认名 <release>-secret），key 见 secret.yaml 注释
+# 2. 不要把明文口令写进本文件或 Git
+# 3. 内网默认不启用 Ingress / Let's Encrypt
+
+global:
+  imagePullPolicy: IfNotPresent
+  storageClass: ""
+
+namespace:
+  name: starbyte
+  create: false
+
+backend:
+  replicaCount: 3
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  env:
+    appEnv: production
+    logLevel: warn
+  probes:
+    liveness:
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      failureThreshold: 3
+    readiness:
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      failureThreshold: 3
+    startup:
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      failureThreshold: 30
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+    nodePort: null
+
+frontend:
+  replicaCount: 3
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  probes:
+    liveness:
+      initialDelaySeconds: 15
+      periodSeconds: 10
+      failureThreshold: 3
+    readiness:
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      failureThreshold: 3
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+    nodePort: null
+
+postgres:
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+  storage:
+    size: 50Gi
+
+redis:
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  storage:
+    size: 10Gi
+
+minio:
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  storage:
+    size: 200Gi
+
+# 内网默认：不建 Ingress，也不依赖 cert-manager / Let's Encrypt。
+# 需要七层入口时再打开，并按需补 host；TLS 完全可选。
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  # 示例（保持注释，避免占位域名被当成生产配置）：
+  # hosts:
+  #   - host: starbyte.internal
+  #     paths:
+  #       - path: /
+  #         pathType: Prefix
+  #         serviceName: frontend
+  #         servicePort: 80
+  #       - path: /api/
+  #         pathType: Prefix
+  #         serviceName: backend
+  #         servicePort: 8080
+  hosts: []
+  tls: []
+
+# 强制：不创建、不继承 change-me / 明文口令
+secrets:
+  create: false
+  allowInsecure: false
+  existingSecret: ""
+  secretData: {}
