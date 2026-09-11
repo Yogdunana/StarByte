@@ -90,7 +90,7 @@ type CASConfig struct {
 	ServerURL          string `yaml:"server_url"`           // e.g. https://authserver.smbu.edu.cn/authserver
 	ServiceURL         string `yaml:"service_url"`          // empty = {origin}/api/v1/auth/cas/callback
 	FrontendURL        string `yaml:"frontend_url"`         // empty = same origin as the browser request
-	AllowAutoProvision bool   `yaml:"allow_auto_provision"` // create local user on first CAS login
+	AllowAutoProvision bool   `yaml:"allow_auto_provision"` // unused for 学号 principals; unknown CAS users must register
 	DefaultRole        string `yaml:"default_role"`         // role code assigned to auto-provisioned users
 }
 

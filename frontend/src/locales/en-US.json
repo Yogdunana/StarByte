@@ -36,6 +36,7 @@
     "minChars": "At least {{n}} characters",
     "usernameLen": "Username must be 3-20 characters",
     "usernamePattern": "Only letters, numbers and underscore",
+    "usernameNotStudentNo": "Username cannot be a student ID or mostly digits",
     "realNameRequired": "Enter real name",
     "emailRequired": "Enter email",
     "emailInvalid": "Enter a valid email",
@@ -46,7 +47,13 @@
     "casProcessing": "Finishing campus sign-in…",
     "casFail": "Campus sign-in failed. Try again or use a password.",
     "or": "or",
-    "casError": "Campus sign-in did not complete. Please try again."
+    "casError": "Campus sign-in did not complete. Please try again.",
+    "casBind": "Bind account",
+    "casBindHint": "Campus SSO succeeded. Choose a username and password. Your student ID comes from campus auth and cannot be changed.",
+    "casBindSubmit": "Bind and sign in",
+    "casBindNeedAuth": "Finish campus SSO before binding an account.",
+    "studentNo": "Student ID",
+    "passwordStrength": "Use at least 8 characters with letters and numbers"
   },
   "topbar": {
     "profile": "Profile",

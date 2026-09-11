@@ -36,6 +36,7 @@
     "minChars": "至少 {{n}} 个字符",
     "usernameLen": "用户名长度为 3-20 个字符",
     "usernamePattern": "用户名只能包含字母、数字和下划线",
+    "usernameNotStudentNo": "用户名不能是学号或纯数字编号",
     "realNameRequired": "请输入真实姓名",
     "emailRequired": "请输入邮箱",
     "emailInvalid": "请输入有效的邮箱地址",
@@ -46,7 +47,13 @@
     "casProcessing": "正在完成统一认证…",
     "casFail": "统一认证失败，请重试或使用账号密码",
     "or": "或",
-    "casError": "统一认证未完成，请重试"
+    "casError": "统一认证未完成，请重试",
+    "casBind": "绑定账号",
+    "casBindHint": "学校统一认证已通过。请设置本站用户名和密码；学号来自校园认证，不可修改。",
+    "casBindSubmit": "完成绑定并登录",
+    "casBindNeedAuth": "请先完成学校统一认证后再绑定账号。",
+    "studentNo": "学号",
+    "passwordStrength": "密码至少 8 位，需包含字母和数字"
   },
   "topbar": {
     "profile": "个人中心",

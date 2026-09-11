@@ -9,6 +9,7 @@ import { setToken } from '@/store/slices/authSlice';
 import { fetchCurrentUser } from '@/store/slices/userSlice';
 import type { AppDispatch } from '@/store';
 import type { CASExchangeResponse } from '@/types/api';
+import { draftFromExchange, saveCASRegisterDraft } from './casRegisterDraft';
 import styles from './Login.module.css';
 
 const exchangeByCode = new Map<string, Promise<CASExchangeResponse>>();
@@ -51,6 +52,15 @@ const CasCallback: React.FC = () => {
         const result = await exchangeCasCodeOnce(code);
         if (cancelled || applied.current) return;
         applied.current = true;
+        if (result.needs_registration) {
+          const draft = draftFromExchange(result);
+          if (!draft) {
+            throw new Error(t('login.casFail'));
+          }
+          saveCASRegisterDraft(draft);
+          navigate('/register/cas', { replace: true });
+          return;
+        }
         dispatch(
           setToken({
             accessToken: result.access_token,
