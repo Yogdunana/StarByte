@@ -226,7 +226,17 @@ func (s *scheduleService) resolveDepartment(ctx context.Context, operator uuid.U
 	if err != nil {
 		return nil, response.NewError(response.CodeBadRequest, "部门 ID 无效")
 	}
-	if !isAllScope(scope) && !deptInScope(scope, &id) && !(scope != nil && scope.IsSelf) {
+	if scope != nil && scope.IsSelf {
+		user, err := s.rows.GetUser(ctx, operator)
+		if err != nil {
+			return nil, fmt.Errorf("lookup user: %w", err)
+		}
+		if user == nil || user.DepartmentID == nil || *user.DepartmentID != id {
+			return nil, response.NewError(response.CodeCalendarNoAccess, "无权为该部门创建日历")
+		}
+		return &id, nil
+	}
+	if !isAllScope(scope) && !deptInScope(scope, &id) {
 		user, err := s.rows.GetUser(ctx, operator)
 		if err != nil {
 			return nil, fmt.Errorf("lookup user: %w", err)

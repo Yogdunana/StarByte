@@ -45,10 +45,17 @@ func (s *scheduleService) RangeEvents(ctx context.Context, viewer uuid.UUID, req
 	if req.End.Sub(req.Start) > 400*24*time.Hour {
 		return nil, response.NewError(response.CodeBadRequest, "查询窗口不能超过 400 天")
 	}
-	listReq := &dto.ListEventRequest{CalendarID: req.CalendarID, Start: req.Start, End: req.End, Page: 1, PageSize: 200}
-	rows, _, _, _, err := s.ListEvents(ctx, viewer, listReq, scope)
-	if err != nil {
-		return nil, err
+	var rows []*dto.EventResponse
+	for page := 1; page <= 50; page++ {
+		listReq := &dto.ListEventRequest{CalendarID: req.CalendarID, Start: req.Start, End: req.End, Page: page, PageSize: 200}
+		chunk, total, _, _, err := s.ListEvents(ctx, viewer, listReq, scope)
+		if err != nil {
+			return nil, err
+		}
+		rows = append(rows, chunk...)
+		if int64(len(rows)) >= total || len(chunk) == 0 {
+			break
+		}
 	}
 	expanded := make([]*dto.EventResponse, 0, len(rows))
 	for _, row := range rows {
@@ -77,7 +84,9 @@ func (s *scheduleService) CreateEvent(ctx context.Context, operator uuid.UUID, r
 	if err != nil {
 		return nil, err
 	}
-	if err := s.ensureNoConflict(ctx, cal.ID, uuid.Nil, req.StartAt, req.EndAt); err != nil {
+	if err := s.ensureNoConflict(ctx, cal.ID, uuid.Nil, &model.Event{
+		StartAt: req.StartAt, EndAt: req.EndAt, Recurrence: rule, RecurrenceUntil: req.RecurrenceUntil,
+	}); err != nil {
 		return nil, err
 	}
 	meetingID, err := parseOptionalUUID(req.MeetingID)
@@ -92,14 +101,16 @@ func (s *scheduleService) CreateEvent(ctx context.Context, operator uuid.UUID, r
 		Status: model.EventConfirmed, Recurrence: rule, RecurrenceUntil: req.RecurrenceUntil,
 		MeetingID: meetingID, Origin: model.OriginManual, CreatedBy: operator, CreatedAt: now, UpdatedAt: now,
 	}
-	if err := s.rows.CreateEvent(ctx, row); err != nil {
+	atts, err := s.buildAttendees(ctx, row.ID, req.AttendeeIDs)
+	if err != nil {
+		return nil, err
+	}
+	rems, err := s.buildReminders(row.ID, req.RemindMinutes)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.rows.CreateEventWithDetails(ctx, row, atts, rems); err != nil {
 		return nil, fmt.Errorf("create event: %w", err)
-	}
-	if err := s.replaceAttendees(ctx, row.ID, req.AttendeeIDs); err != nil {
-		return nil, err
-	}
-	if err := s.replaceReminders(ctx, row.ID, req.RemindMinutes); err != nil {
-		return nil, err
 	}
 	return s.GetEvent(ctx, operator, row.ID, scope)
 }
@@ -144,6 +155,12 @@ func (s *scheduleService) UpdateEvent(ctx context.Context, operator, id uuid.UUI
 	if req.Location != nil {
 		row.Location = strings.TrimSpace(*req.Location)
 	}
+	if req.StartAt != nil || req.EndAt != nil {
+		if ignoreOccurrenceTimes(row.Event, req.StartAt, req.EndAt) {
+			req.StartAt = nil
+			req.EndAt = nil
+		}
+	}
 	if req.StartAt != nil {
 		row.StartAt = *req.StartAt
 	}
@@ -183,7 +200,7 @@ func (s *scheduleService) UpdateEvent(ctx context.Context, operator, id uuid.UUI
 	if err := validateEventTime(row.StartAt, row.EndAt); err != nil {
 		return nil, err
 	}
-	if err := s.ensureNoConflict(ctx, row.CalendarID, row.ID, row.StartAt, row.EndAt); err != nil {
+	if err := s.ensureNoConflict(ctx, row.CalendarID, row.ID, &row.Event); err != nil {
 		return nil, err
 	}
 	row.UpdatedAt = time.Now()
@@ -299,49 +316,109 @@ func (s *scheduleService) loadVisibleEvent(ctx context.Context, viewer, id uuid.
 	return row, role, isAttendee, nil
 }
 
-func (s *scheduleService) ensureNoConflict(ctx context.Context, calendarID, exclude uuid.UUID, start, end time.Time) error {
-	rows, err := s.rows.Overlapping(ctx, calendarID, exclude, start, end)
+func (s *scheduleService) ensureNoConflict(ctx context.Context, calendarID, exclude uuid.UUID, candidate *model.Event) error {
+	windowStart, windowEnd := candidate.StartAt, candidate.EndAt
+	if model.NormalizeRecurrence(candidate.Recurrence) != model.RecurrenceNone {
+		if candidate.RecurrenceUntil != nil && candidate.RecurrenceUntil.After(windowEnd) {
+			windowEnd = *candidate.RecurrenceUntil
+		} else if candidate.RecurrenceUntil == nil {
+			windowEnd = candidate.StartAt.AddDate(1, 0, 0)
+		}
+	}
+	rows, err := s.rows.Overlapping(ctx, calendarID, exclude, windowStart, windowEnd)
 	if err != nil {
 		return fmt.Errorf("check conflict: %w", err)
 	}
-	if len(rows) > 0 {
-		return response.NewError(response.CodeScheduleConflict, "同一日历存在时间冲突")
+	for i := range rows {
+		if occurrencesOverlap(&rows[i], candidate, windowStart, windowEnd) {
+			return response.NewError(response.CodeScheduleConflict, "同一日历存在时间冲突")
+		}
 	}
 	return nil
 }
 
+func occurrencesOverlap(a, b *model.Event, windowStart, windowEnd time.Time) bool {
+	left := expandOccurrences(a, windowStart, windowEnd)
+	right := expandOccurrences(b, windowStart, windowEnd)
+	for _, x := range left {
+		for _, y := range right {
+			if x.Start.Before(y.End) && x.End.After(y.Start) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func ignoreOccurrenceTimes(ev model.Event, start, end *time.Time) bool {
+	if model.NormalizeRecurrence(ev.Recurrence) == model.RecurrenceNone || start == nil {
+		return false
+	}
+	if start.Equal(ev.StartAt) {
+		return false
+	}
+	dur := ev.EndAt.Sub(ev.StartAt)
+	if end != nil && end.Sub(*start) != dur {
+		return false
+	}
+	windowStart := start.Add(-time.Second)
+	windowEnd := start.Add(time.Second)
+	for _, occ := range expandOccurrences(&ev, windowStart, windowEnd) {
+		if occ.Start.Equal(*start) {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *scheduleService) replaceAttendees(ctx context.Context, eventID uuid.UUID, ids []string) error {
+	rows, err := s.buildAttendees(ctx, eventID, ids)
+	if err != nil {
+		return err
+	}
+	return s.rows.ReplaceAttendees(ctx, eventID, rows)
+}
+
+func (s *scheduleService) buildAttendees(ctx context.Context, eventID uuid.UUID, ids []string) ([]model.Attendee, error) {
 	seen := map[uuid.UUID]struct{}{}
 	rows := make([]model.Attendee, 0, len(ids))
 	now := time.Now()
 	for _, raw := range ids {
 		uid, err := uuid.Parse(strings.TrimSpace(raw))
 		if err != nil {
-			return response.NewError(response.CodeBadRequest, "参与人 ID 无效")
+			return nil, response.NewError(response.CodeBadRequest, "参与人 ID 无效")
 		}
 		if _, ok := seen[uid]; ok {
 			continue
 		}
 		user, err := s.rows.GetUser(ctx, uid)
 		if err != nil {
-			return fmt.Errorf("lookup attendee: %w", err)
+			return nil, fmt.Errorf("lookup attendee: %w", err)
 		}
 		if user == nil {
-			return response.NewError(response.CodeBadRequest, "参与人不存在")
+			return nil, response.NewError(response.CodeBadRequest, "参与人不存在")
 		}
 		seen[uid] = struct{}{}
 		rows = append(rows, model.Attendee{ID: uuid.New(), EventID: eventID, UserID: uid, CreatedAt: now, UpdatedAt: now})
 	}
-	return s.rows.ReplaceAttendees(ctx, eventID, rows)
+	return rows, nil
 }
 
 func (s *scheduleService) replaceReminders(ctx context.Context, eventID uuid.UUID, minutes []int) error {
+	rows, err := s.buildReminders(eventID, minutes)
+	if err != nil {
+		return err
+	}
+	return s.rows.ReplaceReminders(ctx, eventID, rows)
+}
+
+func (s *scheduleService) buildReminders(eventID uuid.UUID, minutes []int) ([]model.Reminder, error) {
 	seen := map[int]struct{}{}
 	rows := make([]model.Reminder, 0, len(minutes))
 	now := time.Now()
 	for _, m := range minutes {
 		if !model.ValidRemindMinutes(m) {
-			return response.NewError(response.CodeScheduleReminderInvalid, "提醒仅支持提前 5/15/30/60 分钟")
+			return nil, response.NewError(response.CodeScheduleReminderInvalid, "提醒仅支持提前 5/15/30/60 分钟")
 		}
 		if _, ok := seen[m]; ok {
 			continue
@@ -349,7 +426,7 @@ func (s *scheduleService) replaceReminders(ctx context.Context, eventID uuid.UUI
 		seen[m] = struct{}{}
 		rows = append(rows, model.Reminder{ID: uuid.New(), EventID: eventID, MinutesBefore: m, Method: model.RemindApp, CreatedAt: now})
 	}
-	return s.rows.ReplaceReminders(ctx, eventID, rows)
+	return rows, nil
 }
 
 func validateEventTime(start, end time.Time) error {

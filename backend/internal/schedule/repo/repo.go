@@ -28,6 +28,7 @@ type Repository interface {
 	ListMembers(ctx context.Context, calendarID uuid.UUID) ([]model.CalendarMemberNamed, error)
 
 	CreateEvent(ctx context.Context, row *model.Event) error
+	CreateEventWithDetails(ctx context.Context, row *model.Event, attendees []model.Attendee, reminders []model.Reminder) error
 	UpdateEvent(ctx context.Context, row *model.Event) error
 	DeleteEvent(ctx context.Context, id uuid.UUID) error
 	GetEvent(ctx context.Context, id uuid.UUID) (*model.Event, error)
@@ -165,6 +166,25 @@ func (r *repository) CreateEvent(ctx context.Context, row *model.Event) error {
 	return r.db.WithContext(ctx).Create(row).Error
 }
 
+func (r *repository) CreateEventWithDetails(ctx context.Context, row *model.Event, attendees []model.Attendee, reminders []model.Reminder) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(row).Error; err != nil {
+			return err
+		}
+		if len(attendees) > 0 {
+			if err := tx.Create(&attendees).Error; err != nil {
+				return err
+			}
+		}
+		if len(reminders) > 0 {
+			if err := tx.Create(&reminders).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 func (r *repository) UpdateEvent(ctx context.Context, row *model.Event) error {
 	return r.db.WithContext(ctx).Save(row).Error
 }
@@ -233,8 +253,8 @@ func (r *repository) ListEvents(ctx context.Context, viewer uuid.UUID, req *dto.
 
 func (r *repository) Overlapping(ctx context.Context, calendarID, exclude uuid.UUID, start, end time.Time) ([]model.Event, error) {
 	q := r.db.WithContext(ctx).Where(
-		"calendar_id = ? AND status = ? AND start_at < ? AND end_at > ?",
-		calendarID, model.EventConfirmed, end, start,
+		"calendar_id = ? AND status = ? AND start_at < ? AND (end_at > ? OR (recurrence <> 'none' AND recurrence <> '' AND (recurrence_until IS NULL OR recurrence_until >= ?)))",
+		calendarID, model.EventConfirmed, end, start, start,
 	)
 	if exclude != uuid.Nil {
 		q = q.Where("id <> ?", exclude)
@@ -303,16 +323,19 @@ func (r *repository) ListDueReminders(ctx context.Context, now time.Time, limit 
 	}
 	var rows []model.DueReminder
 	err := r.db.WithContext(ctx).Table("schedule_reminders AS r").
-		Select("r.*, e.title, e.start_at, c.owner_id, e.created_by").
+		Select("r.*, e.title, e.start_at, e.end_at, e.recurrence, e.recurrence_until, c.owner_id, e.created_by").
 		Joins("JOIN schedule_events e ON e.id = r.event_id").
 		Joins("JOIN calendars c ON c.id = e.calendar_id").
-		Where("r.triggered_at IS NULL AND e.status = ? AND e.start_at - (r.minutes_before || ' minutes')::interval <= ?", model.EventConfirmed, now).
+		Where(
+			"e.status = ? AND (r.triggered_at IS NULL OR (e.recurrence <> 'none' AND e.recurrence <> '' AND (e.recurrence_until IS NULL OR e.recurrence_until >= ?)))",
+			model.EventConfirmed, now,
+		).
 		Order("e.start_at").Limit(limit).Find(&rows).Error
 	return rows, err
 }
 
 func (r *repository) MarkReminderTriggered(ctx context.Context, id uuid.UUID, at time.Time) error {
-	return r.db.WithContext(ctx).Model(&model.Reminder{}).Where("id = ? AND triggered_at IS NULL", id).Update("triggered_at", at).Error
+	return r.db.WithContext(ctx).Model(&model.Reminder{}).Where("id = ?", id).Update("triggered_at", at).Error
 }
 
 func (r *repository) CalendarBySource(ctx context.Context, owner uuid.UUID, source, sourceKey string) (*model.Calendar, error) {

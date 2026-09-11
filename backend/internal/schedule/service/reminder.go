@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Yogdunana/StarByte/backend/internal/schedule/model"
 	"github.com/google/uuid"
 )
 
@@ -20,6 +21,10 @@ func (s *scheduleService) DispatchDueReminders(ctx context.Context, _ string, lo
 	sent := 0
 	for i := range rows {
 		row := &rows[i]
+		occ := dueOccurrence(row, now)
+		if occ == nil {
+			continue
+		}
 		targets := uniqueUsers(row.OwnerID, row.CreatedBy)
 		atts, err := s.rows.ListAttendees(ctx, row.EventID)
 		if err != nil {
@@ -32,19 +37,42 @@ func (s *scheduleService) DispatchDueReminders(ctx context.Context, _ string, lo
 		if s.notify != nil {
 			if err := s.notify.Send(ctx, targets, "schedule_reminder", map[string]interface{}{
 				"title":    row.Title,
-				"start_at": row.StartAt.Format(time.RFC3339),
+				"start_at": occ.Format(time.RFC3339),
 				"minutes":  fmt.Sprintf("%d", row.MinutesBefore),
 			}); err != nil {
 				logf("notify failed: " + err.Error())
 				continue
 			}
 		}
-		if err := s.rows.MarkReminderTriggered(ctx, row.ID, now); err != nil {
+		if err := s.rows.MarkReminderTriggered(ctx, row.ID, *occ); err != nil {
 			return fmt.Errorf("mark reminder: %w", err)
 		}
 		sent++
 	}
 	logf(fmt.Sprintf("dispatched %d reminders", sent))
+	return nil
+}
+
+func dueOccurrence(row *model.DueReminder, now time.Time) *time.Time {
+	ev := &model.Event{
+		StartAt: row.StartAt, EndAt: row.EndAt, Recurrence: row.Recurrence, RecurrenceUntil: row.RecurrenceUntil,
+	}
+	if ev.EndAt.IsZero() {
+		ev.EndAt = ev.StartAt.Add(time.Hour)
+	}
+	windowStart := now.Add(-14 * 24 * time.Hour)
+	windowEnd := now.Add(time.Duration(row.MinutesBefore) * time.Minute)
+	for _, occ := range expandOccurrences(ev, windowStart, windowEnd) {
+		fireAt := occ.Start.Add(-time.Duration(row.MinutesBefore) * time.Minute)
+		if fireAt.After(now) {
+			continue
+		}
+		if row.TriggeredAt != nil && !occ.Start.After(*row.TriggeredAt) {
+			continue
+		}
+		start := occ.Start
+		return &start
+	}
 	return nil
 }
 

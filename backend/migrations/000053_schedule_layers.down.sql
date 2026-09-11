@@ -2,6 +2,8 @@
 -- 000053_schedule_layers.down.sql
 -- ============================================================
 
+DELETE FROM notification_templates WHERE code = 'schedule_reminder' AND deleted_at IS NULL;
+
 DROP TABLE IF EXISTS schedule_google_accounts;
 
 DROP INDEX IF EXISTS idx_schedule_events_origin;

@@ -203,6 +203,21 @@ func (m *memRepo) CreateEvent(_ context.Context, row *model.Event) error {
 	return nil
 }
 
+func (m *memRepo) CreateEventWithDetails(ctx context.Context, row *model.Event, attendees []model.Attendee, reminders []model.Reminder) error {
+	if err := m.CreateEvent(ctx, row); err != nil {
+		return err
+	}
+	if err := m.ReplaceAttendees(ctx, row.ID, attendees); err != nil {
+		_ = m.DeleteEvent(ctx, row.ID)
+		return err
+	}
+	if err := m.ReplaceReminders(ctx, row.ID, reminders); err != nil {
+		_ = m.DeleteEvent(ctx, row.ID)
+		return err
+	}
+	return nil
+}
+
 func (m *memRepo) UpdateEvent(_ context.Context, row *model.Event) error {
 	return m.CreateEvent(context.Background(), row)
 }
@@ -302,7 +317,18 @@ func (m *memRepo) ListEvents(_ context.Context, viewer uuid.UUID, req *dto.ListE
 		}
 		out = append(out, *named)
 	}
-	return out, int64(len(out)), nil
+	sort.Slice(out, func(i, j int) bool { return out[i].StartAt.Before(out[j].StartAt) })
+	total := int64(len(out))
+	page, size := normalizePage(req.Page, req.PageSize)
+	start := (page - 1) * size
+	if start >= len(out) {
+		return []model.EventNamed{}, total, nil
+	}
+	end := start + size
+	if end > len(out) {
+		end = len(out)
+	}
+	return out[start:end], total, nil
 }
 
 func (m *memRepo) Overlapping(_ context.Context, calendarID, exclude uuid.UUID, start, end time.Time) ([]model.Event, error) {
@@ -313,7 +339,9 @@ func (m *memRepo) Overlapping(_ context.Context, calendarID, exclude uuid.UUID, 
 		if row.CalendarID != calendarID || row.Status != model.EventConfirmed || row.ID == exclude {
 			continue
 		}
-		if row.StartAt.Before(end) && row.EndAt.After(start) {
+		recurring := model.NormalizeRecurrence(row.Recurrence) != model.RecurrenceNone &&
+			(row.RecurrenceUntil == nil || !row.RecurrenceUntil.Before(start))
+		if row.StartAt.Before(end) && (row.EndAt.After(start) || recurring) {
 			out = append(out, *row)
 		}
 	}
@@ -404,17 +432,19 @@ func (m *memRepo) ListDueReminders(_ context.Context, now time.Time, _ int) ([]m
 	defer m.mu.Unlock()
 	out := []model.DueReminder{}
 	for _, r := range m.reminders {
-		if r.TriggeredAt != nil {
-			continue
-		}
 		ev := m.events[r.EventID]
 		if ev == nil || ev.Status != model.EventConfirmed {
 			continue
 		}
-		if ev.StartAt.Add(-time.Duration(r.MinutesBefore) * time.Minute).After(now) {
+		recurring := model.NormalizeRecurrence(ev.Recurrence) != model.RecurrenceNone &&
+			(ev.RecurrenceUntil == nil || !ev.RecurrenceUntil.Before(now))
+		if r.TriggeredAt != nil && !recurring {
 			continue
 		}
-		due := model.DueReminder{Reminder: *r, Title: ev.Title, StartAt: ev.StartAt, CreatedBy: ev.CreatedBy}
+		due := model.DueReminder{
+			Reminder: *r, Title: ev.Title, StartAt: ev.StartAt, EndAt: ev.EndAt,
+			Recurrence: ev.Recurrence, RecurrenceUntil: ev.RecurrenceUntil, CreatedBy: ev.CreatedBy,
+		}
 		if cal := m.cals[ev.CalendarID]; cal != nil {
 			due.OwnerID = cal.OwnerID
 		}
@@ -426,7 +456,7 @@ func (m *memRepo) ListDueReminders(_ context.Context, now time.Time, _ int) ([]m
 func (m *memRepo) MarkReminderTriggered(_ context.Context, id uuid.UUID, at time.Time) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if r := m.reminders[id]; r != nil && r.TriggeredAt == nil {
+	if r := m.reminders[id]; r != nil {
 		r.TriggeredAt = &at
 	}
 	return nil

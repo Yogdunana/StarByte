@@ -335,16 +335,22 @@ const CalendarPage: React.FC = () => {
             calendar_id?: string; title: string; location?: string;
             start_at: Dayjs; end_at: Dayjs; recurrence?: string; remind_minutes?: number[];
           }) => {
+            const startISO = values.start_at.toISOString();
+            const endISO = values.end_at.toISOString();
+            const timesUnchanged = !!editing
+              && values.start_at.isSame(dayjs(editing.start_at))
+              && values.end_at.isSame(dayjs(editing.end_at));
             const payload = {
               calendar_id: values.calendar_id,
               title: values.title,
               location: values.location,
-              start_at: values.start_at.toISOString(),
-              end_at: values.end_at.toISOString(),
               recurrence: values.recurrence,
               remind_minutes: values.remind_minutes,
+              ...(timesUnchanged ? {} : { start_at: startISO, end_at: endISO }),
             };
-            const run = editing ? updateEvent(editing.id, payload) : createEvent(payload);
+            const run = editing
+              ? updateEvent(editing.id, payload)
+              : createEvent({ ...payload, start_at: startISO, end_at: endISO });
             void run.then(() => {
               message.success(t('common.saved'));
               setOpenEv(false);

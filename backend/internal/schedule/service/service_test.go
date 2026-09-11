@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -196,6 +197,98 @@ func TestRecurrenceRejectedAndRemindInvalid(t *testing.T) {
 	}, scope)
 	require.Error(t, err)
 	assert.Equal(t, response.CodeScheduleReminderInvalid, err.(*response.AppError).Code)
+	events, total, _, _, err := svc.ListEvents(ctx, owner, &dto.ListEventRequest{PageSize: 50}, scope)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), total)
+	assert.Empty(t, events)
+}
+
+func TestSelfScopeCannotAssignForeignDepartment(t *testing.T) {
+	svc, _, owner, _, dept := setupSvc(t)
+	ctx := context.Background()
+	otherDept := uuid.New()
+	_, err := svc.CreateCalendar(ctx, owner, &dto.CreateCalendarRequest{
+		Name: "跨部门", CalendarType: model.CalendarDepartment, DepartmentID: otherDept.String(),
+	}, selfScope(owner))
+	require.Error(t, err)
+	assert.Equal(t, response.CodeCalendarNoAccess, err.(*response.AppError).Code)
+
+	cal, err := svc.CreateCalendar(ctx, owner, &dto.CreateCalendarRequest{
+		Name: "本部门", CalendarType: model.CalendarDepartment, DepartmentID: dept.String(),
+	}, selfScope(owner))
+	require.NoError(t, err)
+	foreign := otherDept.String()
+	_, err = svc.UpdateCalendar(ctx, owner, uuid.MustParse(cal.ID), &dto.UpdateCalendarRequest{DepartmentID: &foreign}, selfScope(owner))
+	require.Error(t, err)
+	assert.Equal(t, response.CodeCalendarNoAccess, err.(*response.AppError).Code)
+}
+
+func TestRecurringReminderFiresEachOccurrence(t *testing.T) {
+	svc, _, owner, _, _ := setupSvc(t)
+	n := &captureNotify{}
+	svc.notify = n
+	ctx := context.Background()
+	scope := selfScope(owner)
+	start := time.Now().Add(-7*24*time.Hour + 10*time.Minute)
+	_, err := svc.CreateEvent(ctx, owner, &dto.CreateEventRequest{
+		Title: "周会", StartAt: start, EndAt: start.Add(time.Hour),
+		Recurrence: model.RecurrenceWeekly, RemindMinutes: []int{15},
+	}, scope)
+	require.NoError(t, err)
+	require.NoError(t, svc.DispatchDueReminders(ctx, "", func(string) {}))
+	assert.Equal(t, 1, n.n)
+	require.NoError(t, svc.DispatchDueReminders(ctx, "", func(string) {}))
+	assert.Equal(t, 2, n.n)
+}
+
+func TestRecurringSeriesConflict(t *testing.T) {
+	svc, _, owner, _, _ := setupSvc(t)
+	ctx := context.Background()
+	scope := selfScope(owner)
+	start := time.Date(2026, 9, 7, 10, 0, 0, 0, time.UTC)
+	_, err := svc.CreateEvent(ctx, owner, dtoCreate(start, model.RecurrenceWeekly), scope)
+	require.NoError(t, err)
+	_, err = svc.CreateEvent(ctx, owner, dtoCreate(start.AddDate(0, 0, 7), model.RecurrenceWeekly), scope)
+	require.Error(t, err)
+	assert.Equal(t, response.CodeScheduleConflict, err.(*response.AppError).Code)
+}
+
+func TestOccurrenceEditDoesNotShiftSeries(t *testing.T) {
+	svc, _, owner, _, _ := setupSvc(t)
+	ctx := context.Background()
+	scope := selfScope(owner)
+	start := time.Date(2026, 9, 7, 10, 0, 0, 0, time.UTC)
+	ev, err := svc.CreateEvent(ctx, owner, dtoCreate(start, model.RecurrenceWeekly), scope)
+	require.NoError(t, err)
+	occStart := start.AddDate(0, 0, 14)
+	occEnd := occStart.Add(time.Hour)
+	title := "只改标题"
+	got, err := svc.UpdateEvent(ctx, owner, uuid.MustParse(ev.ID), &dto.UpdateEventRequest{
+		Title: &title, StartAt: &occStart, EndAt: &occEnd,
+	}, scope)
+	require.NoError(t, err)
+	assert.Equal(t, title, got.Title)
+	assert.True(t, got.StartAt.Equal(start))
+	assert.True(t, got.EndAt.Equal(start.Add(time.Hour)))
+}
+
+func TestRangeEventsPagesBeyond200(t *testing.T) {
+	svc, _, owner, _, _ := setupSvc(t)
+	ctx := context.Background()
+	scope := selfScope(owner)
+	base := time.Date(2026, 9, 1, 8, 0, 0, 0, time.UTC)
+	for i := 0; i < 250; i++ {
+		start := base.Add(time.Duration(i) * time.Hour)
+		_, err := svc.CreateEvent(ctx, owner, &dto.CreateEventRequest{
+			Title: fmt.Sprintf("e-%d", i), StartAt: start, EndAt: start.Add(30 * time.Minute),
+		}, scope)
+		require.NoError(t, err)
+	}
+	list, err := svc.RangeEvents(ctx, owner, &dto.RangeEventRequest{
+		Start: base, End: base.Add(300 * time.Hour),
+	}, scope)
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(list), 250)
 }
 
 func TestAttendeeRSVPAndReminderDispatch(t *testing.T) {

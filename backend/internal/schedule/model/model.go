@@ -112,10 +112,13 @@ func (Reminder) TableName() string { return "schedule_reminders" }
 
 type DueReminder struct {
 	Reminder
-	Title     string
-	StartAt   time.Time
-	OwnerID   uuid.UUID
-	CreatedBy uuid.UUID
+	Title           string
+	StartAt         time.Time
+	EndAt           time.Time
+	Recurrence      string
+	RecurrenceUntil *time.Time
+	OwnerID         uuid.UUID
+	CreatedBy       uuid.UUID
 }
 
 type NamedUser struct {

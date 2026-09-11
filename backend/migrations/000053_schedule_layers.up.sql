@@ -38,3 +38,18 @@ CREATE TABLE IF NOT EXISTS schedule_google_accounts (
     created_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+INSERT INTO notification_templates
+    (id, code, name, title_template, body_template, channels, category, variables_schema, status)
+VALUES (
+    uuid_generate_v4(),
+    'schedule_reminder',
+    '日程提醒',
+    '日程提醒：{{.title}}',
+    '「{{.title}}」将于 {{.start_at}} 开始（提前 {{.minutes}} 分钟）。',
+    '["in_app","websocket","email"]',
+    'schedule',
+    '{"title":"string","start_at":"string","minutes":"string"}'::jsonb,
+    0
+)
+ON CONFLICT (code) DO NOTHING;
