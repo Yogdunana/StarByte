@@ -3,7 +3,7 @@
 # 依赖：bash + docker compose。不打印 .env 密钥值。
 set -euo pipefail
 
-VERSION="1.0.0"
+VERSION="1.0.1"
 CONF_FILE="/etc/starbyte.conf"
 
 usage() {
@@ -314,6 +314,12 @@ cmd_env_check() {
     info "未设置 MINIO_IMAGE（compose 默认 minio/minio:latest）"
   fi
 
+  if env_has_key CAS_AUTHSERVER_IP; then
+    ok "已设置: CAS_AUTHSERVER_IP"
+  else
+    info "未设置 CAS_AUTHSERVER_IP（compose extra_hosts 默认 10.100.14.250）"
+  fi
+
   if [[ "$missing" -gt 0 || "$empty" -gt 0 ]]; then
     err "env-check 未通过（缺少 ${missing}，空值 ${empty}）"
     exit 1
@@ -374,6 +380,26 @@ cmd_backup() {
 
   log "说明: $notes"
   log "volume / MinIO 路径见该说明文件（未打包对象存储二进制，请另行复制卷）。"
+}
+
+# RFC1918 IPv4。IPv6 / 公网地址视为非内网（校园 CAS 不可走 2001:250:…）
+is_private_ipv4() {
+  local ip="$1"
+  case "$ip" in
+    10.*|192.168.*) return 0 ;;
+    172.1[6-9].*|172.2[0-9].*|172.3[0-1].*) return 0 ;;
+  esac
+  return 1
+}
+
+# 尽力从运行中的 backend 取出 authserver 解析结果（不打印密钥）
+backend_authserver_addrs() {
+  local out=""
+  out="$(docker exec starbyte-backend grep -E 'authserver\.smbu\.edu\.cn' /etc/hosts 2>/dev/null | awk '{print $1}' || true)"
+  if [[ -z "$out" ]]; then
+    out="$(docker exec starbyte-backend getent hosts authserver.smbu.edu.cn 2>/dev/null | awk '{print $1}' || true)"
+  fi
+  printf '%s' "$out"
 }
 
 listening_on() {
@@ -460,6 +486,26 @@ cmd_doctor() {
       warn "CAS_ENABLED 不是 true，登录页可能没有「学校统一认证」"
     else
       ok "CAS_ENABLED=true"
+    fi
+  fi
+  if grep -q 'extra_hosts' "$ROOT/deploy/docker-compose.yml" \
+    && grep -q 'authserver.smbu.edu.cn' "$ROOT/deploy/docker-compose.yml"; then
+    ok "compose 已写入 authserver extra_hosts（CAS_AUTHSERVER_IP 默认 10.100.14.250）"
+  else
+    warn "compose 缺少 authserver extra_hosts：容器可能解析到 IPv6，CAS callback 超时/502"
+    issues=$((issues + 1))
+  fi
+  if command -v docker >/dev/null 2>&1 \
+    && docker inspect -f '{{.State.Status}}' starbyte-backend 2>/dev/null | grep -qx running; then
+    local addr
+    addr="$(backend_authserver_addrs | head -n1 || true)"
+    if [[ -z "$addr" ]]; then
+      info "backend 内未能解析 authserver.smbu.edu.cn（可选检查，可 recreate 后再看）"
+    elif is_private_ipv4 "$addr"; then
+      ok "backend 将 authserver 解析到内网 IPv4"
+    else
+      warn "backend 将 authserver 解析为非内网地址（常见为公网 IPv6）。CAS callback 会卡住/502；设 CAS_AUTHSERVER_IP 后 starbyte rebuild backend"
+      issues=$((issues + 1))
     fi
   fi
 

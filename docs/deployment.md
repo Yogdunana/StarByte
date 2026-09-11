@@ -11,7 +11,7 @@
 1. **安装 Docker Engine + Compose 插件**（发行版官方源或学校镜像）。确认 `docker compose version` 可用。
 2. **（可选）配置 registry-mirrors**，见下方「daemon.json」。先 `docker pull hello-world` 自测，**不要**把未验证的镜像站写进 compose。
 3. **取得代码**：`git clone`，或把发布 zip 解到目标目录。若用 zip 覆盖已有目录：`bash deploy/update-from-zip.sh /path/to/StarByte.zip`（会保留 `deploy/.env`，且**绝不**触碰 named volumes）。
-4. **复制环境变量**：`cp deploy/.env.example deploy/.env`，改密码与 `JWT_SECRET`。内网保持 `SKIP_BUCKET_CREATE=true`。
+4. **复制环境变量**：`cp deploy/.env.example deploy/.env`，改密码与 `JWT_SECRET`。内网保持 `SKIP_BUCKET_CREATE=true`。`CAS_AUTHSERVER_IP` 默认 `10.100.14.250`（写入 backend `extra_hosts`）。
 5. **恢复数据（若有导出）**：先 `up` 出 postgres/minio，再导入 SQL / 拷回 MinIO 数据，见「数据库备份与恢复」。
 6. **构建并启动**：`docker compose -f deploy/docker-compose.yml up -d --build`
 7. **首次建桶**：`SKIP_BUCKET_CREATE=true` 时后端不会自动建桶。在 MinIO 控制台（或 `mc`）**手动创建一次** `starbyte` 桶。
@@ -143,7 +143,7 @@ echo "STARBYTE_HOME=$(pwd)" | sudo tee /etc/starbyte.conf
 | `starbyte rebuild [backend\|frontend\|all]` | `build` + `up --no-deps --force-recreate`，避免顺带强拉 MinIO/Postgres |
 | `starbyte env-check` | 只检查 `deploy/.env` **键名**是否存在且非空，不打印值 |
 | `starbyte backup` | Postgres dump 到 `/var/backups/starbyte/`（不可写则 `./backups/`），并提示 volume / MinIO 路径 |
-| `starbyte doctor` | 校园部署常见问题：镜像站 403、`SKIP_BUCKET_CREATE`、CAS 回调、80 端口 |
+| `starbyte doctor` | 校园部署常见问题：镜像站 403、`SKIP_BUCKET_CREATE`、CAS 回调 / authserver 内网解析、80 端口 |
 
 `rebuild` 对应生产上已验证的绕过方式：镜像站 403 时不要对 MinIO 做 `compose up` 全量拉取。
 
@@ -154,7 +154,7 @@ bash deploy/update-from-zip.sh /path/to/StarByte-main.zip
 starbyte rebuild all
 ```
 
-脚本会把 zip 解到仓库上，**始终保留现有 `deploy/.env`**，且不执行任何 `docker volume` / `down -v`。
+脚本会把 zip 解到仓库上，**始终保留现有 `deploy/.env`**，且不执行任何 `docker volume` / `down -v`。`deploy/docker-compose.yml` **会被 zip 覆盖**（不要靠机器上手改 compose）。CAS 所需的 `extra_hosts` 已写进仓库 compose，zip 更新后 `rebuild` 即可保持 `authserver.smbu.edu.cn` → `CAS_AUTHSERVER_IP`。
 
 ## 手动部署
 
@@ -170,7 +170,8 @@ starbyte rebuild all
 - **漏测没有域名**：用校园网 IP 打开系统（`http://<服务器IP>/`）。`service` / 回跳按访问 Host 自动拼，信息化备案：
   `http://<服务器IP>/api/v1/auth/cas/callback`
 - 有 `starbyte.smbu.edu.cn` 后再改备案，或设 `CAS_SERVICE_URL` / `CAS_FRONTEND_URL`
-- 环境变量见 `backend/.env.example` 的 `CAS_*`
+- **容器解析**：backend 带 `extra_hosts`，`authserver.smbu.edu.cn` → `${CAS_AUTHSERVER_IP:-10.100.14.250}`。校园 DNS 常返回不可达 IPv6，callback 会 wget 超时约 20s（nginx 502）。改 IP 后必须 `starbyte rebuild backend`（或 `--force-recreate`）才会写入容器 `/etc/hosts`
+- 环境变量见 `deploy/.env.example` / `backend/.env.example` 的 `CAS_*`
 - 外网 `starbyte.com` 检测校内 IP 后 301 属二期
 
 ## Nginx 反向代理（示例）

@@ -114,6 +114,11 @@ services:
       # 内网镜像内 mc 为占位脚本；默认跳过自动建桶，请手动创建一次
       SKIP_BUCKET_CREATE: ${SKIP_BUCKET_CREATE:-true}
       TZ: Asia/Shanghai
+    # 校园 DNS 常把 authserver 解析到不可达 IPv6（如 2001:250:…），
+    # 导致容器内 wget CAS 超时、/api/v1/auth/cas/callback 卡住约 20s（nginx 502）。
+    # zip 更新会覆盖本文件，故把 extra_hosts 写进仓库，勿再靠机器上手改。
+    extra_hosts:
+      - "authserver.smbu.edu.cn:${CAS_AUTHSERVER_IP:-10.100.14.250}"
     ports:
       - "8080:8080"
     depends_on:

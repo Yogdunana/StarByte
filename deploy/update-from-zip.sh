@@ -12,6 +12,7 @@ usage() {
   • 保留已有 deploy/.env
   • 不触碰 Docker named volumes（postgres/redis/minio 数据）
   • 不删除 .git
+  • deploy/docker-compose.yml 会被 zip 覆盖（CAS extra_hosts 已在仓库 compose 内）
 
 zip 可以是 GitHub 的 Source code（顶层带 StarByte-main/ 目录），
 也可以是仓库根文件直接打包。
@@ -97,9 +98,16 @@ else
   echo "目录中原先没有 deploy/.env（未新建密钥文件）"
 fi
 
+if ! grep -q 'extra_hosts' "$COMPOSE_FILE" \
+  || ! grep -q 'authserver.smbu.edu.cn' "$COMPOSE_FILE"; then
+  echo "警告: 更新后的 deploy/docker-compose.yml 没有 authserver extra_hosts。" >&2
+  echo "  CAS callback 可能再解析到 IPv6 并 502。请换含本仓库 compose 的 zip，或手工加回 extra_hosts。" >&2
+fi
+
 cat <<EOF
 
 代码已更新。Docker named volumes 未被本脚本触碰。
+deploy/docker-compose.yml 已按 zip 覆盖（CAS extra_hosts 应已在文件内）。
 下一步（按需）：
   starbyte rebuild all
   # 或 docker compose -f deploy/docker-compose.yml up -d --build --no-deps --force-recreate backend frontend
