@@ -134,7 +134,35 @@ func (s *admissionService) snapshot(ctx context.Context, store repo.AdmissionRep
 			}
 		}
 	}
-	return &dto.AdmissionResponse{Objections: objections, AllowedObjectionActions: objectionActions, ApplicationID: app.ID.String(), Stage: app.AdmissionStage, Revision: app.AdmissionRevision, HistoricalReviewRequired: app.HistoricalReviewRequired, Signatures: signatures, AllowedRoles: allowed, InterviewCompleted: complete}, nil
+	staff := app.UserID != actor.ID
+	return &dto.AdmissionResponse{Objections: objectionViews(objections, staff), AllowedObjectionActions: objectionActions, ApplicationID: app.ID.String(), Stage: app.AdmissionStage, Revision: app.AdmissionRevision, HistoricalReviewRequired: app.HistoricalReviewRequired, Signatures: signatures, AllowedRoles: allowed, InterviewCompleted: complete}, nil
+}
+
+// objectionViews keeps probation-objection internals off the applicant snapshot.
+// Officers still see who raised it and the review comments.
+func objectionViews(items []model.AdmissionObjection, staff bool) []dto.AdmissionObjectionView {
+	out := make([]dto.AdmissionObjectionView, 0, len(items))
+	for _, item := range items {
+		view := dto.AdmissionObjectionView{
+			ID:        item.ID.String(),
+			Status:    item.Status,
+			CreatedAt: item.CreatedAt,
+		}
+		if staff {
+			view.RaisedBy = item.RaisedBy.String()
+			view.Reason = item.Reason
+			view.CenterComment = item.CenterComment
+			view.FinalComment = item.FinalComment
+			if item.CenterReviewerID != nil {
+				view.CenterReviewerID = item.CenterReviewerID.String()
+			}
+			if item.FinalReviewerID != nil {
+				view.FinalReviewerID = item.FinalReviewerID.String()
+			}
+		}
+		out = append(out, view)
+	}
+	return out
 }
 func (s *admissionService) Sign(ctx context.Context, viewer, id uuid.UUID, req *dto.SignAdmissionRequest) (*dto.AdmissionResponse, error) {
 	var out *dto.AdmissionResponse

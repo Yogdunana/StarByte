@@ -35,6 +35,28 @@ func TestAdmissionAuthority(t *testing.T) {
 		})
 	}
 }
+func TestApplicantSnapshotRedactsObjectionInternals(t *testing.T) {
+	raised, reviewer := uuid.New(), uuid.New()
+	items := []model.AdmissionObjection{{
+		ID: uuid.New(), RaisedBy: raised, Reason: "内部理由", Status: "center_review",
+		CenterReviewerID: &reviewer, CenterComment: "中心意见", FinalComment: "会长意见",
+	}}
+	applicant := objectionViews(items, false)
+	require.Len(t, applicant, 1)
+	require.Equal(t, "center_review", applicant[0].Status)
+	require.Empty(t, applicant[0].RaisedBy)
+	require.Empty(t, applicant[0].Reason)
+	require.Empty(t, applicant[0].CenterComment)
+	require.Empty(t, applicant[0].FinalComment)
+	require.Empty(t, applicant[0].CenterReviewerID)
+
+	staff := objectionViews(items, true)
+	require.Equal(t, "内部理由", staff[0].Reason)
+	require.Equal(t, raised.String(), staff[0].RaisedBy)
+	require.Equal(t, "中心意见", staff[0].CenterComment)
+	require.Equal(t, reviewer.String(), staff[0].CenterReviewerID)
+}
+
 func TestCalendarMonthProbation(t *testing.T) {
 	for _, test := range [][2]string{{"2026-01-31", "2026-02-28"}, {"2028-01-31", "2028-02-29"}, {"2026-12-31", "2027-01-31"}} {
 		start, err := time.Parse("2006-01-02", test[0])

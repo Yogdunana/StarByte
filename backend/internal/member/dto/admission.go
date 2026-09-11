@@ -1,6 +1,10 @@
 package dto
 
-import "github.com/Yogdunana/StarByte/backend/internal/member/model"
+import (
+	"time"
+
+	"github.com/Yogdunana/StarByte/backend/internal/member/model"
+)
 
 type SignAdmissionRequest struct {
 	Stage            string   `json:"stage" binding:"required"`
@@ -12,8 +16,20 @@ type SignAdmissionRequest struct {
 	DelegationReason string   `json:"delegation_reason" binding:"max=1000"`
 }
 
+type AdmissionObjectionView struct {
+	ID               string    `json:"id"`
+	Status           string    `json:"status"`
+	CreatedAt        time.Time `json:"created_at"`
+	RaisedBy         string    `json:"raised_by,omitempty"`
+	Reason           string    `json:"reason,omitempty"`
+	CenterReviewerID string    `json:"center_reviewer_id,omitempty"`
+	CenterComment    string    `json:"center_comment,omitempty"`
+	FinalReviewerID  string    `json:"final_reviewer_id,omitempty"`
+	FinalComment     string    `json:"final_comment,omitempty"`
+}
+
 type AdmissionResponse struct {
-	Objections               []model.AdmissionObjection `json:"objections"`
+	Objections               []AdmissionObjectionView   `json:"objections"`
 	AllowedObjectionActions  []string                   `json:"allowed_objection_actions"`
 	ApplicationID            string                     `json:"application_id"`
 	Revision                 int                        `json:"revision"`

@@ -60,7 +60,7 @@ export default function AdmissionPanel({ id, officer, editable, onChanged }: Pro
     </>}
     {!!state.objections?.length && <>
       <h4>候补期异议</h4>
-      {state.objections.map(item => <Alert key={item.id} type={item.status === 'dismiss' ? 'success' : 'warning'} showIcon message={{ center_review: '等待中心复核', president_review: '等待会长裁决', uphold: '异议成立，终止录用', dismiss: '异议不成立，继续候补' }[item.status] || item.status} description={<><p>{item.reason}</p>{item.center_comment && <p>中心复核：{item.center_comment}</p>}{item.final_comment && <p>会长意见：{item.final_comment}</p>}</>} />)}
+      {state.objections.map(item => <Alert key={item.id} type={item.status === 'dismiss' ? 'success' : 'warning'} showIcon message={{ center_review: '等待中心复核', president_review: '等待会长裁决', uphold: '异议成立，终止录用', dismiss: '异议不成立，继续候补' }[item.status] || item.status} description={item.reason || item.center_comment || item.final_comment ? <><p>{item.reason}</p>{item.center_comment && <p>中心复核：{item.center_comment}</p>}{item.final_comment && <p>会长意见：{item.final_comment}</p>}</> : undefined} />)}
     </>}
     {editable && !!state.allowed_objection_actions?.length && <Form form={objectionForm} layout="vertical" className={styles.form} onFinish={values => { void submitObjection(values).catch(() => undefined); }}>
       <h4>候补期异议处理</h4>
