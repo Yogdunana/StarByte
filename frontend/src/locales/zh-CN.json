@@ -40,7 +40,13 @@
     "emailRequired": "请输入邮箱",
     "emailInvalid": "请输入有效的邮箱地址",
     "passwordMin": "密码至少 6 个字符",
-    "passwordMismatch": "两次输入的密码不一致"
+    "passwordMismatch": "两次输入的密码不一致",
+    "cas": "学校统一认证",
+    "casHint": "使用深北莫统一身份认证登录（校园网）",
+    "casProcessing": "正在完成统一认证…",
+    "casFail": "统一认证失败，请重试或使用账号密码",
+    "or": "或",
+    "casError": "统一认证未完成，请重试"
   },
   "topbar": {
     "profile": "个人中心",

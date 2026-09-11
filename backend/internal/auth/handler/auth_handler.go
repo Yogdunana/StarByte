@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"net/http"
+	"strings"
+
 	"github.com/Yogdunana/StarByte/backend/internal/auth/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/auth/service"
 	rbacService "github.com/Yogdunana/StarByte/backend/internal/rbac/service"
@@ -207,6 +210,111 @@ func (h *AuthHandler) OAuthLogin(c *gin.Context) {
 	response.NotImplemented(c, "第三方 OAuth 登录功能暂未开通: "+provider)
 }
 
+// CASStatus handles GET /api/v1/auth/cas/status
+// @Summary 学校统一认证是否开通
+// @Tags 认证
+// @Produce json
+// @Success 200 {object} response.Response{data=dto.CASStatusResponse}
+// @Router /auth/cas/status [get]
+func (h *AuthHandler) CASStatus(c *gin.Context) {
+	if h.authService == nil {
+		response.OK(c, dto.CASStatusResponse{Enabled: false})
+		return
+	}
+	response.OK(c, h.authService.CASStatus())
+}
+
+// CASLogin handles GET /api/v1/auth/cas/login
+// @Summary 跳转学校 CAS 登录
+// @Description 重定向到 authserver.smbu.edu.cn，service 为备案回调地址
+// @Tags 认证
+// @Param redirect query string false "登录成功后的前端相对路径"
+// @Success 302 {string} string "Redirect"
+// @Router /auth/cas/login [get]
+func (h *AuthHandler) CASLogin(c *gin.Context) {
+	if h.authService == nil {
+		response.NotImplemented(c, "学校统一认证暂未开通")
+		return
+	}
+	origin := requestPublicOrigin(c)
+	start, err := h.authService.BuildCASLoginURL(c.Request.Context(), c.Query("redirect"), origin)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	secure := strings.HasPrefix(origin, "https://")
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     casStateCookie,
+		Value:    start.State,
+		Path:     "/",
+		MaxAge:   600,
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: http.SameSiteLaxMode,
+	})
+	c.Redirect(http.StatusFound, start.Location)
+}
+
+// CASCallback handles GET /api/v1/auth/cas/callback
+// @Summary CAS 验票回调
+// @Description 校验 Service Ticket 后重定向到前端 /login/cas?code=
+// @Tags 认证
+// @Param ticket query string true "CAS Service Ticket"
+// @Param state query string true "登录态"
+// @Success 302 {string} string "Redirect"
+// @Router /auth/cas/callback [get]
+func (h *AuthHandler) CASCallback(c *gin.Context) {
+	if h.authService == nil {
+		response.NotImplemented(c, "学校统一认证暂未开通")
+		return
+	}
+	state := c.Query("state")
+	if ck, err := c.Request.Cookie(casStateCookie); err == nil && ck.Value != "" {
+		state = ck.Value
+	}
+	http.SetCookie(c.Writer, &http.Cookie{Name: casStateCookie, Path: "/", MaxAge: -1})
+	loc, err := h.authService.CompleteCASCallback(
+		c.Request.Context(),
+		c.Query("ticket"),
+		state,
+		c.ClientIP(),
+		c.GetHeader("User-Agent"),
+		requestPublicOrigin(c),
+	)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	c.Redirect(http.StatusFound, loc)
+}
+
+// CASExchange handles POST /api/v1/auth/cas/exchange
+// @Summary 兑换 CAS 一次性登录码
+// @Tags 认证
+// @Accept json
+// @Produce json
+// @Param request body dto.CASExchangeRequest true "一次性 code"
+// @Success 200 {object} response.Response{data=dto.CASExchangeResponse}
+// @Failure 400 {object} response.Response
+// @Router /auth/cas/exchange [post]
+func (h *AuthHandler) CASExchange(c *gin.Context) {
+	if h.authService == nil {
+		response.NotImplemented(c, "学校统一认证暂未开通")
+		return
+	}
+	var req dto.CASExchangeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+	result, err := h.authService.ExchangeCASCode(c.Request.Context(), req.Code)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.OK(c, result)
+}
+
 // RegisterRoutes registers all authentication routes.
 // public routes (no auth): login, refresh, wechat, oauth
 // protected routes (auth): logout, me, password, sessions
@@ -232,6 +340,14 @@ func RegisterRoutes(
 			authGroup.POST("/wechat/qrcode", handler.WechatQRCode)
 			authGroup.POST("/wechat/callback", handler.WechatCallback)
 			authGroup.POST("/oauth/:provider", handler.OAuthLogin)
+			authGroup.GET("/cas/status", handler.CASStatus)
+			authGroup.GET("/cas/login", handler.CASLogin)
+			authGroup.GET("/cas/callback", handler.CASCallback)
+			if loginRateLimiter != nil {
+				authGroup.POST("/cas/exchange", loginRateLimiter, handler.CASExchange)
+			} else {
+				authGroup.POST("/cas/exchange", handler.CASExchange)
+			}
 		}
 	}
 
@@ -244,4 +360,29 @@ func RegisterRoutes(
 			registerSessionRoutes(authProtected, handler, cacheService)
 		}
 	}
+}
+
+const casStateCookie = "starbyte_cas_state"
+
+func requestPublicOrigin(c *gin.Context) string {
+	if c == nil || c.Request == nil {
+		return ""
+	}
+	proto := strings.TrimSpace(c.GetHeader("X-Forwarded-Proto"))
+	if i := strings.Index(proto, ","); i >= 0 {
+		proto = strings.TrimSpace(proto[:i])
+	}
+	if proto == "" {
+		if c.Request.TLS != nil {
+			proto = "https"
+		} else {
+			proto = "http"
+		}
+	}
+	// 不读客户端 X-Forwarded-Host：前端 nginx 不会覆盖它，伪造 Host 会把一次性 code 重定向走。
+	host := strings.TrimSpace(c.Request.Host)
+	if proto == "" || host == "" {
+		return ""
+	}
+	return proto + "://" + host
 }

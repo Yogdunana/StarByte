@@ -29,6 +29,10 @@ type AuthService interface {
 	GetUserSessions(ctx context.Context, userID string) (*dto.UserSessionsResponse, error)
 	KickSession(ctx context.Context, tokenID string) error
 	KickUserSessions(ctx context.Context, userID string) error
+	CASStatus() dto.CASStatusResponse
+	BuildCASLoginURL(ctx context.Context, redirect, publicOrigin string) (*dto.CASLoginStart, error)
+	CompleteCASCallback(ctx context.Context, ticket, state, ip, userAgent, publicOrigin string) (string, error)
+	ExchangeCASCode(ctx context.Context, code string) (*dto.CASExchangeResponse, error)
 }
 
 type authService struct {
@@ -38,10 +42,15 @@ type authService struct {
 	permCacheSvc rbacService.PermissionCacheService
 	eventBus     *events.EventBus
 	identity     MemberIdentityLookup
+	cas          *config.CASConfig
+	casStore     repo.CASTicketStore
+	casValidator TicketValidator
+	casRole      RoleAssigner
 }
 
 // NewAuthService creates a new authentication service.
 // identity 可为 nil（无档案时登录仍可用，学号登录与档案字段为空）。
+// cas 可为 nil（学校统一认证关闭）。
 func NewAuthService(
 	authRepo repo.AuthRepo,
 	userRepo userRepo.UserRepo,
@@ -49,8 +58,9 @@ func NewAuthService(
 	permCacheSvc rbacService.PermissionCacheService,
 	eventBus *events.EventBus,
 	identity MemberIdentityLookup,
+	cas *CASDeps,
 ) AuthService {
-	return &authService{
+	svc := &authService{
 		authRepo:     authRepo,
 		userRepo:     userRepo,
 		jwtConfig:    jwtConfig,
@@ -58,6 +68,13 @@ func NewAuthService(
 		eventBus:     eventBus,
 		identity:     identity,
 	}
+	if cas != nil {
+		svc.cas = cas.Config
+		svc.casStore = cas.Store
+		svc.casValidator = cas.Validator
+		svc.casRole = cas.AssignRole
+	}
+	return svc
 }
 
 // Login authenticates a user and returns an access token + refresh token pair.
@@ -66,13 +83,16 @@ func (s *authService) Login(ctx context.Context, req *dto.LoginRequest, ip, user
 	if err != nil {
 		return nil, err
 	}
+	return s.issueSession(ctx, user, ip, userAgent)
+}
+
+func (s *authService) issueSession(ctx context.Context, user *model.User, ip, userAgent string) (*dto.LoginResponse, error) {
 	userUUID, _ := uuid.Parse(user.ID.String())
 	roles, permissions, err := s.getUserRolesAndPermissions(ctx, userUUID)
 	if err != nil {
 		return nil, fmt.Errorf("get roles and permissions: %w", err)
 	}
 
-	// 7. Generate access token
 	accessToken, _, err := authmiddleware.GenerateAccessToken(
 		user.ID.String(), user.Username, roles, permissions, s.jwtConfig,
 	)
@@ -80,7 +100,6 @@ func (s *authService) Login(ctx context.Context, req *dto.LoginRequest, ip, user
 		return nil, fmt.Errorf("generate access token: %w", err)
 	}
 
-	// 8. Generate and store refresh token (random string in Redis)
 	claims, _ := authmiddleware.ParseToken(accessToken, s.jwtConfig)
 	accessJTI := ""
 	if claims != nil {
@@ -97,13 +116,8 @@ func (s *authService) Login(ctx context.Context, req *dto.LoginRequest, ip, user
 		_ = s.authRepo.StoreSession(ctx, user.ID.String(), accessJTI, ip, userAgent, accessTTL(s.jwtConfig))
 	}
 
-	// 10. Update last login info
 	_ = s.userRepo.UpdateLastLogin(ctx, user.ID, ip)
-
-	// 11. Publish login audit event
 	s.publishLogin(ctx, user, ip, userAgent)
-
-	// 12. Build response
 	userInfo := s.buildUserInfo(ctx, user, roles, permissions)
 
 	return &dto.LoginResponse{

@@ -37,6 +37,29 @@ type OAuthLoginRequest struct {
 	State string `json:"state"`
 }
 
+// CASExchangeRequest 用一次性 code 换取系统 JWT
+type CASExchangeRequest struct {
+	Code string `json:"code" binding:"required"`
+}
+
+// CASStatusResponse 学校统一认证是否开通
+type CASStatusResponse struct {
+	Enabled bool `json:"enabled"`
+}
+
+// CASLoginStart 跳转学校 CAS 所需的 Location 与短时 state（写入 Cookie）
+type CASLoginStart struct {
+	Location string `json:"location"`
+	State    string `json:"state"`
+	Service  string `json:"service"`
+}
+
+// CASExchangeResponse 兑换 CAS 回调 code 后的登录结果
+type CASExchangeResponse struct {
+	LoginResponse
+	Redirect string `json:"redirect"`
+}
+
 // ========== Response DTOs ==========
 
 // LoginResponse 登录响应
