@@ -217,6 +217,7 @@ func (h *AuthHandler) OAuthLogin(c *gin.Context) {
 // @Success 200 {object} response.Response{data=dto.CASStatusResponse}
 // @Router /auth/cas/status [get]
 func (h *AuthHandler) CASStatus(c *gin.Context) {
+	setCASReferrerPolicy(c)
 	if h.authService == nil {
 		response.OK(c, dto.CASStatusResponse{Enabled: false})
 		return
@@ -232,6 +233,7 @@ func (h *AuthHandler) CASStatus(c *gin.Context) {
 // @Success 302 {string} string "Redirect"
 // @Router /auth/cas/login [get]
 func (h *AuthHandler) CASLogin(c *gin.Context) {
+	setCASReferrerPolicy(c)
 	if h.authService == nil {
 		response.NotImplemented(c, "学校统一认证暂未开通")
 		return
@@ -252,6 +254,7 @@ func (h *AuthHandler) CASLogin(c *gin.Context) {
 		Secure:   secure,
 		SameSite: http.SameSiteLaxMode,
 	})
+	// Gin 的 302 会附带一段 <a href> HTML；Referrer-Policy 同时约束自动跳转与该回退页。
 	c.Redirect(http.StatusFound, start.Location)
 }
 
@@ -264,6 +267,7 @@ func (h *AuthHandler) CASLogin(c *gin.Context) {
 // @Success 302 {string} string "Redirect"
 // @Router /auth/cas/callback [get]
 func (h *AuthHandler) CASCallback(c *gin.Context) {
+	setCASReferrerPolicy(c)
 	if h.authService == nil {
 		response.NotImplemented(c, "学校统一认证暂未开通")
 		return
@@ -298,6 +302,7 @@ func (h *AuthHandler) CASCallback(c *gin.Context) {
 // @Failure 400 {object} response.Response
 // @Router /auth/cas/exchange [post]
 func (h *AuthHandler) CASExchange(c *gin.Context) {
+	setCASReferrerPolicy(c)
 	if h.authService == nil {
 		response.NotImplemented(c, "学校统一认证暂未开通")
 		return
@@ -362,7 +367,16 @@ func RegisterRoutes(
 	}
 }
 
-const casStateCookie = "starbyte_cas_state"
+const (
+	casStateCookie    = "starbyte_cas_state"
+	casReferrerPolicy = "no-referrer"
+)
+
+// setCASReferrerPolicy 禁止浏览器把本站 Origin 当作 Referer 带给 authserver。
+// 校园网 openresty 对带 Referer: http://<站点>/ 的 /authserver/login 返回 404。
+func setCASReferrerPolicy(c *gin.Context) {
+	c.Header("Referrer-Policy", casReferrerPolicy)
+}
 
 func requestPublicOrigin(c *gin.Context) string {
 	if c == nil || c.Request == nil {
