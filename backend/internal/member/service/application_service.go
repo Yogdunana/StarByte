@@ -2,17 +2,22 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/Yogdunana/StarByte/backend/internal/member/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/member/model"
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/google/uuid"
 )
 
 func (s *memberService) Submit(ctx context.Context, userID uuid.UUID, req *dto.SubmitApplicationRequest) (*dto.ApplicationResponse, error) {
+	if s.admission != nil {
+		return s.admission.SubmitApplication(ctx, userID, req)
+	}
 	open, err := s.apps.HasOpenApplication(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("check open application: %w", err)
@@ -22,6 +27,7 @@ func (s *memberService) Submit(ctx context.Context, userID uuid.UUID, req *dto.S
 	}
 	now := time.Now()
 	app := &model.MemberApplication{
+		AdmissionVersion: 2, AdmissionRevision: 1, AdmissionStage: model.AdmissionMaterials, StageEnteredAt: now,
 		ID:             uuid.New(),
 		UserID:         userID,
 		Type:           int16(req.ApplicantType),
@@ -50,6 +56,9 @@ func (s *memberService) Submit(ctx context.Context, userID uuid.UUID, req *dto.S
 }
 
 func (s *memberService) Resubmit(ctx context.Context, userID, id uuid.UUID, req *dto.ResubmitApplicationRequest) (*dto.ApplicationResponse, error) {
+	if s.admission != nil {
+		return s.admission.ResubmitApplication(ctx, userID, id, req)
+	}
 	app, err := s.apps.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get application: %w", err)
@@ -70,8 +79,11 @@ func (s *memberService) Resubmit(ctx context.Context, userID, id uuid.UUID, req 
 	applyResubmit(app, req)
 	from := app.Status
 	app.Status = next
+	app.AdmissionRevision++
+	app.AdmissionStage = model.AdmissionMaterials
+	app.StageEnteredAt = time.Now()
 	app.CurrentStage = stageLabel(next)
-	app.RequiredFields = nil
+	app.RequiredFields = model.JSONStrings{}
 	app.UpdatedAt = time.Now()
 	if err := s.apps.Update(ctx, app); err != nil {
 		return nil, fmt.Errorf("update application: %w", err)
@@ -113,13 +125,15 @@ func (s *memberService) MyApplications(ctx context.Context, userID uuid.UUID) ([
 }
 
 func (s *memberService) ApplicationHistory(ctx context.Context, viewer, id uuid.UUID, scope *rbacModel.DataScopeCondition) ([]dto.ApplicationHistoryResponse, error) {
-	if _, err := s.GetApplication(ctx, viewer, id, scope); err != nil {
+	app, err := s.GetApplication(ctx, viewer, id, scope)
+	if err != nil {
 		return nil, err
 	}
 	rows, err := s.apps.ListHistory(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("list application history: %w", err)
 	}
+	applicant := app.UserID == viewer.String()
 	out := make([]dto.ApplicationHistoryResponse, 0, len(rows))
 	for _, h := range rows {
 		item := dto.ApplicationHistoryResponse{
@@ -132,9 +146,29 @@ func (s *memberService) ApplicationHistory(ctx context.Context, viewer, id uuid.
 		if h.OperatorID != nil {
 			item.OperatorID = h.OperatorID.String()
 		}
+		if action := objectionHistoryAction(h.Extra); action != "" {
+			item.Comment = publicObjectionHistory(action)
+			if applicant {
+				item.OperatorID = ""
+			}
+		}
 		out = append(out, item)
 	}
 	return out, nil
+}
+
+func objectionHistoryAction(extra []byte) string {
+	if len(extra) == 0 {
+		return ""
+	}
+	var payload struct {
+		ObjectionID string `json:"objection_id"`
+		Action      string `json:"action"`
+	}
+	if err := json.Unmarshal(extra, &payload); err != nil || payload.ObjectionID == "" {
+		return ""
+	}
+	return payload.Action
 }
 
 func (s *memberService) ListDepartments(ctx context.Context) ([]dto.DepartmentOption, error) {

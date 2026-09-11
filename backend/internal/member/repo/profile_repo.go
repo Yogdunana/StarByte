@@ -4,11 +4,12 @@ import (
 	"context"
 	"strings"
 
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+
 	"github.com/Yogdunana/StarByte/backend/internal/member/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/member/model"
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
-	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 // ProfileRepo 人员档案数据访问。
@@ -23,7 +24,7 @@ type ProfileRepo interface {
 	List(ctx context.Context, req *dto.ListProfileRequest, scope *rbacModel.DataScopeCondition) ([]model.ProfileWithNames, int64, error)
 	CreateHistories(ctx context.Context, rows []model.ProfileHistory) error
 	ListHistory(ctx context.Context, profileID uuid.UUID) ([]model.ProfileHistory, error)
-	Stats(ctx context.Context, groupBy string) ([]model.StatBucket, error)
+	Stats(ctx context.Context, groupBy string, scope *rbacModel.DataScopeCondition) ([]model.StatBucket, error)
 }
 
 type profileRepo struct {
@@ -164,8 +165,8 @@ func (r *profileRepo) ListHistory(ctx context.Context, profileID uuid.UUID) ([]m
 	return rows, err
 }
 
-func (r *profileRepo) Stats(ctx context.Context, groupBy string) ([]model.StatBucket, error) {
-	q := r.db.WithContext(ctx).Table("member_profiles AS p")
+func (r *profileRepo) Stats(ctx context.Context, groupBy string, scope *rbacModel.DataScopeCondition) ([]model.StatBucket, error) {
+	q := applyAppScope(r.db.WithContext(ctx).Table("member_profiles AS p"), scope)
 	var selectSQL, groupSQL string
 	switch groupBy {
 	case "grade":

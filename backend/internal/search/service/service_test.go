@@ -4,13 +4,14 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/search/dto"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/Yogdunana/StarByte/backend/pkg/search"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestSearchService_Resources(t *testing.T) {
@@ -79,7 +80,7 @@ func TestApplyScope_departmentAndAudit(t *testing.T) {
 	svc := NewSearchService(nil)
 	tasks, ok := svc.Lookup("tasks")
 	require.True(t, ok)
-	assert.Equal(t, "task", tasks.RBACResource)
+	assert.Equal(t, "task:read", tasks.RBACResource)
 
 	deptID := uuid.New()
 	viewer := uuid.New()
@@ -107,6 +108,6 @@ func TestApplyScope_departmentAndAudit(t *testing.T) {
 	assert.Equal(t, []any{viewer, viewer}, self.ExtraArgs)
 
 	denied := applyScope(tasks, &rbacModel.DataScopeCondition{Query: "1 = 0"}, viewer)
-	assert.Equal(t, "1 = 0", denied.ExtraWhere)
+	assert.Equal(t, "(deleted_at IS NULL) AND (1 = 0)", denied.ExtraWhere)
 	assert.Empty(t, denied.ExtraArgs)
 }

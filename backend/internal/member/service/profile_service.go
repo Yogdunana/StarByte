@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/Yogdunana/StarByte/backend/internal/member/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/member/model"
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/google/uuid"
 )
 
 func (s *memberService) ListProfiles(ctx context.Context, viewer uuid.UUID, req *dto.ListProfileRequest, scope *rbacModel.DataScopeCondition) ([]*dto.ProfileResponse, int64, error) {
@@ -55,6 +56,12 @@ func (s *memberService) UpdateProfileStatus(ctx context.Context, operator, id uu
 	if p == nil {
 		return nil, response.NewError(response.CodeMemberProfileGone, "档案不存在")
 	}
+	if !canAccessRecord(req.Scope, p.UserID, p.DepartmentID, operator) {
+		return nil, response.NewError(response.CodeMemberProfileDenied, "无权操作该档案")
+	}
+	if p.Status == model.ProfileProbation && req.Status == model.ProfileActive {
+		return nil, response.NewError(response.CodeMemberAppInvalid, "候补成员须完成候补期和异议流程，不能手动跳过转正")
+	}
 	from := p.Status
 	p.Status = req.Status
 	now := time.Now()
@@ -72,7 +79,7 @@ func (s *memberService) UpdateProfileStatus(ctx context.Context, operator, id uu
 	if err := s.profs.CreateHistories(ctx, diffs); err != nil {
 		return nil, fmt.Errorf("write profile history: %w", err)
 	}
-	return s.GetProfile(ctx, operator, id, nil)
+	return s.GetProfile(ctx, operator, id, req.Scope)
 }
 
 func (s *memberService) ProfileHistory(ctx context.Context, viewer, id uuid.UUID, scope *rbacModel.DataScopeCondition) ([]dto.ProfileHistoryResponse, error) {

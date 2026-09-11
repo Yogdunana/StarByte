@@ -1,15 +1,22 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Card, Input, Select, Space, Table, Tabs } from 'antd';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Button, Card, Grid, Input, Pagination, Select, Space, Table, Tabs } from 'antd';
 import { getApplicationList, getMyApplications } from '@/api/member';
 import type { MemberApplication, MemberApplicationStatus } from '@/types/api';
 import { usePermission } from '@/hooks/usePermission';
 import ApplicationForm from './ApplicationForm';
+import ApplicationCards from './ApplicationCards';
 import ReviewDrawer from './ReviewDrawer';
 import { buildApplicationColumns } from './applicationColumns';
 import MemberStats from '../stats/MemberStats';
-import '@/pages/internship/internship.css';
+import PageIntro from '@/components/PageIntro/PageIntro';
 
 const ApplicationPage: React.FC = () => {
+  const mobile = !Grid.useBreakpoint().md;
+  const mineRequest = useRef(0);
+  const listRequest = useRef(0);
+  const [mineError, setMineError] = useState(false);
+  const [listError, setListError] = useState(false);
+  const [mineLoading, setMineLoading] = useState(false);
   const canRead = usePermission('member:read');
   const canApprove = usePermission('member:approve');
   const [myList, setMyList] = useState<MemberApplication[]>([]);
@@ -25,13 +32,17 @@ const ApplicationPage: React.FC = () => {
   const [current, setCurrent] = useState<MemberApplication | null>(null);
 
   const loadMine = useCallback(async () => {
-    const rows = await getMyApplications();
-    setMyList(rows);
+    const request = ++mineRequest.current;
+    setMineLoading(true); setMineError(false);
+    try { const rows = await getMyApplications(); if (request === mineRequest.current) setMyList(rows); }
+    catch { if (request === mineRequest.current) setMineError(true); }
+    finally { if (request === mineRequest.current) setMineLoading(false); }
   }, []);
 
   const loadList = useCallback(async () => {
     if (!canRead) return;
-    setLoading(true);
+    const request = ++listRequest.current;
+    setLoading(true); setListError(false);
     try {
       const res = await getApplicationList({
         page,
@@ -39,19 +50,24 @@ const ApplicationPage: React.FC = () => {
         keyword: keyword || undefined,
         status,
       });
+      if (request !== listRequest.current) return;
       setList(res.list);
       setTotal(res.total);
-    } finally {
-      setLoading(false);
+    } catch { if (request === listRequest.current) setListError(true); } finally {
+      if (request === listRequest.current) setLoading(false);
     }
   }, [canRead, page, pageSize, keyword, status]);
 
   useEffect(() => {
     void loadMine();
+    const sequence = mineRequest;
+    return () => { sequence.current++; };
   }, [loadMine]);
 
   useEffect(() => {
     void loadList();
+    const sequence = listRequest;
+    return () => { sequence.current++; };
   }, [loadList]);
 
   const open = (record: MemberApplication, mode: 'view' | 'review' | 'resubmit') => {
@@ -68,12 +84,7 @@ const ApplicationPage: React.FC = () => {
 
   return (
     <div>
-      <div className="recruit-hero">
-        <div>
-          <h2>2026 秋季招新 · 入会申请</h2>
-          <p>欢迎加入计算机协会。会员可直接提交申请；干事需经过一面 / 二面。材料提交后可在「我的申请」跟踪进度。</p>
-        </div>
-      </div>
+      <PageIntro eyebrow="JOIN STARBYTE / 成员与招新" title="找到你的团队，一起开始" description="普通会员提交资料后审核；干事参加面试并经过正式签字审批。提交后，可在这里跟踪每一步。" />
     <Card title="入会申请" styles={{ body: { paddingTop: 12 } }}>
       <Tabs
         items={[
@@ -85,8 +96,10 @@ const ApplicationPage: React.FC = () => {
           {
             key: 'mine',
             label: '我的申请',
-            children: (
+            children: mineError ? <Alert type="warning" showIcon message="申请加载失败" action={<Button onClick={() => void loadMine()}>重试</Button>} /> : mobile ? <ApplicationCards rows={myList} loading={mineLoading} mine onOpen={open} /> : (
               <Table
+                loading={mineLoading}
+                scroll={{ x: 840 }}
                 rowKey="id"
                 dataSource={myList}
                 columns={buildApplicationColumns({
@@ -107,6 +120,7 @@ const ApplicationPage: React.FC = () => {
                       <Space style={{ marginBottom: 16 }} wrap>
                         <Input.Search
                           placeholder="姓名/学号"
+                          aria-label="按姓名或学号查找申请"
                           allowClear
                           onSearch={(v) => {
                             setKeyword(v);
@@ -117,6 +131,7 @@ const ApplicationPage: React.FC = () => {
                         <Select
                           allowClear
                           placeholder="状态"
+                          aria-label="申请状态"
                           style={{ width: 140 }}
                           value={status}
                           onChange={(v) => {
@@ -133,7 +148,11 @@ const ApplicationPage: React.FC = () => {
                           ]}
                         />
                       </Space>
-                      <Table
+                      {listError ? <Alert type="warning" showIcon message="申请列表加载失败" action={<Button onClick={() => void loadList()}>重试</Button>} /> : mobile ? <>
+                        <ApplicationCards rows={list} loading={loading} review={canApprove} onOpen={open} />
+                        <Pagination simple current={page} pageSize={pageSize} total={total} onChange={setPage} style={{ marginTop: 20 }} />
+                      </> : <Table
+                        scroll={{ x: 840 }}
                         rowKey="id"
                         loading={loading}
                         dataSource={list}
@@ -151,7 +170,7 @@ const ApplicationPage: React.FC = () => {
                             setPageSize(ps);
                           },
                         }}
-                      />
+                      />}
                     </>
                   ),
                 },

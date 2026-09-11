@@ -4,16 +4,17 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
+
 	rbac "github.com/Yogdunana/StarByte/backend/internal/rbac"
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	rbacRepo "github.com/Yogdunana/StarByte/backend/internal/rbac/repo"
 	rbacService "github.com/Yogdunana/StarByte/backend/internal/rbac/service"
 	"github.com/Yogdunana/StarByte/backend/pkg/logger"
 	"github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"go.uber.org/zap"
-	"gorm.io/gorm"
 )
 
 // dataScopeContextKey 数据权限条件在 Gin context 中的存储键名
@@ -121,11 +122,11 @@ func buildDataScopeCondition(ctx context.Context, db *gorm.DB, deptRepo rbacRepo
 
 	// 超级管理员不进行数据过滤
 	// 优先复用 PermissionRequired 中间件设置的标志，避免重复查询
-	if isSuper, exists := c.Get("is_super_admin"); exists {
+	if isSuper, exists := c.Get("is_super_admin"); exists && !c.GetBool("explicit_data_scope") {
 		if b, ok := isSuper.(bool); ok && b {
 			return &rbacModel.DataScopeCondition{}, nil
 		}
-	} else if cacheService != nil {
+	} else if cacheService != nil && !c.GetBool("explicit_data_scope") {
 		// 上下文无标志时自行判断，确保中间件独立使用时超级管理员仍能豁免
 		isSuper, err := cacheService.IsSuperAdmin(ctx, userID)
 		if err != nil {
@@ -230,11 +231,11 @@ func fetchUserDataScopes(ctx context.Context, db *gorm.DB, userID uuid.UUID, res
 		JOIN roles r ON ur.role_id = r.id
 		JOIN permissions p ON p.id = rp.permission_id
 		WHERE ur.user_id = ?
-		  AND p.resource = ?
+		  AND (p.resource = ? OR p.code = ?)
 		  AND (ur.expired_at IS NULL OR ur.expired_at > NOW())
 		  AND r.status = 0
 		  AND p.status = 0
-	`, userID, resource).Scan(&rows).Error
+	`, userID, resource, resource).Scan(&rows).Error
 	if err != nil {
 		return nil, err
 	}
@@ -273,12 +274,12 @@ func fetchCustomDepartmentIDs(ctx context.Context, db *gorm.DB, userID uuid.UUID
 		JOIN roles r ON ur.role_id = r.id
 		JOIN permissions p ON p.id = rp.permission_id
 		WHERE ur.user_id = ?
-		  AND p.resource = ?
+		  AND (p.resource = ? OR p.code = ?)
 		  AND rp.data_scope = 'custom'
 		  AND (ur.expired_at IS NULL OR ur.expired_at > NOW())
 		  AND r.status = 0
 		  AND p.status = 0
-	`, userID, resource).Scan(&rows).Error
+	`, userID, resource, resource).Scan(&rows).Error
 	if err != nil {
 		return nil, err
 	}

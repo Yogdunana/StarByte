@@ -24,27 +24,33 @@ const (
 
 // MemberApplication 入会申请。type 列沿用 000010，API 对外叫 applicant_type。
 type MemberApplication struct {
-	ID             uuid.UUID   `gorm:"type:uuid;primaryKey" json:"id"`
-	UserID         uuid.UUID   `gorm:"type:uuid;not null;index" json:"user_id"`
-	Type           int16       `gorm:"column:type;type:smallint;not null;default:1" json:"applicant_type"`
-	RealName       string      `gorm:"type:varchar(50);not null" json:"real_name"`
-	StudentNo      string      `gorm:"type:varchar(30);not null" json:"student_no"`
-	DepartmentID   *uuid.UUID  `gorm:"type:uuid" json:"department_id"`
-	Reason         string      `gorm:"type:text" json:"reason"`
-	Skills         JSONStrings `gorm:"type:jsonb" json:"skills"`
-	Experience     string      `gorm:"type:text" json:"experience"`
-	ContactPhone   string      `gorm:"type:varchar(20)" json:"contact_phone"`
-	ContactEmail   string      `gorm:"type:varchar(100)" json:"contact_email"`
-	Status         int16       `gorm:"type:smallint;not null;default:0;index" json:"status"`
-	CurrentStage   string      `gorm:"type:varchar(50)" json:"current_stage"`
-	FlowInstanceID *uuid.UUID  `gorm:"type:uuid" json:"flow_instance_id"`
-	ReviewerID     *uuid.UUID  `gorm:"type:uuid" json:"reviewer_id"`
-	ReviewComment  string      `gorm:"type:text" json:"review_comment"`
-	RequiredFields JSONStrings `gorm:"type:jsonb" json:"required_fields"`
-	SubmittedAt    time.Time   `json:"submitted_at"`
-	ReviewedAt     *time.Time  `json:"reviewed_at"`
-	CreatedAt      time.Time   `json:"created_at"`
-	UpdatedAt      time.Time   `json:"updated_at"`
+	AdmissionRevision        int         `gorm:"not null;default:1" json:"admission_revision"`
+	AdmissionVersion         int16       `gorm:"not null;default:2" json:"admission_version"`
+	AdmissionStage           string      `gorm:"size:40;not null;default:materials" json:"admission_stage"`
+	HistoricalReviewRequired bool        `gorm:"not null" json:"historical_review_required"`
+	ProbationUntil           *time.Time  `json:"probation_until,omitempty"`
+	StageEnteredAt           time.Time   `json:"stage_entered_at"`
+	ID                       uuid.UUID   `gorm:"type:uuid;primaryKey" json:"id"`
+	UserID                   uuid.UUID   `gorm:"type:uuid;not null;index" json:"user_id"`
+	Type                     int16       `gorm:"column:type;type:smallint;not null;default:1" json:"applicant_type"`
+	RealName                 string      `gorm:"type:varchar(50);not null" json:"real_name"`
+	StudentNo                string      `gorm:"type:varchar(30);not null" json:"student_no"`
+	DepartmentID             *uuid.UUID  `gorm:"type:uuid" json:"department_id"`
+	Reason                   string      `gorm:"type:text" json:"reason"`
+	Skills                   JSONStrings `gorm:"type:jsonb" json:"skills"`
+	Experience               string      `gorm:"type:text" json:"experience"`
+	ContactPhone             string      `gorm:"type:varchar(20)" json:"contact_phone"`
+	ContactEmail             string      `gorm:"type:varchar(100)" json:"contact_email"`
+	Status                   int16       `gorm:"type:smallint;not null;default:0;index" json:"status"`
+	CurrentStage             string      `gorm:"type:varchar(50)" json:"current_stage"`
+	FlowInstanceID           *uuid.UUID  `gorm:"type:uuid" json:"flow_instance_id"`
+	ReviewerID               *uuid.UUID  `gorm:"type:uuid" json:"reviewer_id"`
+	ReviewComment            string      `gorm:"type:text" json:"review_comment"`
+	RequiredFields           JSONStrings `gorm:"type:jsonb" json:"required_fields"`
+	SubmittedAt              time.Time   `json:"submitted_at"`
+	ReviewedAt               *time.Time  `json:"reviewed_at"`
+	CreatedAt                time.Time   `json:"created_at"`
+	UpdatedAt                time.Time   `json:"updated_at"`
 }
 
 func (MemberApplication) TableName() string {

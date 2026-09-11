@@ -1,0 +1,29 @@
+.panelHeader, .cardHeader, .resultHeader { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.panelHeader { margin:8px 0 24px; }
+.panelHeader h2 { font-size:20px; margin:0; }
+.panelHeader p, .description, .resultTotal { color:var(--sb-muted); line-height:1.8; }
+.panelHeader p { margin:6px 0 0; font-size:13px; }
+.voteList { display:grid; gap:20px; }
+.voteCard { background:var(--sb-surface); border:1px solid var(--sb-border); border-radius:14px; padding:24px; }
+.cardHeader { align-items:flex-start; }
+.cardHeader h3 { font-size:19px; line-height:1.5; margin:12px 0 0; }
+.countdown { font-variant-numeric:tabular-nums; white-space:nowrap; font-size:18px; color:var(--sb-brand); }
+.description { margin:12px 0; overflow-wrap:anywhere; }
+.ballot { padding:20px; border-radius:10px; background:var(--sb-panel); margin:20px 0; }
+.choices { display:grid; gap:12px; }
+.choices :global(.ant-radio-wrapper) { background:var(--sb-surface); border:1px solid var(--sb-border); border-radius:8px; padding:13px 14px; margin:0; align-items:flex-start; line-height:1.7; }
+.choices :global(.ant-radio-wrapper-checked) { border-color:var(--sb-brand); background:var(--sb-brand-soft); }
+.submitRow { display:flex; align-items:center; flex-wrap:wrap; gap:14px; margin-top:20px; }
+.submitRow span, .privacy { font-size:12px; color:var(--sb-muted); }
+.privacy { margin:14px 0 0; line-height:1.7; }
+.receipt { display:flex; align-items:center; gap:8px; color:var(--sb-brand); background:var(--sb-brand-soft); padding:14px; border-radius:8px; margin:20px 0; }
+.resultHeader { margin-top:20px; }
+.resultHeader h4 { margin:0; font-size:14px; }
+.resultTotal { font-size:12px; margin:6px 0 16px; }
+.resultRow { margin-top:12px; }
+.resultRow > div:first-child { display:flex; gap:16px; justify-content:space-between; font-size:13px; }
+.resultRow strong { font-size:12px; font-weight:500; white-space:nowrap; }
+.manage { display:flex; justify-content:flex-end; margin-top:20px; padding-top:16px; border-top:1px solid var(--sb-border); }
+.formColumns { display:grid; grid-template-columns:2fr 1fr; gap:16px; }
+.pagination { margin-top:24px; text-align:right; }
+@media(max-width:600px) { .panelHeader { align-items:flex-start; flex-wrap:wrap; } .voteCard { padding:18px 16px; } .ballot { padding:14px 12px; } .formColumns { grid-template-columns:1fr; gap:0; } .countdown { font-size:15px; } .cardHeader h3 { font-size:17px; } }

@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/Yogdunana/StarByte/backend/internal/stats/dto"
 	"github.com/google/uuid"
+
+	"github.com/Yogdunana/StarByte/backend/internal/stats/dto"
 )
 
 func (r *statsRepo) InternshipRanking(ctx context.Context, q Query) ([]Bucket, error) {
@@ -76,7 +77,7 @@ func (r *statsRepo) Overview(ctx context.Context, userID uuid.UUID) (*dto.Overvi
 	if err := r.db.WithContext(ctx).Table("meetings").Where("start_time >= ? AND start_time < ?", monthStart, monthStart.AddDate(0, 1, 0)).Count(&out.TotalMeetingsThisMonth).Error; err != nil {
 		return nil, err
 	}
-	if err := r.db.WithContext(ctx).Table("tasks").Where("status = 1").Count(&out.TotalTasksInProgress).Error; err != nil {
+	if err := r.db.WithContext(ctx).Table("tasks").Where("deleted_at IS NULL").Where("status = 1").Count(&out.TotalTasksInProgress).Error; err != nil {
 		return nil, err
 	}
 	if err := r.db.WithContext(ctx).Table("internships").Where("status = 0").Count(&out.TotalInternshipsActive).Error; err != nil {
@@ -86,10 +87,10 @@ func (r *statsRepo) Overview(ctx context.Context, userID uuid.UUID) (*dto.Overvi
 		return nil, err
 	}
 	if userID != uuid.Nil {
-		if err := r.db.WithContext(ctx).Table("tasks").Where("assignee_id = ? AND status IN (0, 1, 4)", userID).Count(&out.MyTasks.Todo).Error; err != nil {
+		if err := r.db.WithContext(ctx).Table("tasks").Where("deleted_at IS NULL").Where("assignee_id = ? AND status IN (0, 1, 4)", userID).Count(&out.MyTasks.Todo).Error; err != nil {
 			return nil, err
 		}
-		if err := r.db.WithContext(ctx).Table("tasks").
+		if err := r.db.WithContext(ctx).Table("tasks").Where("deleted_at IS NULL").
 			Where("assignee_id = ? AND status IN (0, 1, 4) AND due_date IS NOT NULL AND due_date < ?", userID, now).
 			Count(&out.MyTasks.Overdue).Error; err != nil {
 			return nil, err

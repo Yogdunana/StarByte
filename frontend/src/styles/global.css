@@ -1,83 +1,46 @@
+@import './glass.css';
 :root {
-  --sb-bg: #f1f5f9;
-  --sb-bg-accent: #eef2ff;
-  --sb-text: #0f172a;
-  --sb-panel: #f5f7fa;
-  --sb-scrollbar-track: #f1f1f1;
-  --sb-scrollbar-thumb: #c1c1c1;
-  --sb-scrollbar-thumb-hover: #a8a8a8;
-  --sb-link: #1677ff;
-  --sb-link-hover: #4096ff;
+  --sb-bg: #edf1f8; --sb-bg-accent: #e4eaf5; --sb-surface: #fcfdff;
+  --sb-text: #253550; --sb-muted: #586b86; --sb-panel: #edf2fa; --sb-canvas: #edf2fa;
+  --sb-border: #d4deed; --sb-brand: #405cac; --sb-brand-soft: #e7edfc;
+  --sb-warm: #856122; --sb-warm-soft: #f7efdf;
+  --sb-glass: rgba(251,253,255,.78); --sb-glass-border: rgba(255,255,255,.85);
+  --sb-shadow: 0 8px 28px rgba(49,69,113,.07); --sb-shadow-raised: 0 16px 40px rgba(49,69,113,.12);
+  --sb-orb-start: #eff9ff; --sb-orb-end: #8eacd5;
+  --sb-ambient: radial-gradient(ellipse at 85% 8%, #d9d1ef 0, transparent 48%), radial-gradient(ellipse at 20% 78%, #d5e9e5 0, transparent 55%), #edf1f8;
+  --sb-scrollbar-track: transparent; --sb-scrollbar-thumb: #b9c8df; --sb-scrollbar-thumb-hover: #93a7c7;
+  --sb-link: #405cac; --sb-link-hover: #293f80;
+  --sb-radius: 20px; --sb-motion: 220ms; --sb-ease: cubic-bezier(.2,.7,.3,1);
 }
-
 html[data-theme='dark'] {
-  --sb-bg: #0f172a;
-  --sb-bg-accent: #0b1220;
-  --sb-text: #e2e8f0;
-  --sb-panel: #111827;
-  --sb-scrollbar-track: #1e293b;
-  --sb-scrollbar-thumb: #475569;
-  --sb-scrollbar-thumb-hover: #64748b;
-  --sb-link: #60a5fa;
-  --sb-link-hover: #93c5fd;
+  --sb-bg: #151d2c; --sb-bg-accent: #1b2538; --sb-surface: #202c40;
+  --sb-text: #e4ebf8; --sb-muted: #aabbd3; --sb-panel: #29364c; --sb-canvas: #29364c;
+  --sb-border: #465773; --sb-brand: #adc4ff; --sb-brand-soft: #304469;
+  --sb-warm: #e8c18a; --sb-warm-soft: #3c352b;
+  --sb-glass: rgba(30,42,62,.9); --sb-glass-border: rgba(142,165,205,.22);
+  --sb-shadow: 0 8px 28px rgba(0,0,0,.14); --sb-shadow-raised: 0 16px 40px rgba(0,0,0,.22);
+  --sb-orb-start: #7897c3; --sb-orb-end: #334b72;
+  --sb-ambient: radial-gradient(ellipse at 85% 8%, #31304a 0, transparent 48%), radial-gradient(ellipse at 20% 78%, #203a3c 0, transparent 55%), #151d2c;
+  --sb-scrollbar-thumb: #475d80; --sb-scrollbar-thumb-hover: #6a82a5;
+  --sb-link: #adc4ff; --sb-link-hover: #d2dfff;
 }
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html,
-body,
-#root {
-  height: 100%;
-  width: 100%;
-}
-
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body, #root { min-height: 100%; width: 100%; }
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
-    'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: 'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  color: var(--sb-text);
-  background: linear-gradient(180deg, var(--sb-bg-accent) 0%, var(--sb-bg) 220px, var(--sb-bg) 100%);
+  color: var(--sb-text); background: var(--sb-ambient); background-attachment: fixed; line-height: 1.6;
 }
-
-a {
-  color: var(--sb-link);
-  text-decoration: none;
-}
-
-a:hover {
-  color: var(--sb-link-hover);
-}
-
-/* 滚动条样式 */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--sb-scrollbar-track);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--sb-scrollbar-thumb);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--sb-scrollbar-thumb-hover);
-}
-
-/* Ant Design 覆盖 */
-.ant-layout-sider {
-  background: #001529 !important;
-}
-
-.ant-menu-dark.ant-menu-inline {
-  border-right: 0 !important;
+a { color: var(--sb-link); text-decoration: none; }
+a:hover { color: var(--sb-link-hover); }
+button, input, textarea, select { font: inherit; }
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 3px solid var(--sb-brand); outline-offset: 3px; }
+::selection { background: var(--sb-brand-soft); color: var(--sb-text); }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--sb-scrollbar-track); }
+::-webkit-scrollbar-thumb { background: var(--sb-scrollbar-thumb); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--sb-scrollbar-thumb-hover); }
+.ant-statistic-content, .ant-table { font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }

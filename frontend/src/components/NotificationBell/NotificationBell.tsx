@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { Badge, Popover, List, Typography, Button, Empty, Tag, Tooltip } from 'antd';
 import { BellOutlined, CheckOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
@@ -9,7 +9,6 @@ import {
   selectRecentNotifications,
   selectWSConnected,
   fetchRecentNotifications,
-  fetchUnreadCount,
   markAllNotificationsAsRead,
   markNotificationAsRead,
 } from '@/store/slices/notificationSlice';
@@ -31,6 +30,7 @@ const categoryLabelMap: Record<string, string> = {
   task: '任务',
   meeting: '会议',
   approval: '审批',
+  member: '入会',
   interview: '面试',
   other: '其他',
 };
@@ -59,12 +59,6 @@ const NotificationBell: React.FC = () => {
   const recentNotifications = useSelector(selectRecentNotifications);
   const wsConnected = useSelector(selectWSConnected);
 
-  // 首次挂载时拉取未读计数
-  useEffect(() => {
-    dispatch(fetchUnreadCount());
-    dispatch(fetchRecentNotifications());
-  }, [dispatch]);
-
   const handleMarkRead = useCallback(
     (id: string, e: React.MouseEvent) => {
       e.stopPropagation();
@@ -84,7 +78,7 @@ const NotificationBell: React.FC = () => {
   const handleNotificationClick = useCallback(
     (notification: Notification) => {
       // 如果有 action_url 跳转
-      if (notification.action_url) {
+      if (notification.action_url?.startsWith('/') && !notification.action_url.startsWith('//')) {
         navigate(notification.action_url);
       } else {
         navigate('/notification/list');
@@ -102,20 +96,21 @@ const NotificationBell: React.FC = () => {
       style={{
         cursor: 'pointer',
         padding: '8px 12px',
-        background: item.is_read ? 'transparent' : 'rgba(24, 144, 255, 0.06)',
+        background: item.is_read ? 'transparent' : 'var(--sb-brand-soft)',
       }}
       onClick={() => handleNotificationClick(item)}
     >
       <div style={{ width: '100%' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-          <Text strong={!item.is_read} style={{ fontSize: 13 }}>
-            {item.title}
-          </Text>
+          <Button type="text" style={{ height: 'auto', whiteSpace: 'normal', textAlign: 'left', padding: 0 }} onClick={(event) => { event.stopPropagation(); handleNotificationClick(item); }}>
+            <Text strong={!item.is_read}>{item.title}</Text>
+          </Button>
           {!item.is_read && (
             <Tooltip title="标记已读">
               <Button
                 type="text"
                 size="small"
+                aria-label="标记已读"
                 icon={<CheckOutlined />}
                 onClick={(e) => handleMarkRead(item.id, e)}
               />
@@ -138,7 +133,7 @@ const NotificationBell: React.FC = () => {
   );
 
   const content = (
-    <div style={{ width: 360 }}>
+    <div style={{ width: 'min(360px, calc(100vw - 48px))' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 4px 8px' }}>
         <Text strong>消息通知</Text>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -183,7 +178,7 @@ const NotificationBell: React.FC = () => {
     >
       <Tooltip title="消息通知">
         <Badge count={unreadCount} size="small" offset={[-2, 2]}>
-          <BellOutlined style={{ fontSize: 18, cursor: 'pointer' }} />
+          <Button type="text" aria-label="消息通知" icon={<BellOutlined style={{ fontSize: 18 }} />} />
         </Badge>
       </Tooltip>
     </Popover>

@@ -4,19 +4,24 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
+
+	"github.com/google/uuid"
 
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/task/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/task/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/google/uuid"
 )
 
-func (s *taskService) Assign(ctx context.Context, id, operator uuid.UUID, assigneeRaw string) (*dto.TaskResponse, error) {
+func (s *taskService) assign(ctx context.Context, id, operator uuid.UUID, assigneeRaw string) (*dto.TaskResponse, error) {
 	t, err := s.mustTask(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	if _, ok := model.ViewerFromContext(ctx); !ok && !canViewTask(t, operator, nil) {
+		return nil, response.NewError(response.CodeTaskNoAccess, "无权操作该任务")
 	}
 	if !canMutate(t.Status) {
 		return nil, response.NewError(response.CodeTaskClosed, "任务已关闭，无法操作")
@@ -25,18 +30,26 @@ func (s *taskService) Assign(ctx context.Context, id, operator uuid.UUID, assign
 	if err != nil {
 		return nil, err
 	}
+	if t.AssigneeID != nil && *t.AssigneeID == assignee.ID {
+		return s.taskResponse(ctx, operator, id, nil)
+	}
 	old := uuidPtrString(t.AssigneeID)
+	if err := s.workflowAssignment(ctx, t, operator, assignee.ID); err != nil {
+		return nil, err
+	}
 	t.AssigneeID = &assignee.ID
 	t.UpdatedAt = time.Now()
 	if err := s.tasks.Update(ctx, t); err != nil {
 		return nil, fmt.Errorf("assign task: %w", err)
 	}
-	s.addLog(ctx, t.ID, operator, model.ActionAssign, old, assignee.ID.String(), "")
+	if err := s.addLog(ctx, t.ID, operator, model.ActionAssign, old, assignee.ID.String(), ""); err != nil {
+		return nil, err
+	}
 	s.notifyUsers(ctx, []uuid.UUID{assignee.ID}, tplTaskAssigned, t, "")
-	return s.Get(ctx, operator, id, nil)
+	return s.taskResponse(ctx, operator, id, nil)
 }
 
-func (s *taskService) Transfer(ctx context.Context, id, operator uuid.UUID, req *dto.TransferRequest) (*dto.TaskResponse, error) {
+func (s *taskService) transfer(ctx context.Context, id, operator uuid.UUID, req *dto.TransferRequest) (*dto.TaskResponse, error) {
 	t, err := s.mustTask(ctx, id)
 	if err != nil {
 		return nil, err
@@ -44,8 +57,17 @@ func (s *taskService) Transfer(ctx context.Context, id, operator uuid.UUID, req 
 	if err := s.ensureMutable(t, operator); err != nil {
 		return nil, err
 	}
+	if strings.TrimSpace(req.Reason) == "" {
+		return nil, response.NewError(response.CodeBadRequest, "请填写转办原因")
+	}
 	target, err := s.mustUser(ctx, req.NewAssigneeID)
 	if err != nil {
+		return nil, err
+	}
+	if t.AssigneeID != nil && *t.AssigneeID == target.ID {
+		return s.taskResponse(ctx, operator, id, nil)
+	}
+	if err := s.workflowTransfer(ctx, t, operator, target.ID, req.Reason); err != nil {
 		return nil, err
 	}
 	old := uuidPtrString(t.AssigneeID)
@@ -54,12 +76,14 @@ func (s *taskService) Transfer(ctx context.Context, id, operator uuid.UUID, req 
 	if err := s.tasks.Update(ctx, t); err != nil {
 		return nil, fmt.Errorf("transfer task: %w", err)
 	}
-	s.addLog(ctx, t.ID, operator, model.ActionTransfer, old, target.ID.String(), req.Reason)
+	if err := s.addLog(ctx, t.ID, operator, model.ActionTransfer, old, target.ID.String(), req.Reason); err != nil {
+		return nil, err
+	}
 	s.notifyUsers(ctx, []uuid.UUID{target.ID}, tplTaskTransferred, t, req.Reason)
-	return s.Get(ctx, operator, id, nil)
+	return s.taskResponse(ctx, operator, id, nil)
 }
 
-func (s *taskService) ChangeStatus(ctx context.Context, id, operator uuid.UUID, req *dto.StatusRequest) (*dto.TaskResponse, error) {
+func (s *taskService) changeStatus(ctx context.Context, id, operator uuid.UUID, req *dto.StatusRequest) (*dto.TaskResponse, error) {
 	t, err := s.mustTask(ctx, id)
 	if err != nil {
 		return nil, err
@@ -72,6 +96,12 @@ func (s *taskService) ChangeStatus(ctx context.Context, id, operator uuid.UUID, 
 	}
 	if !CanTransit(t.Status, req.Status) {
 		return nil, response.NewError(response.CodeTaskInvalidState, "任务状态不允许该操作")
+	}
+	if t.Status == req.Status {
+		return s.taskResponse(ctx, operator, id, nil)
+	}
+	if err := s.workflowStatus(ctx, t, operator, req); err != nil {
+		return nil, err
 	}
 	old := strconv.Itoa(int(t.Status))
 	now := time.Now()
@@ -86,11 +116,13 @@ func (s *taskService) ChangeStatus(ctx context.Context, id, operator uuid.UUID, 
 	if err := s.tasks.Update(ctx, t); err != nil {
 		return nil, fmt.Errorf("change status: %w", err)
 	}
-	s.addLog(ctx, t.ID, operator, model.ActionStatusChange, old, strconv.Itoa(int(req.Status)), req.Comment)
-	return s.Get(ctx, operator, id, nil)
+	if err := s.addLog(ctx, t.ID, operator, model.ActionStatusChange, old, strconv.Itoa(int(req.Status)), req.Comment); err != nil {
+		return nil, err
+	}
+	return s.taskResponse(ctx, operator, id, nil)
 }
 
-func (s *taskService) Urge(ctx context.Context, id, operator uuid.UUID, message string) error {
+func (s *taskService) urge(ctx context.Context, id, operator uuid.UUID, message string) error {
 	t, err := s.mustTask(ctx, id)
 	if err != nil {
 		return err
@@ -104,7 +136,9 @@ func (s *taskService) Urge(ctx context.Context, id, operator uuid.UUID, message 
 	if t.AssigneeID == nil {
 		return response.NewError(response.CodeTaskInvalidState, "任务尚未分配负责人")
 	}
-	s.addLog(ctx, t.ID, operator, model.ActionUrge, "", t.AssigneeID.String(), message)
+	if err := s.addLog(ctx, t.ID, operator, model.ActionUrge, "", t.AssigneeID.String(), message); err != nil {
+		return err
+	}
 	s.notifyUsers(ctx, []uuid.UUID{*t.AssigneeID}, tplTaskUrged, t, message)
 	return nil
 }
@@ -131,7 +165,12 @@ func (s *taskService) ListMy(ctx context.Context, userID uuid.UUID, kind string,
 	}
 	out := make([]*dto.TaskResponse, 0, len(rows))
 	for i := range rows {
-		out = append(out, mapTask(&rows[i], nil))
+		item := mapTask(&rows[i], nil)
+		taskCapabilities(ctx, &rows[i].Task, item)
+		out = append(out, item)
+	}
+	if err := s.filterParents(ctx, userID, nil, out); err != nil {
+		return nil, 0, err
 	}
 	return out, total, nil
 }
@@ -159,8 +198,8 @@ func (s *taskService) mustUser(ctx context.Context, raw string) (*model.NamedUse
 	return u, nil
 }
 
-func (s *taskService) addLog(ctx context.Context, taskID, operator uuid.UUID, action, oldV, newV, comment string) {
-	_ = s.logs.Create(ctx, &model.TaskLog{
+func (s *taskService) addLog(ctx context.Context, taskID, operator uuid.UUID, action, oldV, newV, comment string) error {
+	return s.logs.Create(ctx, &model.TaskLog{
 		ID:         uuid.New(),
 		TaskID:     taskID,
 		ActionType: action,

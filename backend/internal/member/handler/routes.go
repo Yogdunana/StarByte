@@ -1,11 +1,12 @@
 package handler
 
 import (
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+
 	rbacRepo "github.com/Yogdunana/StarByte/backend/internal/rbac/repo"
 	rbacService "github.com/Yogdunana/StarByte/backend/internal/rbac/service"
 	"github.com/Yogdunana/StarByte/backend/pkg/middleware"
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
 
 func withPermission(group *gin.RouterGroup, permCode string, cacheService rbacService.PermissionCacheService) *gin.RouterGroup {
@@ -44,6 +45,11 @@ func RegisterRoutes(
 	member.GET("/applications/my", h.MyApplications)
 	member.POST("/applications/:id/resubmit", h.Resubmit)
 	member.GET("/departments", h.ListDepartments)
+	if h.admission != nil {
+		member.GET("/applications/:id/admission", h.Admission)
+		withPermission(member, "member:approve", cacheService).POST("/applications/:id/admission/sign", h.SignAdmission)
+		withPermission(member, "member:approve", cacheService).POST("/applications/:id/admission/objection", h.AdmissionObjection)
+	}
 
 	read := withReadScope(member, cacheService, db, deptRepo)
 	read.GET("/applications", h.ListApplications)
@@ -70,6 +76,7 @@ func RegisterRoutes(
 	update.Use(middleware.PermissionRequired(cacheService))
 	update.PUT("/profiles/:id", h.UpdateProfile)
 
-	manage := withPermission(member, "member:manage", cacheService)
+	manage := withReadScope(member, cacheService, db, deptRepo)
+	manage.Use(middleware.RequirePermission("member:manage"), middleware.PermissionRequired(cacheService))
 	manage.PUT("/profiles/:id/status", h.UpdateProfileStatus)
 }

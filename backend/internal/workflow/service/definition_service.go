@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/dto"
+	"github.com/Yogdunana/StarByte/backend/internal/workflow/engine"
+	"github.com/Yogdunana/StarByte/backend/internal/workflow/engine/nodes"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/repo"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 // definitionServiceImpl handles flow definition business logic.
@@ -78,49 +81,25 @@ func (s *definitionServiceImpl) GetByID(ctx context.Context, id uuid.UUID) (*mod
 	return def, nil
 }
 
-// Update updates a flow definition (only in draft status).
+// Update updates a draft while holding the same lock used by publication.
 func (s *definitionServiceImpl) Update(ctx context.Context, id uuid.UUID, req *dto.UpdateDefinitionRequest, userID uuid.UUID) (*model.FlowDefinition, error) {
-	def, err := s.defRepo.GetByID(ctx, id)
-	if err != nil || def == nil {
-		return nil, response.NewAppError(response.CodeWorkflowNotFound,
-			"流程定义不存在")
-	}
-	if def.Status == 1 {
-		return nil, response.NewAppError(response.CodeWorkflowDefPublished,
-			"流程定义已发布，不可修改")
-	}
-
-	def.Name = req.Name
-	def.Description = req.Description
-	def.UpdatedBy = &userID
-	def.UpdatedAt = time.Now()
-
-	if err := s.defRepo.Update(ctx, nil, def); err != nil {
-		return nil, response.NewAppErrorf(response.CodeInternalError,
-			"failed to update definition: %v", err)
-	}
-
-	return def, nil
+	return s.changeDefinition(ctx, id, func(repository repo.DefinitionRepo, def *model.FlowDefinition) error {
+		if def.Status == 1 {
+			return response.NewAppError(response.CodeWorkflowDefPublished, "流程定义已发布，不可修改")
+		}
+		def.Name, def.Description, def.UpdatedBy, def.UpdatedAt = req.Name, req.Description, &userID, time.Now()
+		return repository.Update(ctx, nil, def)
+	})
 }
 
-// Delete deletes a flow definition (only in draft status).
 func (s *definitionServiceImpl) Delete(ctx context.Context, id uuid.UUID) error {
-	def, err := s.defRepo.GetByID(ctx, id)
-	if err != nil || def == nil {
-		return response.NewAppError(response.CodeWorkflowNotFound,
-			"流程定义不存在")
-	}
-	if def.Status == 1 {
-		return response.NewAppError(response.CodeWorkflowDefPublished,
-			"已发布的流程定义不可删除")
-	}
-
-	if err := s.defRepo.Delete(ctx, id); err != nil {
-		return response.NewAppErrorf(response.CodeInternalError,
-			"failed to delete definition: %v", err)
-	}
-
-	return nil
+	_, err := s.changeDefinition(ctx, id, func(repository repo.DefinitionRepo, def *model.FlowDefinition) error {
+		if def.Status == 1 {
+			return response.NewAppError(response.CodeWorkflowDefPublished, "已发布的流程定义不可删除")
+		}
+		return repository.Delete(ctx, id)
+	})
+	return err
 }
 
 // List returns a paginated list of flow definitions.
@@ -149,6 +128,10 @@ func (s *definitionServiceImpl) Publish(ctx context.Context, id uuid.UUID, req *
 			"流程定义不存在")
 	}
 
+	if err := s.requireDefinitionAccess(ctx, def); err != nil {
+		return nil, err
+	}
+
 	// Defensive check: binding:"required" should already reject nil,
 	// but guard against direct service calls without handler validation.
 	if req.GraphData == nil {
@@ -162,54 +145,49 @@ func (s *definitionServiceImpl) Publish(ctx context.Context, id uuid.UUID, req *
 			"failed to marshal graph data: %v", err)
 	}
 
-	// Calculate next version number.
-	versions, err := s.defRepo.ListVersions(ctx, id)
+	graph, err := engine.ParseGraph(graphData)
 	if err != nil {
-		return nil, response.NewAppErrorf(response.CodeInternalError,
-			"failed to list versions: %v", err)
+		return nil, response.NewAppError(response.CodeWorkflowInvalidNode, err.Error())
 	}
-	nextVersion := 1
-	if len(versions) > 0 {
-		nextVersion = versions[0].Version + 1
+	if err := engine.ValidateGraph(graph, nodes.NewDefaultRegistry(engine.NewExpressionEngine(), nil, nil)); err != nil {
+		return nil, response.NewAppError(response.CodeWorkflowInvalidNode, err.Error())
 	}
-
-	now := time.Now()
-	ver := &model.FlowDefinitionVersion{
-		ID:           uuid.New(),
-		DefinitionID: id,
-		Version:      nextVersion,
-		BpmnData:     graphData,
-		Status:       1, // current
-		PublishedBy:  &userID,
-		PublishedAt:  &now,
-		CreatedAt:    now,
+	if err := engine.ValidateBusinessDefinition(def.Key, graph); err != nil {
+		return nil, response.NewAppError(response.CodeWorkflowInvalidNode, err.Error())
 	}
-
-	// Use a transaction: mark old version as historical + create new version.
-	txErr := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Mark previous current version as historical.
-		if err := s.defRepo.MarkVersionHistorical(ctx, tx, id); err != nil {
+	var ver *model.FlowDefinitionVersion
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		bound := repo.NewDefinitionRepo(tx)
+		locked, err := repo.NewRuntimeRepo(tx).LockDefinition(ctx, id)
+		if err != nil {
 			return err
 		}
-		// Create new version.
-		if err := s.defRepo.CreateVersion(ctx, tx, ver); err != nil {
+		if err := s.requireDefinitionAccess(ctx, locked); err != nil {
 			return err
 		}
-		return nil
+		versions, err := bound.ListVersions(ctx, id)
+		if err != nil {
+			return err
+		}
+		next := 1
+		for _, previous := range versions {
+			if previous.Version >= next {
+				next = previous.Version + 1
+			}
+		}
+		now := time.Now()
+		ver = &model.FlowDefinitionVersion{ID: uuid.New(), DefinitionID: id, Version: next, BpmnData: graphData, Status: 1, PublishedBy: &userID, PublishedAt: &now, CreatedAt: now}
+		if err := bound.MarkVersionHistorical(ctx, nil, id); err != nil {
+			return err
+		}
+		if err := bound.CreateVersion(ctx, nil, ver); err != nil {
+			return err
+		}
+		locked.Status, locked.UpdatedBy, locked.UpdatedAt = 1, &userID, now
+		return bound.Update(ctx, nil, locked)
 	})
-
-	if txErr != nil {
-		return nil, response.NewAppErrorf(response.CodeInternalError,
-			"failed to publish version: %v", txErr)
-	}
-
-	// Update definition status to published.
-	def.Status = 1
-	def.UpdatedBy = &userID
-	def.UpdatedAt = now
-	if err := s.defRepo.Update(ctx, nil, def); err != nil {
-		return nil, response.NewAppErrorf(response.CodeInternalError,
-			"failed to update definition status: %v", err)
+	if err != nil {
+		return nil, err
 	}
 
 	return ver, nil
@@ -218,32 +196,17 @@ func (s *definitionServiceImpl) Publish(ctx context.Context, id uuid.UUID, req *
 // SaveDraft stores a working-copy graph on the definition.
 // Allowed for both draft and published definitions (next-version WIP).
 func (s *definitionServiceImpl) SaveDraft(ctx context.Context, id uuid.UUID, req *dto.SaveDraftRequest, userID uuid.UUID) (*model.FlowDefinition, error) {
-	def, err := s.defRepo.GetByID(ctx, id)
-	if err != nil || def == nil {
-		return nil, response.NewAppError(response.CodeWorkflowNotFound,
-			"流程定义不存在")
-	}
-
-	if req == nil || req.GraphData == nil {
-		return nil, response.NewAppError(response.CodeBadRequest, "graph_data 不能为空")
-	}
-
-	graphData, err := json.Marshal(req.GraphData)
-	if err != nil {
-		return nil, response.NewAppErrorf(response.CodeWorkflowInvalidNode,
-			"failed to marshal draft graph: %v", err)
-	}
-
-	def.DraftGraph = graphData
-	def.UpdatedBy = &userID
-	def.UpdatedAt = time.Now()
-
-	if err := s.defRepo.Update(ctx, nil, def); err != nil {
-		return nil, response.NewAppErrorf(response.CodeInternalError,
-			"failed to save draft graph: %v", err)
-	}
-
-	return def, nil
+	return s.changeDefinition(ctx, id, func(repository repo.DefinitionRepo, def *model.FlowDefinition) error {
+		if req == nil || req.GraphData == nil {
+			return response.NewAppError(response.CodeBadRequest, "graph_data 不能为空")
+		}
+		data, err := json.Marshal(req.GraphData)
+		if err != nil {
+			return err
+		}
+		def.DraftGraph, def.UpdatedBy, def.UpdatedAt = data, &userID, time.Now()
+		return repository.Update(ctx, nil, def)
+	})
 }
 
 // ListVersions returns all versions of a definition.
@@ -268,4 +231,35 @@ func (s *definitionServiceImpl) GetVersionByID(ctx context.Context, id uuid.UUID
 			"流程版本不存在")
 	}
 	return ver, nil
+}
+
+func (s *definitionServiceImpl) changeDefinition(ctx context.Context, id uuid.UUID, change func(repo.DefinitionRepo, *model.FlowDefinition) error) (*model.FlowDefinition, error) {
+	var result *model.FlowDefinition
+	operation := func(tx *gorm.DB) error {
+		repository := s.defRepo
+		var err error
+		if tx != nil {
+			repository = repo.NewDefinitionRepo(tx)
+			result, err = repo.NewRuntimeRepo(tx).LockDefinition(ctx, id)
+		} else {
+			result, err = repository.GetByID(ctx, id)
+		}
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return err
+		}
+		if result == nil || err == gorm.ErrRecordNotFound {
+			return response.NewAppError(response.CodeWorkflowNotFound, "流程定义不存在")
+		}
+		if err := s.requireDefinitionAccess(ctx, result); err != nil {
+			return err
+		}
+		return change(repository, result)
+	}
+	var err error
+	if s.db == nil {
+		err = operation(nil)
+	} else {
+		err = s.db.WithContext(ctx).Transaction(operation)
+	}
+	return result, err
 }

@@ -130,6 +130,7 @@ const (
 	CodeVoteNoAccess        = 8008 // 无权投票（非参会人）
 	CodeVoteOptionGone      = 8009 // 投票选项不存在
 	CodeVoteAnonymousHidden = 8010 // 匿名投票无法查看个人记录
+	CodeVoteResultPending   = 8011 // 投票未结束，无法查看结果
 
 	// ===== Task module (9000-9999) =====
 	CodeTaskNotFound     = 9001 // 任务不存在

@@ -181,7 +181,21 @@ export function useMenu(): UseMenuResult {
     [allNodes, searchKeyword],
   );
 
-  const menuItems = useMemo(() => toAntdItems(visibleNodes), [visibleNodes]);
+  const menuItems = useMemo(() => {
+    const sections = [
+      { title: '我的工作', keys: ['/dashboard', '/notification'] },
+      { title: '成员与招新', keys: ['/member', '/interview', '/discipline'] },
+      { title: '协作与活动', keys: ['/task', '/meeting', '/internship'] },
+      { title: '资源与财务', keys: ['/files', '/finance', '/contract', '/stats'] },
+      { title: '组织与系统', keys: ['/user', '/workflow', '/forms', '/system'] },
+    ];
+    const known = new Set(sections.flatMap(section => section.keys));
+    const otherNodes = visibleNodes.filter(node => !known.has(node.key));
+    return [...sections.flatMap(section => {
+      const children = visibleNodes.filter(node => section.keys.includes(node.key));
+      return children.length ? [{ type: 'group' as const, key: section.title, label: section.title, children: toAntdItems(children) }] : [];
+    }), ...toAntdItems(otherNodes)];
+  }, [visibleNodes]);
   const selectedKeys = useMemo(() => [location.pathname], [location.pathname]);
 
   useEffect(() => {

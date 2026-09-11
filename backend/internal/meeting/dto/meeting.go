@@ -42,10 +42,13 @@ type CancelMeetingRequest struct {
 }
 
 type MinutesRequest struct {
-	Minutes string `json:"minutes" binding:"required"`
+	Minutes string `json:"minutes"`
 }
 
 type MeetingResponse struct {
+	CanUpdate      bool      `json:"can_update"`
+	CanDelete      bool      `json:"can_delete"`
+	CanManage      bool      `json:"can_manage"`
 	ID             string    `json:"id"`
 	Title          string    `json:"title"`
 	Description    string    `json:"description"`

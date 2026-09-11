@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+
 	"github.com/Yogdunana/StarByte/backend/internal/interview/dto"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/gin-gonic/gin"
 )
 
 // CreateInterview 创建面试记录
@@ -27,6 +29,14 @@ func (h *InterviewHandler) CreateInterview(c *gin.Context) {
 	var req dto.CreateInterviewRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+	sessionID, err := uuid.Parse(req.SessionID)
+	if err != nil {
+		response.BadRequest(c, "无效的场次ID")
+		return
+	}
+	if !h.canManageSession(c, sessionID) {
 		return
 	}
 	out, err := h.svc.CreateInterview(c.Request.Context(), userID, &req)
@@ -83,7 +93,7 @@ func (h *InterviewHandler) GetInterview(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	out, err := h.svc.GetInterview(c.Request.Context(), id, dataScope(c))
+	out, err := h.svc.GetInterview(c.Request.Context(), viewer(c), id)
 	if err != nil {
 		response.Error(c, err)
 		return

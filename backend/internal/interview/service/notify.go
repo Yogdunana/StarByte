@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+	"go.uber.org/zap"
+
 	"github.com/Yogdunana/StarByte/backend/internal/interview/model"
 	notifdto "github.com/Yogdunana/StarByte/backend/internal/notification/dto"
 	notifsvc "github.com/Yogdunana/StarByte/backend/internal/notification/service"
 	"github.com/Yogdunana/StarByte/backend/pkg/logger"
-	"github.com/google/uuid"
-	"go.uber.org/zap"
 )
 
 const (
@@ -83,7 +84,7 @@ func (s *interviewService) notifyResult(ctx context.Context, iv *model.Interview
 	vars := map[string]interface{}{
 		"real_name": displayName(u),
 		"result":    resultLabel(iv.ResultCode),
-		"comment":   iv.ResultComment,
+		"comment":   "", // Compatibility with older templates; never send internal comments.
 	}
 	if err := s.notify.Send(ctx, []uuid.UUID{iv.ApplicantID}, tplResult, vars); err != nil {
 		logger.Warn("send interview result failed", zap.Error(err))

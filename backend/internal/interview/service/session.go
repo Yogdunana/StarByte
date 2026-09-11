@@ -8,12 +8,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+	qrcode "github.com/skip2/go-qrcode"
+
 	"github.com/Yogdunana/StarByte/backend/internal/interview/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/interview/model"
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/google/uuid"
-	qrcode "github.com/skip2/go-qrcode"
 )
 
 func (s *interviewService) CreateSession(ctx context.Context, operator uuid.UUID, req *dto.CreateSessionRequest) (*dto.SessionResponse, error) {
@@ -41,7 +42,7 @@ func (s *interviewService) CreateSession(ctx context.Context, operator uuid.UUID
 	if err := s.sessions.Create(ctx, sess); err != nil {
 		return nil, fmt.Errorf("create session: %w", err)
 	}
-	return s.GetSession(ctx, sess.ID, nil)
+	return s.sessionResponse(ctx, sess.ID)
 }
 
 func (s *interviewService) ListSessions(ctx context.Context, viewer uuid.UUID, req *dto.ListSessionRequest, scope *rbacModel.DataScopeCondition) ([]*dto.SessionResponse, int64, error) {
@@ -56,7 +57,7 @@ func (s *interviewService) ListSessions(ctx context.Context, viewer uuid.UUID, r
 	return out, total, nil
 }
 
-func (s *interviewService) GetSession(ctx context.Context, id uuid.UUID, scope *rbacModel.DataScopeCondition) (*dto.SessionResponse, error) {
+func (s *interviewService) GetSession(ctx context.Context, viewer Viewer, id uuid.UUID) (*dto.SessionResponse, error) {
 	row, err := s.sessions.GetByIDWithNames(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get session: %w", err)
@@ -64,7 +65,30 @@ func (s *interviewService) GetSession(ctx context.Context, id uuid.UUID, scope *
 	if row == nil {
 		return nil, response.NewError(response.CodeInterviewNotFound, "面试场次不存在")
 	}
-	_ = scope
+	owner := uuid.Nil
+	if row.CreatedBy != nil {
+		owner = *row.CreatedBy
+	}
+	if !canAccessInterview(viewer.Scope, owner, row.DepartmentID, viewer.ID) {
+		assigned, err := s.records.IsAssignedToSession(ctx, id, viewer.ID)
+		if err != nil {
+			return nil, fmt.Errorf("check session interviewer: %w", err)
+		}
+		if !assigned {
+			return nil, response.NewError(response.CodeForbidden, "无权访问该面试场次")
+		}
+	}
+	return mapSession(row), nil
+}
+
+func (s *interviewService) sessionResponse(ctx context.Context, id uuid.UUID) (*dto.SessionResponse, error) {
+	row, err := s.sessions.GetByIDWithNames(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("get session: %w", err)
+	}
+	if row == nil {
+		return nil, response.NewError(response.CodeInterviewNotFound, "面试场次不存在")
+	}
 	return mapSession(row), nil
 }
 
@@ -84,7 +108,7 @@ func (s *interviewService) UpdateSession(ctx context.Context, id uuid.UUID, req 
 	if err := s.sessions.Update(ctx, sess); err != nil {
 		return nil, fmt.Errorf("update session: %w", err)
 	}
-	return s.GetSession(ctx, id, nil)
+	return s.sessionResponse(ctx, id)
 }
 
 func (s *interviewService) DeleteSession(ctx context.Context, id uuid.UUID) error {
@@ -123,7 +147,7 @@ func (s *interviewService) StartSession(ctx context.Context, id uuid.UUID) (*dto
 	if err := s.sessions.Update(ctx, sess); err != nil {
 		return nil, fmt.Errorf("start session: %w", err)
 	}
-	return s.GetSession(ctx, id, nil)
+	return s.sessionResponse(ctx, id)
 }
 
 func (s *interviewService) EndSession(ctx context.Context, id uuid.UUID) (*dto.SessionResponse, error) {
@@ -142,7 +166,7 @@ func (s *interviewService) EndSession(ctx context.Context, id uuid.UUID) (*dto.S
 	if err := s.sessions.Update(ctx, sess); err != nil {
 		return nil, fmt.Errorf("end session: %w", err)
 	}
-	return s.GetSession(ctx, id, nil)
+	return s.sessionResponse(ctx, id)
 }
 
 func (s *interviewService) SessionQRCode(ctx context.Context, id uuid.UUID) (*dto.QRCodeResponse, []byte, error) {

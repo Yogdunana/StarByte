@@ -1,0 +1,10 @@
+.panel { margin-top:24px; }
+.secondary, .note { color:var(--sb-muted); font-size:12px; line-height:1.8; }
+.note { margin-top:16px; }
+.cards { display:grid; gap:16px; }
+.interview { padding:18px; border:1px solid var(--sb-border); border-radius:10px; }
+.heading { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+.heading h2 { font-size:16px; margin:0; }
+.interview p { color:var(--sb-muted); font-size:13px; }
+.result { padding-top:12px; border-top:1px solid var(--sb-border); display:flex; justify-content:space-between; font-size:12px; }
+@media(max-width:767px) { .panel :global(.ant-card-body) { padding:16px; } }

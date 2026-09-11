@@ -149,6 +149,7 @@ type Handler func(ctx context.Context, event Event) error
 // EventBus provides publish/subscribe functionality for workflow events.
 // In v1, dispatch is synchronous. v2 may add async dispatch with a worker pool.
 type EventBus struct {
+	buffer   *Buffer
 	mu       sync.RWMutex
 	handlers map[string][]Handler
 }
@@ -172,6 +173,10 @@ func (b *EventBus) Subscribe(eventName string, handler Handler) {
 // If a handler returns an error, subsequent handlers are still called.
 // Errors are collected and returned as a slice.
 func (b *EventBus) Publish(ctx context.Context, event Event) []error {
+	if b.buffer != nil {
+		b.buffer.add(event)
+		return nil
+	}
 	b.mu.RLock()
 	handlers := b.handlers[event.EventName()]
 	b.mu.RUnlock()

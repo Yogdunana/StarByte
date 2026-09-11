@@ -3,12 +3,13 @@ package service
 import (
 	"context"
 
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/engine"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/repo"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 // instanceServiceImpl handles flow instance business logic.
@@ -64,6 +65,9 @@ func (s *instanceServiceImpl) GetByID(ctx context.Context, id uuid.UUID) (*model
 		return nil, response.NewAppError(response.CodeWorkflowInstNotFound,
 			"流程实例不存在")
 	}
+	if err := requireInstanceAccess(ctx, s.db, inst, true); err != nil {
+		return nil, err
+	}
 	return inst, nil
 }
 
@@ -87,21 +91,45 @@ func (s *instanceServiceImpl) List(ctx context.Context, page, pageSize int, stat
 
 // Terminate terminates a flow instance.
 func (s *instanceServiceImpl) Terminate(ctx context.Context, instanceID uuid.UUID, operatorID uuid.UUID, reason string) error {
+	inst, err := s.GetByID(ctx, instanceID)
+	if err != nil {
+		return err
+	}
+	if err := requireInstanceAccess(ctx, s.db, inst, false); err != nil {
+		return err
+	}
 	return s.flowEngine.Terminate(ctx, instanceID, operatorID, reason)
 }
 
 // Suspend suspends a running flow instance.
 func (s *instanceServiceImpl) Suspend(ctx context.Context, instanceID uuid.UUID, operatorID uuid.UUID, reason string) error {
+	inst, err := s.GetByID(ctx, instanceID)
+	if err != nil {
+		return err
+	}
+	if err := requireInstanceAccess(ctx, s.db, inst, false); err != nil {
+		return err
+	}
 	return s.flowEngine.Suspend(ctx, instanceID, operatorID, reason)
 }
 
 // Resume resumes a suspended flow instance.
 func (s *instanceServiceImpl) Resume(ctx context.Context, instanceID uuid.UUID, operatorID uuid.UUID) error {
+	inst, err := s.GetByID(ctx, instanceID)
+	if err != nil {
+		return err
+	}
+	if err := requireInstanceAccess(ctx, s.db, inst, false); err != nil {
+		return err
+	}
 	return s.flowEngine.Resume(ctx, instanceID, operatorID)
 }
 
 // ListHistory returns the history for a flow instance.
 func (s *instanceServiceImpl) ListHistory(ctx context.Context, instanceID uuid.UUID) ([]model.FlowHistory, error) {
+	if _, err := s.GetByID(ctx, instanceID); err != nil {
+		return nil, err
+	}
 	histories, err := s.taskRepo.ListHistory(ctx, instanceID)
 	if err != nil {
 		return nil, response.NewAppErrorf(response.CodeInternalError,

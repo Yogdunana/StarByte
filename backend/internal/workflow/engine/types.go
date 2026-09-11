@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
 )
@@ -67,6 +68,9 @@ func ParseGraph(bpmnData []byte) (*FlowGraph, error) {
 	}
 
 	for _, n := range raw.Nodes {
+		if _, exists := graph.Nodes[n.ID]; exists {
+			return nil, fmt.Errorf("重复节点 ID: %s", n.ID)
+		}
 		label, _ := n.Data["label"].(string)
 		config, _ := n.Data["config"].(map[string]interface{})
 		graph.Nodes[n.ID] = &FlowNode{
@@ -151,3 +155,7 @@ type NodeHandler interface {
 	// Validate checks that the node's configuration is valid.
 	Validate(node *FlowNode) error
 }
+
+// WaitingNode marks handlers whose OnEnter schedules work, while Execute is only
+// called after an explicit completion. Plugins opt in without engine type checks.
+type WaitingNode interface{ WaitForCompletion() bool }

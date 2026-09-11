@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Descriptions, Drawer, Form, Input, Select, Space, Timeline, message } from 'antd';
+import { Button, Descriptions, Drawer, Form, Input, Select, Timeline, message } from 'antd';
 import {
-  approveApplication,
   getApplicationHistory,
-  rejectApplication,
   resubmitApplication,
-  supplementApplication,
 } from '@/api/member';
 import type { MemberApplication, MemberApplicationHistory } from '@/types/api';
 import StatusTag from '@/components/StatusTag/StatusTag';
-import { ApplicationStatusMap, requiredFieldOptions } from '../meta';
+import AdmissionPanel from './AdmissionPanel';
+import dayjs from 'dayjs';
+import { Link } from 'react-router-dom';
+import { ApplicationStatusMap } from '../meta';
 
 interface ReviewDrawerProps {
   open: boolean;
@@ -29,9 +29,12 @@ const ReviewDrawer: React.FC<ReviewDrawerProps> = ({ open, record, mode, onClose
     if (mode !== 'view') {
       form.resetFields();
     }
+    let active = true;
+    setHistory([]);
     getApplicationHistory(record.id)
-      .then(setHistory)
-      .catch(() => setHistory([]));
+      .then(rows => { if (active) setHistory(rows); })
+      .catch(() => { if (active) setHistory([]); });
+    return () => { active = false; };
   }, [open, record, form, mode]);
 
   const run = async (fn: () => Promise<unknown>, ok: string) => {
@@ -45,24 +48,6 @@ const ReviewDrawer: React.FC<ReviewDrawerProps> = ({ open, record, mode, onClose
     }
   };
 
-  const handleApprove = () =>
-    run(async () => {
-      const { comment } = await form.validateFields(['comment']);
-      await approveApplication(record!.id, comment || '');
-    }, '已通过');
-
-  const handleReject = () =>
-    run(async () => {
-      const { comment } = await form.validateFields(['comment']);
-      await rejectApplication(record!.id, comment || '');
-    }, '已拒绝');
-
-  const handleSupplement = () =>
-    run(async () => {
-      const values = await form.validateFields(['comment', 'required_fields']);
-      await supplementApplication(record!.id, values.comment, values.required_fields || []);
-    }, '已要求补充材料');
-
   const handleResubmit = () =>
     run(async () => {
       const values = await form.validateFields();
@@ -72,7 +57,8 @@ const ReviewDrawer: React.FC<ReviewDrawerProps> = ({ open, record, mode, onClose
   return (
     <Drawer
       title={record ? `${record.real_name} 的申请` : '申请详情'}
-      width={560}
+      width={640}
+      styles={{ wrapper: { maxWidth: '100vw' } }}
       open={open}
       onClose={onClose}
     >
@@ -83,7 +69,7 @@ const ReviewDrawer: React.FC<ReviewDrawerProps> = ({ open, record, mode, onClose
             <Descriptions.Item label="学号">{record.student_no}</Descriptions.Item>
             <Descriptions.Item label="部门">{record.department_name || '-'}</Descriptions.Item>
             <Descriptions.Item label="状态">
-              <StatusTag status={record.status} mapping={ApplicationStatusMap} />
+              <StatusTag status={record.status} mapping={ApplicationStatusMap} /> {record.current_stage}
             </Descriptions.Item>
             <Descriptions.Item label="电话">{record.contact_phone}</Descriptions.Item>
             <Descriptions.Item label="邮箱">{record.contact_email}</Descriptions.Item>
@@ -94,31 +80,16 @@ const ReviewDrawer: React.FC<ReviewDrawerProps> = ({ open, record, mode, onClose
               <Descriptions.Item label="审核意见">{record.review_comment}</Descriptions.Item>
             )}
           </Descriptions>
+          {record.flow_instance_id && <p><Link to={`/workflow/instances?instance_id=${encodeURIComponent(record.flow_instance_id)}`}>查看关联审批流程</Link></p>}
 
-          {mode === 'review' && (
-            <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-              <Form.Item name="comment" label="审核意见">
-                <Input.TextArea rows={3} />
-              </Form.Item>
-              <Form.Item name="required_fields" label="需补充字段">
-                <Select mode="multiple" options={requiredFieldOptions} placeholder="要求补充时选择" />
-              </Form.Item>
-              <Space wrap>
-                <Button type="primary" loading={loading} onClick={() => void handleApprove()}>
-                  通过
-                </Button>
-                <Button danger loading={loading} onClick={() => void handleReject()}>
-                  拒绝
-                </Button>
-                <Button loading={loading} onClick={() => void handleSupplement()}>
-                  补充材料
-                </Button>
-              </Space>
-            </Form>
-          )}
+          <AdmissionPanel key={record.id} id={record.id} officer={record.applicant_type === 2} editable={mode === 'review'} onChanged={onDone} />
 
           {mode === 'resubmit' && (
             <Form form={form} layout="vertical" style={{ marginTop: 16 }} initialValues={record}>
+              <Form.Item name="real_name" label="姓名"><Input /></Form.Item>
+              <Form.Item name="student_no" label="学号"><Input /></Form.Item>
+              <Form.Item name="contact_phone" label="联系电话"><Input /></Form.Item>
+              <Form.Item name="contact_email" label="邮箱" rules={[{ type: 'email' }]}><Input /></Form.Item>
               <Form.Item name="experience" label="项目经历">
                 <Input.TextArea rows={3} />
               </Form.Item>
@@ -128,7 +99,7 @@ const ReviewDrawer: React.FC<ReviewDrawerProps> = ({ open, record, mode, onClose
               <Form.Item name="reason" label="申请理由">
                 <Input.TextArea rows={3} />
               </Form.Item>
-              <Button type="primary" loading={loading} onClick={() => void handleResubmit()}>
+              <Button type="primary" loading={loading} onClick={() => { void handleResubmit().catch(() => undefined); }}>
                 重新提交
               </Button>
             </Form>
@@ -137,7 +108,7 @@ const ReviewDrawer: React.FC<ReviewDrawerProps> = ({ open, record, mode, onClose
           <Timeline
             style={{ marginTop: 24 }}
             items={history.map((h) => ({
-              children: `${h.created_at}：${h.from_status} → ${h.to_status} ${h.comment || ''}`,
+              children: `${dayjs(h.created_at).format('YYYY-MM-DD HH:mm')}：${ApplicationStatusMap[h.from_status]?.text || h.from_status} → ${ApplicationStatusMap[h.to_status]?.text || h.to_status} ${h.comment || ''}`,
             }))}
           />
         </>

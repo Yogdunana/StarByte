@@ -26,25 +26,28 @@ type VoteOptionResponse struct {
 }
 
 type VoteResponse struct {
-	ID          string               `json:"id"`
-	MeetingID   string               `json:"meeting_id"`
-	Title       string               `json:"title"`
-	Description string               `json:"description"`
-	VoteType    int16                `json:"vote_type"`
-	IsAnonymous bool                 `json:"is_anonymous"`
-	Options     []VoteOptionResponse `json:"options"`
-	Status      int16                `json:"status"`
-	StartTime   *time.Time           `json:"start_time,omitempty"`
-	EndTime     *time.Time           `json:"end_time,omitempty"`
-	HasVoted    bool                 `json:"has_voted"`
-	CreatedAt   time.Time            `json:"created_at"`
+	ElectorateFrozen bool                 `json:"electorate_frozen"`
+	EligibleCount    int                  `json:"eligible_count"`
+	CanVote          bool                 `json:"can_vote"`
+	ID               string               `json:"id"`
+	MeetingID        string               `json:"meeting_id"`
+	Title            string               `json:"title"`
+	Description      string               `json:"description"`
+	VoteType         int16                `json:"vote_type"`
+	IsAnonymous      bool                 `json:"is_anonymous"`
+	Options          []VoteOptionResponse `json:"options"`
+	Status           int16                `json:"status"`
+	StartTime        *time.Time           `json:"start_time,omitempty"`
+	EndTime          *time.Time           `json:"end_time,omitempty"`
+	HasVoted         bool                 `json:"has_voted"`
+	CreatedAt        time.Time            `json:"created_at"`
 }
 
 type VoteResultItem struct {
 	OptionKey   string  `json:"option_key"`
 	OptionLabel string  `json:"option_label"`
 	Count       int     `json:"count"`
-	WeightTotal float64 `json:"weight_total"`
+	WeightTotal float64 `json:"weight_total,omitempty"`
 }
 
 type VoteResultResponse struct {
@@ -55,16 +58,16 @@ type VoteResultResponse struct {
 	Status      int16            `json:"status"`
 	Results     []VoteResultItem `json:"results"`
 	TotalVoters int              `json:"total_voters"`
-	TotalWeight float64          `json:"total_weight"`
+	TotalWeight float64          `json:"total_weight,omitempty"`
 	StartTime   *time.Time       `json:"start_time,omitempty"`
 	EndTime     *time.Time       `json:"end_time,omitempty"`
 }
 
 type MyVoteResponse struct {
-	VoteID    string    `json:"vote_id"`
-	OptionKey string    `json:"option_key"`
-	Weight    float64   `json:"weight"`
-	VotedAt   time.Time `json:"voted_at"`
+	VoteID    string     `json:"vote_id"`
+	OptionKey string     `json:"option_key"`
+	Weight    float64    `json:"weight"`
+	VotedAt   *time.Time `json:"voted_at,omitempty"`
 }
 
 type VoteWeightConfigRequest struct {

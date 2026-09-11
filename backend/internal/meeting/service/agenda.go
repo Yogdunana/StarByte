@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/Yogdunana/StarByte/backend/internal/meeting/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/meeting/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/google/uuid"
 )
 
-func (s *meetingService) AddAgenda(ctx context.Context, meetingID uuid.UUID, req *dto.CreateAgendaRequest) (*dto.AgendaResponse, error) {
+func (s *meetingService) addAgenda(ctx context.Context, meetingID uuid.UUID, req *dto.CreateAgendaRequest) (*dto.AgendaResponse, error) {
 	if _, err := s.mustMeeting(ctx, meetingID); err != nil {
 		return nil, err
 	}
@@ -26,9 +27,12 @@ func (s *meetingService) AddAgenda(ctx context.Context, meetingID uuid.UUID, req
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
-	if req.Duration > 0 {
+	if req.Duration != 0 {
 		d := req.Duration
 		a.Duration = &d
+	}
+	if err := validateAgenda(a); err != nil {
+		return nil, err
 	}
 	if err := s.agendas.Create(ctx, a); err != nil {
 		return nil, fmt.Errorf("create agenda: %w", err)
@@ -37,7 +41,7 @@ func (s *meetingService) AddAgenda(ctx context.Context, meetingID uuid.UUID, req
 	return &out, nil
 }
 
-func (s *meetingService) UpdateAgenda(ctx context.Context, meetingID, agendaID uuid.UUID, req *dto.UpdateAgendaRequest) (*dto.AgendaResponse, error) {
+func (s *meetingService) updateAgenda(ctx context.Context, meetingID, agendaID uuid.UUID, req *dto.UpdateAgendaRequest) (*dto.AgendaResponse, error) {
 	a, err := s.mustAgenda(ctx, meetingID, agendaID)
 	if err != nil {
 		return nil, err
@@ -58,6 +62,9 @@ func (s *meetingService) UpdateAgenda(ctx context.Context, meetingID, agendaID u
 		d := *req.Duration
 		a.Duration = &d
 	}
+	if err := validateAgenda(a); err != nil {
+		return nil, err
+	}
 	a.UpdatedAt = time.Now()
 	if err := s.agendas.Update(ctx, a); err != nil {
 		return nil, fmt.Errorf("update agenda: %w", err)
@@ -66,7 +73,7 @@ func (s *meetingService) UpdateAgenda(ctx context.Context, meetingID, agendaID u
 	return &out, nil
 }
 
-func (s *meetingService) DeleteAgenda(ctx context.Context, meetingID, agendaID uuid.UUID) error {
+func (s *meetingService) deleteAgenda(ctx context.Context, meetingID, agendaID uuid.UUID) error {
 	if _, err := s.mustAgenda(ctx, meetingID, agendaID); err != nil {
 		return err
 	}
@@ -76,7 +83,7 @@ func (s *meetingService) DeleteAgenda(ctx context.Context, meetingID, agendaID u
 	return nil
 }
 
-func (s *meetingService) SortAgendas(ctx context.Context, meetingID uuid.UUID, ids []uuid.UUID) ([]dto.AgendaResponse, error) {
+func (s *meetingService) sortAgendas(ctx context.Context, meetingID uuid.UUID, ids []uuid.UUID) ([]dto.AgendaResponse, error) {
 	if _, err := s.mustMeeting(ctx, meetingID); err != nil {
 		return nil, err
 	}
@@ -87,6 +94,9 @@ func (s *meetingService) SortAgendas(ctx context.Context, meetingID uuid.UUID, i
 	byID := map[uuid.UUID]model.Agenda{}
 	for _, a := range exist {
 		byID[a.ID] = a
+	}
+	if len(ids) != len(exist) || len(uniqueUUIDs(ids)) != len(ids) {
+		return nil, response.NewError(response.CodeBadRequest, "排序必须包含全部议程且不能重复")
 	}
 	items := make([]model.Agenda, 0, len(ids))
 	for i, id := range ids {
@@ -119,6 +129,9 @@ func (s *meetingService) ListAgendas(ctx context.Context, meetingID uuid.UUID) (
 }
 
 func (s *meetingService) mustAgenda(ctx context.Context, meetingID, agendaID uuid.UUID) (*model.Agenda, error) {
+	if _, err := s.mustMeeting(ctx, meetingID); err != nil {
+		return nil, err
+	}
 	a, err := s.agendas.GetByID(ctx, agendaID)
 	if err != nil {
 		return nil, fmt.Errorf("get agenda: %w", err)

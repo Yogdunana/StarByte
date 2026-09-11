@@ -1,9 +1,10 @@
 package handler
 
 import (
+	"github.com/gin-gonic/gin"
+
 	"github.com/Yogdunana/StarByte/backend/internal/interview/dto"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/gin-gonic/gin"
 )
 
 // SubmitEvaluations 提交评分
@@ -59,7 +60,7 @@ func (h *InterviewHandler) GetEvaluations(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	out, err := h.svc.GetEvaluations(c.Request.Context(), id)
+	out, err := h.svc.GetEvaluations(c.Request.Context(), viewer(c), id)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -247,7 +248,7 @@ func (h *InterviewHandler) Stats(c *gin.Context) {
 		response.BadRequest(c, "参数错误: "+err.Error())
 		return
 	}
-	out, err := h.svc.Stats(c.Request.Context(), &q)
+	out, err := h.svc.Stats(c.Request.Context(), viewer(c), &q)
 	if err != nil {
 		response.Error(c, err)
 		return

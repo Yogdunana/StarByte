@@ -5,11 +5,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/task/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/task/model"
-	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 func (r *taskRepo) ListMine(ctx context.Context, userID uuid.UUID, kind string, req *dto.MyTaskRequest) ([]model.TaskWithNames, int64, error) {
@@ -88,7 +89,7 @@ func (r *taskRepo) Stats(ctx context.Context, req *dto.StatsRequest, now time.Ti
 		ByStatus:   map[string]int64{"pending": 0, "doing": 0, "done": 0, "cancelled": 0, "held": 0},
 		ByPriority: map[string]int64{"low": 0, "medium": 0, "high": 0, "urgent": 0},
 	}
-	if err := q.Count(&out.Total).Error; err != nil {
+	if err := q.Session(&gorm.Session{}).Count(&out.Total).Error; err != nil {
 		return nil, err
 	}
 	type pair struct {
@@ -96,7 +97,7 @@ func (r *taskRepo) Stats(ctx context.Context, req *dto.StatsRequest, now time.Ti
 		C int64
 	}
 	var statuses []pair
-	if err := q.Select("status AS k, COUNT(*) AS c").Group("status").Scan(&statuses).Error; err != nil {
+	if err := q.Session(&gorm.Session{}).Select("status AS k, COUNT(*) AS c").Group("status").Scan(&statuses).Error; err != nil {
 		return nil, err
 	}
 	statusKeys := map[int16]string{0: "pending", 1: "doing", 2: "done", 3: "cancelled", 4: "held"}
@@ -106,7 +107,7 @@ func (r *taskRepo) Stats(ctx context.Context, req *dto.StatsRequest, now time.Ti
 		}
 	}
 	var prios []pair
-	if err := q.Select("priority AS k, COUNT(*) AS c").Group("priority").Scan(&prios).Error; err != nil {
+	if err := q.Session(&gorm.Session{}).Select("priority AS k, COUNT(*) AS c").Group("priority").Scan(&prios).Error; err != nil {
 		return nil, err
 	}
 	prioKeys := map[int16]string{0: "low", 1: "medium", 2: "high", 3: "urgent"}
@@ -115,7 +116,7 @@ func (r *taskRepo) Stats(ctx context.Context, req *dto.StatsRequest, now time.Ti
 			out.ByPriority[name] = p.C
 		}
 	}
-	overdueQ := q.Where("due_date IS NOT NULL AND due_date < ? AND status IN ?",
+	overdueQ := q.Session(&gorm.Session{}).Where("due_date IS NOT NULL AND due_date < ? AND status IN ?",
 		now, []int16{model.StatusPending, model.StatusDoing, model.StatusHeld})
 	if err := overdueQ.Count(&out.Overdue).Error; err != nil {
 		return nil, err
@@ -126,8 +127,8 @@ func (r *taskRepo) Stats(ctx context.Context, req *dto.StatsRequest, now time.Ti
 func (r *taskRepo) GetUser(ctx context.Context, id uuid.UUID) (*model.NamedUser, error) {
 	var u model.NamedUser
 	err := r.db.WithContext(ctx).Table("users").
-		Select("id, real_name, username, COALESCE(avatar_url, '') AS avatar").
-		Where("id = ?", id).First(&u).Error
+		Select("id, real_name, username, department_id, status, deleted_at, COALESCE(avatar_url, '') AS avatar").
+		Where("id = ? AND status = 0 AND deleted_at IS NULL", id).First(&u).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
 	}
@@ -143,7 +144,7 @@ func (r *taskRepo) FindUsersByUsername(ctx context.Context, names []string) ([]m
 	}
 	var rows []model.NamedUser
 	err := r.db.WithContext(ctx).Table("users").
-		Select("id, real_name, username, COALESCE(avatar_url, '') AS avatar").
-		Where("username IN ?", names).Find(&rows).Error
+		Select("id, real_name, username, department_id, status, deleted_at, COALESCE(avatar_url, '') AS avatar").
+		Where("username IN ? AND status = 0 AND deleted_at IS NULL", names).Find(&rows).Error
 	return rows, err
 }

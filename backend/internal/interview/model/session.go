@@ -43,10 +43,12 @@ type NamedUser struct {
 
 // ApplicationBrief 入会申请摘要，用于导入面试者。
 type ApplicationBrief struct {
-	ID           uuid.UUID
-	UserID       uuid.UUID
-	RealName     string
-	StudentNo    string
-	DepartmentID *uuid.UUID
-	Status       int16
+	AdmissionVersion int16
+	AdmissionStage   string
+	ID               uuid.UUID
+	UserID           uuid.UUID
+	RealName         string
+	StudentNo        string
+	DepartmentID     *uuid.UUID
+	Status           int16
 }

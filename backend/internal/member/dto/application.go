@@ -56,29 +56,34 @@ type ReviewerInfo struct {
 
 // ApplicationResponse 申请详情/列表项。
 type ApplicationResponse struct {
-	ID             string        `json:"id"`
-	UserID         string        `json:"user_id"`
-	Username       string        `json:"username,omitempty"`
-	ApplicantType  int16         `json:"applicant_type"`
-	RealName       string        `json:"real_name"`
-	StudentNo      string        `json:"student_no"`
-	DepartmentID   string        `json:"department_id,omitempty"`
-	DepartmentName string        `json:"department_name,omitempty"`
-	Reason         string        `json:"reason"`
-	Skills         []string      `json:"skills"`
-	Experience     string        `json:"experience"`
-	ContactPhone   string        `json:"contact_phone"`
-	ContactEmail   string        `json:"contact_email"`
-	Status         int16         `json:"status"`
-	CurrentStage   string        `json:"current_stage,omitempty"`
-	FlowInstanceID string        `json:"flow_instance_id,omitempty"`
-	Reviewer       *ReviewerInfo `json:"reviewer,omitempty"`
-	ReviewComment  string        `json:"review_comment,omitempty"`
-	RequiredFields []string      `json:"required_fields,omitempty"`
-	ReviewedAt     *time.Time    `json:"reviewed_at,omitempty"`
-	SubmittedAt    time.Time     `json:"submitted_at"`
-	CreatedAt      time.Time     `json:"created_at"`
-	UpdatedAt      time.Time     `json:"updated_at"`
+	AdmissionVersion         int16         `json:"admission_version"`
+	AdmissionRevision        int           `json:"admission_revision"`
+	AdmissionStage           string        `json:"admission_stage"`
+	HistoricalReviewRequired bool          `json:"historical_review_required"`
+	ProbationUntil           *time.Time    `json:"probation_until,omitempty"`
+	ID                       string        `json:"id"`
+	UserID                   string        `json:"user_id"`
+	Username                 string        `json:"username,omitempty"`
+	ApplicantType            int16         `json:"applicant_type"`
+	RealName                 string        `json:"real_name"`
+	StudentNo                string        `json:"student_no"`
+	DepartmentID             string        `json:"department_id,omitempty"`
+	DepartmentName           string        `json:"department_name,omitempty"`
+	Reason                   string        `json:"reason"`
+	Skills                   []string      `json:"skills"`
+	Experience               string        `json:"experience"`
+	ContactPhone             string        `json:"contact_phone"`
+	ContactEmail             string        `json:"contact_email"`
+	Status                   int16         `json:"status"`
+	CurrentStage             string        `json:"current_stage,omitempty"`
+	FlowInstanceID           string        `json:"flow_instance_id,omitempty"`
+	Reviewer                 *ReviewerInfo `json:"reviewer,omitempty"`
+	ReviewComment            string        `json:"review_comment,omitempty"`
+	RequiredFields           []string      `json:"required_fields,omitempty"`
+	ReviewedAt               *time.Time    `json:"reviewed_at,omitempty"`
+	SubmittedAt              time.Time     `json:"submitted_at"`
+	CreatedAt                time.Time     `json:"created_at"`
+	UpdatedAt                time.Time     `json:"updated_at"`
 }
 
 // ApplicationHistoryResponse 申请历史。

@@ -2,14 +2,14 @@ package service
 
 import (
 	"context"
-	"time"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/engine"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/repo"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 // taskServiceImpl handles flow task business logic.
@@ -75,6 +75,23 @@ func (s *taskServiceImpl) GetTaskByID(ctx context.Context, id uuid.UUID) (*model
 		return nil, response.NewAppError(response.CodeWorkflowTaskNotFnd,
 			"流程任务不存在")
 	}
+
+	viewer := model.ViewerFromContext(ctx)
+	if viewer.ID == uuid.Nil {
+		return nil, response.NewAppError(response.CodeForbidden, "缺少任务访问身份")
+	}
+	if task.AssigneeID == nil || *task.AssigneeID != viewer.ID {
+		inst, err := s.instRepo.GetByID(ctx, task.InstanceID)
+		if err != nil {
+			return nil, err
+		}
+		if inst == nil {
+			return nil, response.NewAppError(response.CodeWorkflowInstNotFound, "流程实例不存在")
+		}
+		if err := requireInstanceAccess(ctx, s.db, inst, true); err != nil {
+			return nil, err
+		}
+	}
 	return task, nil
 }
 
@@ -83,7 +100,6 @@ func (s *taskServiceImpl) CompleteTask(ctx context.Context, taskID uuid.UUID, us
 	taskAction := engine.TaskAction(action)
 	if taskAction != engine.ActionApprove &&
 		taskAction != engine.ActionReject &&
-		taskAction != engine.ActionTransfer &&
 		taskAction != engine.ActionWithdraw {
 		return response.NewAppError(response.CodeBadRequest,
 			"无效的操作类型")
@@ -92,104 +108,24 @@ func (s *taskServiceImpl) CompleteTask(ctx context.Context, taskID uuid.UUID, us
 	return s.flowEngine.CompleteTask(ctx, taskID, userID, taskAction, comment, formData)
 }
 
-// TransferTask transfers a task to another user.
-func (s *taskServiceImpl) TransferTask(ctx context.Context, taskID uuid.UUID, fromUserID uuid.UUID, toUserID uuid.UUID, comment string) error {
-	task, err := s.taskRepo.GetTaskByID(ctx, taskID)
-	if err != nil || task == nil {
-		return response.NewAppError(response.CodeWorkflowTaskNotFnd,
-			"流程任务不存在")
-	}
-	if task.Status != 0 {
-		return response.NewAppError(response.CodeWorkflowTaskStatus,
-			"流程任务状态不允许操作")
-	}
-	if task.AssigneeID == nil || *task.AssigneeID != fromUserID {
-		return response.NewAppError(response.CodeWorkflowTaskNoAccess,
-			"无权操作流程任务")
-	}
-
-	// Update task with new assignee.
-	now := time.Now()
-	task.AssigneeID = &toUserID
-	task.Action = "transfer"
-	task.Comment = comment
-	task.UpdatedAt = now
-
-	// Record history.
-	hist := &model.FlowHistory{
-		ID:         uuid.New(),
-		InstanceID: task.InstanceID,
-		TaskID:     &task.ID,
-		NodeID:     task.NodeID,
-		NodeName:   task.NodeName,
-		NodeType:   "approval",
-		OperatorID: &fromUserID,
-		Action:     "transfer",
-		Comment:    comment,
-		CreatedAt:  now,
-	}
-
-	txErr := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := s.taskRepo.UpdateTask(ctx, tx, task); err != nil {
-			return err
-		}
-		if err := s.taskRepo.CreateHistory(ctx, tx, hist); err != nil {
-			return err
-		}
-		return nil
-	})
-
-	return txErr
+// TransferTask transfers a task while retaining the original assignment history.
+func (s *taskServiceImpl) TransferTask(ctx context.Context, taskID, fromUserID, toUserID uuid.UUID, comment string) error {
+	return s.flowEngine.TransferTask(ctx, taskID, fromUserID, toUserID, comment)
 }
 
-// RollbackTask rolls back a task to a previous node.
-func (s *taskServiceImpl) RollbackTask(ctx context.Context, taskID uuid.UUID, userID uuid.UUID, targetNodeID string, comment string) error {
-	task, err := s.taskRepo.GetTaskByID(ctx, taskID)
-	if err != nil || task == nil {
-		return response.NewAppError(response.CodeWorkflowTaskNotFnd,
-			"流程任务不存在")
-	}
-	if task.Status != 0 {
-		return response.NewAppError(response.CodeWorkflowTaskStatus,
-			"流程任务状态不允许操作")
-	}
-	if task.AssigneeID == nil || *task.AssigneeID != userID {
-		return response.NewAppError(response.CodeWorkflowTaskNoAccess,
-			"无权操作流程任务")
-	}
+// RollbackTask re-enters a previously approved node and creates fresh pending tasks.
+func (s *taskServiceImpl) RollbackTask(ctx context.Context, taskID, userID uuid.UUID, targetNodeID, comment string) error {
+	return s.flowEngine.RollbackTask(ctx, taskID, userID, targetNodeID, comment)
+}
 
-	// Cancel the current task and create a new task at the target node.
-	now := time.Now()
-	task.Status = 4 // withdrawn/rolled back
-	task.Action = "rollback"
-	task.Comment = comment
-	task.CompletedAt = &now
-	task.UpdatedAt = now
-
-	hist := &model.FlowHistory{
-		ID:         uuid.New(),
-		InstanceID: task.InstanceID,
-		TaskID:     &task.ID,
-		NodeID:     task.NodeID,
-		NodeName:   task.NodeName,
-		NodeType:   "approval",
-		OperatorID: &userID,
-		Action:     "rollback",
-		Comment:    comment,
-		FromNodeID: task.NodeID,
-		ToNodeID:   targetNodeID,
-		CreatedAt:  now,
+func (s *taskServiceImpl) TransferCandidates(ctx context.Context, id uuid.UUID, keyword string) ([]model.ApproverOption, error) {
+	task, err := s.GetTaskByID(ctx, id)
+	if err != nil {
+		return nil, err
 	}
-
-	txErr := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := s.taskRepo.UpdateTask(ctx, tx, task); err != nil {
-			return err
-		}
-		if err := s.taskRepo.CreateHistory(ctx, tx, hist); err != nil {
-			return err
-		}
-		return nil
-	})
-
-	return txErr
+	viewer := model.ViewerFromContext(ctx)
+	if task.Status != 0 || task.AssigneeID == nil || *task.AssigneeID != viewer.ID {
+		return nil, response.NewAppError(response.CodeForbidden, "仅当前处理人可选择接收人")
+	}
+	return repo.NewApproverRepo(s.db).Search(ctx, keyword, viewer.ID)
 }

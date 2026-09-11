@@ -4,14 +4,15 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Yogdunana/StarByte/backend/internal/workflow/dto"
-	"github.com/Yogdunana/StarByte/backend/internal/workflow/engine"
-	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
-	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
+
+	"github.com/Yogdunana/StarByte/backend/internal/workflow/dto"
+	"github.com/Yogdunana/StarByte/backend/internal/workflow/engine"
+	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
+	"github.com/Yogdunana/StarByte/backend/pkg/response"
 )
 
 type mockDefRepoSvc struct {
@@ -216,6 +217,10 @@ func TestDefinitionService_Update(t *testing.T) {
 		Name:   "Old Name",
 		Status: 0,
 	}
+	owner := uuid.New()
+	def.CreatedBy = &owner
+	ctx := model.WithViewer(context.Background(), model.Viewer{ID: owner})
+
 	repo.defs[def.ID] = def
 
 	svc := NewDefinitionService(repo, nil)
@@ -224,7 +229,7 @@ func TestDefinitionService_Update(t *testing.T) {
 		Description: "Updated description",
 	}
 
-	updated, err := svc.Update(context.Background(), def.ID, req, userID)
+	updated, err := svc.Update(ctx, def.ID, req, userID)
 	require.NoError(t, err)
 	assert.Equal(t, "New Name", updated.Name)
 	assert.Equal(t, "Updated description", updated.Description)
@@ -239,12 +244,16 @@ func TestDefinitionService_Update_AlreadyPublished(t *testing.T) {
 		Name:   "Published",
 		Status: 1, // published
 	}
+	owner := uuid.New()
+	def.CreatedBy = &owner
+	ctx := model.WithViewer(context.Background(), model.Viewer{ID: owner})
+
 	repo.defs[def.ID] = def
 
 	svc := NewDefinitionService(repo, nil)
 	req := &dto.UpdateDefinitionRequest{Name: "New Name"}
 
-	_, err := svc.Update(context.Background(), def.ID, req, uuid.New())
+	_, err := svc.Update(ctx, def.ID, req, uuid.New())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "已发布")
 }
@@ -253,6 +262,10 @@ func TestDefinitionService_SaveDraft(t *testing.T) {
 	repo := newMockDefRepoSvc()
 	userID := uuid.New()
 	def := &model.FlowDefinition{ID: uuid.New(), Key: "test", Name: "草稿", Status: 0}
+	owner := uuid.New()
+	def.CreatedBy = &owner
+	ctx := model.WithViewer(context.Background(), model.Viewer{ID: owner})
+
 	repo.defs[def.ID] = def
 
 	svc := NewDefinitionService(repo, nil)
@@ -263,7 +276,7 @@ func TestDefinitionService_SaveDraft(t *testing.T) {
 		},
 	}
 
-	updated, err := svc.SaveDraft(context.Background(), def.ID, req, userID)
+	updated, err := svc.SaveDraft(ctx, def.ID, req, userID)
 	require.NoError(t, err)
 	assert.Equal(t, userID, *updated.UpdatedBy)
 	require.NotEmpty(t, updated.DraftGraph)
@@ -273,12 +286,16 @@ func TestDefinitionService_SaveDraft(t *testing.T) {
 func TestDefinitionService_SaveDraft_PublishedAllowed(t *testing.T) {
 	repo := newMockDefRepoSvc()
 	def := &model.FlowDefinition{ID: uuid.New(), Key: "test", Name: "已发布", Status: 1}
+	owner := uuid.New()
+	def.CreatedBy = &owner
+	ctx := model.WithViewer(context.Background(), model.Viewer{ID: owner})
+
 	repo.defs[def.ID] = def
 
 	svc := NewDefinitionService(repo, nil)
 	req := &dto.SaveDraftRequest{GraphData: &dto.GraphData{Nodes: []dto.GraphNode{}, Edges: []dto.GraphEdge{}}}
 
-	updated, err := svc.SaveDraft(context.Background(), def.ID, req, uuid.New())
+	updated, err := svc.SaveDraft(ctx, def.ID, req, uuid.New())
 	require.NoError(t, err)
 	assert.Equal(t, 1, updated.Status)
 	require.NotEmpty(t, updated.DraftGraph)
@@ -298,10 +315,14 @@ func TestDefinitionService_Delete(t *testing.T) {
 	repo := newMockDefRepoSvc()
 	defID := uuid.New()
 	def := &model.FlowDefinition{ID: defID, Key: "test", Status: 0}
+	owner := uuid.New()
+	def.CreatedBy = &owner
+	ctx := model.WithViewer(context.Background(), model.Viewer{ID: owner})
+
 	repo.defs[defID] = def
 
 	svc := NewDefinitionService(repo, nil)
-	err := svc.Delete(context.Background(), defID)
+	err := svc.Delete(ctx, defID)
 	require.NoError(t, err)
 	assert.Nil(t, repo.defs[defID])
 }
@@ -310,10 +331,14 @@ func TestDefinitionService_Delete_Published(t *testing.T) {
 	repo := newMockDefRepoSvc()
 	defID := uuid.New()
 	def := &model.FlowDefinition{ID: defID, Key: "test", Status: 1}
+	owner := uuid.New()
+	def.CreatedBy = &owner
+	ctx := model.WithViewer(context.Background(), model.Viewer{ID: owner})
+
 	repo.defs[defID] = def
 
 	svc := NewDefinitionService(repo, nil)
-	err := svc.Delete(context.Background(), defID)
+	err := svc.Delete(ctx, defID)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "已发布")
 }
@@ -376,7 +401,7 @@ func TestGetCurrentNodeIDs(t *testing.T) {
 
 func TestTaskService_GetTaskByID_NotFound(t *testing.T) {
 	taskRepo := newMockTaskRepoSvc()
-	svc := NewTaskService(taskRepo, newMockInstRepoSvc(), nil, nil)
+	svc := NewTaskService(taskRepo, newMockInstRepoSvc(), engine.NewFlowEngine(newMockDefRepoSvc(), newMockInstRepoSvc(), taskRepo, nil, nil, nil, nil, nil, nil), nil)
 
 	_, err := svc.GetTaskByID(context.Background(), uuid.New())
 	require.Error(t, err)
@@ -385,7 +410,7 @@ func TestTaskService_GetTaskByID_NotFound(t *testing.T) {
 
 func TestTaskService_CompleteTask_InvalidAction(t *testing.T) {
 	taskRepo := newMockTaskRepoSvc()
-	svc := NewTaskService(taskRepo, newMockInstRepoSvc(), nil, nil)
+	svc := NewTaskService(taskRepo, newMockInstRepoSvc(), engine.NewFlowEngine(newMockDefRepoSvc(), newMockInstRepoSvc(), taskRepo, nil, nil, nil, nil, nil, nil), nil)
 
 	err := svc.CompleteTask(context.Background(), uuid.New(), uuid.New(), "invalid_action", "", nil)
 	require.Error(t, err)
@@ -394,46 +419,25 @@ func TestTaskService_CompleteTask_InvalidAction(t *testing.T) {
 	assert.Equal(t, response.CodeBadRequest, appErr.Code)
 }
 
-func TestTaskService_CompleteTask_ValidActions(t *testing.T) {
-	// Test that valid action strings pass the validation check.
-	// We verify that invalid actions are rejected — valid actions would
-	// require a real engine instance to proceed, so we only test the
-	// negative case here.
-	taskRepo := newMockTaskRepoSvc()
-	svc := NewTaskService(taskRepo, newMockInstRepoSvc(), nil, nil)
-
-	// Invalid action should return CodeBadRequest.
-	err := svc.CompleteTask(context.Background(), uuid.New(), uuid.New(), "bogus", "", nil)
-	require.Error(t, err)
-	appErr, ok := err.(*response.AppError)
-	require.True(t, ok)
-	assert.Equal(t, response.CodeBadRequest, appErr.Code)
-
-	// Valid action strings should pass validation (will panic on nil engine,
-	// so we use recover to verify they don't fail validation).
-	validActions := []string{
-		string(engine.ActionApprove),
-		string(engine.ActionReject),
-		string(engine.ActionTransfer),
-		string(engine.ActionWithdraw),
+func TestTaskService_CompleteTask_ActionValidation(t *testing.T) {
+	tasks := newMockTaskRepoSvc()
+	flow := engine.NewFlowEngine(newMockDefRepoSvc(), newMockInstRepoSvc(), tasks, nil, nil, nil, nil, nil, nil)
+	svc := NewTaskService(tasks, newMockInstRepoSvc(), flow, nil)
+	for _, action := range []string{"approve", "reject", "withdraw"} {
+		err := svc.CompleteTask(context.Background(), uuid.New(), uuid.New(), action, "", nil)
+		require.Error(t, err)
+		require.Equal(t, response.CodeWorkflowTaskNotFnd, err.(*response.AppError).Code)
 	}
-
-	for _, action := range validActions {
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					// Panic is expected because engine is nil.
-					// The important thing is we didn't get a CodeBadRequest.
-				}
-			}()
-			_ = svc.CompleteTask(context.Background(), uuid.New(), uuid.New(), action, "", nil)
-		}()
+	for _, action := range []string{"transfer", "rollback", "bogus"} {
+		err := svc.CompleteTask(context.Background(), uuid.New(), uuid.New(), action, "", nil)
+		require.Error(t, err)
+		require.Equal(t, response.CodeBadRequest, err.(*response.AppError).Code)
 	}
 }
 
 func TestTaskService_TransferTask_NotFound(t *testing.T) {
 	taskRepo := newMockTaskRepoSvc()
-	svc := NewTaskService(taskRepo, newMockInstRepoSvc(), nil, nil)
+	svc := NewTaskService(taskRepo, newMockInstRepoSvc(), engine.NewFlowEngine(newMockDefRepoSvc(), newMockInstRepoSvc(), taskRepo, nil, nil, nil, nil, nil, nil), nil)
 
 	err := svc.TransferTask(context.Background(), uuid.New(), uuid.New(), uuid.New(), "")
 	require.Error(t, err)
@@ -451,7 +455,7 @@ func TestTaskService_TransferTask_NoAccess(t *testing.T) {
 		AssigneeID: &assigneeID,
 	}
 
-	svc := NewTaskService(taskRepo, newMockInstRepoSvc(), nil, nil)
+	svc := NewTaskService(taskRepo, newMockInstRepoSvc(), engine.NewFlowEngine(newMockDefRepoSvc(), newMockInstRepoSvc(), taskRepo, nil, nil, nil, nil, nil, nil), nil)
 	err := svc.TransferTask(context.Background(), taskID, otherUserID, uuid.New(), "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "无权操作")
@@ -467,15 +471,15 @@ func TestTaskService_TransferTask_NotPending(t *testing.T) {
 		AssigneeID: &assigneeID,
 	}
 
-	svc := NewTaskService(taskRepo, newMockInstRepoSvc(), nil, nil)
+	svc := NewTaskService(taskRepo, newMockInstRepoSvc(), engine.NewFlowEngine(newMockDefRepoSvc(), newMockInstRepoSvc(), taskRepo, nil, nil, nil, nil, nil, nil), nil)
 	err := svc.TransferTask(context.Background(), taskID, assigneeID, uuid.New(), "")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "状态不允许")
+	assert.Equal(t, response.CodeWorkflowTaskStatus, err.(*response.AppError).Code)
 }
 
 func TestTaskService_RollbackTask_NotFound(t *testing.T) {
 	taskRepo := newMockTaskRepoSvc()
-	svc := NewTaskService(taskRepo, newMockInstRepoSvc(), nil, nil)
+	svc := NewTaskService(taskRepo, newMockInstRepoSvc(), engine.NewFlowEngine(newMockDefRepoSvc(), newMockInstRepoSvc(), taskRepo, nil, nil, nil, nil, nil, nil), nil)
 
 	err := svc.RollbackTask(context.Background(), uuid.New(), uuid.New(), "target", "")
 	require.Error(t, err)
@@ -493,7 +497,7 @@ func TestTaskService_RollbackTask_NoAccess(t *testing.T) {
 		AssigneeID: &assigneeID,
 	}
 
-	svc := NewTaskService(taskRepo, newMockInstRepoSvc(), nil, nil)
+	svc := NewTaskService(taskRepo, newMockInstRepoSvc(), engine.NewFlowEngine(newMockDefRepoSvc(), newMockInstRepoSvc(), taskRepo, nil, nil, nil, nil, nil, nil), nil)
 	err := svc.RollbackTask(context.Background(), taskID, otherUserID, "target", "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "无权操作")

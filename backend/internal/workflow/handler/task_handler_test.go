@@ -8,12 +8,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
-	"github.com/Yogdunana/StarByte/backend/internal/workflow/service"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
+	"github.com/Yogdunana/StarByte/backend/internal/workflow/service"
 )
 
 // --- Mock TaskService ---
@@ -339,4 +340,8 @@ func TestTaskHandler_Rollback_MissingTargetNodeID(t *testing.T) {
 	r.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func (m *mockTaskService) TransferCandidates(context.Context, uuid.UUID, string) ([]model.ApproverOption, error) {
+	return nil, nil
 }

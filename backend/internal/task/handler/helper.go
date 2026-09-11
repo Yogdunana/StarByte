@@ -1,12 +1,14 @@
 package handler
 
 import (
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
+	"github.com/Yogdunana/StarByte/backend/internal/task/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/middleware"
 	"github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 func getUserID(c *gin.Context) (uuid.UUID, error) {
@@ -38,6 +40,9 @@ func parseNamedID(c *gin.Context, name string) (uuid.UUID, error) {
 }
 
 func dataScope(c *gin.Context) *rbacModel.DataScopeCondition {
+	if viewer, ok := model.ViewerFromContext(c.Request.Context()); ok {
+		return viewer.Scope
+	}
 	return middleware.GetDataScopeFromContext(c)
 }
 

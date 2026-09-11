@@ -3,9 +3,10 @@ package repo
 import (
 	"context"
 
-	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+
+	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
 )
 
 // TaskRepo manages flow_tasks and flow_histories.
@@ -51,7 +52,7 @@ func (r *taskRepo) CreateTask(ctx context.Context, tx *gorm.DB, task *model.Flow
 
 func (r *taskRepo) GetTaskByID(ctx context.Context, id uuid.UUID) (*model.FlowTask, error) {
 	var task model.FlowTask
-	err := r.db.WithContext(ctx).Where("id = ?", id).First(&task).Error
+	err := r.taskQuery(ctx).Where("flow_tasks.id = ?", id).First(&task).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
 	}
@@ -66,15 +67,15 @@ func (r *taskRepo) ListTodoTasks(ctx context.Context, assigneeID uuid.UUID, page
 	var tasks []model.FlowTask
 	var total int64
 
-	query := r.db.WithContext(ctx).Model(&model.FlowTask{}).
-		Where("assignee_id = ? AND status = 0", assigneeID)
+	query := r.taskQuery(ctx).
+		Where("flow_tasks.assignee_id = ? AND flow_tasks.status = 0", assigneeID)
 
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
 	offset := (page - 1) * pageSize
-	err := query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&tasks).Error
+	err := query.Order("flow_tasks.created_at DESC").Offset(offset).Limit(pageSize).Find(&tasks).Error
 	return tasks, total, err
 }
 
@@ -82,15 +83,15 @@ func (r *taskRepo) ListDoneTasks(ctx context.Context, assigneeID uuid.UUID, page
 	var tasks []model.FlowTask
 	var total int64
 
-	query := r.db.WithContext(ctx).Model(&model.FlowTask{}).
-		Where("assignee_id = ? AND status > 0", assigneeID)
+	query := r.taskQuery(ctx).
+		Where("flow_tasks.assignee_id = ? AND flow_tasks.status > 0", assigneeID)
 
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
 	offset := (page - 1) * pageSize
-	err := query.Order("completed_at DESC").Offset(offset).Limit(pageSize).Find(&tasks).Error
+	err := query.Order("flow_tasks.completed_at DESC").Offset(offset).Limit(pageSize).Find(&tasks).Error
 	return tasks, total, err
 }
 
@@ -109,9 +110,11 @@ func (r *taskRepo) CreateHistory(ctx context.Context, tx *gorm.DB, hist *model.F
 
 func (r *taskRepo) ListHistory(ctx context.Context, instanceID uuid.UUID) ([]model.FlowHistory, error) {
 	var histories []model.FlowHistory
-	err := r.db.WithContext(ctx).
-		Where("instance_id = ?", instanceID).
-		Order("created_at ASC").
-		Find(&histories).Error
+	err := r.db.WithContext(ctx).Model(&model.FlowHistory{}).Select("flow_histories.*, actor.real_name AS operator_name").Joins("LEFT JOIN users actor ON actor.id=flow_histories.operator_id").
+		Where("flow_histories.instance_id = ?", instanceID).Order("flow_histories.created_at ASC").Find(&histories).Error
 	return histories, err
+}
+
+func (r *taskRepo) taskQuery(ctx context.Context) *gorm.DB {
+	return r.db.WithContext(ctx).Model(&model.FlowTask{}).Select("flow_tasks.*, actor.real_name AS assignee_name, definition.name AS definition_name, instance.status AS instance_status, instance.business_type, instance.business_key").Joins("LEFT JOIN users actor ON actor.id=flow_tasks.assignee_id").Joins("JOIN flow_instances instance ON instance.id=flow_tasks.instance_id").Joins("JOIN flow_definitions definition ON definition.id=instance.definition_id")
 }

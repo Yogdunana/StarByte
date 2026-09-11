@@ -18,6 +18,8 @@ interface ThemeLangValue {
   preference: ThemePreference;
   setPreference: (pref: ThemePreference) => void;
   resolved: ResolvedTheme;
+  reduceMotion: boolean;
+  setReduceMotion: (value: boolean) => void;
 }
 
 const ThemeLangContext = createContext<ThemeLangValue | null>(null);
@@ -37,6 +39,7 @@ export const ThemeLangProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const dispatch = useDispatch<AppDispatch>();
   const [lang, setLangState] = useState<AppLang>(readLang);
   const [preference, setPrefState] = useState<ThemePreference>(readThemePreference);
+  const [reduceMotion, setReduceMotionState] = useState(() => localStorage.getItem('starbyte_reduce_motion') === 'true');
   const systemDark = useSystemDark();
   const resolved = resolveTheme(preference, systemDark);
 
@@ -44,6 +47,11 @@ export const ThemeLangProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     applyDocumentTheme(resolved);
     dispatch(setTheme(resolved));
   }, [dispatch, resolved]);
+
+  useEffect(() => {
+    document.documentElement.dataset.motion = reduceMotion ? 'reduced' : 'system';
+    localStorage.setItem('starbyte_reduce_motion', String(reduceMotion));
+  }, [reduceMotion]);
 
   const value = useMemo<ThemeLangValue>(() => ({
     lang,
@@ -58,7 +66,9 @@ export const ThemeLangProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setPrefState(next);
     },
     resolved,
-  }), [lang, preference, resolved]);
+    reduceMotion,
+    setReduceMotion: setReduceMotionState,
+  }), [lang, preference, resolved, reduceMotion]);
 
   return <ThemeLangContext.Provider value={value}>{children}</ThemeLangContext.Provider>;
 };

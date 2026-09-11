@@ -1,92 +1,24 @@
-.container {
-  display: flex;
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden;
-}
-
-.left {
-  flex: 1;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  position: relative;
-  overflow: hidden;
-}
-
-.left::before {
-  content: '';
-  position: absolute;
-  width: 500px;
-  height: 500px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 50%;
-  top: -100px;
-  left: -100px;
-}
-
-.left::after {
-  content: '';
-  position: absolute;
-  width: 400px;
-  height: 400px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 50%;
-  bottom: -80px;
-  right: -80px;
-}
-
-.brand {
-  text-align: center;
-  z-index: 1;
-}
-
-.brand h1 {
-  font-size: 64px;
-  font-weight: 700;
-  margin: 0 0 16px 0;
-  letter-spacing: 2px;
-}
-
-.brand p {
-  font-size: 20px;
-  margin: 0;
-  opacity: 0.9;
-}
-
-.right {
-  width: 480px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 40px;
-  background: var(--sb-panel, #f5f7fa);
-}
-
-.card {
-  width: 100%;
-  max-width: 400px;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-}
-
-.card :global(.ant-tabs) {
-  margin-bottom: 24px;
-}
-
-.card :global(.ant-tabs-tab) {
-  font-size: 16px;
-  font-weight: 500;
-}
-
-@media (max-width: 768px) {
-  .left {
-    display: none;
-  }
-
-  .right {
-    width: 100%;
-  }
-}
+.container { display: grid; grid-template-columns: 1.1fr 1fr; min-height: 100dvh; padding: 28px; gap: 24px; background: var(--sb-ambient); }
+.left { padding: 44px clamp(24px,4vw,68px); color: var(--sb-text); display: flex; align-items: center; }
+.brand { max-width: 620px; width: 100%; }
+.wordmark { font: 700 38px 'Avenir Next', sans-serif; letter-spacing: -2px; }
+.wordmark span { color: var(--sb-brand); }
+.kicker { font-size: 10px; letter-spacing: 2px; margin: 12px 0 60px; color: var(--sb-muted); }
+.brand h1 { font-size: clamp(32px,3.4vw,52px); line-height: 1.5; letter-spacing: -1.5px; font-weight: 600; margin: 0 0 22px; }
+.story { max-width: 370px; font-size: 15px; line-height: 1.9; color: var(--sb-muted); }
+.connections { display: flex; align-items: center; margin: 24px 0; gap: 18px; }
+.connections > span { font-size: 12px; color: var(--sb-muted); writing-mode: vertical-rl; letter-spacing: 5px; }
+.caption { font-size: 10px; letter-spacing: 1.5px; color: var(--sb-muted); }
+.right { padding: 40px 28px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; }
+.card { width: 100%; max-width: 470px; border: 1px solid var(--sb-glass-border); background: var(--sb-glass); backdrop-filter: blur(16px); border-radius: 28px; box-shadow: var(--sb-shadow-raised); }
+.card :global(.ant-card-body) { padding: 38px; }
+.card h2 { font-size: 30px; letter-spacing: -.8px; margin: 8px 0; }
+.formKicker { color: var(--sb-brand); font-size: 10px; letter-spacing: 2px; }
+.formHint { color: var(--sb-muted); line-height: 1.8; margin-bottom: 26px; }
+.card :global(.ant-tabs) { margin-bottom: 18px; }
+.card :global(.ant-input-affix-wrapper), .card :global(.ant-input-lg), .card :global(.ant-btn-lg) { min-height: 46px; }
+.card :global(.ant-input-prefix) { margin-right: 12px; color: var(--sb-muted); }
+.switchTab { text-align: center; color: var(--sb-muted); font-size: 13px; }
+.mobileBrand { display: none; }
+@media(max-width: 1000px) { .container { padding: 16px; gap: 0; } .left { padding: 28px; } .right { padding: 30px 12px; } .card :global(.ant-card-body) { padding: 28px; } .kicker { margin-bottom: 40px; } }
+@media(max-width: 767px) { .container { display: block; padding: 0; } .left { display: none; } .right { padding: 32px 18px 48px; min-height: 100dvh; justify-content: flex-start; } .mobileBrand { display: block; align-self: flex-start; font: 700 28px 'Avenir Next', sans-serif; color: var(--sb-text); margin: 6px 8px 30px; letter-spacing: -1px; } .card { backdrop-filter: none; background: var(--sb-surface); border-radius: 24px; } .card :global(.ant-card-body) { padding: 26px 22px; } .card h2 { font-size: 27px; } }

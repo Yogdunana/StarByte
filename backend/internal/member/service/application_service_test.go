@@ -10,6 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 )
 
 func TestSubmit_Duplicate(t *testing.T) {
@@ -83,4 +85,41 @@ func TestGetApplication_NotFound(t *testing.T) {
 	apps.On("GetByIDWithNames", mock.Anything, id).Return(nil, nil)
 	_, err := svc.GetApplication(context.Background(), uuid.New(), id, nil)
 	requireAppError(t, err, response.CodeMemberAppNotFound, "申请不存在")
+}
+
+func TestApplicationHistoryRedactsObjectionInternals(t *testing.T) {
+	apps := &mockAppRepo{}
+	svc := NewMemberService(apps, &mockProfRepo{}, nil)
+	applicant, operator, id := uuid.New(), uuid.New(), uuid.New()
+	apps.On("GetByIDWithNames", mock.Anything, id).Return(&model.ApplicationWithNames{
+		MemberApplication: model.MemberApplication{ID: id, UserID: applicant, Status: model.AppApproved},
+	}, nil)
+	apps.On("ListHistory", mock.Anything, id).Return([]model.ApplicationHistory{{
+		ID: uuid.New(), Comment: "内部理由", OperatorID: &operator,
+		Extra: jsonExtra(map[string]interface{}{"objection_id": uuid.New(), "action": "raise"}),
+	}}, nil)
+
+	out, err := svc.ApplicationHistory(context.Background(), applicant, id, nil)
+	require.NoError(t, err)
+	require.Equal(t, "候补期已提出异议，等待中心复核", out[0].Comment)
+	require.Empty(t, out[0].OperatorID)
+}
+
+func TestApplicationHistoryStaffSeesPublicObjectionComment(t *testing.T) {
+	apps := &mockAppRepo{}
+	svc := NewMemberService(apps, &mockProfRepo{}, nil)
+	dept, staff, operator, id := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	apps.On("GetByIDWithNames", mock.Anything, id).Return(&model.ApplicationWithNames{
+		MemberApplication: model.MemberApplication{ID: id, UserID: uuid.New(), DepartmentID: &dept, Status: model.AppApproved},
+	}, nil)
+	apps.On("ListHistory", mock.Anything, id).Return([]model.ApplicationHistory{{
+		ID: uuid.New(), Comment: "内部理由", OperatorID: &operator,
+		Extra: jsonExtra(map[string]interface{}{"objection_id": uuid.New(), "action": "center_review"}),
+	}}, nil)
+	scope := &rbacModel.DataScopeCondition{Query: "department_id = ?", Args: []interface{}{dept}}
+
+	out, err := svc.ApplicationHistory(context.Background(), staff, id, scope)
+	require.NoError(t, err)
+	require.Equal(t, "候补期异议已提交中心复核，等待会长裁决", out[0].Comment)
+	require.Equal(t, operator.String(), out[0].OperatorID)
 }

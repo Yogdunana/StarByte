@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/Yogdunana/StarByte/backend/internal/interview/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/interview/model"
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/google/uuid"
 )
 
 func (s *interviewService) CreateInterview(ctx context.Context, operator uuid.UUID, req *dto.CreateInterviewRequest) (*dto.InterviewResponse, error) {
@@ -31,7 +32,7 @@ func (s *interviewService) CreateInterview(ctx context.Context, operator uuid.UU
 	if int(n) >= sess.MaxCandidates {
 		return nil, response.NewError(response.CodeInterviewSessionFull, "超过最大候选人数")
 	}
-	applicantID, appID, err := s.resolveApplicant(ctx, req)
+	applicantID, appID, err := s.resolveApplicant(ctx, req, sess)
 	if err != nil {
 		return nil, err
 	}
@@ -62,10 +63,10 @@ func (s *interviewService) CreateInterview(ctx context.Context, operator uuid.UU
 	}
 	s.notifyInvite(ctx, applicantID, sess, iv)
 	_ = operator
-	return s.GetInterview(ctx, iv.ID, nil)
+	return s.interviewResponse(ctx, iv.ID)
 }
 
-func (s *interviewService) resolveApplicant(ctx context.Context, req *dto.CreateInterviewRequest) (uuid.UUID, *uuid.UUID, error) {
+func (s *interviewService) resolveApplicant(ctx context.Context, req *dto.CreateInterviewRequest, session *model.Session) (uuid.UUID, *uuid.UUID, error) {
 	if req.ApplicationID != "" {
 		appID, err := uuid.Parse(req.ApplicationID)
 		if err != nil {
@@ -77,6 +78,12 @@ func (s *interviewService) resolveApplicant(ctx context.Context, req *dto.Create
 		}
 		if app == nil {
 			return uuid.Nil, nil, response.NewError(response.CodeMemberAppNotFound, "申请不存在")
+		}
+		if app.DepartmentID != nil && (session.DepartmentID == nil || *app.DepartmentID != *session.DepartmentID) {
+			return uuid.Nil, nil, response.NewError(response.CodeForbidden, "申请部门与面试场次部门不一致")
+		}
+		if app.AdmissionVersion >= 2 && app.AdmissionStage != fmt.Sprintf("round%d", session.Round) {
+			return uuid.Nil, nil, response.NewError(response.CodeMemberAppInvalid, "该申请尚未进入本轮面试")
 		}
 		return app.UserID, &appID, nil
 	}
@@ -106,7 +113,20 @@ func (s *interviewService) ListInterviews(ctx context.Context, viewer uuid.UUID,
 	return out, total, err
 }
 
-func (s *interviewService) GetInterview(ctx context.Context, id uuid.UUID, scope *rbacModel.DataScopeCondition) (*dto.InterviewResponse, error) {
+func (s *interviewService) GetInterview(ctx context.Context, viewer Viewer, id uuid.UUID) (*dto.InterviewResponse, error) {
+	row, people, err := s.readInterview(ctx, viewer, id)
+	if err != nil {
+		return nil, err
+	}
+	out := mapInterview(row, people)
+	if viewer.canReview(row, people) {
+		out.ResultComment = row.ResultComment
+		out.Score = row.Score
+	}
+	return out, nil
+}
+
+func (s *interviewService) interviewResponse(ctx context.Context, id uuid.UUID) (*dto.InterviewResponse, error) {
 	row, err := s.records.GetByIDWithNames(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get interview: %w", err)
@@ -114,7 +134,6 @@ func (s *interviewService) GetInterview(ctx context.Context, id uuid.UUID, scope
 	if row == nil {
 		return nil, response.NewError(response.CodeInterviewRecordGone, "面试记录不存在")
 	}
-	_ = scope
 	evals, err := s.records.ListInterviewers(ctx, []uuid.UUID{row.ID})
 	if err != nil {
 		return nil, fmt.Errorf("list interviewers: %w", err)

@@ -65,6 +65,7 @@ func mapVote(v *model.Vote, options []model.VoteOption, hasVoted bool) *dto.Vote
 		opts = append(opts, dto.VoteOptionResponse{Key: o.OptionKey, Label: o.OptionText})
 	}
 	return &dto.VoteResponse{
+		ElectorateFrozen: v.ElectorateFrozen, EligibleCount: v.EligibleCount,
 		ID:          v.ID.String(),
 		MeetingID:   v.MeetingID.String(),
 		Title:       v.Title,

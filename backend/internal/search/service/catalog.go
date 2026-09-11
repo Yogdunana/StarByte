@@ -48,7 +48,8 @@ func catalogs() []search.Schema {
 			Code: "tasks", Name: "任务", Table: "tasks", IDColumn: "id",
 			FTSExpr:      fts("title", "description", "tags"),
 			Headline:     headline("title", "description"),
-			RBACResource: "task",
+			RBACResource: "task:read",
+			ExtraWhere:   "deleted_at IS NULL",
 			ScopeColumn:  "department_id",
 			SelfSQL:      `t."creator_id" = ? OR t."assignee_id" = ?`,
 			Fields: []search.Field{

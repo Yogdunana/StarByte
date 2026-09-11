@@ -7,6 +7,7 @@ import (
 
 func mapTask(row *model.TaskWithNames, children []model.Task) *dto.TaskResponse {
 	out := &dto.TaskResponse{
+		WorkflowStage:   row.WorkflowStage,
 		ID:              row.ID.String(),
 		Title:           row.Title,
 		Description:     row.Description,
@@ -22,6 +23,9 @@ func mapTask(row *model.TaskWithNames, children []model.Task) *dto.TaskResponse 
 		Progress:        row.Progress,
 		CreatedAt:       row.CreatedAt,
 		UpdatedAt:       row.UpdatedAt,
+	}
+	if row.WorkflowInstanceID != nil {
+		out.WorkflowInstanceID = row.WorkflowInstanceID.String()
 	}
 	if row.AssigneeID != nil {
 		out.Assignee = &dto.Person{ID: row.AssigneeID.String(), Name: row.AssigneeName, Avatar: row.AssigneeAvatar}

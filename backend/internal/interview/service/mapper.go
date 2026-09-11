@@ -1,9 +1,10 @@
 package service
 
 import (
+	"github.com/google/uuid"
+
 	"github.com/Yogdunana/StarByte/backend/internal/interview/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/interview/model"
-	"github.com/google/uuid"
 )
 
 func mapSession(row *model.SessionWithNames) *dto.SessionResponse {
@@ -42,10 +43,8 @@ func mapInterview(row *model.InterviewWithNames, evaluators []dto.Person) *dto.I
 		ActualStartTime: row.ActualStartTime,
 		ActualEndTime:   row.ActualEndTime,
 		Result:          row.ResultCode,
-		ResultComment:   row.ResultComment,
 		Location:        row.Location,
 		Duration:        row.Duration,
-		Score:           row.Score,
 		Evaluators:      evaluators,
 		DepartmentName:  row.DepartmentName,
 		CreatedAt:       row.CreatedAt,

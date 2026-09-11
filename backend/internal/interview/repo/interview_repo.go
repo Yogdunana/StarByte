@@ -4,11 +4,12 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+
 	"github.com/Yogdunana/StarByte/backend/internal/interview/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/interview/model"
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
-	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 type InterviewRepo interface {
@@ -21,6 +22,7 @@ type InterviewRepo interface {
 	FindBySessionApplicant(ctx context.Context, sessionID, applicantID uuid.UUID) (*model.Interview, error)
 	ReplaceInterviewers(ctx context.Context, interviewID uuid.UUID, rows []model.Interviewer) error
 	ListInterviewers(ctx context.Context, interviewIDs []uuid.UUID) ([]model.InterviewerNamed, error)
+	IsAssignedToSession(ctx context.Context, sessionID, interviewerID uuid.UUID) (bool, error)
 	HasInterviewerConflict(ctx context.Context, interviewerID uuid.UUID, start, end time.Time, exclude uuid.UUID) (bool, error)
 	MarkAbsentBySession(ctx context.Context, sessionID uuid.UUID) error
 	GetUser(ctx context.Context, id uuid.UUID) (*model.NamedUser, error)
@@ -161,6 +163,15 @@ func (r *interviewRepo) ListInterviewers(ctx context.Context, interviewIDs []uui
 	return rows, err
 }
 
+func (r *interviewRepo) IsAssignedToSession(ctx context.Context, sessionID, interviewerID uuid.UUID) (bool, error) {
+	var n int64
+	err := r.db.WithContext(ctx).Table("interview_interviewers AS ii").
+		Joins("JOIN interviews i ON i.id = ii.interview_id").
+		Where("i.session_id = ? AND ii.interviewer_id = ? AND i.status <> ?", sessionID, interviewerID, model.InterviewCancelled).
+		Count(&n).Error
+	return n > 0, err
+}
+
 func (r *interviewRepo) HasInterviewerConflict(ctx context.Context, interviewerID uuid.UUID, start, end time.Time, exclude uuid.UUID) (bool, error) {
 	var n int64
 	q := r.db.WithContext(ctx).Table("interview_interviewers AS ii").
@@ -199,7 +210,7 @@ func (r *interviewRepo) GetUser(ctx context.Context, id uuid.UUID) (*model.Named
 func (r *interviewRepo) GetApplication(ctx context.Context, id uuid.UUID) (*model.ApplicationBrief, error) {
 	var a model.ApplicationBrief
 	err := r.db.WithContext(ctx).Table("member_applications").
-		Select("id, user_id, real_name, student_no, department_id, status").
+		Select("id, user_id, real_name, student_no, department_id, status, admission_version, admission_stage").
 		Where("id = ?", id).First(&a).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil

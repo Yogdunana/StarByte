@@ -2,22 +2,21 @@ package service
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
-	"strings"
 	"time"
+
+	"github.com/google/uuid"
+	qrcode "github.com/skip2/go-qrcode"
 
 	"github.com/Yogdunana/StarByte/backend/internal/meeting/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/meeting/model"
+	"github.com/Yogdunana/StarByte/backend/internal/meeting/repo"
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/google/uuid"
-	qrcode "github.com/skip2/go-qrcode"
 )
 
-func (s *meetingService) CreateMeeting(ctx context.Context, operator uuid.UUID, req *dto.CreateMeetingRequest) (*dto.MeetingResponse, error) {
+func (s *meetingService) createMeeting(ctx context.Context, operator uuid.UUID, req *dto.CreateMeetingRequest) (*dto.MeetingResponse, error) {
 	if !req.EndTime.After(req.StartTime) {
 		return nil, response.NewError(response.CodeBadRequest, "结束时间必须晚于开始时间")
 	}
@@ -37,6 +36,14 @@ func (s *meetingService) CreateMeeting(ctx context.Context, operator uuid.UUID, 
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
+	if err := validateMeeting(m); err != nil {
+		return nil, err
+	}
+	for _, raw := range req.UserIDs {
+		if _, err := uuid.Parse(raw); err != nil {
+			return nil, response.NewError(response.CodeBadRequest, "参会人 ID 无效")
+		}
+	}
 	if err := s.meetings.Create(ctx, m); err != nil {
 		return nil, fmt.Errorf("create meeting: %w", err)
 	}
@@ -49,7 +56,11 @@ func (s *meetingService) CreateMeeting(ctx context.Context, operator uuid.UUID, 
 }
 
 func (s *meetingService) ListMeetings(ctx context.Context, viewer uuid.UUID, req *dto.ListMeetingRequest, scope *rbacModel.DataScopeCondition) ([]*dto.MeetingResponse, int64, error) {
-	rows, total, err := s.meetings.List(ctx, req, rewriteMeetingScope(scope, viewer))
+	filter := rewriteMeetingScope(scope, viewer)
+	if s.access != nil {
+		filter = repo.MeetingScope(model.ViewerFromContext(ctx))
+	}
+	rows, total, err := s.meetings.List(ctx, req, filter)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list meetings: %w", err)
 	}
@@ -57,10 +68,16 @@ func (s *meetingService) ListMeetings(ctx context.Context, viewer uuid.UUID, req
 	for i := range rows {
 		out = append(out, mapMeeting(&rows[i]))
 	}
+	if err := s.meetingCapabilities(ctx, out); err != nil {
+		return nil, 0, err
+	}
 	return out, total, nil
 }
 
 func (s *meetingService) GetMeeting(ctx context.Context, id uuid.UUID, scope *rbacModel.DataScopeCondition) (*dto.MeetingResponse, error) {
+	if err := s.requireMeetingAccess(ctx, id); err != nil {
+		return nil, err
+	}
 	row, err := s.meetings.GetByIDWithNames(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get meeting: %w", err)
@@ -69,10 +86,14 @@ func (s *meetingService) GetMeeting(ctx context.Context, id uuid.UUID, scope *rb
 		return nil, response.NewError(response.CodeMeetingNotFound, "会议不存在")
 	}
 	_ = scope
-	return mapMeeting(row), nil
+	out := mapMeeting(row)
+	if err := s.meetingCapabilities(ctx, []*dto.MeetingResponse{out}); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
-func (s *meetingService) UpdateMeeting(ctx context.Context, id uuid.UUID, req *dto.UpdateMeetingRequest) (*dto.MeetingResponse, error) {
+func (s *meetingService) updateMeeting(ctx context.Context, id uuid.UUID, req *dto.UpdateMeetingRequest) (*dto.MeetingResponse, error) {
 	m, err := s.mustMeeting(ctx, id)
 	if err != nil {
 		return nil, err
@@ -81,6 +102,9 @@ func (s *meetingService) UpdateMeeting(ctx context.Context, id uuid.UUID, req *d
 		return nil, response.NewError(response.CodeMeetingInvalidState, "仅待开始会议可修改")
 	}
 	applyMeetingPatch(m, req)
+	if err := validateMeeting(m); err != nil {
+		return nil, err
+	}
 	if !m.EndTime.After(m.StartTime) {
 		return nil, response.NewError(response.CodeBadRequest, "结束时间必须晚于开始时间")
 	}
@@ -91,7 +115,7 @@ func (s *meetingService) UpdateMeeting(ctx context.Context, id uuid.UUID, req *d
 	return s.GetMeeting(ctx, id, nil)
 }
 
-func (s *meetingService) DeleteMeeting(ctx context.Context, id uuid.UUID) error {
+func (s *meetingService) deleteMeeting(ctx context.Context, id uuid.UUID) error {
 	m, err := s.mustMeeting(ctx, id)
 	if err != nil {
 		return err
@@ -99,13 +123,20 @@ func (s *meetingService) DeleteMeeting(ctx context.Context, id uuid.UUID) error 
 	if !canDeleteMeeting(m.Status) {
 		return response.NewError(response.CodeMeetingInvalidState, "进行中或已结束的会议不可删除")
 	}
+	votes, err := s.votes.ListByMeeting(ctx, id)
+	if err != nil {
+		return fmt.Errorf("check meeting vote history: %w", err)
+	}
+	if len(votes) > 0 {
+		return response.NewError(response.CodeMeetingInvalidState, "会议含投票记录，请保留历史，不可删除")
+	}
 	if err := s.meetings.Delete(ctx, id); err != nil {
 		return fmt.Errorf("delete meeting: %w", err)
 	}
 	return nil
 }
 
-func (s *meetingService) StartMeeting(ctx context.Context, id uuid.UUID) (*dto.MeetingResponse, error) {
+func (s *meetingService) startMeeting(ctx context.Context, id uuid.UUID) (*dto.MeetingResponse, error) {
 	m, err := s.mustMeeting(ctx, id)
 	if err != nil {
 		return nil, err
@@ -118,12 +149,15 @@ func (s *meetingService) StartMeeting(ctx context.Context, id uuid.UUID) (*dto.M
 	if err := s.meetings.Update(ctx, m); err != nil {
 		return nil, fmt.Errorf("start meeting: %w", err)
 	}
-	ids, _ := s.attendeeIDs(ctx, id)
+	ids, err := s.attendeeIDs(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("list notification recipients: %w", err)
+	}
 	s.notifyMeeting(ctx, ids, tplMeetingStarted, m)
 	return s.GetMeeting(ctx, id, nil)
 }
 
-func (s *meetingService) EndMeeting(ctx context.Context, id uuid.UUID) (*dto.MeetingResponse, error) {
+func (s *meetingService) endMeeting(ctx context.Context, id uuid.UUID) (*dto.MeetingResponse, error) {
 	m, err := s.mustMeeting(ctx, id)
 	if err != nil {
 		return nil, err
@@ -131,23 +165,32 @@ func (s *meetingService) EndMeeting(ctx context.Context, id uuid.UUID) (*dto.Mee
 	if !canEndMeeting(m.Status) {
 		return nil, response.NewError(response.CodeMeetingInvalidState, "仅进行中会议可结束")
 	}
+	if err := s.closeMeetingVotes(ctx, id); err != nil {
+		return nil, err
+	}
 	m.Status = model.MeetingEnded
 	m.UpdatedAt = time.Now()
 	if err := s.meetings.Update(ctx, m); err != nil {
 		return nil, fmt.Errorf("end meeting: %w", err)
 	}
-	ids, _ := s.attendeeIDs(ctx, id)
+	ids, err := s.attendeeIDs(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("list notification recipients: %w", err)
+	}
 	s.notifyMeeting(ctx, ids, tplMeetingEnded, m)
 	return s.GetMeeting(ctx, id, nil)
 }
 
-func (s *meetingService) CancelMeeting(ctx context.Context, id uuid.UUID, reason string) (*dto.MeetingResponse, error) {
+func (s *meetingService) cancelMeeting(ctx context.Context, id uuid.UUID, reason string) (*dto.MeetingResponse, error) {
 	m, err := s.mustMeeting(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 	if !canCancelMeeting(m.Status) {
 		return nil, response.NewError(response.CodeMeetingInvalidState, "当前状态不可取消")
+	}
+	if err := s.closeMeetingVotes(ctx, id); err != nil {
+		return nil, err
 	}
 	m.Status = model.MeetingCancelled
 	m.CancelReason = reason
@@ -158,7 +201,7 @@ func (s *meetingService) CancelMeeting(ctx context.Context, id uuid.UUID, reason
 	return s.GetMeeting(ctx, id, nil)
 }
 
-func (s *meetingService) UpdateMinutes(ctx context.Context, id uuid.UUID, minutes string) (*dto.MeetingResponse, error) {
+func (s *meetingService) updateMinutes(ctx context.Context, id uuid.UUID, minutes string) (*dto.MeetingResponse, error) {
 	m, err := s.mustMeeting(ctx, id)
 	if err != nil {
 		return nil, err
@@ -171,7 +214,7 @@ func (s *meetingService) UpdateMinutes(ctx context.Context, id uuid.UUID, minute
 	return s.GetMeeting(ctx, id, nil)
 }
 
-func (s *meetingService) MeetingQRCode(ctx context.Context, id uuid.UUID) (*dto.QRCodeResponse, []byte, error) {
+func (s *meetingService) meetingQRCode(ctx context.Context, id uuid.UUID) (*dto.QRCodeResponse, []byte, error) {
 	m, err := s.mustMeeting(ctx, id)
 	if err != nil {
 		return nil, nil, err
@@ -195,6 +238,9 @@ func (s *meetingService) MeetingQRCode(ctx context.Context, id uuid.UUID) (*dto.
 }
 
 func (s *meetingService) mustMeeting(ctx context.Context, id uuid.UUID) (*model.Meeting, error) {
+	if err := s.requireMeetingAccess(ctx, id); err != nil {
+		return nil, err
+	}
 	m, err := s.meetings.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get meeting: %w", err)
@@ -203,74 +249,4 @@ func (s *meetingService) mustMeeting(ctx context.Context, id uuid.UUID) (*model.
 		return nil, response.NewError(response.CodeMeetingNotFound, "会议不存在")
 	}
 	return m, nil
-}
-
-func applyMeetingPatch(m *model.Meeting, req *dto.UpdateMeetingRequest) {
-	if req.Title != nil {
-		m.Title = *req.Title
-	}
-	if req.Description != nil {
-		m.Description = *req.Description
-	}
-	if req.StartTime != nil {
-		m.StartTime = *req.StartTime
-	}
-	if req.EndTime != nil {
-		m.EndTime = *req.EndTime
-	}
-	if req.Location != nil {
-		m.Location = *req.Location
-	}
-	if req.OnlineLink != nil {
-		m.OnlineLink = *req.OnlineLink
-	}
-	if req.MeetingType != nil {
-		m.MeetingType = *req.MeetingType
-	}
-}
-
-func rewriteMeetingScope(scope *rbacModel.DataScopeCondition, userID uuid.UUID) *rbacModel.DataScopeCondition {
-	if scope == nil || scope.IsEmpty() {
-		return scope
-	}
-	if scope.Query == "1 = 0" {
-		return &rbacModel.DataScopeCondition{
-			Query: "m.organizer_id = ? OR m.id IN (SELECT meeting_id FROM meeting_attendees WHERE user_id = ?)",
-			Args:  []interface{}{userID, userID},
-		}
-	}
-	q := strings.ReplaceAll(scope.Query, "department_id", "u.department_id")
-	return &rbacModel.DataScopeCondition{Query: q, Args: scope.Args}
-}
-
-func newQRToken() string {
-	b := make([]byte, 16)
-	if _, err := rand.Read(b); err != nil {
-		return hex.EncodeToString([]byte(uuid.New().String()))
-	}
-	return hex.EncodeToString(b)
-}
-
-func parseUUIDList(raw []string) []uuid.UUID {
-	out := make([]uuid.UUID, 0, len(raw))
-	for _, s := range raw {
-		id, err := uuid.Parse(s)
-		if err == nil {
-			out = append(out, id)
-		}
-	}
-	return out
-}
-
-func uniqueUUIDs(ids []uuid.UUID) []uuid.UUID {
-	seen := map[uuid.UUID]struct{}{}
-	out := make([]uuid.UUID, 0, len(ids))
-	for _, id := range ids {
-		if _, ok := seen[id]; ok {
-			continue
-		}
-		seen[id] = struct{}{}
-		out = append(out, id)
-	}
-	return out
 }

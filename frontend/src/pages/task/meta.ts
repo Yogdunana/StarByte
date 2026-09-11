@@ -22,3 +22,5 @@ export const BOARD_COLUMNS: Array<{ status: 0 | 1 | 4 | 2 | 3; title: string }> 
   { status: 2, title: '已完成' },
   { status: 3, title: '已取消' },
 ];
+
+export const TaskWorkflowStageMap: Record<string, string> = { assignment: "待分配", execution: "执行中", review: "待审核", acceptance: "待验收", completed: "已验收", cancelled: "已取消" };

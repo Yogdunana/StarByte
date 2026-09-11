@@ -3,10 +3,11 @@ package service
 import (
 	"context"
 
+	"github.com/google/uuid"
+
 	"github.com/Yogdunana/StarByte/backend/internal/member/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/member/repo"
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
-	"github.com/google/uuid"
 )
 
 // MemberService 入会申请 + 人员档案。
@@ -36,12 +37,17 @@ type MemberService interface {
 }
 
 type memberService struct {
-	apps    repo.ApplicationRepo
-	profs   repo.ProfileRepo
-	starter InterviewStarter
+	apps      repo.ApplicationRepo
+	profs     repo.ProfileRepo
+	admission AdmissionService
+	starter   InterviewStarter
 }
 
 // NewMemberService 创建会员服务。
-func NewMemberService(apps repo.ApplicationRepo, profs repo.ProfileRepo, starter InterviewStarter) MemberService {
-	return &memberService{apps: apps, profs: profs, starter: starter}
+func NewMemberService(apps repo.ApplicationRepo, profs repo.ProfileRepo, starter InterviewStarter, admissions ...AdmissionService) MemberService {
+	var admission AdmissionService
+	if len(admissions) > 0 {
+		admission = admissions[0]
+	}
+	return &memberService{apps: apps, profs: profs, starter: starter, admission: admission}
 }

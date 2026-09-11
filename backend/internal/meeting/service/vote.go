@@ -4,15 +4,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/Yogdunana/StarByte/backend/internal/meeting/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/meeting/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
-	"github.com/google/uuid"
 )
 
-func (s *meetingService) CreateVote(ctx context.Context, meetingID uuid.UUID, req *dto.CreateVoteRequest) (*dto.VoteResponse, error) {
+func (s *meetingService) createVote(ctx context.Context, meetingID uuid.UUID, req *dto.CreateVoteRequest) (*dto.VoteResponse, error) {
+	if strings.TrimSpace(req.Title) == "" || req.Duration < 0 || int64(req.Duration) > int64((1<<63-1)/time.Second) {
+		return nil, response.NewError(response.CodeBadRequest, "投票标题不能为空，开放时长必须为有效的非负秒数")
+	}
 	m, err := s.mustMeeting(ctx, meetingID)
 	if err != nil {
 		return nil, err
@@ -40,8 +45,17 @@ func (s *meetingService) CreateVote(ctx context.Context, meetingID uuid.UUID, re
 			ID: uuid.New(), VoteID: v.ID, OptionText: o.Label, OptionKey: o.Key, SortOrder: i + 1,
 		})
 	}
+	electors, err := s.freezeElectorate(ctx, v)
+	if err != nil {
+		return nil, err
+	}
 	if err := s.votes.CreateVote(ctx, v, opts); err != nil {
 		return nil, fmt.Errorf("create vote: %w", err)
+	}
+	if s.electorate != nil {
+		if err := s.electorate.Create(ctx, electors); err != nil {
+			return nil, fmt.Errorf("save electorate snapshot: %w", err)
+		}
 	}
 	return mapVote(v, opts, false), nil
 }
@@ -73,7 +87,7 @@ func (s *meetingService) GetVote(ctx context.Context, id, viewer uuid.UUID) (*dt
 	return s.voteDTO(ctx, v, viewer)
 }
 
-func (s *meetingService) CastVote(ctx context.Context, voteID, userID uuid.UUID, optionKey string) error {
+func (s *meetingService) castVote(ctx context.Context, voteID, userID uuid.UUID, optionKey string) error {
 	v, err := s.ensureVoteOpen(ctx, voteID)
 	if err != nil {
 		return err
@@ -85,11 +99,11 @@ func (s *meetingService) CastVote(ctx context.Context, voteID, userID uuid.UUID,
 	if !ok {
 		return response.NewError(response.CodeVoteNoAccess, "无权投票（非参会人）")
 	}
-	exist, err := s.votes.GetRecord(ctx, voteID, userID)
+	exist, err := s.votes.HasVoted(ctx, voteID, userID)
 	if err != nil {
 		return fmt.Errorf("get record: %w", err)
 	}
-	if exist != nil {
+	if exist {
 		return response.NewError(response.CodeVoteDuplicate, "重复投票")
 	}
 	opt, err := s.votes.GetOptionByKey(ctx, voteID, optionKey)
@@ -99,22 +113,26 @@ func (s *meetingService) CastVote(ctx context.Context, voteID, userID uuid.UUID,
 	if opt == nil {
 		return response.NewError(response.CodeVoteOptionGone, "投票选项不存在")
 	}
-	weight := 1.0
-	if v.VoteType == model.VoteWeighted {
-		cfg, err := s.loadWeight(ctx)
-		if err != nil {
-			return err
-		}
-		u, _ := s.meetings.GetUser(ctx, userID)
-		code := ""
-		if u != nil {
-			code = u.PositionCode
-		}
-		weight = ResolveWeight(cfg, code, v.VoteType)
+	weight, err := s.ballotWeight(ctx, v, userID)
+	if err != nil {
+		return err
 	}
+	if v.IsAnonymous {
+		// Unique role weights would identify the voter from option totals.
+		weight = 1
+	}
+
+	now := time.Now()
 	rec := &model.VoteRecord{
-		ID: uuid.New(), VoteID: voteID, VoterID: userID, OptionID: opt.ID,
-		OptionKey: opt.OptionKey, Weight: weight, VotedAt: time.Now(),
+		ID: uuid.New(), VoteID: voteID, VoterID: &userID, OptionID: opt.ID,
+		OptionKey: opt.OptionKey, Weight: weight, VotedAt: &now,
+	}
+	if v.IsAnonymous {
+		rec.VoterID = nil
+		rec.VotedAt = nil
+	}
+	if err := s.votes.CreateReceipt(ctx, &model.VoteReceipt{VoteID: voteID, VoterID: userID}); err != nil {
+		return fmt.Errorf("record vote participation: %w", err)
 	}
 	if err := s.votes.CreateRecord(ctx, rec); err != nil {
 		return fmt.Errorf("cast vote: %w", err)
@@ -126,6 +144,15 @@ func (s *meetingService) VoteResult(ctx context.Context, id uuid.UUID) (*dto.Vot
 	v, err := s.ensureExpiredClosed(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	if v.Status != model.VoteClosed {
+		ok, err := s.canPreviewLiveResult(ctx, v.MeetingID)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, response.NewError(response.CodeVoteResultPending, "投票未结束，无法查看结果")
+		}
 	}
 	opts, err := s.votes.ListOptions(ctx, id)
 	if err != nil {
@@ -143,9 +170,16 @@ func (s *meetingService) VoteResult(ctx context.Context, id uuid.UUID) (*dto.Vot
 	items := make([]dto.VoteResultItem, 0, len(opts))
 	for _, o := range opts {
 		a := agg[o.OptionKey]
-		items = append(items, dto.VoteResultItem{
+		item := dto.VoteResultItem{
 			OptionKey: o.OptionKey, OptionLabel: o.OptionText, Count: a.Count, WeightTotal: a.Weight,
-		})
+		}
+		if v.IsAnonymous {
+			item.WeightTotal = 0
+		}
+		items = append(items, item)
+	}
+	if v.IsAnonymous {
+		totalW = 0
 	}
 	return &dto.VoteResultResponse{
 		ID: v.ID.String(), Title: v.Title, VoteType: v.VoteType, IsAnonymous: v.IsAnonymous,
@@ -154,7 +188,7 @@ func (s *meetingService) VoteResult(ctx context.Context, id uuid.UUID) (*dto.Vot
 	}, nil
 }
 
-func (s *meetingService) CloseVote(ctx context.Context, id uuid.UUID) (*dto.VoteResponse, error) {
+func (s *meetingService) closeVote(ctx context.Context, id uuid.UUID) (*dto.VoteResponse, error) {
 	v, err := s.mustVote(ctx, id)
 	if err != nil {
 		return nil, err
@@ -201,7 +235,11 @@ func (s *meetingService) GetWeightConfig(ctx context.Context) (*dto.VoteWeightCo
 }
 
 func (s *meetingService) UpdateWeightConfig(ctx context.Context, operator uuid.UUID, req *dto.VoteWeightConfigRequest) (*dto.VoteWeightConfigResponse, error) {
-	raw, err := json.Marshal(model.VoteWeightConfig{Weights: req.Weights, DefaultWeight: req.DefaultWeight})
+	cfg := model.VoteWeightConfig{Weights: req.Weights, DefaultWeight: req.DefaultWeight}
+	if err := validateWeightConfig(cfg); err != nil {
+		return nil, err
+	}
+	raw, err := json.Marshal(cfg)
 	if err != nil {
 		return nil, response.NewError(response.CodeBadRequest, "权重配置无效")
 	}

@@ -9,6 +9,7 @@ import { fetchCurrentUser } from '@/store/slices/userSlice';
 import { register } from '@/api/auth';
 import { AppDispatch } from '@/store';
 import styles from './Login.module.css';
+import GlassOrb from '@/components/GlassOrb/GlassOrb';
 import { useTranslation } from 'react-i18next';
 
 interface LocationFromState {
@@ -26,7 +27,7 @@ interface RegisterFormValues {
 function getRedirectPath(state: unknown): string {
   if (state && typeof state === 'object' && 'from' in state) {
     const from = (state as LocationFromState).from;
-    if (from?.pathname) return from.pathname;
+    if (from?.pathname?.startsWith("/") && !from.pathname.startsWith("//")) return from.pathname;
   }
   return '/dashboard';
 }
@@ -102,13 +103,20 @@ const Login: React.FC = () => {
     <div className={styles.container}>
       <div className={styles.left}>
         <div className={styles.brand}>
-          <h1>StarByte</h1>
-          <p>{t('login.brand')}</p>
-          <p style={{ marginTop: 12, fontSize: 16 }}>{t('login.recruit')}</p>
+          <div className={styles.wordmark}>StarByte<span>.</span></div>
+          <p className={styles.kicker}>COMPUTER ASSOCIATION / 计算机协会</p>
+          <h1>从一个想法，<br />到一群人的作品。</h1>
+          <p className={styles.story}>找到志同道合的伙伴，在学习、创造与协作中，一起向前。</p>
+          <div className={styles.connections}><GlassOrb /><span>学习 · 创造 · 协作</span></div>
+          <p className={styles.caption}>一起学习，一起创造。 / BUILT TOGETHER</p>
         </div>
       </div>
       <div className={styles.right}>
+        <div className={styles.mobileBrand}>StarByte.</div>
         <Card className={styles.card}>
+          <p className={styles.formKicker}>YOUR NEXT CHAPTER</p>
+          <h2>{activeTab === 'login' ? '欢迎回来' : '从这里，加入我们'}</h2>
+          <p className={styles.formHint}>{activeTab === 'login' ? '登录你的账号，继续今天的协作。' : '创建账号后，即可填写入会申请。'}</p>
           <Tabs
             activeKey={activeTab}
             onChange={setActiveTab}
@@ -122,27 +130,29 @@ const Login: React.FC = () => {
               name="login"
               onFinish={handleLogin}
               size="large"
-              autoComplete="off"
+              layout="vertical"
               initialValues={{ username: '', password: '' }}
             >
               <Form.Item
                 name="username"
+                label={t('login.username')}
                 rules={[
                   { required: true, message: t('login.usernameRequired') },
                   { min: 3, message: t('login.minChars', { n: 3 }) },
                 ]}
               >
-                <Input prefix={<UserOutlined />} placeholder={t('login.usernameOrStudent')} />
+                <Input autoComplete="username" prefix={<UserOutlined />} placeholder={t('login.usernameOrStudent')} />
               </Form.Item>
 
               <Form.Item
                 name="password"
+                label={t('login.password')}
                 rules={[
                   { required: true, message: t('login.passwordRequired') },
                   { min: 6, message: t('login.passwordMin') },
                 ]}
               >
-                <Input.Password prefix={<LockOutlined />} placeholder={t('login.password')} />
+                <Input.Password autoComplete="current-password" prefix={<LockOutlined />} placeholder={t('login.password')} />
               </Form.Item>
 
               <Form.Item>
@@ -151,9 +161,9 @@ const Login: React.FC = () => {
                 </Button>
               </Form.Item>
 
-              <div style={{ textAlign: 'center', color: '#999' }}>
+              <div className={styles.switchTab}>
                 {t('login.hint')}
-                <a onClick={() => setActiveTab('register')}>{t('login.goRegister')}</a>
+                <Button type="link" onClick={() => setActiveTab('register')}>{t('login.goRegister')}</Button>
               </div>
             </Form>
           )}
@@ -163,10 +173,11 @@ const Login: React.FC = () => {
               name="register"
               onFinish={handleRegister}
               size="large"
-              autoComplete="off"
+              layout="vertical"
             >
               <Form.Item
                 name="username"
+                label={t('login.username')}
                 rules={[
                   { required: true, message: t('login.usernameOnlyRequired') },
                   { min: 3, max: 20, message: t('login.usernameLen') },
@@ -178,6 +189,7 @@ const Login: React.FC = () => {
 
               <Form.Item
                 name="real_name"
+                label={t('login.realName')}
                 rules={[{ required: true, message: t('login.realNameRequired') }]}
               >
                 <Input placeholder={t('login.realName')} />
@@ -185,6 +197,7 @@ const Login: React.FC = () => {
 
               <Form.Item
                 name="email"
+                label={t('login.email')}
                 rules={[
                   { required: true, message: t('login.emailRequired') },
                   { type: 'email', message: t('login.emailInvalid') },
@@ -195,16 +208,18 @@ const Login: React.FC = () => {
 
               <Form.Item
                 name="password"
+                label={t('login.password')}
                 rules={[
                   { required: true, message: t('login.passwordRequired') },
                   { min: 6, message: t('login.passwordMin') },
                 ]}
               >
-                <Input.Password prefix={<LockOutlined />} placeholder={t('login.password')} />
+                <Input.Password autoComplete="new-password" prefix={<LockOutlined />} placeholder={t('login.password')} />
               </Form.Item>
 
               <Form.Item
                 name="confirm_password"
+                label={t('login.confirmPassword')}
                 dependencies={['password']}
                 rules={[
                   { required: true, message: t('login.passwordRequired') },
@@ -227,9 +242,9 @@ const Login: React.FC = () => {
                 </Button>
               </Form.Item>
 
-              <div style={{ textAlign: 'center', color: '#999' }}>
+              <div className={styles.switchTab}>
                 {t('login.hasAccount')}
-                <a onClick={() => setActiveTab('login')}>{t('login.goLogin')}</a>
+                <Button type="link" onClick={() => setActiveTab('login')}>{t('login.goLogin')}</Button>
               </div>
             </Form>
           )}

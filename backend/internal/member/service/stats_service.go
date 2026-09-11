@@ -16,7 +16,7 @@ func (s *memberService) ApplicationStats(ctx context.Context, q *dto.StatsQuery)
 	if groupBy != "date" && groupBy != "department" && groupBy != "type" {
 		groupBy = "date"
 	}
-	rows, err := s.apps.Stats(ctx, q.StartDate, q.EndDate, groupBy)
+	rows, err := s.apps.Stats(ctx, q.StartDate, q.EndDate, groupBy, rewriteScope(q.Scope, "a", q.ViewerID))
 	if err != nil {
 		return nil, fmt.Errorf("application stats: %w", err)
 	}
@@ -31,7 +31,7 @@ func (s *memberService) MemberStats(ctx context.Context, q *dto.StatsQuery) (*dt
 	if groupBy != "department" && groupBy != "grade" && groupBy != "type" && groupBy != "status" {
 		groupBy = "department"
 	}
-	rows, err := s.profs.Stats(ctx, groupBy)
+	rows, err := s.profs.Stats(ctx, groupBy, rewriteScope(q.Scope, "p", q.ViewerID))
 	if err != nil {
 		return nil, fmt.Errorf("member stats: %w", err)
 	}

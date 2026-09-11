@@ -3,6 +3,9 @@ package workflow
 import (
 	"context"
 
+	"go.uber.org/zap"
+	"gorm.io/gorm"
+
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/engine"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/engine/nodes"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/handler"
@@ -10,18 +13,24 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/repo"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/service"
 	"github.com/Yogdunana/StarByte/backend/pkg/events"
-	"go.uber.org/zap"
-	"gorm.io/gorm"
 )
 
 // Handlers 封装所有 workflow handler 和扩展能力，便于在 main.go 中使用。
 type Handlers struct {
-	Definition      *handler.DefinitionHandler
-	Instance        *handler.InstanceHandler
-	Task            *handler.TaskHandler
-	InstanceService service.InstanceService
-	DefinitionRepo  repo.DefinitionRepo
-	serviceTaskNode *nodes.ServiceTaskNode
+	businessApprovers *engine.BusinessApprovers
+	approvalNode      *nodes.ApprovalNode
+	Engine            *engine.FlowEngine
+	Definition        *handler.DefinitionHandler
+	Instance          *handler.InstanceHandler
+	Task              *handler.TaskHandler
+	InstanceService   service.InstanceService
+	DefinitionRepo    repo.DefinitionRepo
+	serviceTaskNode   *nodes.ServiceTaskNode
+}
+
+// RegisterBusinessApprover connects business role policies before serving requests.
+func (h *Handlers) RegisterBusinessApprover(kind string, resolver engine.BusinessApprover) error {
+	return h.businessApprovers.Register(kind, resolver)
 }
 
 // RegisterServiceCallback 注册一个服务任务回调函数，供 service_task 节点调用。
@@ -55,7 +64,9 @@ func Init(db *gorm.DB, eventBus *events.EventBus, logger *zap.Logger) *Handlers 
 	registry := nodes.NewNodeRegistry()
 	registry.Register(&nodes.StartNode{})
 	registry.Register(&nodes.EndNode{})
-	registry.Register(&nodes.ApprovalNode{TaskRepo: taskRepo, EventBus: eventBus})
+	businessApprovers := engine.NewBusinessApprovers()
+	approvalNode := &nodes.ApprovalNode{BusinessApprovers: businessApprovers, TaskRepo: taskRepo, EventBus: eventBus, Approvers: repo.NewApproverRepo(db)}
+	registry.Register(approvalNode)
 	registry.Register(&nodes.ExclusiveGatewayNode{ExprEngine: exprEngine})
 	registry.Register(&nodes.ParallelGatewayNode{})
 
@@ -88,11 +99,14 @@ func Init(db *gorm.DB, eventBus *events.EventBus, logger *zap.Logger) *Handlers 
 	taskHandler := handler.NewTaskHandler(taskService)
 
 	return &Handlers{
-		Definition:      defHandler,
-		Instance:        instHandler,
-		Task:            taskHandler,
-		InstanceService: instService,
-		DefinitionRepo:  defRepo,
-		serviceTaskNode: serviceTaskNode,
+		businessApprovers: businessApprovers,
+		approvalNode:      approvalNode,
+		Engine:            flowEngine,
+		Definition:        defHandler,
+		Instance:          instHandler,
+		Task:              taskHandler,
+		InstanceService:   instService,
+		DefinitionRepo:    defRepo,
+		serviceTaskNode:   serviceTaskNode,
 	}
 }

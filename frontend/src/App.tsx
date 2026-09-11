@@ -6,7 +6,7 @@ import enUS from 'antd/locale/en_US';
 import { useTranslation } from 'react-i18next';
 
 import routes from './router/routes';
-import lightTheme, { darkComponents } from './styles/theme';
+import lightTheme, { darkComponents, darkTokens } from './styles/theme';
 import { ErrorBoundary } from './components';
 import { ThemeLangProvider, useThemeLang } from './theme/ThemeLangContext';
 
@@ -23,15 +23,7 @@ const ThemedApp: React.FC = () => {
       locale={locale}
       theme={{
         algorithm,
-        token: {
-          colorPrimary: '#2563eb',
-          colorSuccess: '#52c41a',
-          colorWarning: '#faad14',
-          colorError: '#ff4d4f',
-          colorInfo: '#2563eb',
-          borderRadius: 10,
-          fontSize: 14,
-        },
+        token: isDark ? darkTokens : lightTheme.token,
         components: isDark ? darkComponents : lightTheme.components,
       }}
     >

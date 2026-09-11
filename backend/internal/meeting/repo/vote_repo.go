@@ -3,12 +3,15 @@ package repo
 import (
 	"context"
 
-	"github.com/Yogdunana/StarByte/backend/internal/meeting/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+
+	"github.com/Yogdunana/StarByte/backend/internal/meeting/model"
 )
 
 type VoteRepo interface {
+	HasVoted(context.Context, uuid.UUID, uuid.UUID) (bool, error)
+	CreateReceipt(context.Context, *model.VoteReceipt) error
 	CreateVote(ctx context.Context, v *model.Vote, options []model.VoteOption) error
 	UpdateVote(ctx context.Context, v *model.Vote) error
 	GetVote(ctx context.Context, id uuid.UUID) (*model.Vote, error)
@@ -23,6 +26,15 @@ type VoteRepo interface {
 }
 
 type voteRepo struct{ db *gorm.DB }
+
+func (r *voteRepo) HasVoted(ctx context.Context, vote, user uuid.UUID) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.VoteReceipt{}).Where("vote_id=? AND voter_id=?", vote, user).Count(&count).Error
+	return count > 0, err
+}
+func (r *voteRepo) CreateReceipt(ctx context.Context, receipt *model.VoteReceipt) error {
+	return r.db.WithContext(ctx).Create(receipt).Error
+}
 
 func NewVoteRepo(db *gorm.DB) VoteRepo {
 	return &voteRepo{db: db}
