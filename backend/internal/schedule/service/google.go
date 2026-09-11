@@ -200,10 +200,28 @@ func (s *scheduleService) FrontendRedirect() string {
 	return ""
 }
 
+func sanitizeRedirectBase(raw string) string {
+	raw = strings.TrimRight(strings.TrimSpace(raw), "/")
+	if raw == "" {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.User != nil || u.Host == "" {
+		return ""
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return ""
+	}
+	u.User = nil
+	u.RawQuery = ""
+	u.Fragment = ""
+	return strings.TrimRight(u.String(), "/")
+}
+
 func (s *scheduleService) FrontendCallbackRedirect(code, state, requestOrigin string) string {
-	base := strings.TrimRight(s.google.FrontendURL, "/")
+	base := sanitizeRedirectBase(s.google.FrontendURL)
 	if base == "" {
-		base = strings.TrimRight(strings.TrimSpace(requestOrigin), "/")
+		base = sanitizeRedirectBase(requestOrigin)
 	}
 	if base == "" {
 		return ""

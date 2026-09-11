@@ -33,6 +33,7 @@ import './schedule.css';
 type ViewMode = 'month' | 'week' | 'day' | 'agenda';
 
 const VIS_KEY = 'schedule.layerVisibility';
+const googleBindInFlight = new Set<string>();
 
 function loadVisibility(): Record<string, boolean> {
   try {
@@ -118,8 +119,11 @@ const CalendarPage: React.FC = () => {
     const state = q.get('state') || '';
     if (!code || (q.get('google') !== 'callback' && !state)) return;
     const lockKey = `schedule.google.bind:${code}`;
-    if (sessionStorage.getItem(lockKey)) return;
-    sessionStorage.setItem(lockKey, 'pending');
+    // 仅成功态写入 sessionStorage。pending 残留（刷新/关页）不得挡住重试；
+    // 同页 StrictMode 双挂载用内存锁。
+    if (sessionStorage.getItem(lockKey) === 'done') return;
+    if (googleBindInFlight.has(code)) return;
+    googleBindInFlight.add(code);
     const clearParams = () => {
       q.delete('code');
       q.delete('state');
@@ -135,6 +139,7 @@ const CalendarPage: React.FC = () => {
       void loadEvents();
       clearParams();
     }).catch(() => {
+      googleBindInFlight.delete(code);
       sessionStorage.removeItem(lockKey);
       message.error(t('schedule.google.bindFailed'));
       clearParams();

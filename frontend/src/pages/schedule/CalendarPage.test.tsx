@@ -1,8 +1,9 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import CalendarPage from './CalendarPage';
+import { googleCallback } from '@/api/schedule';
 
 const navigate = vi.fn();
 vi.mock('react-router-dom', async () => {
@@ -55,6 +56,12 @@ vi.mock('@/api/schedule', () => ({
 }));
 
 describe('CalendarPage', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    vi.mocked(googleCallback).mockReset();
+    window.history.replaceState({}, '', '/schedule');
+  });
+
   it('renders schedule chrome and default month view', async () => {
     render(<MemoryRouter><CalendarPage /></MemoryRouter>);
     await waitFor(() => expect(screen.getByText('schedule.title')).toBeInTheDocument());
@@ -79,5 +86,21 @@ describe('CalendarPage', () => {
     await user.click(await screen.findByText('迎新晚会'));
     expect(navigate).toHaveBeenCalledWith('/activity/act-1');
     expect(screen.queryByText('common.edit')).not.toBeInTheDocument();
+  });
+
+  it('retries Google bind when leftover lock is pending', async () => {
+    vi.mocked(googleCallback).mockResolvedValue({ connected: true, configured: true });
+    sessionStorage.setItem('schedule.google.bind:retry-code', 'pending');
+    window.history.replaceState({}, '', '/schedule?google=callback&code=retry-code&state=st');
+    render(<MemoryRouter><CalendarPage /></MemoryRouter>);
+    await waitFor(() => expect(googleCallback).toHaveBeenCalledWith({ code: 'retry-code', state: 'st' }));
+  });
+
+  it('does not rebind a completed Google code', async () => {
+    sessionStorage.setItem('schedule.google.bind:done-code', 'done');
+    window.history.replaceState({}, '', '/schedule?google=callback&code=done-code&state=st');
+    render(<MemoryRouter><CalendarPage /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByText('schedule.title')).toBeInTheDocument());
+    expect(googleCallback).not.toHaveBeenCalled();
   });
 });

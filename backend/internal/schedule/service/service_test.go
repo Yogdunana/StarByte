@@ -235,6 +235,17 @@ func TestFrontendCallbackRedirectFallsBackToRequestOrigin(t *testing.T) {
 	assert.Contains(t, got, "https://starbyte.example/app/schedule")
 }
 
+func TestSanitizeRedirectBaseRejectsUnsafeOrigins(t *testing.T) {
+	assert.Equal(t, "http://10.0.0.8", sanitizeRedirectBase("http://10.0.0.8/"))
+	assert.Equal(t, "https://starbyte.example/app", sanitizeRedirectBase("https://starbyte.example/app"))
+	assert.Empty(t, sanitizeRedirectBase("javascript:alert(1)"))
+	assert.Empty(t, sanitizeRedirectBase("//evil.example"))
+	assert.Empty(t, sanitizeRedirectBase("https://evil.example@good.example"))
+	svc, _, _, _, _ := setupSvc(t)
+	assert.Empty(t, svc.FrontendCallbackRedirect("c", "s", "javascript:alert(1)"))
+	assert.Empty(t, svc.FrontendCallbackRedirect("c", "s", "//evil.example"))
+}
+
 func TestGoogleCallbackRequiresMatchingUser(t *testing.T) {
 	svc, _, owner, other, _ := setupSvc(t)
 	svc.google = GoogleSettings{ClientID: "id", ClientSecret: "secret", RedirectURI: "http://localhost/cb"}
