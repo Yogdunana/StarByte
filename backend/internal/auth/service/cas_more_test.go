@@ -257,6 +257,14 @@ func TestHTTPTicketValidator_JSONSuccess(t *testing.T) {
 	assert.Equal(t, "21", p.Attributes["age"])
 }
 
+func TestCASValidateUnreachable(t *testing.T) {
+	assert.True(t, casValidateUnreachable(http.StatusNotFound, fmt.Errorf("cas validate http 404")))
+	assert.True(t, casValidateUnreachable(http.StatusMethodNotAllowed, fmt.Errorf("cas validate http 405")))
+	assert.True(t, casValidateUnreachable(0, fmt.Errorf("dial tcp")))
+	assert.False(t, casValidateUnreachable(http.StatusOK, fmt.Errorf("parse cas json")))
+	assert.False(t, casValidateUnreachable(http.StatusOK, nil))
+}
+
 func TestHTTPTicketValidator_P3FailureDoesNotFallback(t *testing.T) {
 	var hits int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -4,23 +4,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 
-import { exchangeCasCode } from '@/api/auth';
+import { exchangeCasCodeOnce } from '@/api/casExchange';
 import { setToken } from '@/store/slices/authSlice';
 import { fetchCurrentUser } from '@/store/slices/userSlice';
 import type { AppDispatch } from '@/store';
-import type { CASExchangeResponse } from '@/types/api';
 import styles from './Login.module.css';
-
-const exchangeByCode = new Map<string, Promise<CASExchangeResponse>>();
-
-function exchangeCasCodeOnce(code: string): Promise<CASExchangeResponse> {
-  let pending = exchangeByCode.get(code);
-  if (!pending) {
-    pending = exchangeCasCode(code);
-    exchangeByCode.set(code, pending);
-  }
-  return pending;
-}
 
 function safeRedirect(path: string | undefined): string {
   if (!path || !path.startsWith('/') || path.startsWith('//')) {

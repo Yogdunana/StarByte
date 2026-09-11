@@ -158,12 +158,14 @@ func TestParseCASJSON_Success(t *testing.T) {
 func TestBuildCASLoginURL(t *testing.T) {
 	store := newMemCASStore()
 	svc := casTestService(store, stubValidator{}, nil)
-	start, err := svc.BuildCASLoginURL(context.Background(), "/tasks", "http://10.0.0.8")
+	start, err := svc.BuildCASLoginURL(context.Background(), "/tasks", "http://10.100.13.17")
 	require.NoError(t, err)
 	assert.Contains(t, start.Location, "https://authserver.smbu.edu.cn/authserver/login?service=")
-	assert.Contains(t, start.Location, "10.0.0.8")
-	assert.Equal(t, "http://10.0.0.8/api/v1/auth/cas/callback", start.Service)
+	assert.Equal(t, "http://10.100.13.17/api/v1/auth/cas/callback", start.Service)
+	assert.NotContains(t, start.Service, "state=")
+	assert.NotContains(t, start.Location, "state=")
 	assert.Len(t, store.state, 1)
+	assert.NotEmpty(t, start.State)
 }
 
 func TestBuildCASLoginURL_Disabled(t *testing.T) {

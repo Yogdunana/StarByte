@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -45,6 +46,30 @@ func TestCASStore_CodeRoundTrip(t *testing.T) {
 
 	_, err = store.TakeCode(ctx, "c1")
 	require.ErrorIs(t, err, redis.Nil)
+}
+
+func TestCASStore_TakeCodeIsAtomic(t *testing.T) {
+	store, _ := newCASStore(t)
+	ctx := context.Background()
+	require.NoError(t, store.PutCode(ctx, "once", []byte("payload"), time.Minute))
+
+	var hits int
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	for i := 0; i < 16; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			got, err := store.TakeCode(ctx, "once")
+			if err == nil && string(got) == "payload" {
+				mu.Lock()
+				hits++
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+	assert.Equal(t, 1, hits)
 }
 
 func TestCASStore_Unavailable(t *testing.T) {
