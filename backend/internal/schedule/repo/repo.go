@@ -114,10 +114,32 @@ func (r *repository) ListCalendars(ctx context.Context, viewer uuid.UUID, req *d
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	page, size := normalizePage(req.Page, req.PageSize)
+	offset, limit := calendarWindow(req)
+	if limit == 0 {
+		return nil, total, nil
+	}
 	var rows []model.CalendarNamed
-	err := q.Order("c.calendar_type ASC, c.created_at DESC").Offset((page - 1) * size).Limit(size).Find(&rows).Error
+	err := q.Order("c.calendar_type ASC, c.created_at DESC").Offset(offset).Limit(limit).Find(&rows).Error
 	return rows, total, err
+}
+
+func calendarWindow(req *dto.ListCalendarRequest) (int, int) {
+	if req != nil && req.Limit != nil {
+		off := 0
+		if req.Offset != nil && *req.Offset > 0 {
+			off = *req.Offset
+		}
+		lim := *req.Limit
+		if lim < 0 {
+			lim = 0
+		}
+		return off, lim
+	}
+	page, size := 1, 20
+	if req != nil {
+		page, size = normalizePage(req.Page, req.PageSize)
+	}
+	return (page - 1) * size, size
 }
 
 func (r *repository) PersonalCalendar(ctx context.Context, owner uuid.UUID) (*model.Calendar, error) {
@@ -326,11 +348,22 @@ func (r *repository) ListDueReminders(ctx context.Context, now time.Time, limit 
 		Select("r.*, e.title, e.start_at, e.end_at, e.recurrence, e.recurrence_until, c.owner_id, e.created_by").
 		Joins("JOIN schedule_events e ON e.id = r.event_id").
 		Joins("JOIN calendars c ON c.id = e.calendar_id").
-		Where(
-			"e.status = ? AND (r.triggered_at IS NULL OR (e.recurrence <> 'none' AND e.recurrence <> '' AND (e.recurrence_until IS NULL OR e.recurrence_until >= ?)))",
-			model.EventConfirmed, now,
-		).
-		Order("e.start_at").Limit(limit).Find(&rows).Error
+		Where("e.status = ?", model.EventConfirmed).
+		Where(`
+			(r.triggered_at IS NULL
+				AND e.start_at - (r.minutes_before * INTERVAL '1 minute') <= ?
+				AND (COALESCE(e.recurrence, 'none') IN ('', 'none') OR e.recurrence_until IS NULL OR e.recurrence_until >= e.start_at))
+			OR (r.triggered_at IS NOT NULL AND e.recurrence = 'daily'
+				AND r.triggered_at + INTERVAL '1 day' - (r.minutes_before * INTERVAL '1 minute') <= ?
+				AND (e.recurrence_until IS NULL OR e.recurrence_until >= r.triggered_at + INTERVAL '1 day'))
+			OR (r.triggered_at IS NOT NULL AND e.recurrence = 'weekly'
+				AND r.triggered_at + INTERVAL '7 days' - (r.minutes_before * INTERVAL '1 minute') <= ?
+				AND (e.recurrence_until IS NULL OR e.recurrence_until >= r.triggered_at + INTERVAL '7 days'))
+			OR (r.triggered_at IS NOT NULL AND e.recurrence = 'monthly'
+				AND r.triggered_at + INTERVAL '1 month' - (r.minutes_before * INTERVAL '1 minute') <= ?
+				AND (e.recurrence_until IS NULL OR e.recurrence_until >= r.triggered_at + INTERVAL '1 month'))
+		`, now, now, now, now).
+		Order("r.triggered_at NULLS FIRST, e.start_at").Limit(limit).Find(&rows).Error
 	return rows, err
 }
 

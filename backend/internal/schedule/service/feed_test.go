@@ -155,6 +155,36 @@ func TestRangeEventsStoredCalendarExcludesFeeds(t *testing.T) {
 	assert.Equal(t, personal.ID, rows[0].ID)
 }
 
+func TestVirtualLayersPaginateWithStored(t *testing.T) {
+	svc, owner := setupSvcWithFeeds(t,
+		&stubFeed{source: model.SourceActivity, id: ActivityLayerID},
+		&stubFeed{source: model.SourceInterview, id: InterviewLayerID},
+	)
+	ctx := context.Background()
+	scope := selfScope(owner)
+	for i := 0; i < 3; i++ {
+		_, err := svc.CreateCalendar(ctx, owner, &dto.CreateCalendarRequest{
+			Name: "共享" + string(rune('A'+i)), CalendarType: model.CalendarProject,
+		}, scope)
+		require.NoError(t, err)
+	}
+	page1, total, _, size, err := svc.ListCalendars(ctx, owner, &dto.ListCalendarRequest{Page: 1, PageSize: 2}, scope)
+	require.NoError(t, err)
+	assert.Equal(t, 2, size)
+	assert.GreaterOrEqual(t, total, int64(6))
+	require.Len(t, page1, 2)
+	assert.Equal(t, model.SourceActivity, page1[0].Source)
+	assert.Equal(t, model.SourceInterview, page1[1].Source)
+
+	page2, _, _, _, err := svc.ListCalendars(ctx, owner, &dto.ListCalendarRequest{Page: 2, PageSize: 2}, scope)
+	require.NoError(t, err)
+	require.NotEmpty(t, page2)
+	for _, c := range page2 {
+		assert.NotEqual(t, model.SourceActivity, c.Source)
+		assert.NotEqual(t, model.SourceInterview, c.Source)
+	}
+}
+
 func TestMapActivityAndInterviewProjection(t *testing.T) {
 	act := uuid.New()
 	org := uuid.New()

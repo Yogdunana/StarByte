@@ -122,19 +122,13 @@ func (h *Handler) GoogleCallbackPOST(c *gin.Context) {
 }
 
 func (h *Handler) GoogleCallbackGET(c *gin.Context) {
-	code := c.Query("code")
-	state := c.Query("state")
-	uid, _ := h.svc.ParseGoogleState(state)
-	out, err := h.svc.GoogleCallback(c.Request.Context(), uid, code, state, nil)
-	if err != nil {
-		response.Error(c, err)
+	// 公开 GET 只回跳前端，由已登录的 POST /google/callback 绑定，避免把他人日历绑到 state 用户。
+	dest := h.svc.FrontendCallbackRedirect(c.Query("code"), c.Query("state"))
+	if dest == "" {
+		response.Error(c, response.NewError(response.CodeUnauthorized, "请登录后通过 POST /schedules/google/callback 完成 Google 绑定"))
 		return
 	}
-	if dest := h.svc.FrontendRedirect(); dest != "" {
-		c.Redirect(302, dest)
-		return
-	}
-	response.OK(c, out)
+	c.Redirect(302, dest)
 }
 
 func (h *Handler) GoogleDisconnect(c *gin.Context) {

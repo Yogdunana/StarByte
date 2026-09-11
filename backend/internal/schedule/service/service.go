@@ -66,6 +66,7 @@ type Service interface {
 	DispatchGoogleSync(ctx context.Context, payload string, logf func(string)) error
 	ParseGoogleState(state string) (uuid.UUID, error)
 	FrontendRedirect() string
+	FrontendCallbackRedirect(code, state string) string
 }
 
 type scheduleService struct {

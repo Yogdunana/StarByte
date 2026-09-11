@@ -76,6 +76,36 @@ func dueOccurrence(row *model.DueReminder, now time.Time) *time.Time {
 	return nil
 }
 
+// reminderIsDueCandidate 与 repo.ListDueReminders 的窗口条件对齐：只保留现在该发的一条。
+func reminderIsDueCandidate(ev *model.Event, rem *model.Reminder, now time.Time) bool {
+	if ev == nil || rem == nil {
+		return false
+	}
+	mins := time.Duration(rem.MinutesBefore) * time.Minute
+	rec := model.NormalizeRecurrence(ev.Recurrence)
+	if rem.TriggeredAt == nil {
+		if ev.StartAt.After(now.Add(mins)) {
+			return false
+		}
+		return rec == model.RecurrenceNone || ev.RecurrenceUntil == nil || !ev.RecurrenceUntil.Before(ev.StartAt)
+	}
+	var next time.Time
+	switch rec {
+	case model.RecurrenceDaily:
+		next = rem.TriggeredAt.Add(24 * time.Hour)
+	case model.RecurrenceWeekly:
+		next = rem.TriggeredAt.Add(7 * 24 * time.Hour)
+	case model.RecurrenceMonthly:
+		next = rem.TriggeredAt.AddDate(0, 1, 0)
+	default:
+		return false
+	}
+	if next.After(now.Add(mins)) {
+		return false
+	}
+	return ev.RecurrenceUntil == nil || !ev.RecurrenceUntil.Before(next)
+}
+
 func uniqueUsers(ids ...uuid.UUID) []uuid.UUID {
 	seen := map[uuid.UUID]struct{}{}
 	out := make([]uuid.UUID, 0, len(ids))

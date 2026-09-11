@@ -223,6 +223,62 @@ func TestSelfScopeCannotAssignForeignDepartment(t *testing.T) {
 	assert.Equal(t, response.CodeCalendarNoAccess, err.(*response.AppError).Code)
 }
 
+func TestGoogleCallbackRequiresMatchingUser(t *testing.T) {
+	svc, _, owner, other, _ := setupSvc(t)
+	svc.google = GoogleSettings{ClientID: "id", ClientSecret: "secret", RedirectURI: "http://localhost/cb"}
+	ctx := context.Background()
+	state := svc.signGoogleState(owner)
+	_, err := svc.GoogleCallback(ctx, other, "code", state, selfScope(other))
+	require.Error(t, err)
+	assert.Equal(t, response.CodeForbidden, err.(*response.AppError).Code)
+	_, err = svc.GoogleCallback(ctx, uuid.Nil, "code", state, nil)
+	require.Error(t, err)
+	assert.Equal(t, response.CodeUnauthorized, err.(*response.AppError).Code)
+}
+
+func TestDueRemindersDoNotStarveUnfired(t *testing.T) {
+	svc, mem, owner, _, _ := setupSvc(t)
+	n := &captureNotify{}
+	svc.notify = n
+	ctx := context.Background()
+	now := time.Now()
+	fired := now.Add(-time.Hour)
+	for i := 0; i < 210; i++ {
+		start := now.AddDate(0, 0, -40).Add(time.Duration(i) * time.Minute)
+		evID := uuid.New()
+		require.NoError(t, mem.CreateEvent(ctx, &model.Event{
+			ID: evID, CalendarID: mustPersonalID(t, mem, owner), Title: fmt.Sprintf("旧周会-%d", i),
+			StartAt: start, EndAt: start.Add(time.Hour), Recurrence: model.RecurrenceWeekly,
+			Status: model.EventConfirmed, CreatedBy: owner, CreatedAt: now, UpdatedAt: now,
+		}))
+		require.NoError(t, mem.ReplaceReminders(ctx, evID, []model.Reminder{{
+			ID: uuid.New(), EventID: evID, MinutesBefore: 15, Method: model.RemindApp, TriggeredAt: &fired, CreatedAt: now,
+		}}))
+	}
+	_, err := svc.CreateEvent(ctx, owner, &dto.CreateEventRequest{
+		Title: "新答辩", StartAt: now.Add(10 * time.Minute), EndAt: now.Add(70 * time.Minute),
+		RemindMinutes: []int{15},
+	}, selfScope(owner))
+	require.NoError(t, err)
+	require.NoError(t, svc.DispatchDueReminders(ctx, "", func(string) {}))
+	assert.Equal(t, 1, n.n)
+}
+
+func mustPersonalID(t *testing.T, mem *memRepo, owner uuid.UUID) uuid.UUID {
+	t.Helper()
+	cal, err := mem.PersonalCalendar(context.Background(), owner)
+	require.NoError(t, err)
+	if cal != nil {
+		return cal.ID
+	}
+	id := uuid.New()
+	require.NoError(t, mem.CreateCalendar(context.Background(), &model.Calendar{
+		ID: id, Name: "个人", CalendarType: model.CalendarPersonal, Source: model.SourcePersonal,
+		OwnerID: owner, CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	}))
+	return id
+}
+
 func TestRecurringReminderFiresEachOccurrence(t *testing.T) {
 	svc, _, owner, _, _ := setupSvc(t)
 	n := &captureNotify{}

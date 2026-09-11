@@ -149,6 +149,10 @@ export function googleConnect(): Promise<{ auth_url: string }> {
   return request.get('/schedules/google/connect');
 }
 
+export function googleCallback(data: { code: string; state?: string }): Promise<GoogleStatus> {
+  return request.post('/schedules/google/callback', data);
+}
+
 export function googleDisconnect(): Promise<void> {
   return request.post('/schedules/google/disconnect');
 }

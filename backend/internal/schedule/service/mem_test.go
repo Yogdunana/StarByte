@@ -124,7 +124,28 @@ func (m *memRepo) ListCalendars(_ context.Context, viewer uuid.UUID, req *dto.Li
 		out = append(out, *named)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
-	return out, int64(len(out)), nil
+	total := int64(len(out))
+	off, lim := 0, len(out)
+	if req != nil && req.Limit != nil {
+		if req.Offset != nil && *req.Offset > 0 {
+			off = *req.Offset
+		}
+		lim = *req.Limit
+		if lim < 0 {
+			lim = 0
+		}
+	}
+	if off > len(out) {
+		return nil, total, nil
+	}
+	end := off + lim
+	if lim == 0 || end > len(out) {
+		end = len(out)
+	}
+	if req != nil && req.Limit != nil && *req.Limit == 0 {
+		return nil, total, nil
+	}
+	return out[off:end], total, nil
 }
 
 func (m *memRepo) PersonalCalendar(_ context.Context, owner uuid.UUID) (*model.Calendar, error) {
@@ -427,7 +448,7 @@ func (m *memRepo) ListReminders(_ context.Context, eventID uuid.UUID) ([]model.R
 	return out, nil
 }
 
-func (m *memRepo) ListDueReminders(_ context.Context, now time.Time, _ int) ([]model.DueReminder, error) {
+func (m *memRepo) ListDueReminders(_ context.Context, now time.Time, limit int) ([]model.DueReminder, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	out := []model.DueReminder{}
@@ -436,9 +457,7 @@ func (m *memRepo) ListDueReminders(_ context.Context, now time.Time, _ int) ([]m
 		if ev == nil || ev.Status != model.EventConfirmed {
 			continue
 		}
-		recurring := model.NormalizeRecurrence(ev.Recurrence) != model.RecurrenceNone &&
-			(ev.RecurrenceUntil == nil || !ev.RecurrenceUntil.Before(now))
-		if r.TriggeredAt != nil && !recurring {
+		if !reminderIsDueCandidate(ev, r, now) {
 			continue
 		}
 		due := model.DueReminder{
@@ -449,6 +468,18 @@ func (m *memRepo) ListDueReminders(_ context.Context, now time.Time, _ int) ([]m
 			due.OwnerID = cal.OwnerID
 		}
 		out = append(out, due)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].TriggeredAt == nil && out[j].TriggeredAt != nil {
+			return true
+		}
+		if out[i].TriggeredAt != nil && out[j].TriggeredAt == nil {
+			return false
+		}
+		return out[i].StartAt.Before(out[j].StartAt)
+	})
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
 	}
 	return out, nil
 }

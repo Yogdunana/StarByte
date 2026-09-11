@@ -14,6 +14,7 @@ import {
   createCalendar,
   createEvent,
   deleteEvent,
+  googleCallback,
   googleConnect,
   googleDisconnect,
   googleStatus,
@@ -110,6 +111,25 @@ const CalendarPage: React.FC = () => {
   useEffect(() => { void loadCals().catch(() => undefined); }, [loadCals]);
   useEffect(() => { void loadEvents().catch(() => undefined); }, [loadEvents]);
   useEffect(() => { void loadGoogle(); }, [loadGoogle]);
+
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const code = q.get('code');
+    const state = q.get('state') || '';
+    if (!code || (q.get('google') !== 'callback' && !state)) return;
+    void googleCallback({ code, state }).then(() => {
+      message.success(t('schedule.google.connected'));
+      void loadGoogle();
+      void loadCals();
+      void loadEvents();
+    }).finally(() => {
+      q.delete('code');
+      q.delete('state');
+      q.delete('google');
+      const next = q.toString();
+      window.history.replaceState({}, '', `${window.location.pathname}${next ? `?${next}` : ''}`);
+    });
+  }, [loadCals, loadEvents, loadGoogle, t]);
 
   const toggleLayer = (id: string, checked: boolean) => {
     setVisible((prev) => {

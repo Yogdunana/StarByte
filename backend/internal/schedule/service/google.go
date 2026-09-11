@@ -85,11 +85,15 @@ func (s *scheduleService) GoogleCallback(ctx context.Context, operator uuid.UUID
 	if !s.google.Configured() {
 		return nil, response.NewError(response.CodeScheduleGoogleNotReady, "Google 日历未配置")
 	}
-	if uid, err := s.parseGoogleState(state); err == nil {
-		operator = uid
-	}
 	if operator == uuid.Nil {
-		return nil, response.NewError(response.CodeUnauthorized, "OAuth state 无效")
+		return nil, response.NewError(response.CodeUnauthorized, "请登录后完成 Google 绑定")
+	}
+	stateUID, err := s.parseGoogleState(state)
+	if err != nil || stateUID == uuid.Nil {
+		return nil, response.NewError(response.CodeUnauthorized, "OAuth state 无效或已过期")
+	}
+	if stateUID != operator {
+		return nil, response.NewError(response.CodeForbidden, "OAuth state 与当前用户不一致")
 	}
 	if strings.TrimSpace(code) == "" {
 		return nil, response.NewError(response.CodeScheduleImportInvalid, "缺少授权码")
@@ -194,6 +198,27 @@ func (s *scheduleService) FrontendRedirect() string {
 		return u + "/schedule?google=connected"
 	}
 	return ""
+}
+
+func (s *scheduleService) FrontendCallbackRedirect(code, state string) string {
+	base := strings.TrimRight(s.google.FrontendURL, "/")
+	if base == "" {
+		return ""
+	}
+	u, err := url.Parse(base + "/schedule")
+	if err != nil {
+		return ""
+	}
+	q := u.Query()
+	q.Set("google", "callback")
+	if code != "" {
+		q.Set("code", code)
+	}
+	if state != "" {
+		q.Set("state", state)
+	}
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 func (s *scheduleService) signGoogleState(userID uuid.UUID) string {

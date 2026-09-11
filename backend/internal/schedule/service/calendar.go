@@ -20,20 +20,42 @@ func (s *scheduleService) ListCalendars(ctx context.Context, viewer uuid.UUID, r
 	if err := s.ensurePersonal(ctx, viewer); err != nil {
 		return nil, 0, 0, 0, err
 	}
-	rows, total, err := s.rows.ListCalendars(ctx, viewer, req, scope)
+	virtuals := s.virtualCalendars(viewer, req)
+	page, size := normalizePage(req.Page, req.PageSize)
+	start := (page - 1) * size
+	nVirt := len(virtuals)
+	storedReq := *req
+	storedOff, storedLim := storedWindow(start, size, nVirt)
+	storedReq.Offset = &storedOff
+	storedReq.Limit = &storedLim
+	rows, storedTotal, err := s.rows.ListCalendars(ctx, viewer, &storedReq, scope)
 	if err != nil {
 		return nil, 0, 0, 0, fmt.Errorf("list calendars: %w", err)
 	}
-	out := make([]*dto.CalendarResponse, 0, len(rows)+len(s.feeds))
+	out := make([]*dto.CalendarResponse, 0, size)
+	if start < nVirt {
+		endV := nVirt
+		if endV > start+size {
+			endV = start + size
+		}
+		out = append(out, virtuals[start:endV]...)
+	}
 	for i := range rows {
 		out = append(out, mapCalendar(&rows[i], viewer, scope))
 	}
-	virtuals := s.virtualCalendars(viewer, req)
-	page, size := normalizePage(req.Page, req.PageSize)
-	if page == 1 {
-		out = append(out, virtuals...)
+	return out, storedTotal + int64(nVirt), page, size, nil
+}
+
+// storedWindow 把虚拟层当作列表前缀后，计算存储日历的 offset/limit。
+func storedWindow(start, size, nVirt int) (int, int) {
+	if start >= nVirt {
+		return start - nVirt, size
 	}
-	return out, total + int64(len(virtuals)), page, size, nil
+	taken := nVirt - start
+	if taken >= size {
+		return 0, 0
+	}
+	return 0, size - taken
 }
 
 func (s *scheduleService) CreateCalendar(ctx context.Context, operator uuid.UUID, req *dto.CreateCalendarRequest, scope *rbacModel.DataScopeCondition) (*dto.CalendarResponse, error) {

@@ -27,6 +27,9 @@ type ListCalendarRequest struct {
 	PageSize     int    `form:"page_size"`
 	Keyword      string `form:"keyword"`
 	CalendarType *int16 `form:"calendar_type"`
+	// Offset / Limit 仅服务端合并虚拟图层时使用，不从 query 绑定。
+	Offset *int `form:"-"`
+	Limit  *int `form:"-"`
 	// OwnerID 故意不接收：列表所有权一律由 JWT + DataScope 决定，避免 IDOR。
 }
 

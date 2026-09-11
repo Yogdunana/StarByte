@@ -48,6 +48,7 @@ vi.mock('@/api/schedule', () => ({
   importTimetable: vi.fn(),
   importICS: vi.fn(),
   googleStatus: vi.fn().mockResolvedValue({ configured: false, connected: false }),
+  googleCallback: vi.fn(),
   googleConnect: vi.fn(),
   googleDisconnect: vi.fn(),
   googleSync: vi.fn(),
