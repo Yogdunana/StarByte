@@ -4,12 +4,56 @@
 
 ## 快速上手
 
+仓库是公开的：**提 PR 不需要 Write。** Fork 后向本仓库开 Pull Request 即可。不要给普通贡献者 Write / Maintain / Admin——那些角色都能 merge。
+
+GitHub 没有「所有人都能在网页右侧点选 label/assignee、但没有 merge」的开关。本仓库用 Action 代执行，**任何能评论的人**都可以自己改 labels 和 assignees，这条路径**没有 push / merge 权限**。
+
+| 角色 | 给谁 | 能做什么 |
+|------|------|----------|
+| Read（默认） | 所有人 | 看代码、开 Issue、评论、Fork 提 PR；用下面的评论命令改 labels / assignees |
+| Write | 仅维护者 | 直接推本仓库并 merge；不要为了改 Issue 去申请 |
+
+### 改 label / assignee
+
+在 Issue 或 PR 下发一条评论即可（合入 `main` 后生效）。可用仓库里已有的标签，不能新建标签。`我来认领` 只对未关闭、且还没人认领的 Issue 生效；`放弃认领`、`开始开发`、`提交审查` 只有当前 Assignee 能用。
+
+```
+我来认领
+```
+
+```
+放弃认领
+```
+
+```
+开始开发
+```
+
+```
+提交审查
+```
+
+```
+/label status:claimed module:backend
+/unlabel status:available
+/assign @me
+/unassign @someone
+```
+
+也可以一行一个已有标签：
+
+```
++status:in-progress
+-status:claimed
+```
+
 ### 1. 环境准备
 
 ```bash
-# 克隆仓库
-git clone https://github.com/Yogdunana/StarByte.git
+# 先在 GitHub 点 Fork，再克隆你自己的仓库（不要直接 clone 上游）
+git clone https://github.com/<你的用户名>/StarByte.git
 cd StarByte
+git remote add upstream https://github.com/Yogdunana/StarByte.git
 
 # 后端环境（需要 Go 1.22+）
 cd backend
@@ -36,15 +80,16 @@ cd ../frontend && npm run dev
 ### 2. 领取任务
 
 1. 查看 [GitHub Issues](https://github.com/Yogdunana/StarByte/issues) 中的待办任务
-2. 选择你感兴趣的 Issue，评论 `我来认领`
-3. 等待分配后开始开发
+2. 选择你感兴趣的 Issue，评论 `我来认领`（Action 会把你设为 Assignee，并改成 `status:claimed`）
+3. 之后用 `/label`、`/unlabel`、`/assign`、`/unassign` 自己改标签和经办人；没有 merge 权限
 
 ### 3. 开发流程
 
 ```bash
-# 1. 从 main 拉取最新代码
+# 1. 从上游 main 拉取最新代码
+git fetch upstream
 git checkout main
-git pull origin main
+git merge upstream/main
 
 # 2. 创建开发分支
 git checkout -b feature/your-feature-name
@@ -62,10 +107,13 @@ cd frontend && npm run lint
 git add .
 git commit -m "feat: 添加 xxx 功能"
 
-# 6. 推送并创建 PR
+# 6. 推送到你的 Fork（不是 Yogdunana/StarByte）
 git push origin feature/your-feature-name
-# 在 GitHub 上创建 Pull Request
 ```
+
+然后在 GitHub 打开你的 Fork，点 **Contribute → Open pull request**，base 选 `Yogdunana/StarByte` 的 `main`。
+
+首次从 Fork 提 PR 时，上游 CI 可能显示 *Waiting for approval*。这不需要 Collaborator：仓库维护者在该 PR 上点一次 **Approve and run workflows** 即可。之后同一贡献者的后续 PR 一般会自动跑。
 
 ## 开发规范
 
