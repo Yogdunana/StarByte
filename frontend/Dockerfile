@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────────────────
 # Stage 1: 构建前端静态资源
-# node:20-alpine 来自 docker.io。校园网拉失败时请用已配置的国内镜像源
-# 拉取后 retag 为 node:20-alpine，勿在本文件写死未验证的 registry。
+# node:20-alpine 来自 docker.io。校园网拉失败时请用 daemon.json 的
+# registry-mirrors 拉取后 retag，勿在本文件写死未验证的 registry。
 # ─────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
 
@@ -33,6 +33,8 @@ CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 
 # ─────────────────────────────────────────────────────────
 # Stage 3: 生产镜像（Nginx 托管静态文件 + API 代理）
+# nginx:1.27-alpine 同样来自 docker.io；拉失败时用 daemon.json 镜像源
+# 或 retag，勿写死未验证的 registry。
 # ─────────────────────────────────────────────────────────
 FROM nginx:1.27-alpine AS production
 

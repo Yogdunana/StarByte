@@ -3,12 +3,16 @@ version: "3.8"
 # ─────────────────────────────────────────────────────────
 # StarByte 生产环境 Docker Compose
 # 用法：docker compose -f deploy/docker-compose.yml up -d
+# 校园网：基础镜像走 docker.io 官方 tag + daemon.json mirrors（勿写死未验证源）；
+# MinIO 默认 latest + pull_policy: if_not_present，避免 RELEASE 钉死 tag 被镜像站 403。
 # ─────────────────────────────────────────────────────────
 
 services:
   # PostgreSQL 数据库（仅容器网络访问，不对外暴露端口）
+  # 镜像名保持 docker.io 官方 tag；校园网请在 daemon.json 配 registry-mirrors，勿改 FROM/image 为未验证源。
   postgres:
     image: postgres:16-alpine
+    pull_policy: if_not_present
     container_name: starbyte-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-starbyte}
@@ -27,6 +31,7 @@ services:
   # Redis 缓存（仅容器网络访问，不对外暴露端口）
   redis:
     image: redis:7-alpine
+    pull_policy: if_not_present
     container_name: starbyte-redis
     command: redis-server --requirepass ${REDIS_PASSWORD:-starbyte123} --appendonly yes
     environment:
@@ -40,9 +45,12 @@ services:
       timeout: 5s
       retries: 5
 
-  # MinIO 对象存储
+  # MinIO：默认 latest，可用 MINIO_IMAGE 覆盖。
+  # pull_policy: if_not_present — 本地已有兼容镜像时不强制拉 RELEASE 钉死 tag
+  #（校园镜像站对 minio/minio:RELEASE.* 常 403，而本机已有 minio/minio:latest）。
   minio:
-    image: minio/minio:RELEASE.2024-08-17T01-16-21Z
+    image: ${MINIO_IMAGE:-minio/minio:latest}
+    pull_policy: if_not_present
     container_name: starbyte-minio
     command: server /data --console-address ":9001"
     environment:
@@ -56,7 +64,8 @@ services:
       - minio-data:/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      # latest 与旧 RELEASE 镜像工具集不同：curl / wget / mc 任一成功即可
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/minio/health/live >/dev/null || wget -qO- http://localhost:9000/minio/health/live >/dev/null || mc ready local"]
       interval: 30s
       timeout: 20s
       retries: 3

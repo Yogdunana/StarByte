@@ -75,7 +75,9 @@ StarByte/
 │   │   └── styles/            # 全局样式
 │   └── Dockerfile
 ├── deploy/                     # 部署配置
-│   └── docker-compose.yml
+│   ├── docker-compose.yml
+│   ├── cli/starbyte           # SSH 应急 CLI（安装后 starbyte / sb）
+│   └── update-from-zip.sh     # zip 更新代码，保留 .env 与 volumes
 ├── docs/                       # 项目文档
 │   ├── specs/                 # 设计文档
 │   └── dev-guide/             # 开发规范
@@ -100,12 +102,18 @@ StarByte/
 git clone https://github.com/Yogdunana/StarByte.git
 cd StarByte
 
+# 复制环境变量（内网保持 SKIP_BUCKET_CREATE=true）
+cp deploy/.env.example deploy/.env
+
 # 启动所有服务
-docker-compose -f deploy/docker-compose.yml up -d
+docker compose -f deploy/docker-compose.yml up -d --build
 
 # 查看服务状态
-docker-compose -f deploy/docker-compose.yml ps
+docker compose -f deploy/docker-compose.yml ps
+# 或: sudo bash deploy/cli/starbyte install && starbyte status
 ```
+
+校园网裸机（无需 sed Dockerfile、镜像站 403 时复用本地 MinIO）见 [docs/deployment.md](docs/deployment.md)。
 
 服务启动后访问:
 - 前端: http://localhost/ （容器映射 80 端口）

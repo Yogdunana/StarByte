@@ -46,6 +46,9 @@ files/
 # Docker volumes
 docker-data/
 
+# 应急 CLI / 更新脚本在仓库内产生的备份（勿提交 dump）
+backups/
+
 # Coverage
 coverage/
 *.lcov
