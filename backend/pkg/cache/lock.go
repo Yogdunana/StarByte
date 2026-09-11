@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -38,18 +37,6 @@ func lockKey(name string) string { return lockPrefix + name }
 
 func encodeToken(owner string, n int) string {
 	return owner + ":" + strconv.Itoa(n)
-}
-
-func parseToken(raw string) (owner string, n int) {
-	i := strings.LastIndex(raw, ":")
-	if i < 0 {
-		return raw, 1
-	}
-	n, _ = strconv.Atoi(raw[i+1:])
-	if n < 1 {
-		n = 1
-	}
-	return raw[:i], n
 }
 
 func lockTTLMillis(ttl time.Duration) int64 {
