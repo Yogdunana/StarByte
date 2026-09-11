@@ -98,11 +98,13 @@ func Load(path string) (*Config, error) {
 //	MINIO_SECRET_KEY     — minio.secret_key
 //	MINIO_BUCKET         — minio.bucket
 //	MINIO_USE_SSL        — minio.use_ssl
-//	SMTP_HOST            — email.smtp_host
-//	SMTP_PORT            — email.smtp_port
-//	SMTP_USER            — email.username
-//	SMTP_PASSWORD        — email.password
-//	SMTP_FROM            — email.from
+//	SMTP_HOST / STARBYTE_SMTP_HOST — email.smtp_host
+//	SMTP_PORT / STARBYTE_SMTP_PORT — email.smtp_port
+//	SMTP_USER / STARBYTE_SMTP_USER — email.username
+//	STARBYTE_SMTP_PASSWORD / SMTP_PASSWORD — email.password (never commit)
+//	SMTP_FROM / STARBYTE_SMTP_FROM — email.from
+//	SMTP_FROM_NAME / STARBYTE_SMTP_FROM_NAME — email.from_name
+//	SMTP_SSL_MODE / STARBYTE_SMTP_SSL_MODE — email.ssl_mode (implicit|starttls|none)
 //	LOG_LEVEL            — logger.level
 //	LOG_FORMAT           — logger.format
 //	CORS_ALLOWED_ORIGINS  — cors.allowed_origins (comma-separated)
@@ -152,12 +154,30 @@ func applyEnvOverrides(cfg *Config) {
 	cfg.MinIO.Bucket = getEnv("MINIO_BUCKET", cfg.MinIO.Bucket)
 	cfg.MinIO.UseSSL = getEnvBool("MINIO_USE_SSL", cfg.MinIO.UseSSL)
 
-	// Email
-	cfg.Email.SMTPHost = getEnv("SMTP_HOST", cfg.Email.SMTPHost)
-	cfg.Email.SMTPPort = getEnvInt("SMTP_PORT", cfg.Email.SMTPPort)
-	cfg.Email.Username = getEnv("SMTP_USER", cfg.Email.Username)
-	cfg.Email.Password = getEnv("SMTP_PASSWORD", cfg.Email.Password)
-	cfg.Email.From = getEnv("SMTP_FROM", cfg.Email.From)
+	// Email (STARBYTE_* wins over legacy SMTP_* ; password is env-only)
+	if v := firstEnv("STARBYTE_SMTP_HOST", "SMTP_HOST"); v != "" {
+		cfg.Email.SMTPHost = v
+	}
+	if v := firstEnv("STARBYTE_SMTP_PORT"); v != "" {
+		cfg.Email.SMTPPort = getEnvInt("STARBYTE_SMTP_PORT", cfg.Email.SMTPPort)
+	} else {
+		cfg.Email.SMTPPort = getEnvInt("SMTP_PORT", cfg.Email.SMTPPort)
+	}
+	if v := firstEnv("STARBYTE_SMTP_USER", "SMTP_USER"); v != "" {
+		cfg.Email.Username = v
+	}
+	if v := SMTPPasswordFromEnv(); v != "" {
+		cfg.Email.Password = v
+	}
+	if v := firstEnv("STARBYTE_SMTP_FROM", "SMTP_FROM"); v != "" {
+		cfg.Email.From = v
+	}
+	if v := firstEnv("STARBYTE_SMTP_FROM_NAME", "SMTP_FROM_NAME"); v != "" {
+		cfg.Email.FromName = v
+	}
+	if v := firstEnv("STARBYTE_SMTP_SSL_MODE", "SMTP_SSL_MODE"); v != "" {
+		cfg.Email.SSLMode = NormalizeSSLMode(v)
+	}
 
 	// Logger
 	cfg.Logger.Level = getEnv("LOG_LEVEL", cfg.Logger.Level)
@@ -315,10 +335,23 @@ func setDefaults(cfg *Config) {
 		cfg.MinIO.Bucket = "starbyte"
 	}
 
-	// Email defaults
-	if cfg.Email.SMTPPort == 0 {
-		cfg.Email.SMTPPort = 587
+	// Email defaults (overridable campus SMTP; password stays env-only)
+	if cfg.Email.SMTPHost == "" {
+		cfg.Email.SMTPHost = defaultSMTPHost
 	}
+	if cfg.Email.SMTPPort == 0 {
+		cfg.Email.SMTPPort = defaultSMTPPort
+	}
+	if cfg.Email.From == "" {
+		cfg.Email.From = defaultSMTPFrom
+	}
+	if cfg.Email.FromName == "" {
+		cfg.Email.FromName = defaultSMTPFromName
+	}
+	if cfg.Email.Username == "" {
+		cfg.Email.Username = cfg.Email.From
+	}
+	cfg.Email.SSLMode = cfg.Email.EffectiveSSLMode()
 
 	if cfg.CAS.ServerURL == "" {
 		cfg.CAS.ServerURL = "https://authserver.smbu.edu.cn/authserver"

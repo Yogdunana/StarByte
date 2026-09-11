@@ -52,5 +52,6 @@ func ProtectedKeys() map[string]struct{} {
 	return map[string]struct{}{
 		"internship_config":  {},
 		"vote_weight_config": {},
+		"smtp_settings":      {},
 	}
 }

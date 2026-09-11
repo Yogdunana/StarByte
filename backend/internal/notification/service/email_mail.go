@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/Yogdunana/StarByte/backend/pkg/config"
 	"github.com/Yogdunana/StarByte/backend/pkg/storage"
 	"github.com/go-mail/mail"
 	"github.com/google/uuid"
@@ -49,12 +50,17 @@ func (c *EmailChannel) WithDispatcher(d MailDispatcher) *EmailChannel {
 	return c
 }
 
-func (c *EmailChannel) SendMIME(_ context.Context, job MailJob, files []MailAttachment) error {
-	if !c.IsAvailable() {
+func (c *EmailChannel) SendMIME(ctx context.Context, job MailJob, files []MailAttachment) error {
+	cfg := c.resolve(ctx)
+	if cfg.SMTPHost == "" || cfg.SMTPPort <= 0 || cfg.From == "" {
 		return fmt.Errorf("smtp is not configured")
 	}
 	m := mail.NewMessage()
-	m.SetHeader("From", c.from)
+	if name := strings.TrimSpace(cfg.FromName); name != "" {
+		m.SetAddressHeader("From", cfg.From, name)
+	} else {
+		m.SetHeader("From", cfg.From)
+	}
 	m.SetHeader("To", job.To...)
 	if len(job.CC) > 0 {
 		m.SetHeader("Cc", job.CC...)
@@ -70,11 +76,25 @@ func (c *EmailChannel) SendMIME(_ context.Context, job MailJob, files []MailAtta
 		data := f.Data
 		m.AttachReader(name, bytes.NewReader(data))
 	}
-	d := mail.NewDialer(c.smtpHost, c.smtpPort, c.username, c.password)
+	d := mail.NewDialer(cfg.SMTPHost, cfg.SMTPPort, cfg.EffectiveUsername(), cfg.Password)
+	applySMTPSecurity(d, cfg.EffectiveSSLMode())
 	if err := d.DialAndSend(m); err != nil {
 		return fmt.Errorf("send email: %w", err)
 	}
 	return nil
+}
+
+func applySMTPSecurity(d *mail.Dialer, mode string) {
+	switch mode {
+	case config.SSLModeImplicit:
+		d.SSL = true
+	case config.SSLModeStartTLS:
+		d.SSL = false
+		d.StartTLSPolicy = mail.MandatoryStartTLS
+	case config.SSLModeNone:
+		d.SSL = false
+		d.StartTLSPolicy = mail.NoStartTLS
+	}
 }
 
 type attachmentLoader struct {

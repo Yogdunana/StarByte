@@ -7,6 +7,8 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/notification/model"
 	"github.com/Yogdunana/StarByte/backend/internal/notification/repo"
+	"github.com/Yogdunana/StarByte/backend/pkg/config"
+	"github.com/Yogdunana/StarByte/backend/pkg/configstore"
 	"github.com/Yogdunana/StarByte/backend/pkg/logger"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -65,29 +67,57 @@ func (c *InAppChannel) Send(ctx context.Context, msg *NotificationMessage) error
 
 // EmailChannel 邮件渠道
 type EmailChannel struct {
-	smtpHost string
-	smtpPort int
-	username string
-	password string
-	from     string
+	fallback config.EmailConfig
+	store    configstore.Store
 	dispatch MailDispatcher
 }
 
-// NewEmailChannel 创建邮件渠道
+// NewEmailChannel 创建邮件渠道（静态回退；运行时设置通过 WithStore 叠加）
 func NewEmailChannel(host string, port int, username, password, from string) *EmailChannel {
-	return &EmailChannel{
-		smtpHost: host,
-		smtpPort: port,
-		username: username,
-		password: password,
-		from:     from,
-	}
+	return NewEmailChannelFromConfig(config.EmailConfig{
+		SMTPHost: host,
+		SMTPPort: port,
+		Username: username,
+		Password: password,
+		From:     from,
+	})
+}
+
+func NewEmailChannelFromConfig(cfg config.EmailConfig) *EmailChannel {
+	return &EmailChannel{fallback: cfg}
+}
+
+func (c *EmailChannel) WithStore(store configstore.Store) *EmailChannel {
+	c.store = store
+	return c
 }
 
 func (c *EmailChannel) Type() string { return "email" }
 
 func (c *EmailChannel) IsAvailable() bool {
-	return c.smtpHost != "" && c.smtpPort > 0 && c.from != ""
+	cfg := c.resolve(context.Background())
+	return cfg.SMTPHost != "" && cfg.SMTPPort > 0 && cfg.From != ""
+}
+
+func (c *EmailChannel) resolve(ctx context.Context) config.EmailConfig {
+	cfg := c.fallback
+	if c.store != nil {
+		raw, err := c.store.Get(ctx, config.SMTPSettingsKey)
+		if err == nil {
+			if runtime, perr := config.ParseSMTPRuntime(raw); perr == nil {
+				cfg = runtime.Overlay(cfg)
+			}
+		}
+	}
+	return cfg.ApplyEnvPassword()
+}
+
+func (c *EmailChannel) SendTest(ctx context.Context, to string) error {
+	job := MailJob{
+		To: []string{to}, Subject: "StarByte SMTP test",
+		Body: "This is a StarByte SMTP configuration test. If you received it, mail settings work.",
+	}
+	return c.SendMIME(ctx, job, nil)
 }
 
 func (c *EmailChannel) Send(ctx context.Context, msg *NotificationMessage) error {

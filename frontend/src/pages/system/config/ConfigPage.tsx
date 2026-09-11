@@ -9,9 +9,11 @@ import {
 } from '@/api/config';
 import { usePermission } from '@/hooks/usePermission';
 import type { CreateRuntimeConfigParams, RuntimeConfig, RuntimeConfigType } from '@/types/api';
+import SmtpCard from './SmtpCard';
 import './config.css';
 
-const protectedKeys = new Set(['internship_config', 'vote_weight_config']);
+const protectedKeys = new Set(['internship_config', 'vote_weight_config', 'smtp_settings']);
+const hiddenKeys = new Set(['smtp_settings']);
 
 const categoryOptions = [
   { value: 'system', label: '系统' },
@@ -77,7 +79,8 @@ const ConfigPage: React.FC = () => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setList(await getRuntimeConfigs({ category, keyword: keyword || undefined }) || []);
+      const rows = await getRuntimeConfigs({ category, keyword: keyword || undefined }) || [];
+      setList(rows.filter((row) => !hiddenKeys.has(row.config_key)));
     } finally {
       setLoading(false);
     }
@@ -174,6 +177,7 @@ const ConfigPage: React.FC = () => {
           <Button type="primary" size="large" icon={<PlusOutlined />} onClick={openCreate}>新建配置</Button>
         )}
       </div>
+      <SmtpCard />
       <Card className="page-shell">
         <Space style={{ marginBottom: 16 }} wrap>
           <Select

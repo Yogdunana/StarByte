@@ -32,3 +32,24 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
 }
+
+.smtp-card {
+  margin-bottom: 16px;
+}
+
+.smtp-desc {
+  margin: 0 0 16px;
+  color: #64748b;
+}
+
+.smtp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0 16px;
+}
+
+.smtp-hint {
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 12px;
+}

@@ -41,13 +41,16 @@ minio:
   bucket: starbyte
   use_ssl: false
 
-# Email / SMTP (optional — leave commented if not used)
+# Email / SMTP — non-secret defaults, overridable via env or 系统配置.
+# Password: STARBYTE_SMTP_PASSWORD (or SMTP_PASSWORD). Never put a real password here.
 email:
-  smtp_host: ""
-  smtp_port: 587
-  username: ""
+  smtp_host: smtp.exmail.qq.com
+  smtp_port: 465
+  ssl_mode: implicit
+  username: computerassociation@smbu.edu.cn
   password: ""
-  from: ""
+  from: computerassociation@smbu.edu.cn
+  from_name: StarByte-SMTP
 
 # 学校统一认证（金智 IDS / CAS）。本地默认关闭，校园网生产见 config.prod.yaml。
 cas:
