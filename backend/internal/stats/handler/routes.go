@@ -8,13 +8,6 @@ import (
 	"gorm.io/gorm"
 )
 
-func withPermission(group *gin.RouterGroup, permCode string, cacheService rbacService.PermissionCacheService) *gin.RouterGroup {
-	g := group.Group("")
-	g.Use(middleware.RequirePermission(permCode))
-	g.Use(middleware.PermissionRequired(cacheService))
-	return g
-}
-
 func withStatsScope(
 	group *gin.RouterGroup,
 	permCode string,

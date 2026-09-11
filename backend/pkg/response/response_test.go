@@ -376,6 +376,19 @@ func TestModuleRanges(t *testing.T) {
 	assert.Equal(t, 25000, r[0])
 	assert.Equal(t, 25001, CodeContractNotFound)
 
+	r, ok = ModuleRanges["duty"]
+	assert.True(t, ok)
+	assert.Equal(t, 26000, r[0])
+	assert.Equal(t, 26999, r[1])
+
+	r, ok = ModuleRanges["activity"]
+	assert.True(t, ok)
+	assert.Equal(t, 27000, r[0])
+	assert.Equal(t, 27999, r[1])
+	assert.Equal(t, 27001, CodeActivityNotFound)
+	assert.Equal(t, 27013, CodeCheckinGPSNotConfigured)
+	assert.True(t, CodeActivityNotFound > ModuleRanges["duty"][1], "activity must not collide with duty 26000-26999")
+
 	r, ok = ModuleRanges["schedule"]
 	assert.True(t, ok)
 	assert.Equal(t, 29000, r[0])
@@ -383,7 +396,7 @@ func TestModuleRanges(t *testing.T) {
 	assert.Equal(t, 29001, CodeScheduleNotFound)
 	assert.Equal(t, 29002, CodeScheduleNoAccess)
 	assert.True(t, r[0] > ModuleRanges["internship"][1], "schedule must not collide with internship 10000-10999")
-	assert.True(t, r[0] > 27000, "schedule must not use reserved 26000/27000")
+	assert.True(t, r[0] > ModuleRanges["activity"][1], "schedule must not collide with activity 27000-27999")
 }
 
 // ========== TranslateGORMError tests ==========

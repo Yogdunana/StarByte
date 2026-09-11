@@ -30,6 +30,8 @@ package response
 //	23000-23999 Finance (#22)
 //	24000-24999 Discipline (#23)
 //	25000-25999 Contract (#24)
+//	26000-26999 Duty (reserved; #154)
+//	27000-27999 Activity (#52)
 //	29000-29999 Schedule / calendar (#78; issue listed 10500-10999, taken by internship)
 //
 //	Note: issue #71 asked for 9000-9499, but that range is already owned by
@@ -263,9 +265,27 @@ const (
 	CodeContractInvalidType   = 25005 // 合同类型不合法
 	CodeContractInvalidPeriod = 25006 // 开始/结束日期不合法
 
+	// ===== Duty (#154 预留, 26000-26999) =====
+	// 值班模块占用本段。活动模块不得使用 26000。
+
+	// ===== Activity (#52, 27000-27999) =====
+	CodeActivityNotFound        = 27001 // 活动不存在
+	CodeActivityInvalidState    = 27002 // 活动状态不允许该操作
+	CodeActivityFull            = 27003 // 报名人数已满
+	CodeRegistrationExists      = 27004 // 重复报名
+	CodeRegistrationNotFound    = 27005 // 报名记录不存在
+	CodeCheckinFailed           = 27006 // 签到失败
+	CodeCheckinAlreadyDone      = 27007 // 已签到，请勿重复
+	CodeCheckinNotApproved      = 27008 // 报名未通过，无法签到
+	CodeSurveyAlreadySubmitted  = 27009 // 已提交过评价
+	CodeSurveyNotEnded          = 27010 // 活动未结束，暂不能评价
+	CodeCheckinTokenInvalid     = 27011 // 签到令牌无效或已过期
+	CodeCheckinGPSRejected      = 27012 // GPS 签到超出围栏
+	CodeCheckinGPSNotConfigured = 27013 // 活动未配置地点半径，拒绝 GPS 签到
+
 	// ===== Schedule / calendar (#78, 29000-29999) =====
 	// Issue #78 listed 10500-10999; that range is the internship module.
-	// 26000/27000 are reserved for other in-flight modules. Use 29000+.
+	// 26000/27000 are reserved. Use 29000+.
 	CodeScheduleNotFound          = 29001 // 日程事件不存在
 	CodeScheduleNoAccess          = 29002 // 无权操作该日程
 	CodeScheduleInvalidTime       = 29003 // 开始/结束时间不合法
@@ -277,6 +297,9 @@ const (
 	CodeScheduleRecurrenceLimited = 29009 // 不支持的重复规则
 	CodeScheduleInvalidState      = 29010 // 日程状态不允许该操作
 	CodeScheduleMemberExists      = 29011 // 日历成员已存在
+	CodeScheduleImportInvalid     = 29012 // 导入文件或格式不合法
+	CodeScheduleImportEmpty       = 29013 // 导入结果为空
+	CodeScheduleGoogleNotReady    = 29014 // Google 日历未配置或未授权
 )
 
 // ModuleRanges maps each module name to its error-code range [min, max].
@@ -307,5 +330,7 @@ var ModuleRanges = map[string][2]int{
 	"finance":      {23000, 23999},
 	"discipline":   {24000, 24999},
 	"contract":     {25000, 25999},
+	"duty":         {26000, 26999},
+	"activity":     {27000, 27999},
 	"schedule":     {29000, 29999},
 }

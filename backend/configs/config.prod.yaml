@@ -54,7 +54,8 @@ cas:
   server_url: "https://authserver.smbu.edu.cn/authserver"
   service_url: ""
   frontend_url: ""
-  allow_auto_provision: true
+  # 未知 CAS 用户走注册绑定；部署时请保持 CAS_ALLOW_AUTO_PROVISION=false。
+  allow_auto_provision: false
   default_role: member
 
 cors:

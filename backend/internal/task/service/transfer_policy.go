@@ -4,7 +4,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/Yogdunana/StarByte/backend/internal/task/model"
-	"github.com/Yogdunana/StarByte/backend/internal/workflow/engine"
 )
 
 func transferHasRole(a *model.TransferActor, role string) bool {
@@ -17,15 +16,6 @@ func transferHasRole(a *model.TransferActor, role string) bool {
 		}
 	}
 	return false
-}
-func transferSupervisorRole(a *model.TransferActor) string {
-	if transferHasRole(a, "president") || transferHasRole(a, "center_director") || transferHasRole(a, "vice_president") {
-		return "president"
-	}
-	if transferHasRole(a, "minister") {
-		return "center"
-	}
-	return "minister"
 }
 func transferAuthority(a *model.TransferActor, t *model.TaskTransfer, requirement string) (string, bool) {
 	if a == nil || a.ID == t.InitiatorID || a.ID == t.FromUserID || a.ID == t.ToUserID {
@@ -60,18 +50,4 @@ func transferAuthority(a *model.TransferActor, t *model.TaskTransfer, requiremen
 		return "center", level == "minister"
 	}
 	return "", false
-}
-func transferRequirementsComplete(t *model.TaskTransfer, signatures []model.TransferSignature) bool {
-	seen := map[string]bool{}
-	for _, s := range signatures {
-		if s.Decision == "approve" {
-			seen[s.Requirement] = true
-		}
-	}
-	for _, r := range engine.TaskTransferRoles(t.Kind) {
-		if !seen[r] {
-			return false
-		}
-	}
-	return true
 }

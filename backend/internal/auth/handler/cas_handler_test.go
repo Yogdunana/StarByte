@@ -80,6 +80,9 @@ func (s casStubService) CompleteCASCallback(context.Context, string, string, str
 func (s casStubService) ExchangeCASCode(context.Context, string) (*dto.CASExchangeResponse, error) {
 	return s.ex, s.err
 }
+func (s casStubService) RegisterWithCASToken(context.Context, *dto.CASRegisterRequest, string, string) (*dto.CASExchangeResponse, error) {
+	return s.ex, s.err
+}
 
 func TestCASLogin_Redirect(t *testing.T) {
 	h := NewAuthHandler(casStubService{
@@ -93,8 +96,26 @@ func TestCASLogin_Redirect(t *testing.T) {
 	c.Request = req
 	h.CASLogin(c)
 	assert.Equal(t, http.StatusFound, w.Code)
+	assert.Equal(t, casReferrerPolicy, w.Header().Get("Referrer-Policy"))
 	assert.Contains(t, w.Header().Get("Location"), "authserver.smbu.edu.cn")
 	assert.Contains(t, w.Header().Get("Set-Cookie"), casStateCookie)
+}
+
+func TestCASLogin_RedirectSetsNoReferrer(t *testing.T) {
+	h := NewAuthHandler(casStubService{
+		enabled: true,
+		login:   "https://authserver.smbu.edu.cn/authserver/login?service=http%3A%2F%2F10.0.0.8%2Fapi%2Fv1%2Fauth%2Fcas%2Fcallback",
+	})
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/cas/login", nil)
+	req.Host = "10.0.0.8"
+	c.Request = req
+	h.CASLogin(c)
+	require.Equal(t, http.StatusFound, w.Code)
+	assert.Equal(t, "no-referrer", w.Header().Get("Referrer-Policy"))
+	assert.Contains(t, w.Header().Get("Location"), "https://authserver.smbu.edu.cn/authserver/login?service=")
+	assert.Contains(t, w.Header().Get("Location"), "10.0.0.8")
 }
 
 func TestCASCallback_Redirect(t *testing.T) {
@@ -104,6 +125,7 @@ func TestCASCallback_Redirect(t *testing.T) {
 	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/auth/cas/callback?ticket=ST-1&state=s", nil)
 	h.CASCallback(c)
 	assert.Equal(t, http.StatusFound, w.Code)
+	assert.Equal(t, casReferrerPolicy, w.Header().Get("Referrer-Policy"))
 	assert.Contains(t, w.Header().Get("Location"), "/login/cas?code=abc")
 }
 
@@ -131,4 +153,21 @@ func TestCASExchange_OK(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	resp := parseEnvelope(t, w)
 	assert.Equal(t, 0, resp.Code)
+}
+
+func TestCASRegister_OK(t *testing.T) {
+	h := NewAuthHandler(casStubService{ex: &dto.CASExchangeResponse{
+		LoginResponse: dto.LoginResponse{AccessToken: "tok", RefreshToken: "rt"},
+		Redirect:      "/dashboard",
+	}})
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Set("request_id", "rid")
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/auth/cas/register", strings.NewReader(`{"token":"abc","username":"alice","password":"Passw0rd1"}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+	h.CASRegister(c)
+	assert.Equal(t, http.StatusOK, w.Code)
+	resp := parseEnvelope(t, w)
+	assert.Equal(t, 0, resp.Code)
+	assert.Equal(t, casReferrerPolicy, w.Header().Get("Referrer-Policy"))
 }

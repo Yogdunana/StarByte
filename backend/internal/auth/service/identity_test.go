@@ -31,6 +31,10 @@ func (m *mockIdentityLookup) GetUserIDByStudentNo(ctx context.Context, studentNo
 	return args.Get(0).(uuid.UUID), args.Error(1)
 }
 
+func (m *mockIdentityLookup) EnsureStudentNo(ctx context.Context, userID uuid.UUID, studentNo, realName string) error {
+	return m.Called(ctx, userID, studentNo, realName).Error(0)
+}
+
 func TestLogin_ByStudentNo(t *testing.T) {
 	svc, userRepo, authRepo, permCache := setupTestService()
 	ident := &mockIdentityLookup{}

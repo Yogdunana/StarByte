@@ -29,6 +29,7 @@ type MemberIdentity struct {
 type MemberIdentityLookup interface {
 	GetByUserID(ctx context.Context, userID uuid.UUID) (*MemberIdentity, error)
 	GetUserIDByStudentNo(ctx context.Context, studentNo string) (uuid.UUID, error)
+	EnsureStudentNo(ctx context.Context, userID uuid.UUID, studentNo, realName string) error
 }
 
 func (s *authService) authenticateLogin(ctx context.Context, identifier, password string) (*model.User, error) {

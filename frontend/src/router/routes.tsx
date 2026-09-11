@@ -14,6 +14,7 @@ import ComingSoon from '@/pages/error/ComingSoon';
 // 页面组件
 const Login = lazy(() => import('@/pages/login/Login'));
 const CasCallback = lazy(() => import('@/pages/login/CasCallback'));
+const CasRegister = lazy(() => import('@/pages/login/CasRegister'));
 const Dashboard = lazy(() => import('@/pages/dashboard/Dashboard'));
 const BigScreenPage = lazy(() => import('@/pages/dashboard/bigscreen/BigScreenPage'));
 const UserList = lazy(() => import('@/pages/user/UserList'));
@@ -42,6 +43,9 @@ const MeetingListPage = lazy(() => import('@/pages/meeting/ListPage'));
 const MeetingDetailPage = lazy(() => import('@/pages/meeting/DetailPage'));
 const MeetingCheckinPage = lazy(() => import('@/pages/meeting/CheckinPage'));
 const MeetingWeightPage = lazy(() => import('@/pages/meeting/WeightPage'));
+const ActivityListPage = lazy(() => import('@/pages/activity/ListPage'));
+const ActivityDetailPage = lazy(() => import('@/pages/activity/DetailPage'));
+const ActivityCheckinPage = lazy(() => import('@/pages/activity/CheckinPage'));
 const TaskListPage = lazy(() => import('@/pages/task/ListPage'));
 const TaskBoardPage = lazy(() => import('@/pages/task/BoardPage'));
 const TaskMyPage = lazy(() => import('@/pages/task/MyPage'));
@@ -119,6 +123,11 @@ const routes: AppRouteObject[] = [
     path: '/login/cas',
     element: lazyWrap(CasCallback),
     meta: { title: '统一认证', public: true, hidden: true },
+  },
+  {
+    path: '/register/cas',
+    element: lazyWrap(CasRegister),
+    meta: { title: '绑定账号', public: true, hidden: true },
   },
   {
     path: '/dashboard/bigscreen',
@@ -257,9 +266,30 @@ const routes: AppRouteObject[] = [
         ],
       },
       {
+        path: 'activity',
+        meta: { title: '活动管理', icon: 'CalendarOutlined' },
+        children: [
+          {
+            path: 'list',
+            element: lazyGuarded(ActivityListPage, 'activity:read'),
+            meta: { title: '活动列表', permission: 'activity:read' },
+          },
+          {
+            path: 'checkin',
+            element: lazyWrap(ActivityCheckinPage),
+            meta: { title: '活动签到', hidden: true },
+          },
+          {
+            path: ':id',
+            element: lazyGuarded(ActivityDetailPage, 'activity:read'),
+            meta: { title: '活动详情', permission: 'activity:read', hidden: true },
+          },
+        ],
+      },
+      {
         path: 'schedule',
         element: lazyGuarded(SchedulePage, 'schedule:read'),
-        meta: { title: '日程日历', icon: 'CalendarOutlined', permission: 'schedule:read' },
+        meta: { title: '日程日历', icon: 'CarryOutOutlined', permission: 'schedule:read' },
       },
       {
         path: 'task',
