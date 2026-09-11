@@ -4,7 +4,17 @@
 
 ## 快速上手
 
-**不需要把贡献者加成 Collaborator。** 仓库是公开的：Fork 后向本仓库提 PR 即可。Collaborator（Write）只给需要直接推送到本仓库的维护者；普通贡献者不要申请、也不要被加上。
+仓库是公开的：**提 PR 不需要 Write。** Fork 后向本仓库开 Pull Request 即可。不要给普通贡献者 Write（那是直接推本仓库的权限）。
+
+自己在网页上改 Issue 的 **label / assignees** 需要 **Triage**（管 Issue，不能推代码）。维护者在 [Collaborators](https://github.com/Yogdunana/StarByte/settings/access) 把人加成 **Triage**，不要选 Write。
+
+| 角色 | 给谁 | 能做什么 |
+|------|------|----------|
+| Read（默认） | 所有人 | 看代码、开 Issue、评论、Fork 提 PR |
+| **Triage** | 常规贡献者 | 改 labels / assignees、关闭或重开 Issue；**不能 push** |
+| Write | 维护者 | 直接推本仓库，并包含 Triage 全部能力 |
+
+维护者邀请入口：[Settings → Collaborators](https://github.com/Yogdunana/StarByte/settings/access)，角色选 **Triage**。对方接受邀请后，才能在 Issue 页自己点 labels / assignees。当前仍是 Read、需要补 Triage 的人：`Joker-coding122`、`Amyzzzght`、`rzy99`、`mzk-cloud`、`xie91613`。`Bug1009` 和 `windmirror-pixel` 已是 Write，已能改。
 
 ### 1. 环境准备
 
@@ -40,7 +50,8 @@ cd ../frontend && npm run dev
 
 1. 查看 [GitHub Issues](https://github.com/Yogdunana/StarByte/issues) 中的待办任务
 2. 选择你感兴趣的 Issue，评论 `我来认领`
-3. 等待分配后开始开发
+3. 有 **Triage** 时：把自己加到 Assignees，加上 `status:claimed`，去掉 `status:available`
+4. 还没有 Triage 时：评论发出后，仓库的 Issue claim Action 会代为 assign 并改 status 标签（需已合入 `main`）。任意 label 的网页点选仍需维护者授予 Triage
 
 ### 3. 开发流程
 

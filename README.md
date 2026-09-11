@@ -246,7 +246,7 @@ OAuth / 学校 CAS / 移动端仍属二期。
 
 ## 贡献指南
 
-不需要 Collaborator。Fork 后推到自己的仓库，再向本仓库开 Pull Request。完整步骤见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+提 PR 不需要 Write：Fork 后推到自己的仓库，再向本仓库开 Pull Request。自己改 Issue 的 label / assignee 需要 **Triage**（不是 Write）。完整说明见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 1. Fork 本仓库
 2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)

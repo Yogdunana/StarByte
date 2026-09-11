@@ -59,7 +59,9 @@ new_feature          # 没有前缀，驼峰
 
 ## 3. 开发流程
 
-外部贡献者 **不要** 申请 Collaborator。请 Fork 本仓库，把改动推到自己的 Fork，再对 `Yogdunana/StarByte` 开 Pull Request。`git push origin` 只应推到自己的远程，直接推 `Yogdunana/StarByte` 会被拒绝（这是正常的）。
+外部贡献者 **不要** 申请 Write。请 Fork 本仓库，把改动推到自己的 Fork，再对 `Yogdunana/StarByte` 开 Pull Request。`git push origin` 只应推到自己的远程，直接推 `Yogdunana/StarByte` 会被拒绝（这是正常的）。
+
+自己改 Issue 的 labels / assignees 需要 **Triage**（不是 Write）。维护者在仓库 Settings → Collaborators 邀请时角色选 Triage。
 
 ### 3.1 开始新功能
 
