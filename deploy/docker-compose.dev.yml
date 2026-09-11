@@ -10,6 +10,7 @@ services:
   # PostgreSQL 数据库
   postgres:
     image: postgres:16-alpine
+    pull_policy: if_not_present
     container_name: starbyte-postgres-dev
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-starbyte}
@@ -30,6 +31,7 @@ services:
   # Redis 缓存
   redis:
     image: redis:7-alpine
+    pull_policy: if_not_present
     container_name: starbyte-redis-dev
     command: redis-server --appendonly yes
     environment:
@@ -45,9 +47,10 @@ services:
       timeout: 5s
       retries: 5
 
-  # MinIO 对象存储
+  # MinIO：默认 latest，可用 MINIO_IMAGE 覆盖；本地已有镜像时不强制拉取
   minio:
-    image: minio/minio:RELEASE.2024-08-17T01-16-21Z
+    image: ${MINIO_IMAGE:-minio/minio:latest}
+    pull_policy: if_not_present
     container_name: starbyte-minio-dev
     command: server /data --console-address ":9001"
     environment:
@@ -61,7 +64,7 @@ services:
       - minio-dev-data:/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/minio/health/live >/dev/null || wget -qO- http://localhost:9000/minio/health/live >/dev/null || mc ready local"]
       interval: 30s
       timeout: 20s
       retries: 3

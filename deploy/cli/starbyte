@@ -1,0 +1,619 @@
+#!/usr/bin/env bash
+# StarByte 应急运维 CLI（类似宝塔 bt）
+# 依赖：bash + docker compose。不打印 .env 密钥值。
+set -euo pipefail
+
+VERSION="1.0.2"
+CONF_FILE="/etc/starbyte.conf"
+
+usage() {
+  cat <<'EOF'
+StarByte 应急运维 CLI（类似宝塔 bt）
+
+用法:
+  starbyte <命令> [参数]
+  sb <命令> [参数]          # 安装后的短命令
+
+命令:
+  status                         compose ps + :8080 / :80 短健康检查
+  logs [服务] [--tail N]         查看日志（默认 --tail 100）
+  restart [服务|all]             重启容器，不重建镜像
+  rebuild [backend|frontend|all] 构建并 --no-deps 重建应用（不强拉 MinIO/Postgres）
+  env-check                      检查 deploy/.env 关键键名（不打印值）
+  backup                         Postgres dump + volume/MinIO 路径说明
+  doctor                         校园网部署常见问题排查
+  install                        安装到 /usr/local/bin/starbyte，并创建 sb 软链
+  help                           显示本帮助
+  version                        显示版本
+
+环境:
+  STARBYTE_HOME    仓库根目录（含 deploy/docker-compose.yml）
+  /etc/starbyte.conf  可写 STARBYTE_HOME=/path
+
+示例:
+  starbyte status
+  starbyte logs backend --tail 200
+  starbyte rebuild all
+  starbyte doctor
+EOF
+}
+
+log() { printf '%s\n' "$*"; }
+err() { printf '错误: %s\n' "$*" >&2; }
+ok() { printf '  [OK] %s\n' "$*"; }
+warn() { printf '  [!!] %s\n' "$*"; }
+info() { printf '  [--] %s\n' "$*"; }
+
+# 只读 STARBYTE_HOME=...，忽略其它行，避免误 source 含命令的文件
+load_conf() {
+  if [[ ! -f "$CONF_FILE" ]]; then
+    return 0
+  fi
+  local line key val
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%%#*}"
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    [[ -z "$line" ]] && continue
+    key="${line%%=*}"
+    val="${line#*=}"
+    if [[ "$key" == "STARBYTE_HOME" && -n "$val" ]]; then
+      STARBYTE_HOME="$val"
+    fi
+  done < "$CONF_FILE"
+}
+
+resolve_script_path() {
+  local src="${BASH_SOURCE[0]}"
+  if command -v readlink >/dev/null 2>&1; then
+    src="$(readlink -f "$src" 2>/dev/null || printf '%s' "$src")"
+  fi
+  printf '%s' "$src"
+}
+
+find_root() {
+  local candidate
+  if [[ -n "${STARBYTE_HOME:-}" ]]; then
+    candidate="${STARBYTE_HOME}"
+    if [[ -f "$candidate/deploy/docker-compose.yml" ]]; then
+      printf '%s' "$candidate"
+      return 0
+    fi
+  fi
+
+  load_conf
+  if [[ -n "${STARBYTE_HOME:-}" && -f "${STARBYTE_HOME}/deploy/docker-compose.yml" ]]; then
+    printf '%s' "$STARBYTE_HOME"
+    return 0
+  fi
+
+  local here
+  here="$(cd "$(dirname "$(resolve_script_path)")" && pwd)"
+  if [[ -f "$here/../../deploy/docker-compose.yml" ]]; then
+    (cd "$here/../.." && pwd)
+    return 0
+  fi
+
+  local d="$PWD"
+  while [[ "$d" != "/" ]]; do
+    if [[ -f "$d/deploy/docker-compose.yml" ]]; then
+      printf '%s' "$d"
+      return 0
+    fi
+    d="$(dirname "$d")"
+  done
+
+  err "未找到 StarByte 仓库根（deploy/docker-compose.yml）。"
+  err "请在仓库目录执行，或设置 STARBYTE_HOME，或运行: sudo starbyte install"
+  exit 1
+}
+
+need_docker() {
+  if ! command -v docker >/dev/null 2>&1; then
+    err "未找到 docker"
+    exit 1
+  fi
+  if ! docker compose version >/dev/null 2>&1; then
+    err "未找到 docker compose 插件"
+    exit 1
+  fi
+}
+
+ROOT=""
+init_root() {
+  ROOT="$(find_root)"
+}
+
+compose() {
+  local args=(-f "$ROOT/deploy/docker-compose.yml")
+  if [[ -f "$ROOT/deploy/.env" ]]; then
+    args+=(--env-file "$ROOT/deploy/.env")
+  fi
+  docker compose "${args[@]}" "$@"
+}
+
+# 从 .env 取键值到变量，不向终端打印。
+# 与 compose env-file 一致：后者覆盖前者；去掉行尾 CR 与成对包裹引号。
+env_get() {
+  local key="$1"
+  local file="$ROOT/deploy/.env"
+  local line="" val=""
+  [[ -f "$file" ]] || return 1
+  line="$(grep -E "^${key}=" "$file" | tail -n1 || true)"
+  [[ -n "$line" ]] || return 1
+  val="${line#*=}"
+  val="${val%$'\r'}"
+  if [[ ${#val} -ge 2 ]]; then
+    case "$val" in
+      \"*\") val="${val:1:${#val}-2}" ;;
+      \'*\') val="${val:1:${#val}-2}" ;;
+    esac
+  fi
+  printf '%s' "$val"
+}
+
+env_has_key() {
+  local key="$1"
+  local file="$ROOT/deploy/.env"
+  [[ -f "$file" ]] && grep -Eq "^${key}=" "$file"
+}
+
+cmd_status() {
+  need_docker
+  log "仓库: $ROOT"
+  log ""
+  compose ps || true
+  log ""
+  log "健康检查:"
+  if curl -sf --max-time 3 http://127.0.0.1:8080/health >/dev/null 2>&1; then
+    ok "backend :8080/health"
+  else
+    warn "backend :8080/health 无响应"
+  fi
+  if curl -sf --max-time 3 http://127.0.0.1:80/ >/dev/null 2>&1 \
+    || wget -qO- --timeout=3 http://127.0.0.1:80/ >/dev/null 2>&1; then
+    ok "frontend :80"
+  else
+    warn "frontend :80 无响应"
+  fi
+}
+
+cmd_logs() {
+  local service="" tailn=100
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --tail)
+        tailn="${2:-}"
+        if [[ -z "$tailn" || ! "$tailn" =~ ^[0-9]+$ ]]; then
+          err "--tail 需要数字"
+          exit 2
+        fi
+        shift 2
+        ;;
+      --tail=*)
+        tailn="${1#--tail=}"
+        if [[ ! "$tailn" =~ ^[0-9]+$ ]]; then
+          err "--tail 需要数字"
+          exit 2
+        fi
+        shift
+        ;;
+      -h|--help)
+        log "用法: starbyte logs [服务] [--tail N]"
+        exit 0
+        ;;
+      -*)
+        err "未知参数: $1"
+        exit 2
+        ;;
+      *)
+        if [[ -n "$service" ]]; then
+          err "多余参数: $1"
+          exit 2
+        fi
+        service="$1"
+        shift
+        ;;
+    esac
+  done
+  need_docker
+  if [[ -n "$service" ]]; then
+    compose logs --tail "$tailn" "$service"
+  else
+    compose logs --tail "$tailn"
+  fi
+}
+
+cmd_restart() {
+  local target="${1:-all}"
+  case "$target" in
+    all|postgres|redis|minio|backend|frontend) ;;
+    *)
+      err "未知服务: $target（postgres|redis|minio|backend|frontend|all）"
+      exit 2
+      ;;
+  esac
+  need_docker
+  if [[ "$target" == "all" ]]; then
+    log "重启全部服务..."
+    compose restart
+  else
+    log "重启 $target ..."
+    compose restart "$target"
+  fi
+}
+
+cmd_rebuild() {
+  local target="${1:-}"
+  if [[ -z "$target" ]]; then
+    err "用法: starbyte rebuild [backend|frontend|all]"
+    exit 2
+  fi
+  local services=()
+  case "$target" in
+    backend|frontend) services=("$target") ;;
+    all) services=(backend frontend) ;;
+    *)
+      err "rebuild 仅支持 backend|frontend|all（不含 MinIO/Postgres，避免镜像站强拉）"
+      exit 2
+      ;;
+  esac
+  need_docker
+  log "构建: ${services[*]}"
+  compose build "${services[@]}"
+  log "重建（--no-deps --force-recreate）: ${services[*]}"
+  compose up -d --no-deps --force-recreate "${services[@]}"
+  log "完成。MinIO / Postgres / Redis 未被本命令拉取或重建。"
+}
+
+CRITICAL_KEYS=(
+  POSTGRES_USER
+  POSTGRES_PASSWORD
+  POSTGRES_DB
+  REDIS_PASSWORD
+  MINIO_ROOT_USER
+  MINIO_ROOT_PASSWORD
+  JWT_SECRET
+  SKIP_MIGRATION
+  MIGRATION_FAIL_FATAL
+  SKIP_BUCKET_CREATE
+  CAS_ENABLED
+  CAS_SERVER_URL
+)
+
+cmd_env_check() {
+  local file="$ROOT/deploy/.env"
+  local missing=0 empty=0
+  log "检查 $file （只报键名，不打印值）"
+  if [[ ! -f "$file" ]]; then
+    warn "文件不存在。请: cp deploy/.env.example deploy/.env"
+    exit 1
+  fi
+
+  local key val
+  for key in "${CRITICAL_KEYS[@]}"; do
+    if ! env_has_key "$key"; then
+      warn "缺少键: $key"
+      missing=$((missing + 1))
+      continue
+    fi
+    val="$(env_get "$key" || true)"
+    if [[ -z "$val" ]]; then
+      warn "键存在但值为空: $key"
+      empty=$((empty + 1))
+    else
+      ok "已设置: $key"
+    fi
+  done
+
+  # 占位 JWT：只对比已知示例，不回显实际内容
+  if env_has_key JWT_SECRET; then
+    val="$(env_get JWT_SECRET || true)"
+    case "$val" in
+      change-me-in-production|your-super-secret-key-change-in-production-please)
+        warn "JWT_SECRET 仍是示例占位，生产请改成随机串（值未打印）"
+        ;;
+    esac
+  fi
+
+  if env_has_key MINIO_IMAGE; then
+    ok "已设置: MINIO_IMAGE"
+  else
+    info "未设置 MINIO_IMAGE（compose 默认 minio/minio:latest）"
+  fi
+
+  if env_has_key CAS_AUTHSERVER_IP; then
+    ok "已设置: CAS_AUTHSERVER_IP"
+  else
+    info "未设置 CAS_AUTHSERVER_IP（compose extra_hosts 默认 10.100.14.250）"
+  fi
+
+  if [[ "$missing" -gt 0 || "$empty" -gt 0 ]]; then
+    err "env-check 未通过（缺少 ${missing}，空值 ${empty}）"
+    exit 1
+  fi
+  log "env-check 通过"
+}
+
+pick_backup_dir() {
+  local dir
+  if mkdir -p /var/backups/starbyte 2>/dev/null && [[ -w /var/backups/starbyte ]]; then
+    dir=/var/backups/starbyte
+  else
+    dir="$ROOT/backups"
+    mkdir -p "$dir"
+  fi
+  chmod 0700 "$dir" 2>/dev/null || true
+  printf '%s' "$dir"
+}
+
+# 先建 0600 空文件再重定向，避免默认 umask 写出 0644
+secure_create() {
+  local path="$1" mode="${2:-600}"
+  umask 077
+  : > "$path"
+  chmod "$mode" "$path"
+}
+
+cmd_backup() {
+  need_docker
+  local dest stamp dump notes old_umask
+  old_umask="$(umask)"
+  umask 077
+  dest="$(pick_backup_dir)"
+  stamp="$(date +%Y%m%d-%H%M%S)"
+  dump="$dest/postgres-${stamp}.sql"
+  notes="$dest/README-${stamp}.txt"
+
+  local user db
+  user="$(env_get POSTGRES_USER 2>/dev/null || true)"
+  db="$(env_get POSTGRES_DB 2>/dev/null || true)"
+  user="${user:-starbyte}"
+  db="${db:-starbyte}"
+
+  log "Postgres dump → $dump"
+  secure_create "$dump" 600
+  if docker exec starbyte-postgres pg_dump -U "$user" "$db" > "$dump"; then
+    chmod 600 "$dump"
+    ok "已写入 $dump"
+  else
+    err "pg_dump 失败（容器 starbyte-postgres 是否在运行？）"
+    rm -f "$dump"
+    umask "$old_umask"
+    exit 1
+  fi
+
+  secure_create "$notes" 600
+  {
+    echo "StarByte 备份说明  $stamp"
+    echo "Postgres dump: $dump"
+    echo ""
+    echo "Named volumes（compose 项目目录一般为 deploy/，卷名带项目前缀）："
+    docker volume ls --format '{{.Name}}' 2>/dev/null | grep -E 'postgres-data|redis-data|minio-data' || echo "(当前未见匹配卷名，compose 尚未创建)"
+    echo ""
+    echo "查看挂载点:"
+    echo "  docker volume inspect <卷名>"
+    echo ""
+    echo "MinIO 数据在 minio-data 卷的 /data。桶名默认 starbyte。"
+    echo "SKIP_BUCKET_CREATE=true 时恢复后需保证桶已存在。"
+    echo ""
+    echo "恢复 Postgres:"
+    echo "  cat $dump | docker exec -i starbyte-postgres psql -U $user $db"
+    echo ""
+    echo "不要 docker compose down -v。"
+  } > "$notes"
+  chmod 600 "$notes"
+  umask "$old_umask"
+
+  log "说明: $notes"
+  log "volume / MinIO 路径见该说明文件（未打包对象存储二进制，请另行复制卷）。"
+}
+
+# RFC1918 IPv4。IPv6 / 公网地址视为非内网（校园 CAS 不可走 2001:250:…）
+is_private_ipv4() {
+  local ip="$1"
+  case "$ip" in
+    10.*|192.168.*) return 0 ;;
+    172.1[6-9].*|172.2[0-9].*|172.3[0-1].*) return 0 ;;
+  esac
+  return 1
+}
+
+# 尽力从运行中的 backend 取出 authserver 解析结果（不打印密钥）
+backend_authserver_addrs() {
+  local out=""
+  out="$(docker exec starbyte-backend grep -E 'authserver\.smbu\.edu\.cn' /etc/hosts 2>/dev/null | awk '{print $1}' || true)"
+  if [[ -z "$out" ]]; then
+    out="$(docker exec starbyte-backend getent hosts authserver.smbu.edu.cn 2>/dev/null | awk '{print $1}' || true)"
+  fi
+  printf '%s' "$out"
+}
+
+listening_on() {
+  local port="$1"
+  if command -v ss >/dev/null 2>&1; then
+    ss -lnt 2>/dev/null | grep -qE "[.:]${port}[[:space:]]"
+    return
+  fi
+  if command -v netstat >/dev/null 2>&1; then
+    netstat -lnt 2>/dev/null | grep -qE "[.:]${port}[[:space:]]"
+    return
+  fi
+  return 1
+}
+
+cmd_doctor() {
+  local issues=0
+  log "StarByte doctor  仓库=$ROOT"
+  log ""
+
+  if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+    ok "docker compose 可用"
+  else
+    warn "缺少 docker 或 compose 插件"
+    issues=$((issues + 1))
+  fi
+
+  if [[ -f "$ROOT/deploy/.env" ]]; then
+    ok "存在 deploy/.env"
+  else
+    warn "缺少 deploy/.env（cp deploy/.env.example deploy/.env）"
+    issues=$((issues + 1))
+  fi
+
+  log ""
+  log "镜像站 / MinIO:"
+  if [[ -f /etc/docker/daemon.json ]]; then
+    if grep -qi 'registry-mirrors' /etc/docker/daemon.json 2>/dev/null; then
+      info "daemon.json 含 registry-mirrors（请自测 pull；公开加速常 403）"
+    else
+      info "存在 /etc/docker/daemon.json，未见 registry-mirrors"
+    fi
+    if grep -qi 'xuanyuan' /etc/docker/daemon.json 2>/dev/null; then
+      warn "daemon.json 含 xuanyuan：生产上曾对 minio/minio:RELEASE.* 返回 403"
+      issues=$((issues + 1))
+    fi
+  else
+    info "无 /etc/docker/daemon.json。校园网请自配已验证的 mirrors，或 docker save/load"
+  fi
+
+  if command -v docker >/dev/null 2>&1; then
+    if docker image inspect minio/minio:latest >/dev/null 2>&1; then
+      ok "本地已有 minio/minio:latest（compose 默认 + if_not_present 会复用）"
+    else
+      info "本地没有 minio/minio:latest；首次 up 需要能 pull 或先 load"
+    fi
+    if docker image inspect minio/minio:RELEASE.2024-08-17T01-16-21Z >/dev/null 2>&1; then
+      info "本地仍有旧 RELEASE tag；现 compose 默认不再使用它"
+    fi
+  fi
+
+  log ""
+  log "SKIP_BUCKET_CREATE / 桶:"
+  if [[ -f "$ROOT/deploy/.env" ]]; then
+    local skip
+    skip="$(env_get SKIP_BUCKET_CREATE 2>/dev/null || true)"
+    if [[ "${skip,,}" == "true" ]]; then
+      ok "SKIP_BUCKET_CREATE=true（镜像内 mc 为占位，不会自动建桶）"
+      info "首次部署请在 MinIO 控制台手动创建桶 starbyte"
+    else
+      warn "SKIP_BUCKET_CREATE 不是 true：内网 stub mc 无法真正建桶"
+      issues=$((issues + 1))
+    fi
+  fi
+
+  log ""
+  log "CAS 回调:"
+  info "漏测无域名：用校园网 IP 打开站点，备案 http://<服务器IP>/api/v1/auth/cas/callback"
+  info "CAS_SERVICE_URL / CAS_FRONTEND_URL 留空则按访问 Host 自动拼"
+  if [[ -f "$ROOT/deploy/.env" ]]; then
+    local cas_en
+    cas_en="$(env_get CAS_ENABLED 2>/dev/null || true)"
+    if [[ "${cas_en,,}" != "true" ]]; then
+      warn "CAS_ENABLED 不是 true，登录页可能没有「学校统一认证」"
+    else
+      ok "CAS_ENABLED=true"
+    fi
+  fi
+  if grep -q 'extra_hosts' "$ROOT/deploy/docker-compose.yml" \
+    && grep -q 'authserver.smbu.edu.cn' "$ROOT/deploy/docker-compose.yml"; then
+    ok "compose 已写入 authserver extra_hosts（CAS_AUTHSERVER_IP 默认 10.100.14.250）"
+  else
+    warn "compose 缺少 authserver extra_hosts：容器可能解析到 IPv6，CAS callback 超时/502"
+    issues=$((issues + 1))
+  fi
+  if command -v docker >/dev/null 2>&1 \
+    && docker inspect -f '{{.State.Status}}' starbyte-backend 2>/dev/null | grep -qx running; then
+    local addr
+    addr="$(backend_authserver_addrs | head -n1 || true)"
+    if [[ -z "$addr" ]]; then
+      info "backend 内未能解析 authserver.smbu.edu.cn（可选检查，可 recreate 后再看）"
+    elif is_private_ipv4 "$addr"; then
+      ok "backend 将 authserver 解析到内网 IPv4"
+    else
+      warn "backend 将 authserver 解析为非内网地址（常见为公网 IPv6）。CAS callback 会卡住/502；设 CAS_AUTHSERVER_IP 后 starbyte rebuild backend"
+      issues=$((issues + 1))
+    fi
+  fi
+
+  log ""
+  log "端口 80:"
+  if listening_on 80; then
+    if command -v docker >/dev/null 2>&1 && docker inspect -f '{{.State.Status}}' starbyte-frontend 2>/dev/null | grep -qx running; then
+      ok "80 已被 starbyte-frontend 占用（预期）"
+    else
+      warn "主机 80 已被占用，且未见运行中的 starbyte-frontend。停掉宝塔/nginx 或改映射后再 up"
+      issues=$((issues + 1))
+    fi
+  else
+    info "当前未见 80 监听；compose up 后 frontend 会映射 80"
+  fi
+
+  if command -v docker >/dev/null 2>&1 && docker inspect starbyte-backend >/dev/null 2>&1; then
+    log ""
+    log "运行中容器短检:"
+    if curl -sf --max-time 3 http://127.0.0.1:8080/health >/dev/null 2>&1; then
+      ok "backend :8080/health"
+    else
+      warn "backend 容器在，但 :8080/health 失败"
+      issues=$((issues + 1))
+    fi
+  fi
+
+  log ""
+  if [[ "$issues" -gt 0 ]]; then
+    warn "doctor 发现 ${issues} 项需处理"
+    exit 1
+  fi
+  ok "doctor 未发现必须处理的问题"
+}
+
+cmd_install() {
+  local dest="/usr/local/bin/starbyte"
+  local src
+  src="$(resolve_script_path)"
+  init_root
+
+  if [[ "$(id -u)" -ne 0 ]]; then
+    err "install 需要 root：sudo bash deploy/cli/starbyte install"
+    exit 1
+  fi
+
+  install -m 0755 "$src" "$dest"
+  ln -sfn "$dest" /usr/local/bin/sb
+  printf 'STARBYTE_HOME=%s\n' "$ROOT" > "$CONF_FILE"
+  chmod 0644 "$CONF_FILE"
+  log "已安装: $dest"
+  log "软链:   /usr/local/bin/sb -> $dest"
+  log "配置:   $CONF_FILE  (STARBYTE_HOME=$ROOT)"
+  log "试运行: starbyte status"
+}
+
+main() {
+  local cmd="${1:-help}"
+  shift || true
+  case "$cmd" in
+    help|-h|--help) usage ;;
+    version|-v|--version) log "starbyte $VERSION" ;;
+    install) cmd_install "$@" ;;
+    status|logs|restart|rebuild|env-check|backup|doctor)
+      init_root
+      case "$cmd" in
+        status) cmd_status "$@" ;;
+        logs) cmd_logs "$@" ;;
+        restart) cmd_restart "$@" ;;
+        rebuild) cmd_rebuild "$@" ;;
+        env-check) cmd_env_check "$@" ;;
+        backup) cmd_backup "$@" ;;
+        doctor) cmd_doctor "$@" ;;
+      esac
+      ;;
+    *)
+      err "未知命令: $cmd"
+      usage >&2
+      exit 2
+      ;;
+  esac
+}
+
+main "$@"
