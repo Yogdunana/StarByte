@@ -66,9 +66,7 @@ jobs:
         run: go build -o starbyte-server ./cmd/server
 
       - name: Install migrate
-        run: |
-          curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz
-          sudo mv migrate /usr/local/bin/
+        run: bash "${GITHUB_WORKSPACE}/.github/scripts/install-migrate.sh"
 
       - name: Migrate test database
         run: migrate -path migrations -database "$TEST_DATABASE_URL" up
@@ -147,10 +145,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: false
+
       - name: Install migrate
-        run: |
-          curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz
-          sudo mv migrate /usr/local/bin/
+        run: bash "${GITHUB_WORKSPACE}/.github/scripts/install-migrate.sh"
 
       - name: Run migrations up
         run: |
