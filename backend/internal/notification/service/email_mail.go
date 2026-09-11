@@ -54,9 +54,9 @@ func smtpReady(cfg config.EmailConfig) error {
 	if cfg.SMTPHost == "" || cfg.SMTPPort <= 0 || strings.TrimSpace(cfg.From) == "" {
 		return fmt.Errorf("smtp is not configured")
 	}
-	// implicit / STARTTLS talk to real servers (campus default is 465).
-	// Do not dial without a password just because host/from have defaults.
-	if cfg.EffectiveSSLMode() != config.SSLModeNone && strings.TrimSpace(cfg.Password) == "" {
+	// Same bar as TestSMTP: campus defaults fill host/from, but sends must
+	// not dial without STARBYTE_SMTP_PASSWORD (or SMTP_PASSWORD).
+	if config.SMTPPasswordFromEnv() == "" {
 		return fmt.Errorf("smtp password is not configured")
 	}
 	return nil

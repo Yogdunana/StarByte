@@ -54,7 +54,11 @@ func TestEmailChannelIsAvailableUsesResolvedFrom(t *testing.T) {
 	assert.False(t, ch.IsAvailable())
 
 	ch = NewEmailChannelFromConfig(config.DefaultSMTPRuntime().Overlay(config.EmailConfig{}))
-	assert.False(t, ch.IsAvailable(), "campus defaults without password must stay unavailable")
+	assert.False(t, ch.IsAvailable(), "campus defaults without env password must stay unavailable")
+
+	// YAML leftover password must not count — same bar as TestSMTP (env only).
+	ch = NewEmailChannel("smtp.exmail.qq.com", 465, "u", "yaml-only", "a@b.c")
+	assert.False(t, ch.IsAvailable())
 
 	t.Setenv("STARBYTE_SMTP_PASSWORD", "env-pass")
 	assert.True(t, ch.IsAvailable())
@@ -65,6 +69,12 @@ func TestSendMIMERefusesMissingPassword(t *testing.T) {
 	t.Setenv("SMTP_PASSWORD", "")
 	ch := NewEmailChannelFromConfig(config.DefaultSMTPRuntime().Overlay(config.EmailConfig{}))
 	err := ch.SendMIME(context.Background(), MailJob{To: []string{"a@b.c"}, Subject: "s", Body: "b"}, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "password")
+
+	// Would otherwise DialAndSend smtp.exmail.qq.com; yaml password is not enough.
+	ch = NewEmailChannel("smtp.exmail.qq.com", 465, "u", "yaml-only", "a@b.c")
+	err = ch.SendMIME(context.Background(), MailJob{To: []string{"a@b.c"}, Subject: "s", Body: "b"}, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "password")
 }
