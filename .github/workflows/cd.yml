@@ -1,0 +1,164 @@
+# StarByte 镜像构建 / 可选集群部署
+#
+# 默认只接受 workflow_dispatch。不会在 push main / tag 时自动部署。
+# 学校内网当前用 Docker Compose；集群部署必须人工点 Run workflow，
+# 且勾选 deploy=true，并具备 GitHub Environment 与 KUBE_CONFIG_DATA。
+name: CD
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "目标 Environment 名称（用于保护规则；不会因 push main 触发）"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - prod
+      image_tag:
+        description: "镜像 tag（留空则用 sha-<短哈希>）"
+        required: false
+        type: string
+        default: ""
+      deploy:
+        description: "构建后是否 helm upgrade 到集群（默认否）"
+        required: true
+        type: boolean
+        default: false
+
+env:
+  REGISTRY: ghcr.io
+  # 与 Helm values / raw k8s 对齐，不用 github.repository/backend
+  BACKEND_IMAGE: ghcr.io/yogdunana/starbyte-backend
+  FRONTEND_IMAGE: ghcr.io/yogdunana/starbyte-frontend
+  NAMESPACE: starbyte
+
+jobs:
+  resolve-tag:
+    name: Resolve image tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: tag
+        run: |
+          if [ -n "${{ github.event.inputs.image_tag }}" ]; then
+            TAG="${{ github.event.inputs.image_tag }}"
+          else
+            TAG="sha-${GITHUB_SHA::7}"
+          fi
+          if echo "$TAG" | grep -qE '[/:]'; then
+            echo "image_tag 只能是 tag，不能是完整镜像 URL: $TAG" >&2
+            exit 1
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Using tag ${TAG}"
+
+  build-backend:
+    name: Build & Push Backend
+    needs: resolve-tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: backend
+          target: production
+          push: true
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:${{ needs.resolve-tag.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-frontend:
+    name: Build & Push Frontend
+    needs: resolve-tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: frontend
+          target: production
+          push: true
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:${{ needs.resolve-tag.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to Kubernetes (opt-in)
+    needs: [resolve-tag, build-backend, build-frontend]
+    if: ${{ github.event.inputs.deploy == 'true' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event.inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Require kubeconfig
+        env:
+          KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+        run: |
+          if [ -z "$KUBE_CONFIG_DATA" ]; then
+            echo "未配置 secrets.KUBE_CONFIG_DATA。学校环境请继续用 Docker Compose，不要为了点亮本 job 而写入未知集群凭证。" >&2
+            exit 1
+          fi
+
+      - name: Set values file
+        id: env
+        run: |
+          if [ "${{ github.event.inputs.environment }}" = "prod" ]; then
+            echo "values=values-prod.yaml" >> "$GITHUB_OUTPUT"
+          else
+            echo "values=values-dev.yaml" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up kubeconfig
+        env:
+          KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+        run: |
+          mkdir -p "$HOME/.kube"
+          echo "$KUBE_CONFIG_DATA" | base64 -d > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+
+      - uses: azure/setup-helm@v3
+        with:
+          version: "v3.14.0"
+
+      - name: Helm upgrade (repository + tag 拆开)
+        run: |
+          TAG="${{ needs.resolve-tag.outputs.tag }}"
+          helm upgrade --install starbyte deploy/helm/starbyte \
+            --namespace "${{ env.NAMESPACE }}" --create-namespace \
+            --values "deploy/helm/starbyte/${{ steps.env.outputs.values }}" \
+            --set backend.image.repository="${{ env.BACKEND_IMAGE }}" \
+            --set backend.image.tag="${TAG}" \
+            --set frontend.image.repository="${{ env.FRONTEND_IMAGE }}" \
+            --set frontend.image.tag="${TAG}" \
+            --wait --timeout 5m
+
+      - name: Verify rollout
+        run: |
+          kubectl rollout status deployment/starbyte-backend -n "${{ env.NAMESPACE }}" --timeout=3m
+          kubectl rollout status deployment/starbyte-frontend -n "${{ env.NAMESPACE }}" --timeout=3m

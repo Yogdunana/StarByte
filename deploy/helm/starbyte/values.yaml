@@ -1,0 +1,218 @@
+# StarByte Helm 默认值（内网友好、不自动上集群）
+# 学校当前生产路径仍是 deploy/docker-compose.yml。
+# 开发覆盖：values-dev.yaml；生产覆盖：values-prod.yaml（禁止创建明文 Secret）。
+
+fullnameOverride: ""
+nameOverride: ""
+
+global:
+  # 与 CD / 清单统一：ghcr.io/yogdunana/starbyte-backend，不是 ghcr.io/Yogdunana/StarByte/backend
+  imageRegistry: ghcr.io/yogdunana
+  imagePullPolicy: IfNotPresent
+  storageClass: ""
+  imagePullSecrets: []
+
+namespace:
+  name: starbyte
+  # 用 helm --namespace --create-namespace，避免模板再造 Namespace
+  create: false
+
+backend:
+  enabled: true
+  image:
+    repository: ghcr.io/yogdunana/starbyte-backend
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  env:
+    appEnv: production
+    configPath: configs/config.yaml
+    logLevel: info
+    casEnabled: "true"
+    casServerUrl: https://authserver.smbu.edu.cn/authserver
+    casServiceUrl: ""
+    casFrontendUrl: ""
+    casAllowAutoProvision: "true"
+    casDefaultRole: member
+    skipMigration: "false"
+    migrationFailFatal: "true"
+    skipBucketCreate: "false"
+  probes:
+    liveness:
+      enabled: true
+      path: /health
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readiness:
+      enabled: true
+      path: /health/ready
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    startup:
+      enabled: true
+      path: /health
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 30
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+    nodePort: null
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+frontend:
+  enabled: true
+  image:
+    repository: ghcr.io/yogdunana/starbyte-frontend
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  probes:
+    liveness:
+      enabled: true
+      path: /
+      initialDelaySeconds: 15
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readiness:
+      enabled: true
+      path: /
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+    nodePort: null
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+postgres:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "16-alpine"
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  storage:
+    size: 20Gi
+    storageClass: ""
+  config:
+    user: starbyte
+    db: starbyte
+    port: 5432
+  # 与 raw k8s / docker-compose / config.Load 对齐
+  password:
+    secretKey: DB_PASSWORD
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: "7-alpine"
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  storage:
+    size: 5Gi
+    storageClass: ""
+  config:
+    port: 6379
+  password:
+    secretKey: REDIS_PASSWORD
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+minio:
+  enabled: true
+  image:
+    repository: minio/minio
+    tag: "RELEASE.2024-08-17T01-16-21Z"
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  storage:
+    size: 50Gi
+    storageClass: ""
+  config:
+    port: 9000
+    consolePort: 9001
+    args:
+      - server
+      - /data
+      - --console-address
+      - ":9001"
+  # 容器读 MINIO_ROOT_*，Secret 里同时提供 MINIO_ACCESS_KEY / MINIO_SECRET_KEY 给后端 envFrom
+  rootUser:
+    secretKey: MINIO_ACCESS_KEY
+  rootPassword:
+    secretKey: MINIO_SECRET_KEY
+  bucket: starbyte
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# 内网默认：NodePort / 集群 IP 即可，不强制 Ingress，更不要求 Let's Encrypt
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  hosts: []
+  tls: []
+
+# 默认不创建 Secret。生产必须由集群已有 Secret / Sealed / External Secrets 提供。
+# 仅 values-dev.yaml 允许 allowInsecure + create。
+secrets:
+  create: false
+  allowInsecure: false
+  existingSecret: ""
+  secretData: {}

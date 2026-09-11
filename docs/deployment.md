@@ -94,3 +94,15 @@ cat starbyte-2026-09-07.sql | docker exec -i starbyte-postgres psql -U starbyte 
 ```
 
 MinIO 桶与 Postgres 一起备份。恢复后执行 `make migrate-up` 确认 schema 版本。
+
+## Kubernetes / Helm（可选，非默认）
+
+漏测与学校内网**继续用上面的 Docker Compose**。`deploy/k8s/` 与 `deploy/helm/starbyte/` 是预研模板：
+
+- 合入 `main` **不会**自动往任何集群部署。`.github/workflows/cd.yml` 仅 `workflow_dispatch`，且默认只推镜像、不 `helm upgrade`。
+- 默认不启用 Ingress，也不依赖 Let's Encrypt / cert-manager。
+- 生产 values（`values-prod.yaml`）`secrets.create: false`，须事先创建 Secret。key 与 Compose 一致：`DB_PASSWORD`、`REDIS_PASSWORD`、`MINIO_ACCESS_KEY`、`MINIO_SECRET_KEY`、`JWT_SECRET`。
+- 镜像名：`ghcr.io/yogdunana/starbyte-backend`、`ghcr.io/yogdunana/starbyte-frontend`（repository 与 tag 拆开设置）。
+
+说明与操作见 `deploy/k8s/README.md`。
+

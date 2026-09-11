@@ -1,0 +1,133 @@
+{{- if .Values.minio.enabled }}
+{{- $secretName := default (include "starbyte.secret.fullname" .) .Values.secrets.existingSecret }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "starbyte.minio.fullname" . }}
+  labels:
+    {{- include "starbyte.labels" . | nindent 4 }}
+    app.kubernetes.io/component: minio
+spec:
+  type: ClusterIP
+  ports:
+    - name: http-api
+      port: {{ .Values.minio.config.port }}
+      targetPort: http-api
+      protocol: TCP
+    - name: http-console
+      port: {{ .Values.minio.config.consolePort }}
+      targetPort: http-console
+      protocol: TCP
+  selector:
+    {{- include "starbyte.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: minio
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "starbyte.minio.fullname" . }}
+  labels:
+    {{- include "starbyte.labels" . | nindent 4 }}
+    app.kubernetes.io/component: minio
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- $storageClass := include "starbyte.storageClass" (dict "local" .Values.minio.storage.storageClass "global" .Values.global.storageClass) }}
+  {{- if $storageClass }}
+  storageClassName: {{ $storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.minio.storage.size | quote }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "starbyte.minio.fullname" . }}
+  labels:
+    {{- include "starbyte.labels" . | nindent 4 }}
+    app.kubernetes.io/component: minio
+spec:
+  replicas: {{ .Values.minio.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "starbyte.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: minio
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        {{- include "starbyte.labels" . | nindent 8 }}
+        app.kubernetes.io/component: minio
+    spec:
+      serviceAccountName: default
+      {{- with .Values.minio.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.minio.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.minio.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: minio
+          image: {{ include "starbyte.image" .Values.minio.image | quote }}
+          imagePullPolicy: {{ .Values.minio.image.pullPolicy }}
+          {{- with .Values.minio.config.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http-api
+              containerPort: {{ .Values.minio.config.port }}
+              protocol: TCP
+            - name: http-console
+              containerPort: {{ .Values.minio.config.consolePort }}
+              protocol: TCP
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secretName }}
+                  key: {{ .Values.minio.rootUser.secretKey }}
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secretName }}
+                  key: {{ .Values.minio.rootPassword.secretKey }}
+            - name: TZ
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "starbyte.configmap.fullname" . }}
+                  key: TZ
+          resources:
+            {{- toYaml .Values.minio.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: http-api
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /minio/health/ready
+              port: http-api
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 3
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "starbyte.minio.fullname" . }}
+{{- end }}

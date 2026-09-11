@@ -1,0 +1,25 @@
+StarByte Helm release: {{ .Release.Name }} (ns={{ .Release.Namespace }})
+
+学校内网默认部署路径仍是 Docker Compose：
+  docker compose -f deploy/docker-compose.yml up -d
+
+本 Chart 不会也不应在 push main 时自动部署。CD 仅 workflow_dispatch，且默认只构建镜像。
+
+镜像（repository + tag 拆开）：
+  backend:  {{ include "starbyte.image" .Values.backend.image }}
+  frontend: {{ include "starbyte.image" .Values.frontend.image }}
+
+Secret:
+{{- if .Values.secrets.create }}
+  chart 已创建开发用 Secret（allowInsecure=true）。不要把这套 values 用于生产。
+{{- else }}
+  secrets.create=false。请确认集群已有 Secret：
+    {{ default (include "starbyte.secret.fullname" .) .Values.secrets.existingSecret }}
+  必填 key：DB_PASSWORD REDIS_PASSWORD MINIO_ACCESS_KEY MINIO_SECRET_KEY JWT_SECRET
+{{- end }}
+
+Ingress: {{ .Values.ingress.enabled }}（默认 false，不需要 Let's Encrypt）
+
+访问（未开 Ingress 时）：
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "starbyte.frontend.fullname" . }} 8081:80
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "starbyte.backend.fullname" . }} 8080:8080

@@ -1,0 +1,37 @@
+# 可选 Ingress。默认 kustomization 不引用本文件。
+# 内网用 ClusterIP + port-forward / NodePort 即可，不需要 Let's Encrypt。
+# 启用：kubectl apply -f deploy/k8s/ingress.yaml
+# 把 host 换成内网域名或删掉 host 字段（部分控制器要求 host）。
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: starbyte-ingress
+  namespace: starbyte
+  labels:
+    app.kubernetes.io/name: starbyte
+    app.kubernetes.io/part-of: starbyte
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: starbyte.internal
+      http:
+        paths:
+          - path: /api/
+            pathType: Prefix
+            backend:
+              service:
+                name: starbyte-backend
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: starbyte-frontend
+                port:
+                  number: 80

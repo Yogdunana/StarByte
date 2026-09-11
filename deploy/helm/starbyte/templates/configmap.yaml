@@ -1,0 +1,44 @@
+{{- if or .Values.backend.enabled .Values.frontend.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "starbyte.configmap.fullname" . }}
+  labels:
+    {{- include "starbyte.labels" . | nindent 4 }}
+data:
+  APP_ENV: {{ .Values.backend.env.appEnv | quote }}
+  LOG_LEVEL: {{ .Values.backend.env.logLevel | quote }}
+  CONFIG_PATH: {{ .Values.backend.env.configPath | quote }}
+  TZ: "Asia/Shanghai"
+
+  {{- if .Values.postgres.enabled }}
+  DB_HOST: {{ include "starbyte.postgres.fullname" . | quote }}
+  DB_PORT: {{ .Values.postgres.config.port | quote }}
+  DB_USER: {{ .Values.postgres.config.user | quote }}
+  DB_NAME: {{ .Values.postgres.config.db | quote }}
+  DB_SSLMODE: "disable"
+  {{- end }}
+
+  {{- if .Values.redis.enabled }}
+  REDIS_HOST: {{ include "starbyte.redis.fullname" . | quote }}
+  REDIS_PORT: {{ .Values.redis.config.port | quote }}
+  REDIS_DB: "0"
+  {{- end }}
+
+  {{- if .Values.minio.enabled }}
+  MINIO_ENDPOINT: {{ printf "%s:%v" (include "starbyte.minio.fullname" .) .Values.minio.config.port | quote }}
+  MINIO_USE_SSL: "false"
+  MINIO_BUCKET: {{ .Values.minio.bucket | quote }}
+  {{- end }}
+
+  SKIP_MIGRATION: {{ .Values.backend.env.skipMigration | quote }}
+  MIGRATION_FAIL_FATAL: {{ .Values.backend.env.migrationFailFatal | quote }}
+  SKIP_BUCKET_CREATE: {{ .Values.backend.env.skipBucketCreate | quote }}
+
+  CAS_ENABLED: {{ .Values.backend.env.casEnabled | quote }}
+  CAS_SERVER_URL: {{ .Values.backend.env.casServerUrl | quote }}
+  CAS_SERVICE_URL: {{ .Values.backend.env.casServiceUrl | quote }}
+  CAS_FRONTEND_URL: {{ .Values.backend.env.casFrontendUrl | quote }}
+  CAS_ALLOW_AUTO_PROVISION: {{ .Values.backend.env.casAllowAutoProvision | quote }}
+  CAS_DEFAULT_ROLE: {{ .Values.backend.env.casDefaultRole | quote }}
+{{- end }}
