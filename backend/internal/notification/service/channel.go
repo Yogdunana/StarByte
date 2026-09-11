@@ -95,8 +95,7 @@ func (c *EmailChannel) WithStore(store configstore.Store) *EmailChannel {
 func (c *EmailChannel) Type() string { return "email" }
 
 func (c *EmailChannel) IsAvailable() bool {
-	cfg := c.resolve(context.Background())
-	return cfg.SMTPHost != "" && cfg.SMTPPort > 0 && cfg.From != ""
+	return smtpReady(c.resolve(context.Background())) == nil
 }
 
 func (c *EmailChannel) resolve(ctx context.Context) config.EmailConfig {

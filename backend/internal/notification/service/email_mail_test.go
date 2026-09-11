@@ -48,8 +48,23 @@ func TestApplySMTPSecurity(t *testing.T) {
 }
 
 func TestEmailChannelIsAvailableUsesResolvedFrom(t *testing.T) {
+	t.Setenv("STARBYTE_SMTP_PASSWORD", "")
+	t.Setenv("SMTP_PASSWORD", "")
 	ch := NewEmailChannel("", 0, "", "", "")
 	assert.False(t, ch.IsAvailable())
+
 	ch = NewEmailChannelFromConfig(config.DefaultSMTPRuntime().Overlay(config.EmailConfig{}))
+	assert.False(t, ch.IsAvailable(), "campus defaults without password must stay unavailable")
+
+	t.Setenv("STARBYTE_SMTP_PASSWORD", "env-pass")
 	assert.True(t, ch.IsAvailable())
+}
+
+func TestSendMIMERefusesMissingPassword(t *testing.T) {
+	t.Setenv("STARBYTE_SMTP_PASSWORD", "")
+	t.Setenv("SMTP_PASSWORD", "")
+	ch := NewEmailChannelFromConfig(config.DefaultSMTPRuntime().Overlay(config.EmailConfig{}))
+	err := ch.SendMIME(context.Background(), MailJob{To: []string{"a@b.c"}, Subject: "s", Body: "b"}, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "password")
 }

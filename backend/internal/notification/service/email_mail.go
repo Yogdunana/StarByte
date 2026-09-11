@@ -50,10 +50,22 @@ func (c *EmailChannel) WithDispatcher(d MailDispatcher) *EmailChannel {
 	return c
 }
 
+func smtpReady(cfg config.EmailConfig) error {
+	if cfg.SMTPHost == "" || cfg.SMTPPort <= 0 || strings.TrimSpace(cfg.From) == "" {
+		return fmt.Errorf("smtp is not configured")
+	}
+	// implicit / STARTTLS talk to real servers (campus default is 465).
+	// Do not dial without a password just because host/from have defaults.
+	if cfg.EffectiveSSLMode() != config.SSLModeNone && strings.TrimSpace(cfg.Password) == "" {
+		return fmt.Errorf("smtp password is not configured")
+	}
+	return nil
+}
+
 func (c *EmailChannel) SendMIME(ctx context.Context, job MailJob, files []MailAttachment) error {
 	cfg := c.resolve(ctx)
-	if cfg.SMTPHost == "" || cfg.SMTPPort <= 0 || cfg.From == "" {
-		return fmt.Errorf("smtp is not configured")
+	if err := smtpReady(cfg); err != nil {
+		return err
 	}
 	m := mail.NewMessage()
 	if name := strings.TrimSpace(cfg.FromName); name != "" {
