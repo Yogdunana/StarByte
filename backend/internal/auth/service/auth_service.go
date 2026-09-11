@@ -33,6 +33,7 @@ type AuthService interface {
 	BuildCASLoginURL(ctx context.Context, redirect, publicOrigin string) (*dto.CASLoginStart, error)
 	CompleteCASCallback(ctx context.Context, ticket, state, ip, userAgent, publicOrigin string) (string, error)
 	ExchangeCASCode(ctx context.Context, code string) (*dto.CASExchangeResponse, error)
+	RegisterWithCASToken(ctx context.Context, req *dto.CASRegisterRequest, ip, userAgent string) (*dto.CASExchangeResponse, error)
 }
 
 type authService struct {

@@ -42,6 +42,15 @@ type CASExchangeRequest struct {
 	Code string `json:"code" binding:"required"`
 }
 
+// CASRegisterRequest 用 CAS 续传凭证创建本地账号并绑定学号
+type CASRegisterRequest struct {
+	Token    string `json:"token" binding:"required"`
+	Username string `json:"username" binding:"required,min=3,max=50"`
+	Password string `json:"password" binding:"required,min=8,max=50"`
+	RealName string `json:"real_name" binding:"omitempty,max=50"`
+	Email    string `json:"email" binding:"omitempty,email"`
+}
+
 // CASStatusResponse 学校统一认证是否开通
 type CASStatusResponse struct {
 	Enabled bool `json:"enabled"`
@@ -54,10 +63,15 @@ type CASLoginStart struct {
 	Service  string `json:"service"`
 }
 
-// CASExchangeResponse 兑换 CAS 回调 code 后的登录结果
+// CASExchangeResponse 兑换 CAS 回调 code 后的登录结果；未知用户返回 needs_registration。
 type CASExchangeResponse struct {
 	LoginResponse
-	Redirect string `json:"redirect"`
+	Redirect          string `json:"redirect"`
+	NeedsRegistration bool   `json:"needs_registration,omitempty"`
+	RegistrationToken string `json:"registration_token,omitempty"`
+	StudentNo         string `json:"student_no,omitempty"`
+	RealName          string `json:"real_name,omitempty"`
+	Email             string `json:"email,omitempty"`
 }
 
 // ========== Response DTOs ==========

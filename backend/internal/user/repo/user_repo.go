@@ -16,6 +16,7 @@ type UserRepo interface {
 	GetByUsername(ctx context.Context, username string) (*model.User, error)
 	Update(ctx context.Context, tx *gorm.DB, user *model.User) error
 	Delete(ctx context.Context, id uuid.UUID) error
+	HardDelete(ctx context.Context, id uuid.UUID) error
 	List(ctx context.Context, page, pageSize int, keyword string, status *int, departmentID uuid.UUID) ([]model.User, int64, error)
 	UpdateLastLogin(ctx context.Context, id uuid.UUID, ip string) error
 	GetByIdentity(ctx context.Context, identityType, identityValue string) (*model.User, error)
@@ -66,6 +67,10 @@ func (r *userRepo) Update(ctx context.Context, tx *gorm.DB, user *model.User) er
 
 func (r *userRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return r.db.WithContext(ctx).Delete(&model.User{}, id).Error
+}
+
+func (r *userRepo) HardDelete(ctx context.Context, id uuid.UUID) error {
+	return r.db.WithContext(ctx).Unscoped().Delete(&model.User{}, id).Error
 }
 
 func (r *userRepo) List(ctx context.Context, page, pageSize int, keyword string, status *int, departmentID uuid.UUID) ([]model.User, int64, error) {

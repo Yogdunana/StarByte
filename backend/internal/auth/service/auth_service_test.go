@@ -55,6 +55,11 @@ func (m *mockUserRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return args.Error(0)
 }
 
+func (m *mockUserRepo) HardDelete(ctx context.Context, id uuid.UUID) error {
+	args := m.Called(ctx, id)
+	return args.Error(0)
+}
+
 func (m *mockUserRepo) List(ctx context.Context, page, pageSize int, keyword string, status *int, deptID uuid.UUID) ([]model.User, int64, error) {
 	args := m.Called(ctx, page, pageSize, keyword, status, deptID)
 	return args.Get(0).([]model.User), args.Get(1).(int64), args.Error(2)

@@ -112,3 +112,35 @@ func TestLookup_GetByUserID(t *testing.T) {
 	assert.Equal(t, deptID.String(), ident.DepartmentID)
 	assert.Equal(t, "项目开发部", ident.DepartmentName)
 }
+
+func TestLookup_EnsureStudentNo_CreatesProfile(t *testing.T) {
+	profs := &mockProfiles{}
+	lookup := NewLookup(profs)
+	ctx := context.Background()
+	userID := uuid.New()
+	profs.On("GetByStudentNo", ctx, "20219999", (*uuid.UUID)(nil)).Return((*model.MemberProfile)(nil), nil)
+	profs.On("GetByUserID", ctx, userID).Return((*model.MemberProfile)(nil), nil)
+	profs.On("Create", ctx, mock.AnythingOfType("*model.MemberProfile")).Return(nil).Run(func(args mock.Arguments) {
+		p := args.Get(1).(*model.MemberProfile)
+		assert.Equal(t, userID, p.UserID)
+		assert.Equal(t, "20219999", p.StudentNo)
+		assert.Equal(t, "王五", p.RealName)
+	})
+
+	err := lookup.EnsureStudentNo(ctx, userID, "20219999", "王五")
+	assert.NoError(t, err)
+	profs.AssertExpectations(t)
+}
+
+func TestLookup_EnsureStudentNo_RejectsTaken(t *testing.T) {
+	profs := &mockProfiles{}
+	lookup := NewLookup(profs)
+	ctx := context.Background()
+	userID := uuid.New()
+	other := uuid.New()
+	profs.On("GetByStudentNo", ctx, "20210001", (*uuid.UUID)(nil)).
+		Return(&model.MemberProfile{UserID: other, StudentNo: "20210001"}, nil)
+
+	err := lookup.EnsureStudentNo(ctx, userID, "20210001", "张三")
+	assert.Error(t, err)
+}

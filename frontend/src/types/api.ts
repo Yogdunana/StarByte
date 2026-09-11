@@ -78,6 +78,19 @@ export interface CASStatusResponse {
 
 export interface CASExchangeResponse extends LoginResponse {
   redirect: string;
+  needs_registration?: boolean;
+  registration_token?: string;
+  student_no?: string;
+  real_name?: string;
+  email?: string;
+}
+
+export interface CASRegisterRequest {
+  token: string;
+  username: string;
+  password: string;
+  real_name?: string;
+  email?: string;
 }
 
 export interface UserInfo {

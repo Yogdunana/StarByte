@@ -14,6 +14,7 @@ import ComingSoon from '@/pages/error/ComingSoon';
 // 页面组件
 const Login = lazy(() => import('@/pages/login/Login'));
 const CasCallback = lazy(() => import('@/pages/login/CasCallback'));
+const CasRegister = lazy(() => import('@/pages/login/CasRegister'));
 const Dashboard = lazy(() => import('@/pages/dashboard/Dashboard'));
 const BigScreenPage = lazy(() => import('@/pages/dashboard/bigscreen/BigScreenPage'));
 const UserList = lazy(() => import('@/pages/user/UserList'));
@@ -118,6 +119,11 @@ const routes: AppRouteObject[] = [
     path: '/login/cas',
     element: lazyWrap(CasCallback),
     meta: { title: '统一认证', public: true, hidden: true },
+  },
+  {
+    path: '/register/cas',
+    element: lazyWrap(CasRegister),
+    meta: { title: '绑定账号', public: true, hidden: true },
   },
   {
     path: '/dashboard/bigscreen',
