@@ -3,11 +3,14 @@ package service
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
+	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/activity/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/activity/model"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type memActivities struct {
@@ -34,7 +37,9 @@ func (m *memActivities) Update(_ context.Context, a *model.Activity) error {
 func (m *memActivities) Delete(_ context.Context, id uuid.UUID) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	delete(m.items, id)
+	if a, ok := m.items[id]; ok {
+		a.DeletedAt = gorm.DeletedAt{Time: time.Now(), Valid: true}
+	}
 	return nil
 }
 
@@ -42,7 +47,7 @@ func (m *memActivities) GetByID(_ context.Context, id uuid.UUID) (*model.Activit
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	row := m.items[id]
-	if row == nil {
+	if row == nil || row.DeletedAt.Valid {
 		return nil, nil
 	}
 	cp := *row
@@ -186,6 +191,12 @@ func (m *memRegs) ListWaitlist(_ context.Context, activityID uuid.UUID) ([]model
 			out = append(out, *r)
 		}
 	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
+			return out[i].ID.String() < out[j].ID.String()
+		}
+		return out[i].CreatedAt.Before(out[j].CreatedAt)
+	})
 	return out, nil
 }
 

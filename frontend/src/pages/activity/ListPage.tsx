@@ -9,25 +9,11 @@ import {
   cancelActivity, createActivity, deleteActivity, endActivity, getActivityList,
   startActivity, updateActivity,
 } from '@/api/activity';
-import type { Activity, ActivityStatus, CreateActivityParams, UpdateActivityParams } from '@/api/activity';
+import type { Activity, ActivityStatus } from '@/api/activity';
+import { formatDateTime } from '@/utils/format';
 import { ActivityStatusMap } from './meta';
 import FormModal from './FormModal';
-
-function toCreateParams(values: Record<string, unknown>): CreateActivityParams {
-  return {
-    title: String(values.title),
-    description: values.description ? String(values.description) : undefined,
-    category: values.category ? String(values.category) : undefined,
-    tags: Array.isArray(values.tags) ? (values.tags as string[]) : undefined,
-    location: values.location ? String(values.location) : undefined,
-    max_participants: values.max_participants != null ? Number(values.max_participants) : undefined,
-    latitude: values.latitude != null ? Number(values.latitude) : undefined,
-    longitude: values.longitude != null ? Number(values.longitude) : undefined,
-    checkin_radius_m: values.checkin_radius_m != null ? Number(values.checkin_radius_m) : undefined,
-    start_time: String(values.start_time),
-    end_time: String(values.end_time),
-  };
-}
+import { toCreateParams, toUpdateParams } from './formPayload';
 
 const ListPage: React.FC = () => {
   const nav = useNavigate();
@@ -60,7 +46,7 @@ const ListPage: React.FC = () => {
     { title: '标题', dataIndex: 'title', render: (v: string, r) => <Button type="link" style={{ padding: 0 }} onClick={() => nav(`/activity/${r.id}`)}>{v}</Button> },
     { title: '分类', dataIndex: 'category', width: 100, render: (v?: string) => v || '-' },
     { title: '地点', dataIndex: 'location', width: 140, render: (v?: string) => v || '-' },
-    { title: '开始', dataIndex: 'start_time', width: 160, render: (v: string) => v?.replace('T', ' ').slice(0, 16) },
+    { title: '开始', dataIndex: 'start_time', width: 160, render: (v: string) => formatDateTime(v, 'YYYY-MM-DD HH:mm') },
     { title: '组织者', key: 'org', width: 100, render: (_, r) => r.organizer?.name || '-' },
     {
       title: '报名/上限',
@@ -128,7 +114,7 @@ const ListPage: React.FC = () => {
         onCancel={() => setOpen(false)}
         onSubmit={async (values) => {
           if (editing) {
-            await updateActivity(editing.id, toCreateParams(values) as UpdateActivityParams);
+            await updateActivity(editing.id, toUpdateParams(values));
             message.success('已更新');
           } else {
             await createActivity(toCreateParams(values));

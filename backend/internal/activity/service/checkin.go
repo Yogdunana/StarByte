@@ -135,5 +135,5 @@ func (s *activityService) IssueCheckinQR(ctx context.Context, activityID uuid.UU
 }
 
 func formatTime(t time.Time) string {
-	return t.Format("2006-01-02 15:04:05")
+	return t.Format(time.RFC3339)
 }

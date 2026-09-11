@@ -81,3 +81,11 @@ type pendingNotify struct {
 	template string
 	activity *model.Activity
 }
+
+func (s *activityService) flushNotifies(ctx context.Context, notes ...*pendingNotify) {
+	for _, n := range notes {
+		if n != nil {
+			s.notifyActivity(ctx, n.users, n.template, n.activity)
+		}
+	}
+}

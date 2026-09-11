@@ -13,6 +13,7 @@ import {
   getRegistrations, registerActivity, startActivity, submitSurvey,
 } from '@/api/activity';
 import type { Activity, ActivityQRCode, ActivityStats, Registration } from '@/api/activity';
+import { formatDateTime } from '@/utils/format';
 import { ActivityStatusMap, RegistrationStatusMap } from './meta';
 
 const DetailPage: React.FC = () => {
@@ -67,7 +68,7 @@ const DetailPage: React.FC = () => {
       width: 100,
       render: (v: number) => (v === 1 ? '已签到' : '未签到'),
     },
-    { title: '签到时间', dataIndex: 'checked_in_at', width: 160, render: (v?: string) => v?.replace('T', ' ').slice(0, 16) || '-' },
+    { title: '签到时间', dataIndex: 'checked_in_at', width: 160, render: (v?: string) => formatDateTime(v, 'YYYY-MM-DD HH:mm') },
     {
       title: '操作',
       width: 180,
@@ -146,8 +147,8 @@ const DetailPage: React.FC = () => {
         {activity.category && <Tag>{activity.category}</Tag>}
         <span>地点：{activity.location || '-'}</span>
         <span>组织者：{activity.organizer?.name || '-'}</span>
-        <span>开始：{activity.start_time?.replace('T', ' ').slice(0, 16)}</span>
-        <span>结束：{activity.end_time?.replace('T', ' ').slice(0, 16)}</span>
+        <span>开始：{formatDateTime(activity.start_time, 'YYYY-MM-DD HH:mm')}</span>
+        <span>结束：{formatDateTime(activity.end_time, 'YYYY-MM-DD HH:mm')}</span>
         <span>
           报名：{activity.registered_count}/{activity.max_participants === 0 ? '不限' : activity.max_participants}
         </span>
@@ -222,7 +223,7 @@ const DetailPage: React.FC = () => {
         {qr && (
           <Space direction="vertical" align="center" style={{ width: '100%' }}>
             <img alt="活动签到二维码" src={`data:image/png;base64,${qr.png_base64}`} style={{ width: 240 }} />
-            <div>过期时间：{qr.expires_at}</div>
+            <div>过期时间：{formatDateTime(qr.expires_at, 'YYYY-MM-DD HH:mm:ss')}</div>
           </Space>
         )}
       </Modal>

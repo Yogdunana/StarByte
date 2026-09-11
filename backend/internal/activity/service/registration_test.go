@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/Yogdunana/StarByte/backend/internal/activity/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/activity/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
@@ -157,6 +158,129 @@ func TestCancelRegistration_AutoPromote(t *testing.T) {
 	}
 	if !found {
 		t.Error("user2 should receive approved notification")
+	}
+}
+
+func TestCancelRegistration_NoPromoteWhenEnded(t *testing.T) {
+	svc, _, _, _, nn := newTestSvc()
+	resp := mustActivity(t, svc, uuid.New(), 1)
+	activityID, _ := uuid.Parse(resp.ID)
+	user1 := uuid.New()
+	user2 := uuid.New()
+
+	if _, err := svc.Register(context.Background(), activityID, user1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Register(context.Background(), activityID, user2); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.StartActivity(context.Background(), activityID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.EndActivity(context.Background(), activityID); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := svc.CancelRegistration(context.Background(), activityID, user1); err != nil {
+		t.Fatalf("CancelRegistration: %v", err)
+	}
+	reg2, err := svc.regs.GetByActivityAndUser(context.Background(), activityID, user2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reg2 == nil || reg2.Status != model.RegWaitlist {
+		t.Errorf("ended activity should not promote waitlist, got %+v", reg2)
+	}
+	for _, tpl := range nn.sent {
+		if tpl == tplActivityApproved {
+			t.Error("should not notify waitlist after activity ended")
+		}
+	}
+}
+
+func TestCancelRegistration_NoPromoteWhenOverCapacity(t *testing.T) {
+	svc, _, _, _, _ := newTestSvc()
+	resp := mustActivity(t, svc, uuid.New(), 2)
+	activityID, _ := uuid.Parse(resp.ID)
+	user1 := uuid.New()
+	user2 := uuid.New()
+	user3 := uuid.New()
+
+	if _, err := svc.Register(context.Background(), activityID, user1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Register(context.Background(), activityID, user2); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Register(context.Background(), activityID, user3); err != nil {
+		t.Fatal(err)
+	}
+	newMax := 1
+	if _, err := svc.UpdateActivity(context.Background(), activityID, &dto.UpdateActivityRequest{
+		MaxParticipants: &newMax,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := svc.CancelRegistration(context.Background(), activityID, user1); err != nil {
+		t.Fatalf("CancelRegistration: %v", err)
+	}
+	reg3, err := svc.regs.GetByActivityAndUser(context.Background(), activityID, user3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reg3 == nil || reg3.Status != model.RegWaitlist {
+		t.Errorf("over-capacity cancel should not promote, got %+v", reg3)
+	}
+}
+
+func TestApproveRegistration_RejectPromotesWaitlist(t *testing.T) {
+	svc, _, _, _, nn := newTestSvc()
+	resp := mustActivity(t, svc, uuid.New(), 1)
+	activityID, _ := uuid.Parse(resp.ID)
+	user1 := uuid.New()
+	user2 := uuid.New()
+
+	if _, err := svc.Register(context.Background(), activityID, user1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Register(context.Background(), activityID, user2); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := svc.ApproveRegistration(context.Background(), activityID, user1, false, "不合适"); err != nil {
+		t.Fatalf("reject: %v", err)
+	}
+	reg2, err := svc.regs.GetByActivityAndUser(context.Background(), activityID, user2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reg2 == nil || reg2.Status != model.RegApproved {
+		t.Errorf("rejecting approved should promote waitlist, got %+v", reg2)
+	}
+
+	foundReject, foundPromote := false, false
+	for i, tpl := range nn.sent {
+		if tpl == tplActivityRejected {
+			for _, u := range nn.targets[i] {
+				if u == user1 {
+					foundReject = true
+				}
+			}
+		}
+		if tpl == tplActivityApproved {
+			for _, u := range nn.targets[i] {
+				if u == user2 {
+					foundPromote = true
+				}
+			}
+		}
+	}
+	if !foundReject {
+		t.Error("rejected user should be notified")
+	}
+	if !foundPromote {
+		t.Error("promoted waitlist user should be notified")
 	}
 }
 

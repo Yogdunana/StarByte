@@ -69,7 +69,8 @@ func (r *activityRepo) namedQuery(ctx context.Context) *gorm.DB {
 		Select(`a.*, COALESCE(u.real_name, u.username, '') AS organizer_name,
 			(SELECT COUNT(*) FROM activity_registrations r WHERE r.activity_id = a.id AND r.status = 1) AS registered_count,
 			(SELECT COUNT(*) FROM activity_registrations r WHERE r.activity_id = a.id AND r.checkin_status = 1) AS checked_in_count`).
-		Joins("LEFT JOIN users u ON u.id = a.organizer_id")
+		Joins("LEFT JOIN users u ON u.id = a.organizer_id").
+		Where("a.deleted_at IS NULL")
 }
 
 func (r *activityRepo) GetByIDWithNames(ctx context.Context, id uuid.UUID) (*model.ActivityWithNames, error) {

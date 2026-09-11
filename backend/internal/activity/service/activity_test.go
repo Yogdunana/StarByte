@@ -112,6 +112,67 @@ func TestUpdateActivity_Success(t *testing.T) {
 	}
 }
 
+func TestDeleteActivity_HiddenFromListAndDetail(t *testing.T) {
+	svc, _, _, _, _ := newTestSvc()
+	resp := mustActivity(t, svc, uuid.New(), 50)
+	id, _ := uuid.Parse(resp.ID)
+
+	if err := svc.DeleteActivity(context.Background(), id); err != nil {
+		t.Fatalf("DeleteActivity: %v", err)
+	}
+	if _, err := svc.GetActivity(context.Background(), id); err == nil {
+		t.Fatal("deleted activity should not be visible via GetActivity")
+	}
+	list, total, err := svc.ListActivities(context.Background(), &dto.ListActivityRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 0 || len(list) != 0 {
+		t.Errorf("list after delete = %d items total %d, want 0", len(list), total)
+	}
+}
+
+func TestUpdateActivity_ClearGeo(t *testing.T) {
+	svc, _, _, _, _ := newTestSvc()
+	lat, lng, radius := 31.23, 121.47, 80
+	start := time.Now().Add(time.Hour)
+	resp, err := svc.CreateActivity(context.Background(), uuid.New(), &dto.CreateActivityRequest{
+		Title:           "围栏活动",
+		StartTime:       start,
+		EndTime:         start.Add(time.Hour),
+		Latitude:        &lat,
+		Longitude:       &lng,
+		CheckinRadiusM:  &radius,
+		MaxParticipants: 10,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !resp.GPSEnabled {
+		t.Fatal("expected gps_enabled after create")
+	}
+	id, _ := uuid.Parse(resp.ID)
+	updated, err := svc.UpdateActivity(context.Background(), id, &dto.UpdateActivityRequest{ClearGeo: true})
+	if err != nil {
+		t.Fatalf("ClearGeo: %v", err)
+	}
+	if updated.GPSEnabled || updated.Latitude != nil || updated.Longitude != nil || updated.CheckinRadiusM != nil {
+		t.Errorf("geo should be cleared, got lat=%v lng=%v r=%v enabled=%v",
+			updated.Latitude, updated.Longitude, updated.CheckinRadiusM, updated.GPSEnabled)
+	}
+}
+
+func TestFormatTime_RFC3339(t *testing.T) {
+	ts := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
+	got := formatTime(ts)
+	if got != "2026-09-11T12:00:00Z" {
+		t.Errorf("formatTime = %q, want RFC3339", got)
+	}
+	if _, err := time.Parse(time.RFC3339, got); err != nil {
+		t.Errorf("formatTime output not RFC3339: %v", err)
+	}
+}
+
 func TestDeleteActivity_OngoingForbidden(t *testing.T) {
 	svc, _, _, _, _ := newTestSvc()
 	resp := mustActivity(t, svc, uuid.New(), 50)

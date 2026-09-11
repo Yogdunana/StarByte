@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Button, Card, Input, Result, Space, Spin, message } from 'antd';
 import { checkinActivity, getActivityDetail, getMyRegistration } from '@/api/activity';
 import type { Activity, Registration } from '@/api/activity';
+import { formatDateTime } from '@/utils/format';
 
 const CheckinPage: React.FC = () => {
   const [params] = useSearchParams();
@@ -55,7 +56,7 @@ const CheckinPage: React.FC = () => {
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
           <div>{activity.title}</div>
           <div>地点：{activity.location || '-'}</div>
-          <div>开始：{activity.start_time?.replace('T', ' ').slice(0, 16)}</div>
+          <div>开始：{formatDateTime(activity.start_time, 'YYYY-MM-DD HH:mm')}</div>
           <Input
             placeholder="扫码后自动填入，或粘贴签到令牌"
             value={token}
