@@ -109,9 +109,13 @@ func applyListFilters(
 	viewerID uuid.UUID,
 	scope *rbacModel.DataScopeCondition,
 ) *gorm.DB {
-	if scope != nil && scope.IsSelf {
+	switch {
+	case scope == nil:
+		// Fail closed: a missing scope must never list rows.
+		q = q.Where("1 = 0")
+	case scope.IsSelf:
 		q = q.Where("user_id = ?", viewerID)
-	} else if scope != nil && !scope.IsEmpty() {
+	case !scope.IsEmpty():
 		q = q.Where(scope.Query, scope.Args...)
 	}
 	if req.ReportType != "" {

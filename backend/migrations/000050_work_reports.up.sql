@@ -1,4 +1,5 @@
 -- Work reports for Issue #57.
+-- 000048 is reserved for duty; 000049 is reserved for activity.
 
 CREATE TABLE work_reports (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

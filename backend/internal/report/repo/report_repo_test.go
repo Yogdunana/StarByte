@@ -98,7 +98,7 @@ func TestReportRepoListTimeIntersectionFilter(t *testing.T) {
 		context.Background(),
 		&dto.ListReportRequest{PeriodStart: &from, PeriodEnd: &to},
 		uuid.New(),
-		nil,
+		&rbacModel.DataScopeCondition{},
 	)
 
 	require.NoError(t, err)
@@ -107,6 +107,29 @@ func TestReportRepoListTimeIntersectionFilter(t *testing.T) {
 	assert.Contains(t, queries[0].sql, "period_end >=")
 	assert.Contains(t, queries[0].sql, "period_start <=")
 	assert.Equal(t, []string{from.String(), to.String()}, argumentStrings(queries[0].args))
+}
+
+func TestReportRepoListNilScopeFailClosed(t *testing.T) {
+	from := time.Date(2026, time.September, 1, 0, 0, 0, 0, time.UTC)
+	db, backend := openTestDB(t, countResult(0), emptyReportResult())
+
+	reports, total, err := NewReportRepo(db).List(
+		context.Background(),
+		&dto.ListReportRequest{ReportType: "weekly", PeriodStart: &from},
+		uuid.New(),
+		nil,
+	)
+
+	require.NoError(t, err)
+	assert.Empty(t, reports)
+	assert.Equal(t, int64(0), total)
+	queries := backend.captured(t)
+	require.Len(t, queries, 2)
+	assert.Contains(t, queries[0].sql, "WHERE")
+	assert.Contains(t, queries[0].sql, "1 = 0")
+	assert.Contains(t, queries[0].sql, "report_type =")
+	assert.Contains(t, queries[1].sql, "WHERE")
+	assert.Contains(t, queries[1].sql, "1 = 0")
 }
 
 func TestReportRepoListDataScopes(t *testing.T) {
@@ -133,6 +156,7 @@ func TestReportRepoListDataScopes(t *testing.T) {
 			wantArgs: []string{departmentID.String()},
 		},
 		{name: "deny", scope: &rbacModel.DataScopeCondition{Query: "1 = 0"}, wantSQL: "1 = 0", wantArgs: []string{}},
+		{name: "nil fail-closed", scope: nil, wantSQL: "1 = 0", wantArgs: []string{}},
 	}
 
 	for _, tt := range tests {
