@@ -15,7 +15,17 @@ import (
 )
 
 func (s *activityService) Checkin(ctx context.Context, activityID, userID uuid.UUID, req *dto.CheckinRequest) (*dto.RegistrationResponse, error) {
-	a, err := s.activities.GetByID(ctx, activityID)
+	var out *dto.RegistrationResponse
+	err := s.withTx(ctx, func(tx *activityService) error {
+		resp, err := tx.checkinInTx(ctx, activityID, userID, req)
+		out = resp
+		return err
+	})
+	return out, err
+}
+
+func (s *activityService) checkinInTx(ctx context.Context, activityID, userID uuid.UUID, req *dto.CheckinRequest) (*dto.RegistrationResponse, error) {
+	a, err := s.activities.GetByIDForUpdate(ctx, activityID)
 	if err != nil {
 		return nil, fmt.Errorf("get activity: %w", err)
 	}
@@ -26,7 +36,7 @@ func (s *activityService) Checkin(ctx context.Context, activityID, userID uuid.U
 		return nil, response.NewError(response.CodeActivityInvalidState, "活动不在签到时间")
 	}
 
-	reg, err := s.regs.GetByActivityAndUser(ctx, activityID, userID)
+	reg, err := s.regs.GetByActivityAndUserForUpdate(ctx, activityID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("get registration: %w", err)
 	}
@@ -54,27 +64,26 @@ func (s *activityService) Checkin(ctx context.Context, activityID, userID uuid.U
 	}
 
 	now := s.clock()
-	reg.CheckinStatus = model.CheckinDone
-	reg.CheckedInAt = &now
-	reg.CheckinMethod = &req.Method
+	var lat, lng *float64
 	if req.Method == model.CheckinMethodGPS {
-		lat := *req.Latitude
-		lng := *req.Longitude
-		reg.GPSLatitude = &lat
-		reg.GPSLongitude = &lng
+		lat = req.Latitude
+		lng = req.Longitude
 	}
-
-	if err := s.regs.Update(ctx, reg); err != nil {
+	affected, err := s.regs.MarkCheckedIn(ctx, reg.ID, now, req.Method, lat, lng)
+	if err != nil {
 		return nil, fmt.Errorf("checkin: %w", err)
+	}
+	if affected == 0 {
+		return nil, response.NewError(response.CodeCheckinNotApproved, "报名状态已变更，无法签到")
 	}
 
 	return &dto.RegistrationResponse{
 		ID:            reg.ID.String(),
 		ActivityID:    reg.ActivityID.String(),
 		Status:        reg.Status,
-		CheckinStatus: reg.CheckinStatus,
+		CheckinStatus: model.CheckinDone,
 		CheckedInAt:   formatTime(now),
-		CheckinMethod: reg.CheckinMethod,
+		CheckinMethod: &req.Method,
 		CreatedAt:     formatTime(reg.CreatedAt),
 	}, nil
 }

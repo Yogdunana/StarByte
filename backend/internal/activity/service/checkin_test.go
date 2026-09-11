@@ -275,6 +275,83 @@ func TestCheckin_NotRegistered(t *testing.T) {
 	}
 }
 
+func TestCheckin_AfterCancel_DoesNotRestoreApproved(t *testing.T) {
+	svc, _, rr, _, _ := newTestSvc()
+	resp := mustActivity(t, svc, uuid.New(), 1)
+	activityID, _ := uuid.Parse(resp.ID)
+	user1 := uuid.New()
+	user2 := uuid.New()
+
+	if _, err := svc.Register(context.Background(), activityID, user1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Register(context.Background(), activityID, user2); err != nil {
+		t.Fatal(err)
+	}
+	token := mustIssueToken(t, svc, activityID)
+	if err := svc.CancelRegistration(context.Background(), activityID, user1); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := svc.Checkin(context.Background(), activityID, user1, &dto.CheckinRequest{Method: 1, Token: token})
+	if err == nil {
+		t.Fatal("cancelled user must not check in")
+	}
+	if appErr, ok := err.(*response.AppError); ok && appErr.Code != response.CodeCheckinNotApproved {
+		t.Errorf("code = %d, want %d", appErr.Code, response.CodeCheckinNotApproved)
+	}
+
+	cancelled, err := rr.GetByActivityAndUser(context.Background(), activityID, user1)
+	if err != nil || cancelled == nil {
+		t.Fatalf("cancelled row: %v %v", cancelled, err)
+	}
+	if cancelled.Status != model.RegCancelled {
+		t.Errorf("status = %d, want cancelled", cancelled.Status)
+	}
+	if cancelled.CheckinStatus != model.CheckinPending {
+		t.Errorf("checkin_status = %d, want pending", cancelled.CheckinStatus)
+	}
+
+	promoted, err := rr.GetByActivityAndUser(context.Background(), activityID, user2)
+	if err != nil || promoted == nil {
+		t.Fatalf("promoted row: %v %v", promoted, err)
+	}
+	if promoted.Status != model.RegApproved {
+		t.Errorf("waitlist user status = %d, want approved", promoted.Status)
+	}
+}
+
+func TestMarkCheckedIn_IgnoresCancelledRow(t *testing.T) {
+	svc, _, rr, _, _ := newTestSvc()
+	resp := mustActivity(t, svc, uuid.New(), 10)
+	activityID, _ := uuid.Parse(resp.ID)
+	user := uuid.New()
+	if _, err := svc.Register(context.Background(), activityID, user); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.CancelRegistration(context.Background(), activityID, user); err != nil {
+		t.Fatal(err)
+	}
+	row, err := rr.GetByActivityAndUser(context.Background(), activityID, user)
+	if err != nil || row == nil {
+		t.Fatal(err)
+	}
+	affected, err := rr.MarkCheckedIn(context.Background(), row.ID, time.Now(), model.CheckinMethodQR, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if affected != 0 {
+		t.Errorf("affected = %d, want 0", affected)
+	}
+	saved, _ := rr.GetByActivityAndUser(context.Background(), activityID, user)
+	if saved.Status != model.RegCancelled {
+		t.Errorf("status = %d, want cancelled (stale checkin must not restore approved)", saved.Status)
+	}
+	if saved.CheckinStatus != model.CheckinPending {
+		t.Errorf("checkin_status = %d, want pending", saved.CheckinStatus)
+	}
+}
+
 func TestHaversineNearby(t *testing.T) {
 	d := haversineMeters(31.2304, 121.4737, 31.2304, 121.4737)
 	if d > 1 {

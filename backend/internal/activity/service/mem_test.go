@@ -118,6 +118,30 @@ func (m *memRegs) Update(_ context.Context, r *model.ActivityRegistration) error
 	return nil
 }
 
+func (m *memRegs) MarkCheckedIn(_ context.Context, id uuid.UUID, at time.Time, method int16, lat, lng *float64) (int64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	row, ok := m.items[id]
+	if !ok {
+		return 0, nil
+	}
+	if row.Status != model.RegApproved || row.CheckinStatus != model.CheckinPending {
+		return 0, nil
+	}
+	row.CheckinStatus = model.CheckinDone
+	checked := at
+	row.CheckedInAt = &checked
+	row.CheckinMethod = &method
+	row.UpdatedAt = at
+	if lat != nil && lng != nil {
+		latv, lngv := *lat, *lng
+		row.GPSLatitude = &latv
+		row.GPSLongitude = &lngv
+	}
+	m.updateCount++
+	return 1, nil
+}
+
 func (m *memRegs) GetByID(_ context.Context, id uuid.UUID) (*model.ActivityRegistration, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -140,6 +164,10 @@ func (m *memRegs) GetByActivityAndUser(_ context.Context, activityID, userID uui
 		}
 	}
 	return nil, nil
+}
+
+func (m *memRegs) GetByActivityAndUserForUpdate(ctx context.Context, activityID, userID uuid.UUID) (*model.ActivityRegistration, error) {
+	return m.GetByActivityAndUser(ctx, activityID, userID)
 }
 
 func (m *memRegs) ListByActivity(_ context.Context, activityID uuid.UUID) ([]model.RegistrationNamed, error) {

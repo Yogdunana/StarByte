@@ -2,17 +2,21 @@ package repo
 
 import (
 	"context"
+	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/activity/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type RegistrationRepo interface {
 	Create(ctx context.Context, r *model.ActivityRegistration) error
 	Update(ctx context.Context, r *model.ActivityRegistration) error
+	MarkCheckedIn(ctx context.Context, id uuid.UUID, at time.Time, method int16, lat, lng *float64) (int64, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*model.ActivityRegistration, error)
 	GetByActivityAndUser(ctx context.Context, activityID, userID uuid.UUID) (*model.ActivityRegistration, error)
+	GetByActivityAndUserForUpdate(ctx context.Context, activityID, userID uuid.UUID) (*model.ActivityRegistration, error)
 	ListByActivity(ctx context.Context, activityID uuid.UUID) ([]model.RegistrationNamed, error)
 	CountByActivityAndStatus(ctx context.Context, activityID uuid.UUID, status int16) (int64, error)
 	CountCheckedIn(ctx context.Context, activityID uuid.UUID) (int64, error)
@@ -33,6 +37,23 @@ func (r *registrationRepo) Update(ctx context.Context, reg *model.ActivityRegist
 	return r.db.WithContext(ctx).Save(reg).Error
 }
 
+func (r *registrationRepo) MarkCheckedIn(ctx context.Context, id uuid.UUID, at time.Time, method int16, lat, lng *float64) (int64, error) {
+	updates := map[string]interface{}{
+		"checkin_status": model.CheckinDone,
+		"checked_in_at":  at,
+		"checkin_method": method,
+		"updated_at":     at,
+	}
+	if lat != nil && lng != nil {
+		updates["gps_latitude"] = *lat
+		updates["gps_longitude"] = *lng
+	}
+	res := r.db.WithContext(ctx).Model(&model.ActivityRegistration{}).
+		Where("id = ? AND status = ? AND checkin_status = ?", id, model.RegApproved, model.CheckinPending).
+		Updates(updates)
+	return res.RowsAffected, res.Error
+}
+
 func (r *registrationRepo) GetByID(ctx context.Context, id uuid.UUID) (*model.ActivityRegistration, error) {
 	var reg model.ActivityRegistration
 	err := r.db.WithContext(ctx).Where("id = ?", id).First(&reg).Error
@@ -46,10 +67,20 @@ func (r *registrationRepo) GetByID(ctx context.Context, id uuid.UUID) (*model.Ac
 }
 
 func (r *registrationRepo) GetByActivityAndUser(ctx context.Context, activityID, userID uuid.UUID) (*model.ActivityRegistration, error) {
+	return r.getByActivityAndUser(ctx, activityID, userID, false)
+}
+
+func (r *registrationRepo) GetByActivityAndUserForUpdate(ctx context.Context, activityID, userID uuid.UUID) (*model.ActivityRegistration, error) {
+	return r.getByActivityAndUser(ctx, activityID, userID, true)
+}
+
+func (r *registrationRepo) getByActivityAndUser(ctx context.Context, activityID, userID uuid.UUID, forUpdate bool) (*model.ActivityRegistration, error) {
 	var reg model.ActivityRegistration
-	err := r.db.WithContext(ctx).
-		Where("activity_id = ? AND user_id = ?", activityID, userID).
-		First(&reg).Error
+	q := r.db.WithContext(ctx).Where("activity_id = ? AND user_id = ?", activityID, userID)
+	if forUpdate {
+		q = q.Clauses(clause.Locking{Strength: "UPDATE"})
+	}
+	err := q.First(&reg).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
 	}

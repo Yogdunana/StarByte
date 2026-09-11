@@ -160,7 +160,7 @@ func (s *activityService) cancelInTx(ctx context.Context, activityID, userID uui
 	if err != nil {
 		return nil, fmt.Errorf("get activity: %w", err)
 	}
-	reg, err := s.regs.GetByActivityAndUser(ctx, activityID, userID)
+	reg, err := s.regs.GetByActivityAndUserForUpdate(ctx, activityID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("get registration: %w", err)
 	}
@@ -231,7 +231,7 @@ func (s *activityService) approveInTx(ctx context.Context, activityID, userID uu
 		return nil, nil, response.NewError(response.CodeActivityNotFound, "活动不存在")
 	}
 
-	reg, err := s.regs.GetByActivityAndUser(ctx, activityID, userID)
+	reg, err := s.regs.GetByActivityAndUserForUpdate(ctx, activityID, userID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("get registration: %w", err)
 	}
