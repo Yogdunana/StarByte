@@ -43,11 +43,11 @@ func (s *memberService) Transfer(ctx context.Context, reviewer, id, target uuid.
 	return s.applicationResponse(ctx, id)
 }
 
-func (s *memberService) ApplicationProgress(ctx context.Context, viewer, id uuid.UUID, _ *rbacModel.DataScopeCondition) (*dto.ApplicationProgressResponse, error) {
+func (s *memberService) ApplicationProgress(ctx context.Context, viewer, id uuid.UUID, scope *rbacModel.DataScopeCondition) (*dto.ApplicationProgressResponse, error) {
 	if s.admission == nil {
 		return nil, response.NewError(response.CodeMemberAppInvalid, "当前申请没有流程引擎进度")
 	}
-	return s.admission.ApplicationProgress(ctx, viewer, id)
+	return s.admission.ApplicationProgress(ctx, viewer, id, scope)
 }
 
 func (s *memberService) TransferCandidates(ctx context.Context, viewer, id uuid.UUID, keyword string) ([]dto.TransferCandidate, error) {

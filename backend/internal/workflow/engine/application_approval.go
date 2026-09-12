@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -96,7 +97,7 @@ func (e *FlowEngine) TransferApplicationApproval(ctx context.Context, instanceID
 	if !nodeAllowsTransfer(graph.GetNode(nodeID)) {
 		return response.NewError(response.CodeForbidden, "当前环节不允许转交")
 	}
-	selected, err := e.selectApprovalTask(ctx, instanceID, nodeID, from)
+	selected, err := e.selectExistingApprovalTask(ctx, instanceID, nodeID, from)
 	if err != nil {
 		return err
 	}
@@ -250,29 +251,15 @@ func (e *FlowEngine) currentApprovalNodeID(ctx context.Context, inst *model.Flow
 }
 
 func (e *FlowEngine) selectApprovalTask(ctx context.Context, instanceID uuid.UUID, nodeID string, reviewer uuid.UUID) (*model.FlowTask, error) {
-	tasks, err := e.taskRepo.ListTasksByInstance(ctx, instanceID)
+	own, reference, err := e.findPendingApprovalTasks(ctx, instanceID, nodeID, reviewer)
 	if err != nil {
 		return nil, err
 	}
-	var selected, reference *model.FlowTask
-	for i := range tasks {
-		task := &tasks[i]
-		if task.NodeID != nodeID || task.Status != 0 {
-			continue
-		}
-		reference = task
-		if task.AssigneeID != nil && *task.AssigneeID == reviewer {
-			selected = task
-		}
-	}
-	if reference == nil {
-		return nil, response.NewError(response.CodeConflict, "当前审批环节没有待办")
-	}
-	if selected != nil {
-		return selected, nil
+	if own != nil {
+		return own, nil
 	}
 	now := time.Now()
-	selected = &model.FlowTask{
+	selected := &model.FlowTask{
 		ID: uuid.New(), InstanceID: instanceID, NodeID: nodeID, NodeName: reference.NodeName,
 		TaskType: "approval", ActivationID: reference.ActivationID, AssigneeID: &reviewer,
 		CreatedAt: now, UpdatedAt: now,
@@ -281,4 +268,76 @@ func (e *FlowEngine) selectApprovalTask(ctx context.Context, instanceID uuid.UUI
 		return nil, err
 	}
 	return selected, nil
+}
+
+// selectExistingApprovalTask never mints a parallel vote. Transfer must hand
+// off an already-open task so or-sign / countersign counts stay intact.
+func (e *FlowEngine) selectExistingApprovalTask(ctx context.Context, instanceID uuid.UUID, nodeID string, reviewer uuid.UUID) (*model.FlowTask, error) {
+	own, reference, err := e.findPendingApprovalTasks(ctx, instanceID, nodeID, reviewer)
+	if err != nil {
+		return nil, err
+	}
+	if own != nil {
+		return own, nil
+	}
+	return reference, nil
+}
+
+func (e *FlowEngine) findPendingApprovalTasks(ctx context.Context, instanceID uuid.UUID, nodeID string, reviewer uuid.UUID) (own, reference *model.FlowTask, err error) {
+	tasks, err := e.taskRepo.ListTasksByInstance(ctx, instanceID)
+	if err != nil {
+		return nil, nil, err
+	}
+	for i := range tasks {
+		task := &tasks[i]
+		if task.NodeID != nodeID || task.Status != 0 {
+			continue
+		}
+		if reference == nil {
+			reference = task
+		}
+		if task.AssigneeID != nil && *task.AssigneeID == reviewer {
+			own = task
+		}
+	}
+	if reference == nil {
+		return nil, nil, response.NewError(response.CodeConflict, "当前审批环节没有待办")
+	}
+	return own, reference, nil
+}
+
+// ApprovalRoleCode returns the published roleCode for an approval node,
+// falling back to the default officer/minister/president node IDs.
+func (e *FlowEngine) ApprovalRoleCode(ctx context.Context, instanceID uuid.UUID, nodeID string) (string, error) {
+	inst, err := e.instRepo.GetByID(ctx, instanceID)
+	if err != nil {
+		return "", err
+	}
+	if inst == nil {
+		return "", response.NewError(response.CodeWorkflowInstNotFound, "流程实例不存在")
+	}
+	version, err := e.defRepo.GetVersionByID(ctx, inst.DefinitionVersionID)
+	if err != nil {
+		return "", err
+	}
+	if version == nil {
+		return "", response.NewError(response.CodeWorkflowVerNotFound, "审批流程版本不存在")
+	}
+	graph, err := ParseGraph(version.BpmnData)
+	if err != nil {
+		return "", err
+	}
+	return ResolveApprovalRole(nodeID, approvalRoleCode(graph.GetNode(nodeID))), nil
+}
+
+func ResolveApprovalRole(nodeID, roleCode string) string {
+	if code := strings.TrimSpace(roleCode); code != "" {
+		return code
+	}
+	switch nodeID {
+	case "officer", "minister", "president":
+		return nodeID
+	default:
+		return ""
+	}
 }

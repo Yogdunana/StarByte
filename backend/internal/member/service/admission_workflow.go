@@ -47,6 +47,9 @@ func (s *admissionService) startAdmissionWorkflow(ctx context.Context, tx *gorm.
 	}
 	if completed {
 		applyEngineOutcome(app, actionApprove, nodeID, true, s.now())
+		if err := s.admitFromEngine(ctx, tx, app); err != nil {
+			return nil, err
+		}
 	} else {
 		applyEngineOutcome(app, actionApprove, nodeID, false, s.now())
 	}

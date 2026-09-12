@@ -41,8 +41,15 @@ func admissionAuthority(actor *model.AdmissionActor, app *model.MemberApplicatio
 		return center || president, !center
 	case "president":
 		return president, false
+	default:
+		if hasAdmissionRole(actor, role) {
+			return true, false
+		}
+		if president {
+			return true, true
+		}
+		return false, false
 	}
-	return false, false
 }
 func requiredAdmissionRoles(stage string) []string {
 	switch stage {

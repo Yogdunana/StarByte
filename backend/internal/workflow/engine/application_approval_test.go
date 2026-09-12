@@ -257,6 +257,54 @@ func TestTransferApplicationApprovalGuards(t *testing.T) {
 	require.Error(t, e.TransferApplicationApproval(context.Background(), uuid.New(), from, from, ""))
 }
 
+func TestSelectExistingApprovalTaskDoesNotMint(t *testing.T) {
+	assignee, delegate, applicant := uuid.New(), uuid.New(), uuid.New()
+	tasks := newMockTaskRepo()
+	e, _ := memberApplicationEngine(t, tasks)
+	inst, err := e.Start(context.Background(), MemberApplicationDefinitionKey, uuid.New().String(), "member_application", applicant, map[string]interface{}{
+		"applicant": applicant.String(), "apply_type": int16(2),
+	})
+	require.NoError(t, err)
+	nodeID, _, err := e.RunningApprovalNode(context.Background(), inst.ID)
+	require.NoError(t, err)
+	addApprovalTask(tasks, inst.ID, nodeID, assignee)
+	created := len(tasks.created)
+
+	own, err := e.selectExistingApprovalTask(context.Background(), inst.ID, nodeID, assignee)
+	require.NoError(t, err)
+	require.Equal(t, assignee, *own.AssigneeID)
+	require.Equal(t, created, len(tasks.created))
+
+	handed, err := e.selectExistingApprovalTask(context.Background(), inst.ID, nodeID, delegate)
+	require.NoError(t, err)
+	require.Equal(t, assignee, *handed.AssigneeID)
+	require.Equal(t, own.ID, handed.ID)
+	require.Equal(t, created, len(tasks.created))
+
+	minted, err := e.selectApprovalTask(context.Background(), inst.ID, nodeID, delegate)
+	require.NoError(t, err)
+	require.Equal(t, delegate, *minted.AssigneeID)
+	require.NotEqual(t, own.ID, minted.ID)
+	require.Equal(t, created+1, len(tasks.created))
+}
+
+func TestApprovalRoleCodeFromGraph(t *testing.T) {
+	applicant := uuid.New()
+	e, _ := memberApplicationEngine(t, newMockTaskRepo())
+	inst, err := e.Start(context.Background(), MemberApplicationDefinitionKey, uuid.New().String(), "member_application", applicant, map[string]interface{}{
+		"applicant": applicant.String(), "apply_type": int16(2),
+	})
+	require.NoError(t, err)
+	role, err := e.ApprovalRoleCode(context.Background(), inst.ID, "officer")
+	require.NoError(t, err)
+	require.Equal(t, "officer", role)
+	role, err = e.ApprovalRoleCode(context.Background(), inst.ID, "president")
+	require.NoError(t, err)
+	require.Equal(t, "president", role)
+	require.Equal(t, "hr", ResolveApprovalRole("custom", "hr"))
+	require.Empty(t, ResolveApprovalRole("custom", ""))
+}
+
 func TestApplicationProgressCompleted(t *testing.T) {
 	applicant := uuid.New()
 	tasks := newMockTaskRepo()

@@ -78,8 +78,12 @@ func applyEngineOutcome(app *model.MemberApplication, action, nodeID string, com
 		app.CurrentStage = stageLabel(model.AppApproved)
 		return
 	}
+	next := engineStageLabel(nodeID)
+	if next != "" && app.CurrentStage != next {
+		app.StageEnteredAt = now
+	}
 	app.AdmissionStage = model.AdmissionEngine
-	app.CurrentStage = engineStageLabel(nodeID)
+	app.CurrentStage = next
 	if nodeID == "president" {
 		app.Status = model.AppReviewing
 		if app.CurrentStage == "" {
@@ -97,9 +101,8 @@ func skipMinisterNode(app *model.MemberApplication) bool {
 	return app != nil && app.DepartmentID == nil
 }
 
-func engineReviewPermission(actor *model.AdmissionActor, app *model.MemberApplication, parent *uuid.UUID, nodeID, comment string, now time.Time) error {
-	role := engineNodeRole(nodeID)
-	if role == "" {
+func engineReviewPermission(actor *model.AdmissionActor, app *model.MemberApplication, parent *uuid.UUID, role, comment string, now time.Time) error {
+	if strings.TrimSpace(role) == "" {
 		return admissionDenied("当前环节不可审批")
 	}
 	allowed, delegated := admissionAuthority(actor, app, parent, role)
@@ -114,16 +117,7 @@ func engineReviewPermission(actor *model.AdmissionActor, app *model.MemberApplic
 }
 
 func engineNodeRole(nodeID string) string {
-	switch nodeID {
-	case "officer":
-		return "officer"
-	case "minister":
-		return "minister"
-	case "president":
-		return "president"
-	default:
-		return ""
-	}
+	return engine.ResolveApprovalRole(nodeID, "")
 }
 
 func (s *admissionService) tryEngineReview(ctx context.Context, viewer, id uuid.UUID, action, comment string, required []string) (bool, error) {
@@ -189,7 +183,11 @@ func (s *admissionService) runEngineReview(
 	if completed {
 		return nil, response.NewError(response.CodeConflict, "入会流程已结束")
 	}
-	if err := engineReviewPermission(actor, app, parent, nodeID, comment, s.now()); err != nil {
+	role, err := flow.ApprovalRoleCode(ctx, *app.FlowInstanceID, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	if err := engineReviewPermission(actor, app, parent, role, comment, s.now()); err != nil {
 		return nil, err
 	}
 	from := app.Status

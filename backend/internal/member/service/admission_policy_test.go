@@ -26,6 +26,9 @@ func TestAdmissionAuthority(t *testing.T) {
 		{"president delegation", "minister", model.AdmissionActor{ID: uuid.New(), Roles: []string{"president"}}, true, true},
 		{"department officer", "officer", model.AdmissionActor{ID: uuid.New(), DepartmentID: &dept, Roles: []string{"officer"}}, true, false},
 		{"unrelated officer", "officer", model.AdmissionActor{ID: uuid.New(), DepartmentID: &center, Roles: []string{"officer"}}, false, true},
+		{"custom role holder", "hr", model.AdmissionActor{ID: uuid.New(), Roles: []string{"hr"}}, true, false},
+		{"custom role outsider", "hr", model.AdmissionActor{ID: uuid.New(), DepartmentID: &dept, Roles: []string{"officer"}}, false, false},
+		{"president delegates custom", "hr", model.AdmissionActor{ID: uuid.New(), Roles: []string{"president"}}, true, true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

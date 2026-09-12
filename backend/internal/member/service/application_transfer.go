@@ -10,6 +10,7 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/member/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/member/model"
 	"github.com/Yogdunana/StarByte/backend/internal/member/repo"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	wfmodel "github.com/Yogdunana/StarByte/backend/internal/workflow/model"
 	wfrepo "github.com/Yogdunana/StarByte/backend/internal/workflow/repo"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
@@ -64,7 +65,11 @@ func (s *admissionService) runEngineTransfer(
 	if completed {
 		return nil, response.NewError(response.CodeConflict, "入会流程已结束")
 	}
-	if err := engineReviewPermission(actor, app, parent, nodeID, comment, s.now()); err != nil {
+	role, err := flow.ApprovalRoleCode(ctx, *app.FlowInstanceID, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	if err := engineReviewPermission(actor, app, parent, role, comment, s.now()); err != nil {
 		return nil, err
 	}
 	if err := flow.TransferApplicationApproval(ctx, *app.FlowInstanceID, viewer, target, comment); err != nil {
@@ -84,7 +89,7 @@ func (s *admissionService) runEngineTransfer(
 	return deliver, nil
 }
 
-func (s *admissionService) ApplicationProgress(ctx context.Context, viewer, id uuid.UUID) (*dto.ApplicationProgressResponse, error) {
+func (s *admissionService) ApplicationProgress(ctx context.Context, viewer, id uuid.UUID, scope *rbacModel.DataScopeCondition) (*dto.ApplicationProgressResponse, error) {
 	if s.flow == nil {
 		return nil, response.NewError(response.CodeBadRequest, "入会流程引擎未配置")
 	}
@@ -96,7 +101,7 @@ func (s *admissionService) ApplicationProgress(ctx context.Context, viewer, id u
 	if app == nil {
 		return nil, response.NewError(response.CodeMemberAppNotFound, "申请不存在")
 	}
-	if err := s.canViewEngineProgress(ctx, store, app, viewer); err != nil {
+	if err := s.canViewEngineProgress(ctx, store, app, viewer, scope); err != nil {
 		return nil, err
 	}
 	ok, err := s.isEngineChain(ctx, store, app)
@@ -151,7 +156,11 @@ func (s *admissionService) TransferCandidates(ctx context.Context, viewer, id uu
 	if completed {
 		return nil, response.NewError(response.CodeConflict, "入会流程已结束")
 	}
-	if err := engineReviewPermission(actor, app, parent, nodeID, "", s.now()); err != nil {
+	role, err := s.flow.ApprovalRoleCode(ctx, *app.FlowInstanceID, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	if err := engineReviewPermission(actor, app, parent, role, "", s.now()); err != nil {
 		return nil, err
 	}
 	rows, err := wfrepo.NewApproverRepo(s.db).Search(ctx, keyword, viewer)
@@ -165,8 +174,11 @@ func (s *admissionService) TransferCandidates(ctx context.Context, viewer, id uu
 	return out, nil
 }
 
-func (s *admissionService) canViewEngineProgress(ctx context.Context, store repo.AdmissionRepo, app *model.MemberApplication, viewer uuid.UUID) error {
+func (s *admissionService) canViewEngineProgress(ctx context.Context, store repo.AdmissionRepo, app *model.MemberApplication, viewer uuid.UUID, scope *rbacModel.DataScopeCondition) error {
 	if app.UserID == viewer {
+		return nil
+	}
+	if canAccessRecord(scope, app.UserID, app.DepartmentID, viewer) {
 		return nil
 	}
 	actor, err := store.Actor(ctx, viewer)
@@ -176,7 +188,20 @@ func (s *admissionService) canViewEngineProgress(ctx context.Context, store repo
 	if actor == nil || len(actor.Roles) == 0 {
 		return admissionDenied("无权查看该申请审批进度")
 	}
-	return nil
+	var parent *uuid.UUID
+	if app.DepartmentID != nil {
+		parent, err = store.ParentDepartment(ctx, *app.DepartmentID)
+		if err != nil {
+			return err
+		}
+	}
+	roles := append([]string{"officer", "minister", "president"}, actor.Roles...)
+	for _, role := range roles {
+		if allowed, _ := admissionAuthority(actor, app, parent, role); allowed {
+			return nil
+		}
+	}
+	return admissionDenied("无权查看该申请审批进度")
 }
 
 func mapTransferCandidate(row wfmodel.ApproverOption) dto.TransferCandidate {

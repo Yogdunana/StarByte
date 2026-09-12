@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/Yogdunana/StarByte/backend/internal/member/model"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/engine"
 	wfmodel "github.com/Yogdunana/StarByte/backend/internal/workflow/model"
 )
@@ -64,6 +65,19 @@ func TestApplyEngineOutcome(t *testing.T) {
 		applyEngineOutcome(app, actionSupplement, "minister", false, now)
 		require.Equal(t, model.AppSupplement, app.Status)
 	})
+	t.Run("stage clock resets on new node", func(t *testing.T) {
+		started := now.Add(-25 * time.Hour)
+		app := &model.MemberApplication{Status: model.AppPending, CurrentStage: engineStageOfficer, StageEnteredAt: started}
+		applyEngineOutcome(app, actionApprove, "minister", false, now)
+		require.Equal(t, engineStageMinister, app.CurrentStage)
+		require.Equal(t, now, app.StageEnteredAt)
+	})
+	t.Run("stage clock stays on same node", func(t *testing.T) {
+		started := now.Add(-2 * time.Hour)
+		app := &model.MemberApplication{Status: model.AppPending, CurrentStage: engineStageMinister, StageEnteredAt: started}
+		applyEngineOutcome(app, actionApprove, "minister", false, now)
+		require.Equal(t, started, app.StageEnteredAt)
+	})
 }
 
 func TestEngineNodeRole(t *testing.T) {
@@ -71,6 +85,9 @@ func TestEngineNodeRole(t *testing.T) {
 	require.Equal(t, "minister", engineNodeRole("minister"))
 	require.Equal(t, "president", engineNodeRole("president"))
 	require.Empty(t, engineNodeRole("start"))
+	require.Equal(t, "hr", engine.ResolveApprovalRole("custom_hr", "hr"))
+	require.Equal(t, "minister", engine.ResolveApprovalRole("extra", "minister"))
+	require.Empty(t, engine.ResolveApprovalRole("custom_hr", ""))
 }
 
 func TestEngineStageLabel(t *testing.T) {
@@ -108,7 +125,7 @@ func TestAdmissionEngineMethodsRequireFlow(t *testing.T) {
 	s := &admissionService{}
 	ctx := context.Background()
 	require.Error(t, s.TransferReview(ctx, uuid.New(), uuid.New(), uuid.New(), ""))
-	_, err := s.ApplicationProgress(ctx, uuid.New(), uuid.New())
+	_, err := s.ApplicationProgress(ctx, uuid.New(), uuid.New(), nil)
 	require.Error(t, err)
 	_, err = s.TransferCandidates(ctx, uuid.New(), uuid.New(), "")
 	require.Error(t, err)
@@ -116,11 +133,16 @@ func TestAdmissionEngineMethodsRequireFlow(t *testing.T) {
 
 func TestCanViewEngineProgress(t *testing.T) {
 	s := &admissionService{}
-	applicant := uuid.New()
-	app := &model.MemberApplication{UserID: applicant}
-	require.NoError(t, s.canViewEngineProgress(context.Background(), stubAdmissionView{actor: nil}, app, applicant))
-	require.Error(t, s.canViewEngineProgress(context.Background(), stubAdmissionView{}, app, uuid.New()))
-	require.NoError(t, s.canViewEngineProgress(context.Background(), stubAdmissionView{actor: &model.AdmissionActor{Roles: []string{"minister"}}}, app, uuid.New()))
+	applicant, dept, otherDept := uuid.New(), uuid.New(), uuid.New()
+	app := &model.MemberApplication{UserID: applicant, DepartmentID: &dept}
+	ctx := context.Background()
+	require.NoError(t, s.canViewEngineProgress(ctx, stubAdmissionView{}, app, applicant, nil))
+	require.Error(t, s.canViewEngineProgress(ctx, stubAdmissionView{}, app, uuid.New(), nil))
+	unrelated := uuid.New()
+	require.Error(t, s.canViewEngineProgress(ctx, stubAdmissionView{actor: &model.AdmissionActor{ID: unrelated, DepartmentID: &otherDept, Roles: []string{"minister"}}}, app, unrelated, nil))
+	minister := uuid.New()
+	require.NoError(t, s.canViewEngineProgress(ctx, stubAdmissionView{actor: &model.AdmissionActor{ID: minister, DepartmentID: &dept, Roles: []string{"minister"}}}, app, minister, nil))
+	require.NoError(t, s.canViewEngineProgress(ctx, stubAdmissionView{}, app, uuid.New(), &rbacModel.DataScopeCondition{}))
 }
 
 func TestMemberServiceEngineWrappersRequireAdmission(t *testing.T) {
@@ -160,10 +182,17 @@ func TestEngineReviewPermissionKeepsDelegation(t *testing.T) {
 	require.Error(t, engineReviewPermission(president, app, &center, "minister", "代签", now))
 	require.Error(t, engineReviewPermission(other, app, &center, "minister", "", now))
 	require.NoError(t, engineReviewPermission(president, app, &center, "president", "", now))
+	require.Error(t, engineReviewPermission(officer, app, &center, "", "", now))
+
+	hr := &model.AdmissionActor{ID: uuid.New(), Roles: []string{"hr"}}
+	require.NoError(t, engineReviewPermission(hr, app, &center, "hr", "", now))
+	require.Error(t, engineReviewPermission(officer, app, &center, "hr", "", now))
+	require.Error(t, engineReviewPermission(president, app, &center, "hr", "代签", now))
 
 	later := now.Add(25 * time.Hour)
 	require.NoError(t, engineReviewPermission(president, app, &center, "minister", "超时代签", later))
 	require.Error(t, engineReviewPermission(president, app, &center, "minister", "", later))
+	require.NoError(t, engineReviewPermission(president, app, &center, "hr", "超时代签", later))
 }
 
 func TestEngineChainUsesDefaultDefinition(t *testing.T) {
