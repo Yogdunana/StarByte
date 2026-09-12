@@ -30,6 +30,7 @@ import {
 import routes, { AppRouteObject, RouteMeta } from '@/router/routes';
 import { selectCollapsed } from '@/store/slices/appSlice';
 import { selectPermissions } from '@/store/slices/userSlice';
+import { useFeatureFlags } from '@/hooks/useFeature';
 import { useTranslation } from 'react-i18next';
 
 export type MenuItem = NonNullable<MenuProps['items']>[number];
@@ -76,20 +77,22 @@ const iconMap: Record<string, React.FC> = {
   CloudServerOutlined,
 };
 
-function hasMenuPermission(permissions: string[], meta?: RouteMeta): boolean {
+function hasMenuPermission(permissions: string[], meta?: RouteMeta, flags?: Record<string, boolean>): boolean {
+  if (meta?.featureFlag && !flags?.[meta.featureFlag]) return false;
   if (permissions.includes('*')) return true;
   if (!meta?.permission) return true;
   return permissions.includes(meta.permission);
 }
 
-function hasVisibleChildren(route: AppRouteObject, permissions: string[]): boolean {
+function hasVisibleChildren(route: AppRouteObject, permissions: string[], flags?: Record<string, boolean>): boolean {
+  if (route.meta?.featureFlag && !flags?.[route.meta.featureFlag]) return false;
   if (!route.children || route.children.length === 0) return false;
   return route.children.some((child) => {
     if (child.meta?.hidden) return false;
     if (child.children && child.children.length > 0) {
-      return hasVisibleChildren(child, permissions);
+      return hasVisibleChildren(child, permissions, flags);
     }
-    return hasMenuPermission(permissions, child.meta);
+    return hasMenuPermission(permissions, child.meta, flags);
   });
 }
 
@@ -98,14 +101,15 @@ function buildMenuNodes(
   permissions: string[],
   parentPath: string,
   labelOf: (path: string, fallback: string) => string,
+  flags?: Record<string, boolean>,
 ): MenuNode[] {
   return routeList
     .filter((route) => !route.meta?.hidden && route.path && route.path !== '*')
     .filter((route) => {
       if (route.children && route.children.length > 0) {
-        return hasVisibleChildren(route, permissions);
+        return hasVisibleChildren(route, permissions, flags);
       }
-      return hasMenuPermission(permissions, route.meta);
+      return hasMenuPermission(permissions, route.meta, flags);
     })
     .map((route) => {
       const fullPath = route.path!.startsWith('/')
@@ -123,6 +127,7 @@ function buildMenuNodes(
           permissions,
           fullPath,
           labelOf,
+          flags,
         );
         if (childItems.length > 0) {
           node.children = childItems;
@@ -174,6 +179,7 @@ export function useMenu(): UseMenuResult {
   const location = useLocation();
   const collapsed = useSelector(selectCollapsed);
   const permissions = useSelector(selectPermissions);
+  const { flags } = useFeatureFlags();
   const { t } = useTranslation();
   const [searchKeyword, setSearchKeyword] = useState('');
   const [openKeys, setOpenKeys] = useState<string[]>([]);
@@ -184,9 +190,9 @@ export function useMenu(): UseMenuResult {
     );
     const labelOf = (path: string, fallback: string) => t(`menu.${path}`, { defaultValue: fallback });
     return layoutRoute?.children
-      ? buildMenuNodes(layoutRoute.children, permissions, '', labelOf)
+      ? buildMenuNodes(layoutRoute.children, permissions, '', labelOf, flags)
       : [];
-  }, [permissions, t]);
+  }, [permissions, flags, t]);
 
   const visibleNodes = useMemo(
     () => filterMenuNodes(allNodes, searchKeyword),

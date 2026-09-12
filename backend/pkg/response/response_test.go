@@ -453,6 +453,14 @@ func TestModuleRanges(t *testing.T) {
 	assert.Equal(t, 33001, CodeKnowledgeNotFound)
 	assert.Equal(t, 33004, CodeKnowledgeLoginRequired)
 	assert.True(t, r[0] > ModuleRanges["backup"][1], "knowledge must not collide with backup 32000-32999")
+
+	r, ok = ModuleRanges["feature"]
+	assert.True(t, ok)
+	assert.Equal(t, 34000, r[0])
+	assert.Equal(t, 34999, r[1])
+	assert.Equal(t, 34001, CodeFeatureNotFound)
+	assert.Equal(t, 34007, CodeFeatureDisabled)
+	assert.True(t, r[0] > ModuleRanges["knowledge"][1], "feature must not collide with knowledge 33000-33999")
 }
 
 // ========== TranslateGORMError tests ==========

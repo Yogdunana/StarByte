@@ -15,17 +15,20 @@ interface WorkspaceState {
 }
 const initial: WorkspaceState = { approvals: [], approvalTotal: null, tasks: [], taskTotal: null, interviews: [], applications: [], announcements: [], overview: null, loading: true, failed: [] };
 
-export function useWorkspace(canReadStats: boolean) {
+export function useWorkspace(canReadStats: boolean, includeAnnouncements = true, flagsReady = true) {
   const [state, setState] = useState<WorkspaceState>(initial);
   const sequence = useRef(0);
   const reload = useCallback(async () => {
+    if (!flagsReady) {
+      return;
+    }
     const current = ++sequence.current;
     setState(previous => ({ ...previous, loading: true, failed: [], overview: canReadStats ? previous.overview : null }));
     const [tasks, interviews, applications, overview, approvals, announcements] = await Promise.allSettled([
       getMyTodo({ page: 1, page_size: 5 }), getMyInterviews(), getMyApplications(),
       canReadStats ? getStatsOverview() : Promise.resolve(null),
       listWorkflowTasks('todo'),
-      getAnnouncementList({ page: 1, page_size: 5, status: 1 }),
+      includeAnnouncements ? getAnnouncementList({ page: 1, page_size: 5, status: 1 }) : Promise.resolve({ list: [], total: 0, page: 1, page_size: 5 }),
     ]);
     if (current !== sequence.current) return;
     const failed: string[] = [];
@@ -45,7 +48,7 @@ export function useWorkspace(canReadStats: boolean) {
       overview: overview.status === 'fulfilled' ? overview.value : null,
       loading: false, failed,
     });
-  }, [canReadStats]);
+  }, [canReadStats, includeAnnouncements, flagsReady]);
   useEffect(() => { void reload(); return () => { sequence.current += 1; }; }, [reload]);
   return { ...state, reload };
 }

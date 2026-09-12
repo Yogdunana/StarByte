@@ -37,7 +37,8 @@ package response
 //	30000-30999 Leave (#56)
 //	31000-31999 Monitor / ops dashboard (#87)
 //	32000-32999 Backup / restore (#88)
-//	33000-33999 Knowledge / CMS (#58)
+//	33000-33999 Knowledge / public CMS (#58 / #180)
+//	34000-34999 Feature flags / grayscale (#98)
 //
 //	Note: issue #71 asked for 9000-9499, but that range is already owned by
 //	the task module (9000-9999). Export therefore uses 17000-17999 (after
@@ -351,6 +352,16 @@ const (
 	CodeKnowledgeInvalidSlug   = 33005 // 文档 slug 不合法
 	CodeKnowledgeConflict      = 33006 // 文档 slug 已存在
 	CodeKnowledgeInvalidVis    = 33007 // 文档可见性不合法
+
+	// ===== Feature flags / grayscale (#98, 34000-34999) =====
+	// 33000-33999 is owned by knowledge/CMS (#180).
+	CodeFeatureNotFound    = 34001 // 特性开关不存在
+	CodeFeatureKeyExists   = 34002 // 开关键已存在
+	CodeFeatureInvalidType = 34003 // 不支持的开关类型
+	CodeFeatureInvalidKey  = 34004 // 开关键格式不合法
+	CodeFeatureInvalidRule = 34005 // 灰度规则不合法
+	CodeFeatureProtected   = 34006 // 系统预置开关不可删除
+	CodeFeatureDisabled    = 34007 // 当前用户未命中灰度
 )
 
 // ModuleRanges maps each module name to its error-code range [min, max].
@@ -389,4 +400,5 @@ var ModuleRanges = map[string][2]int{
 	"monitor":      {31000, 31999},
 	"backup":       {32000, 32999},
 	"knowledge":    {33000, 33999},
+	"feature":      {34000, 34999},
 }

@@ -19,10 +19,14 @@ func withPermission(group *gin.RouterGroup, permCode string, cache rbacService.P
 }
 
 // RegisterRoutes 注册 /api/v1/announcements。静态路径须在 /:id 之前。
-func RegisterRoutes(r *gin.RouterGroup, h *Handler, cache rbacService.PermissionCacheService) {
+// feedGate 用于成员侧公告信息流灰度；写权限用户可绕过。
+func RegisterRoutes(r *gin.RouterGroup, h *Handler, cache rbacService.PermissionCacheService, feedGate ...gin.HandlerFunc) {
 	g := r.Group("/announcements")
 
 	read := withPermission(g, "announcement:read", cache)
+	if len(feedGate) > 0 && feedGate[0] != nil {
+		read.Use(feedGate[0])
+	}
 	read.GET("", h.List)
 	read.GET("/unread-count", h.UnreadCount)
 	read.GET("/:id", h.Get)

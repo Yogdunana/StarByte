@@ -269,6 +269,7 @@
     "/member": "会员管理",
     "/member/application": "入会申请",
     "/member/list": "会员档案",
+    "/member/portal": "会员门户",
     "/interview": "面试管理",
     "/interview/list": "面试安排",
     "/interview/score": "面试评分",
@@ -318,6 +319,7 @@
     "/system/cache": "缓存管理",
     "/system/scheduler": "定时任务",
     "/system/search": "统一搜索",
+    "/system/features": "特性开关",
     "/monitor": "运维监控",
     "/backup": "数据备份",
     "/knowledge": "知识库"
@@ -741,6 +743,59 @@
         "acceptance": "验收",
         "completed": "完成"
       }
+    }
+  },
+  "feature": {
+    "gated": "该功能正在小范围灰度，尚未对你开放。",
+    "intro": "招新前灰度：改开关后通过 Redis 热更新，无需重启。登录与 CAS 不受影响。",
+    "search": "搜索开关键或名称",
+    "create": "新建开关",
+    "created": "已创建",
+    "edit": "编辑开关",
+    "list": "开关列表",
+    "audit": "操作审计",
+    "key": "开关键",
+    "name": "名称",
+    "description": "描述",
+    "type": "类型",
+    "enabled": "启用",
+    "group": "分组",
+    "priority": "优先级",
+    "userIds": "用户白名单（每行一个 UUID）",
+    "roleCodes": "角色编码",
+    "deptIds": "部门 ID",
+    "percent": "百分比 0-100",
+    "salt": "分流盐值",
+    "toggled": "已切换",
+    "evaluate": "评估",
+    "evalUser": "用户 ID（可空，默认自己）",
+    "action": "动作",
+    "reason": "原因",
+    "time": "时间",
+    "types": {
+      "boolean": "布尔",
+      "user_allowlist": "用户名单",
+      "role_dept": "角色/部门",
+      "percentage": "百分比"
+    }
+  },
+  "cms": {
+    "title": "公开内容",
+    "intro": "cms.public 控制 /about-us、/docs 与公开文档 API，不拦登录和知识库编辑。",
+    "empty": "该公开页尚未对你开放"
+  },
+  "portal": {
+    "title": "会员门户",
+    "intro": "新会员门户（灰度）。入会申请入口保持可用，不受此开关影响。",
+    "goApply": "前往入会申请",
+    "empty": "还没有申请记录",
+    "status": {
+      "0": "待初审",
+      "1": "审核中",
+      "2": "面试中",
+      "3": "已通过",
+      "4": "未通过",
+      "5": "待补材料"
     }
   }
 }

@@ -51,6 +51,25 @@ describe('workspace data', () => {
     expect(result.current.approvalTotal).toBe(0);
     expect(result.current.failed).toEqual([]);
   });
+  it('does not request workspace data until feature flags are ready', async () => {
+    const { result, rerender } = renderHook(
+      ({ ready, include }: { ready: boolean; include: boolean }) => useWorkspace(false, include, ready),
+      { initialProps: { ready: false, include: false } },
+    );
+    expect(getMyTodo).not.toHaveBeenCalled();
+    expect(getAnnouncementList).not.toHaveBeenCalled();
+    expect(result.current.loading).toBe(true);
+    rerender({ ready: true, include: true });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(getMyTodo).toHaveBeenCalledTimes(1);
+    expect(getAnnouncementList).toHaveBeenCalledTimes(1);
+  });
+  it('skips announcement feed when grayscale is off', async () => {
+    const { result } = renderHook(() => useWorkspace(false, false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(getAnnouncementList).not.toHaveBeenCalled();
+    expect(result.current.announcements).toEqual([]);
+  });
   it('loads homepage announcement feed without blocking workspace', async () => {
     vi.mocked(getAnnouncementList).mockResolvedValueOnce({
       list: [{ id: 'a1', title: '周报', pinned: true } as never],

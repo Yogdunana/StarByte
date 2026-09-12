@@ -10,6 +10,7 @@ import { selectUnreadCount } from '@/store/slices/notificationSlice';
 import { motion } from 'motion/react';
 import { fadeUp, staggerEnter } from '@/motion/tokens';
 import { formatDateTime } from '@/utils/format';
+import { useFeature } from '@/hooks/useFeature';
 import { useWorkspace } from './useWorkspace';
 import styles from './Dashboard.module.css';
 
@@ -22,7 +23,8 @@ export default function Dashboard() {
   const canReadStats = usePermission('stats:read');
   const canReadFiles = usePermission('file:read');
   const canReadTasks = usePermission('task:read');
-  const { tasks, taskTotal, approvals, approvalTotal, interviews, applications, announcements, overview, loading, failed, reload } = useWorkspace(canReadStats);
+  const announcementFeed = useFeature('announcement.feed');
+  const { tasks, taskTotal, approvals, approvalTotal, interviews, applications, announcements, overview, loading, failed, reload } = useWorkspace(canReadStats, announcementFeed.enabled, !announcementFeed.loading);
   const locale = i18n.language === 'en-US' ? 'en-US' : 'zh-CN';
   const date = new Intl.DateTimeFormat(locale, { month: 'long', day: 'numeric', weekday: 'long' }).format(new Date());
   const name = user?.real_name || user?.username || t('dashboard.classmate');
@@ -149,6 +151,7 @@ export default function Dashboard() {
           </Card>
         </motion.section>
         <motion.aside className={styles.aside} variants={fadeUp}>
+          {announcementFeed.enabled && (
           <section className={styles.feed} aria-labelledby="announcement-feed-title">
             <span className={styles.eyebrow}>{t('dashboard.feedEyebrow')}</span>
             <h2 id="announcement-feed-title">{t('dashboard.feedTitle')}</h2>
@@ -162,6 +165,7 @@ export default function Dashboard() {
             ))}
             <Link to="/announcement/list">{t('dashboard.feedAll')} <ArrowRightOutlined /></Link>
           </section>
+          )}
           <section className={styles.quickAccess}>
             <span className={styles.eyebrow}>{t('dashboard.shortcutsEyebrow')}</span>
             <h2>{t('dashboard.shortcutsTitle')}</h2>
@@ -169,7 +173,7 @@ export default function Dashboard() {
               <Link to="/member/application"><FileTextOutlined /><span>{t('dashboard.shortcutApply')}</span><ArrowRightOutlined /></Link>
               <Link to="/interview/my"><ScheduleOutlined /><span>{t('dashboard.shortcutInterview')}</span><ArrowRightOutlined /></Link>
               <Link to="/internship/my"><TeamOutlined /><span>{t('dashboard.shortcutInternship')}</span><ArrowRightOutlined /></Link>
-              <Link to="/announcement/list"><NotificationOutlined /><span>{t('dashboard.shortcutAnnounce')}</span><ArrowRightOutlined /></Link>
+              {announcementFeed.enabled && <Link to="/announcement/list"><NotificationOutlined /><span>{t('dashboard.shortcutAnnounce')}</span><ArrowRightOutlined /></Link>}
               {canReadTasks && <Link to="/task/board"><CheckOutlined /><span>{t('dashboard.shortcutBoard')}</span><ArrowRightOutlined /></Link>}
               {canReadFiles && <Link to="/files"><FolderOutlined /><span>{t('dashboard.shortcutFiles')}</span><ArrowRightOutlined /></Link>}
             </div>
