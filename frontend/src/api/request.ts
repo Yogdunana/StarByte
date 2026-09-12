@@ -121,11 +121,7 @@ request.interceptors.response.use(
 
     const originalRequest = error.config as InternalAxiosRequestConfig;
 
-    if (error.response?.status === 401 && originalRequest?.skipAuthRedirect) {
-      return Promise.reject(error);
-    }
-
-    // 处理 401 Token 过期
+    // 处理 401 Token 过期。skipAuthRedirect 只跳过硬跳转，仍尝试刷新后重试。
     if (error.response?.status === 401) {
       if (!isRefreshing) {
         isRefreshing = true;
@@ -153,10 +149,12 @@ request.interceptors.response.use(
           originalRequest.headers.Authorization = `Bearer ${access_token}`;
           return request(originalRequest);
         } catch (refreshError) {
-          // 刷新失败，跳转到登录页
+          // 刷新失败：公开接口不硬跳转，由页面自行处理匿名 401
           removeToken();
-          message.error('登录已过期，请重新登录');
-          window.location.href = loginPath(window.location.pathname + window.location.search);
+          if (!originalRequest?.skipAuthRedirect) {
+            message.error('登录已过期，请重新登录');
+            window.location.href = loginPath(window.location.pathname + window.location.search);
+          }
           return Promise.reject(refreshError);
         } finally {
           isRefreshing = false;

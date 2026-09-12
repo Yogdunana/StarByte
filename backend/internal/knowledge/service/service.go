@@ -247,6 +247,13 @@ func (s *knowledgeService) UpdateCategory(ctx context.Context, viewer Viewer, id
 		if parent == nil {
 			return nil, categoryNotFound()
 		}
+		cycle, err := s.parentWouldCycle(ctx, id, pid)
+		if err != nil {
+			return nil, err
+		}
+		if cycle {
+			return nil, response.NewError(response.CodeBadRequest, "无效的父分类")
+		}
 		c.ParentID = &pid
 	}
 	c.UpdatedAt = s.clock()
@@ -274,7 +281,46 @@ func (s *knowledgeService) DeleteCategory(ctx context.Context, viewer Viewer, id
 	if n > 0 {
 		return invalidState("分类下仍有文档，无法删除")
 	}
+	hasChild, err := s.hasChildCategories(ctx, id)
+	if err != nil {
+		return err
+	}
+	if hasChild {
+		return invalidState("分类下仍有子分类，无法删除")
+	}
 	return s.rows.DeleteCategory(ctx, id)
+}
+
+func (s *knowledgeService) hasChildCategories(ctx context.Context, id uuid.UUID) (bool, error) {
+	rows, err := s.rows.ListCategories(ctx)
+	if err != nil {
+		return false, err
+	}
+	for i := range rows {
+		if rows[i].ParentID != nil && *rows[i].ParentID == id {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (s *knowledgeService) parentWouldCycle(ctx context.Context, id, parentID uuid.UUID) (bool, error) {
+	seen := map[uuid.UUID]struct{}{id: {}}
+	cur := parentID
+	for {
+		if _, ok := seen[cur]; ok {
+			return true, nil
+		}
+		seen[cur] = struct{}{}
+		cat, err := s.rows.GetCategory(ctx, cur)
+		if err != nil {
+			return false, err
+		}
+		if cat == nil || cat.ParentID == nil {
+			return false, nil
+		}
+		cur = *cat.ParentID
+	}
 }
 
 func (s *knowledgeService) ListCategories(ctx context.Context) ([]*dto.CategoryResponse, error) {
@@ -449,19 +495,32 @@ func (s *knowledgeService) Update(ctx context.Context, viewer Viewer, id uuid.UU
 		if !model.ValidVisibility(*req.Visibility) {
 			return nil, invalidVis()
 		}
-		d.Visibility = *req.Visibility
-		changed = true
+		if *req.Visibility != d.Visibility {
+			if d.Status == model.StatusPublished && !viewer.CanPublish {
+				return nil, noAccess("已发布文档的可见性需发布权限")
+			}
+			d.Visibility = *req.Visibility
+			changed = true
+		}
 	}
 	if req.PermissionCode != nil {
-		d.PermissionCode = strings.TrimSpace(*req.PermissionCode)
-		changed = true
+		code := strings.TrimSpace(*req.PermissionCode)
+		if code != d.PermissionCode {
+			if d.Status == model.StatusPublished && !viewer.CanPublish {
+				return nil, noAccess("已发布文档的阅读权限需发布权限")
+			}
+			d.PermissionCode = code
+			changed = true
+		}
 	}
 	if d.Visibility == model.VisibilityPermission && d.PermissionCode == "" {
 		return nil, response.NewError(response.CodeBadRequest, "权限可见性必须填写权限码")
 	}
 	if req.ClearCategory {
-		d.CategoryID = nil
-		changed = true
+		if d.CategoryID != nil {
+			d.CategoryID = nil
+			changed = true
+		}
 	} else if req.CategoryID != nil && strings.TrimSpace(*req.CategoryID) != "" {
 		cid, err := uuid.Parse(strings.TrimSpace(*req.CategoryID))
 		if err != nil {
@@ -474,8 +533,10 @@ func (s *knowledgeService) Update(ctx context.Context, viewer Viewer, id uuid.UU
 		if cat == nil {
 			return nil, categoryNotFound()
 		}
-		d.CategoryID = &cid
-		changed = true
+		if d.CategoryID == nil || *d.CategoryID != cid {
+			d.CategoryID = &cid
+			changed = true
+		}
 	}
 	if !changed {
 		return s.respond(ctx, d.ID, true)

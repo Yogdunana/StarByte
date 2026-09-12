@@ -356,6 +356,87 @@ func TestUpdateDocAndCategoryTree(t *testing.T) {
 	}
 }
 
+func TestUpdateUnchangedMetadataDoesNotBumpVersion(t *testing.T) {
+	svc, mem := newTestSvc()
+	author := uuid.New()
+	mem.addUser(author, "a")
+	cat, err := svc.CreateCategory(context.Background(), editor(author), &dto.CreateCategoryRequest{Name: "夹", Slug: "folder"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cid := cat.ID
+	created, err := svc.Create(context.Background(), editor(author), &dto.CreateDocRequest{
+		Kind: model.KindDoc, Slug: "same", Title: "同", CategoryID: &cid, Visibility: model.VisibilityAuthenticated,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.MustParse(created.ID)
+	title := created.Title
+	vis := model.VisibilityAuthenticated
+	perm := ""
+	updated, err := svc.Update(context.Background(), editor(author), id, &dto.UpdateDocRequest{
+		Title: &title, Visibility: &vis, PermissionCode: &perm, CategoryID: &cid,
+	})
+	if err != nil || updated.Version != 1 {
+		t.Fatalf("version=%d err=%v", updated.Version, err)
+	}
+}
+
+func TestDeleteCategoryBlockedByChildren(t *testing.T) {
+	svc, _ := newTestSvc()
+	author := uuid.New()
+	parent, err := svc.CreateCategory(context.Background(), editor(author), &dto.CreateCategoryRequest{Name: "根", Slug: "root-del"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pid := parent.ID
+	if _, err := svc.CreateCategory(context.Background(), editor(author), &dto.CreateCategoryRequest{Name: "子", Slug: "child-del", ParentID: &pid}); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.DeleteCategory(context.Background(), editor(author), uuid.MustParse(pid)); codeOf(err) != response.CodeKnowledgeInvalidState {
+		t.Fatalf("code=%d", codeOf(err))
+	}
+}
+
+func TestUpdateCategoryRejectsCycle(t *testing.T) {
+	svc, _ := newTestSvc()
+	author := uuid.New()
+	a, err := svc.CreateCategory(context.Background(), editor(author), &dto.CreateCategoryRequest{Name: "A", Slug: "node-a"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	aid := a.ID
+	b, err := svc.CreateCategory(context.Background(), editor(author), &dto.CreateCategoryRequest{Name: "B", Slug: "node-b", ParentID: &aid})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.UpdateCategory(context.Background(), editor(author), uuid.MustParse(aid), &dto.UpdateCategoryRequest{ParentID: &b.ID}); err == nil {
+		t.Fatal("expected cycle")
+	}
+}
+
+func TestPublishedVisibilityRequiresPublishPerm(t *testing.T) {
+	svc, mem := newTestSvc()
+	author := uuid.New()
+	mem.addUser(author, "a")
+	created, err := svc.Create(context.Background(), editor(author), &dto.CreateDocRequest{
+		Kind: model.KindDoc, Slug: "members-only", Title: "手册", Visibility: model.VisibilityAuthenticated,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.MustParse(created.ID)
+	if _, err := svc.Publish(context.Background(), editor(author), id); err != nil {
+		t.Fatal(err)
+	}
+	updater := Viewer{UserID: author, CanUpdate: true}
+	vis := model.VisibilityPublic
+	if _, err := svc.Update(context.Background(), updater, id, &dto.UpdateDocRequest{Visibility: &vis}); codeOf(err) != response.CodeKnowledgeNoAccess {
+		t.Fatalf("code=%d err=%v", codeOf(err), err)
+	}
+}
+
 func TestDeleteCategoryBlockedByDocs(t *testing.T) {
 	svc, mem := newTestSvc()
 	author := uuid.New()

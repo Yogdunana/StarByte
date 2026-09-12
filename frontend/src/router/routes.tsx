@@ -163,6 +163,11 @@ const routes: AppRouteObject[] = [
         element: lazyWrap(PublicDocPage),
         meta: { title: '文档', public: true, hidden: true },
       },
+      {
+        path: ':slug',
+        element: lazyWrap(AboutUsPage),
+        meta: { title: '页面', public: true, hidden: true },
+      },
     ],
   },
   {

@@ -107,7 +107,11 @@ const AdminPage: React.FC = () => {
       await loadDoc(created.id);
       return;
     }
-    await updateKnowledgeDoc(current.id, { ...values, content });
+    await updateKnowledgeDoc(current.id, {
+      ...values,
+      content,
+      clear_category: !values.category_id,
+    });
     message.success(t('common.saved'));
     await reloadTree();
     await loadDoc(current.id);
