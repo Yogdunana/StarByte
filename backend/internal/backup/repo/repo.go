@@ -122,6 +122,9 @@ func (r *repository) CountBusy(ctx context.Context) (int64, error) {
 }
 
 func (r *repository) TryJobLock(ctx context.Context) (func(), bool, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, false, err
+	}
 	sqlDB, err := r.db.DB()
 	if err != nil {
 		return nil, false, err
@@ -130,8 +133,16 @@ func (r *repository) TryJobLock(ctx context.Context) (func(), bool, error) {
 	if err != nil {
 		return nil, false, err
 	}
+	// Session locks survive query cancel. Never use the request context for
+	// LOCK/UNLOCK, and unlock before returning a pooled connection on error.
+	unlock := func() {
+		_, _ = conn.ExecContext(context.Background(), "SELECT pg_advisory_unlock($1, $2)", JobLockClass, JobLockID)
+	}
+	lockCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
 	var locked bool
-	if err := conn.QueryRowContext(ctx, "SELECT pg_try_advisory_lock($1, $2)", JobLockClass, JobLockID).Scan(&locked); err != nil {
+	if err := conn.QueryRowContext(lockCtx, "SELECT pg_try_advisory_lock($1, $2)", JobLockClass, JobLockID).Scan(&locked); err != nil {
+		unlock()
 		_ = conn.Close()
 		return nil, false, err
 	}
@@ -142,7 +153,7 @@ func (r *repository) TryJobLock(ctx context.Context) (func(), bool, error) {
 	var once sync.Once
 	return func() {
 		once.Do(func() {
-			_, _ = conn.ExecContext(context.Background(), "SELECT pg_advisory_unlock($1, $2)", JobLockClass, JobLockID)
+			unlock()
 			_ = conn.Close()
 		})
 	}, true, nil
