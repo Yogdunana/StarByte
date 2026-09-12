@@ -2,11 +2,22 @@ package service
 
 import (
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/Yogdunana/StarByte/backend/internal/backup/dto"
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
+)
+
+// Discrete connection fields only. pg_restore -d treats "=" or postgres:// as conninfo
+// and that would override -h/-p/-U and skip SameCluster / password isolation.
+var (
+	identRE  = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]{0,62}$`)
+	hostRE   = regexp.MustCompile(`(?i)^(?:(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*|localhost|(?:\d{1,3}\.){3}\d{1,3}|\[?[0-9a-f:]+\]?)$`)
+	sslModes = map[string]struct{}{
+		"": {}, "disable": {}, "allow": {}, "prefer": {}, "require": {}, "verify-ca": {}, "verify-full": {},
+	}
 )
 
 // Compose service names that address the same Postgres as DB_HOST=postgres.
@@ -76,6 +87,9 @@ func ResolveDrillTarget(live config.DatabaseConfig, req *dto.DrillRequest) (conf
 	}
 	if strings.TrimSpace(out.Host) == "" {
 		return config.DatabaseConfig{}, errNotReady("演练须指定目标主机")
+	}
+	if err := validateDiscreteTarget(out); err != nil {
+		return config.DatabaseConfig{}, err
 	}
 	if SameDatabase(live, out) {
 		return config.DatabaseConfig{}, errInvalidState("演练目标不能是当前应用库，请换库名或主机")
@@ -269,4 +283,33 @@ func firstPort(over, live int) int {
 		return over
 	}
 	return live
+}
+
+func looksLikeConninfo(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return false
+	}
+	if strings.Contains(s, "=") || strings.Contains(s, "://") {
+		return true
+	}
+	lower := strings.ToLower(s)
+	return strings.HasPrefix(lower, "postgres:") || strings.HasPrefix(lower, "postgresql:")
+}
+
+func validateDiscreteTarget(cfg config.DatabaseConfig) error {
+	if looksLikeConninfo(cfg.DBName) || !identRE.MatchString(strings.TrimSpace(cfg.DBName)) {
+		return errNotReady("目标库名须为普通标识符，不能是 DSN 或 conninfo")
+	}
+	host := strings.TrimSpace(cfg.Host)
+	if looksLikeConninfo(host) || strings.ContainsAny(host, " \t\r\n/") || !hostRE.MatchString(host) {
+		return errNotReady("目标主机无效")
+	}
+	if user := strings.TrimSpace(cfg.User); user != "" && (looksLikeConninfo(user) || !identRE.MatchString(user)) {
+		return errNotReady("目标用户须为普通标识符")
+	}
+	if _, ok := sslModes[strings.ToLower(strings.TrimSpace(cfg.SSLMode))]; !ok {
+		return errNotReady("目标 sslmode 无效")
+	}
+	return nil
 }

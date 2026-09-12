@@ -99,3 +99,18 @@ func TestResolveDrillTargetDoesNotReuseLivePasswordOffCluster(t *testing.T) {
 	assert.Equal(t, "explicit", got.Password)
 	assert.Equal(t, "ops", got.User)
 }
+
+func TestResolveDrillTargetRejectsConninfoDBName(t *testing.T) {
+	live := config.DatabaseConfig{Host: "postgres", Port: 5432, User: "starbyte", Password: "prod-secret", DBName: "starbyte"}
+	cases := []string{
+		"dbname=starbyte",
+		"host=attacker.example dbname=stolen",
+		"postgres://attacker.example/stolen",
+		"postgresql://ops:x@evil/stolen",
+	}
+	for _, name := range cases {
+		_, err := ResolveDrillTarget(live, &dto.DrillRequest{TargetDBName: name})
+		require.Error(t, err, name)
+		assert.Contains(t, err.Error(), "不能是 DSN 或 conninfo", name)
+	}
+}

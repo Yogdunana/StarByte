@@ -65,6 +65,9 @@ func (e *pgEngine) RestoreTo(ctx context.Context, src io.Reader, target config.D
 	if strings.TrimSpace(target.DBName) == "" {
 		return errRestore("恢复目标库名为空")
 	}
+	if err := validateDiscreteTarget(target); err != nil {
+		return err
+	}
 	tmp := *e
 	tmp.db = target
 	// Custom-format dump + --single-transaction: DROP/reload share one txn and roll back together.
