@@ -23,7 +23,7 @@ const ListPage: React.FC = () => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const inbox = canApprove && (status === 'pending' || status === '');
+      const inbox = canApprove && status === 'pending';
       const [res, stat] = await Promise.all([
         inbox
           ? getLeaveTodos({ page, page_size: 10 })
