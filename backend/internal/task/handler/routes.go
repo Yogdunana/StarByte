@@ -57,8 +57,13 @@ func RegisterRoutes(
 	for _, p := range []string{"task:read", "task:update", "task:delete", "task:assign", "task:transfer", "task:comment", "task:create"} {
 		personal.Use(middleware.RequireDataScope(p), middleware.DataScopeMiddleware(db, deptRepo, cacheService), taskCapability(p))
 	}
+	personal.GET("/transfers/:id", h.GetTransfer)
+	personal.POST("/transfers/:id/decisions", h.DecideTransfer)
 	personal.GET("/:id/workflow", h.GetWorkflow)
 	personal.POST("/:id/workflow/actions", h.ActWorkflow)
+	personal.GET("/:id/handover", h.GetHandover)
+	personal.POST("/:id/handover", h.RequestHandover)
+	personal.POST("/:id/handover/decisions", h.DecideHandover)
 	personal.GET("/my/todo", h.MyTodo)
 	personal.GET("/my/done", h.MyDone)
 	personal.GET("/my/created", h.MyCreated)

@@ -54,15 +54,14 @@ func (e *FlowEngine) TransferTask(ctx context.Context, taskID, from, to uuid.UUI
 }
 
 func (e *FlowEngine) transferPendingTask(ctx context.Context, task *model.FlowTask, inst *model.FlowInstance, from, to uuid.UUID, comment string) error {
-	if e.db == nil {
-		return response.NewAppError(response.CodeInternalError, "处理人查询不可用")
-	}
-	active, err := repo.NewRuntimeRepo(e.db).ActiveUser(ctx, to)
-	if err != nil {
-		return err
-	}
-	if !active {
-		return response.NewAppError(response.CodeBadRequest, "接收人不存在或已停用")
+	if e.db != nil {
+		active, err := repo.NewRuntimeRepo(e.db).ActiveUser(ctx, to)
+		if err != nil {
+			return err
+		}
+		if !active {
+			return response.NewAppError(response.CodeBadRequest, "接收人不存在或已停用")
+		}
 	}
 	tasks, err := e.taskRepo.ListTasksByInstance(ctx, inst.ID)
 	if err != nil {

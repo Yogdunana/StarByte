@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -22,8 +23,6 @@ func (e *FlowEngine) TaskCheckpoint(ctx context.Context, id uuid.UUID, stage str
 	case "approve":
 		return e.CompleteTask(ctx, task.ID, actor, ActionApprove, "任务业务确认（"+stage+"）", nil)
 	case "reject":
-		// TODO(#65): timeout escalate/reassign — nodes already carry dueDays, but
-		// there is no scheduler hook to auto-upgrade or reassign overdue todos.
 		if stage != "review" && stage != "acceptance" {
 			return response.NewError(response.CodeBadRequest, "该环节不能拒绝任务")
 		}
@@ -67,11 +66,13 @@ func (e *FlowEngine) TransferTaskExecution(ctx context.Context, id, from, to uui
 	return e.TransferTask(ctx, task.ID, from, to, reason)
 }
 func (e *FlowEngine) taskCheckpoint(ctx context.Context, id uuid.UUID, stage string, actor uuid.UUID) (*model.FlowTask, *FlowGraph, error) {
-	if !e.businessTransaction || e.db == nil {
+	if !e.businessTransaction {
 		return nil, nil, response.NewError(response.CodeForbidden, "任务操作需要业务事务")
 	}
-	if err := repo.NewRuntimeRepo(e.db).LockInstance(ctx, id); err != nil {
-		return nil, nil, err
+	if e.db != nil {
+		if err := repo.NewRuntimeRepo(e.db).LockInstance(ctx, id); err != nil {
+			return nil, nil, err
+		}
 	}
 	inst, err := e.instRepo.GetByID(ctx, id)
 	if err != nil {
@@ -111,7 +112,16 @@ func (e *FlowEngine) taskCheckpoint(ctx context.Context, id uuid.UUID, stage str
 // ReassignTaskExecution is reserved for a completed, authorized handover. Audit
 // the actual approving operator; never impersonate the previous executor.
 func (e *FlowEngine) ReassignTaskExecution(ctx context.Context, id, previous, next, operator uuid.UUID, reason string) error {
-	task, _, err := e.taskCheckpoint(ctx, id, "execution", previous)
+	return e.ReassignStage(ctx, id, "execution", previous, next, operator, reason)
+}
+
+// ReassignStage moves a pending collaboration todo to another person and
+// refreshes the node due date. The operator is the auditor, not the previous assignee.
+func (e *FlowEngine) ReassignStage(ctx context.Context, id uuid.UUID, stage string, previous, next, operator uuid.UUID, reason string) error {
+	if next == uuid.Nil || next == previous {
+		return response.NewError(response.CodeBadRequest, "请选择其他有效处理人")
+	}
+	task, graph, err := e.taskCheckpoint(ctx, id, stage, previous)
 	if err != nil {
 		return err
 	}
@@ -119,5 +129,28 @@ func (e *FlowEngine) ReassignTaskExecution(ctx context.Context, id, previous, ne
 	if err != nil {
 		return err
 	}
-	return e.transferPendingTask(ctx, task, inst, operator, next, reason)
+	if err := e.transferPendingTask(ctx, task, inst, operator, next, reason); err != nil {
+		return err
+	}
+	dueDays := 1
+	if node := graph.GetNode(task.NodeID); node != nil {
+		if days, ok := node.Config["dueDays"].(float64); ok && days > 0 {
+			dueDays = int(days)
+		}
+	}
+	now := time.Now()
+	due := now.Add(time.Duration(dueDays) * 24 * time.Hour)
+	tasks, err := e.taskRepo.ListTasksByInstance(ctx, id)
+	if err != nil {
+		return err
+	}
+	for i := range tasks {
+		item := &tasks[i]
+		if item.NodeID == task.NodeID && item.Status == 0 && item.AssigneeID != nil && *item.AssigneeID == next {
+			item.DueDate = &due
+			item.UpdatedAt = now
+			return e.taskRepo.UpdateTask(ctx, nil, item)
+		}
+	}
+	return nil
 }

@@ -57,6 +57,19 @@ func (s *taskService) GetWorkflow(ctx context.Context, id, actor uuid.UUID) (*dt
 	out.CanReturn = out.CanApprove
 	out.CanReject = out.CanApprove
 	out.CanClaim = t.WorkflowStage == "assignment" && t.AssigneeID == nil && !model.IsClosed(t.Status) && validateWorkflowAssignee(t, &actor) == nil
+	out.CanDelegate = executable && !model.IsClosed(t.Status)
+	if s.transfers != nil {
+		if pending, err := s.transfers.Pending(ctx, id); err != nil {
+			return nil, err
+		} else if pending != nil {
+			out.CanDelegate = false
+			handover, err := s.handoverSnapshot(ctx, t, pending, actor)
+			if err != nil {
+				return nil, err
+			}
+			out.Handover = handover
+		}
+	}
 	logs, err := s.logs.ListByTask(ctx, id)
 	if err != nil {
 		return nil, err

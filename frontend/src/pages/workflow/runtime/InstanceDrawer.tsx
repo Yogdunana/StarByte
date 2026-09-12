@@ -7,6 +7,7 @@ import { usePermission } from '@/hooks/usePermission';
 import { changeWorkflowInstance, getWorkflowHistory, getWorkflowInstance, type WorkflowHistory, type WorkflowInstance } from '@/api/workflowRuntime';
 import HistoryTimeline from './HistoryTimeline';
 import AdmissionTask from './AdmissionTask';
+import HandoverPanel from '@/pages/task/HandoverPanel';
 import { dateLabel, instanceLabels } from './meta';
 import styles from './Runtime.module.css';
 interface Props { id: string | null; onClose: () => void; onChanged: () => void }
@@ -51,8 +52,9 @@ export default function InstanceDrawer({ id, onClose, onChanged }: Props) {
       ]} />
       {instance.terminate_reason && <Alert type="info" showIcon message={instance.terminate_reason} />}
       {instance.business_type === 'collaboration_task' && <TaskWorkflowPanel taskId={instance.business_key} onChanged={() => { onChanged(); void load(); }} />}
+      {instance.business_type === 'task_transfer' && <HandoverPanel transferId={instance.business_key} onChanged={() => { onChanged(); void load(); }} />}
       {instance.business_type === 'member_application' && <AdmissionTask applicationId={instance.business_key} instanceId={instance.id} onChanged={() => { onChanged(); void load(); }} />}
-      {instance.business_type !== 'member_application' && instance.business_type !== 'collaboration_task' && [0, 3].includes(instance.status) && (canUpdate || instance.initiator_id === user?.id) && <Form form={form} layout="vertical" onFinish={values => void submit(values)} className={styles.form}>
+      {instance.business_type !== 'member_application' && instance.business_type !== 'collaboration_task' && instance.business_type !== 'task_transfer' && [0, 3].includes(instance.status) && (canUpdate || instance.initiator_id === user?.id) && <Form form={form} layout="vertical" onFinish={values => void submit(values)} className={styles.form}>
         <Form.Item name="action" label="流程管理" rules={[{ required: true }]}><Select options={[{ value: instance.status === 3 ? 'resume' : 'suspend', label: instance.status === 3 ? '恢复流转' : '暂时挂起' }, { value: 'terminate', label: '终止流程' }]} /></Form.Item>
         {action === 'terminate' && <Alert type="warning" showIcon message="终止后将关闭所有未处理待办，已有操作记录会保留。" />}
         {action !== 'resume' && <Form.Item name="reason" label="具体原因" rules={[{ required: true, whitespace: true }, { max: 500 }]}><Input.TextArea rows={3} /></Form.Item>}

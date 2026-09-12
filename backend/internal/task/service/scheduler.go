@@ -58,10 +58,16 @@ func (s *ReminderScheduler) tick() {
 	n, err := s.svc.RemindDueAndOverdue(ctx)
 	if err != nil {
 		logger.Warn("task reminder job failed", zap.Error(err))
+	} else if n > 0 {
+		logger.Info("task reminder job sent", zap.Int("count", n))
+	}
+	escalated, err := s.svc.EscalateOverdueWorkflows(ctx)
+	if err != nil {
+		logger.Warn("task workflow timeout escalate failed", zap.Error(err))
 		return
 	}
-	if n > 0 {
-		logger.Info("task reminder job sent", zap.Int("count", n))
+	if escalated > 0 {
+		logger.Info("task workflow timeout escalate applied", zap.Int("count", escalated))
 	}
 }
 

@@ -436,6 +436,9 @@ func main() {
 	if err := wfHandlers.RegisterBusinessApprover("collaboration_task", taskService.NewTaskApprover(database.DB())); err != nil {
 		logger.Fatal("register task workflow", zap.Error(err))
 	}
+	if err := wfHandlers.RegisterBusinessApprover("task_transfer", taskService.NewTransferApprover(database.DB())); err != nil {
+		logger.Fatal("register task transfer workflow", zap.Error(err))
+	}
 	tkSvc.SetWorkflowEngine(wfHandlers.Engine)
 	tkH := taskHandler.NewTaskHandler(tkSvc)
 	taskReminder := taskService.NewReminderScheduler(tkSvc)

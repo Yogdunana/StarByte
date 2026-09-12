@@ -67,8 +67,12 @@ func (s *taskService) transfer(ctx context.Context, id, operator uuid.UUID, req 
 	if t.AssigneeID != nil && *t.AssigneeID == target.ID {
 		return s.taskResponse(ctx, operator, id, nil)
 	}
-	if err := s.workflowTransfer(ctx, t, operator, target.ID, req.Reason); err != nil {
+	applied, err := s.workflowTransfer(ctx, t, operator, target.ID, req.Reason)
+	if err != nil {
 		return nil, err
+	}
+	if !applied {
+		return s.taskResponse(ctx, operator, id, nil)
 	}
 	old := uuidPtrString(t.AssigneeID)
 	t.AssigneeID = &target.ID

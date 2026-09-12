@@ -2,15 +2,23 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Form, Input, Space, Spin, Steps, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { actTaskWorkflow, getTaskWorkflow, type TaskWorkflow } from '@/api/taskWorkflow';
+import { actTaskWorkflow, getTaskWorkflow, requestTaskHandover, type TaskWorkflow } from '@/api/taskWorkflow';
 import { TASK_ENGINE_STAGES, taskEngineClosed, taskEngineStatus, taskEngineStep } from './engineChain';
+import HandoverPanel from './HandoverPanel';
+import UserPicker from './UserPicker';
 import styles from './WorkflowPanel.module.css';
 
 interface Props { taskId: string; onChanged: () => void }
 
+function assignmentLabel(mode: string): string {
+  if (mode === 'department' || mode === 'role' || mode === 'round_robin') return mode;
+  return 'manual';
+}
+
 export default function WorkflowPanel({ taskId, onChanged }: Props) {
   const { t } = useTranslation();
   const [form] = Form.useForm<{ comment?: string }>();
+  const [delegate] = Form.useForm<{ target?: string; reason?: string }>();
   const [flow, setFlow] = useState<TaskWorkflow | null>(null);
   const [error, setError] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -25,7 +33,7 @@ export default function WorkflowPanel({ taskId, onChanged }: Props) {
       if (sequence.current === current) setError(true);
     }
   }, [taskId]);
-  useEffect(() => { setFlow(null); form.resetFields(); void load(); return invalidate; }, [load, invalidate, form]);
+  useEffect(() => { setFlow(null); form.resetFields(); delegate.resetFields(); void load(); return invalidate; }, [load, invalidate, form, delegate]);
 
   const run = async (action: 'start' | 'pause' | 'resume' | 'submit' | 'approve' | 'return' | 'reject' | 'claim', ok: string, requireComment: boolean) => {
     if (!flow || busy) return;
@@ -40,6 +48,21 @@ export default function WorkflowPanel({ taskId, onChanged }: Props) {
       setFlow(result);
       form.resetFields();
       message.success(ok);
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitDelegate = async () => {
+    if (!flow || busy) return;
+    const values = await delegate.validateFields();
+    setBusy(true);
+    try {
+      await requestTaskHandover(taskId, values.target!, values.reason!.trim(), flow.revision);
+      delegate.resetFields();
+      message.success(t('task.handover.submitted'));
+      await load();
       onChanged();
     } finally {
       setBusy(false);
@@ -81,7 +104,7 @@ export default function WorkflowPanel({ taskId, onChanged }: Props) {
             </p>
           )}
           <p className={styles.hint}>{t('task.engine.hint')}</p>
-          <p className={styles.hint}>{t('task.engine.assignmentMode')}：{t('task.engine.assignmentManual')}</p>
+          <p className={styles.hint}>{t('task.engine.assignmentMode')}：{t(`task.engine.assignment.${assignmentLabel(flow.assignment_mode)}`)}</p>
           <p className={styles.hint}>{t('task.engine.submission')}：{flow.submission || t('task.engine.submissionEmpty')}</p>
           {closed && <p className={styles.hint}>{t('task.engine.closed')}</p>}
           {!closed && (flow.can_start || flow.can_pause || flow.can_resume || flow.can_submit || flow.can_approve || flow.can_claim) && (
@@ -101,6 +124,19 @@ export default function WorkflowPanel({ taskId, onChanged }: Props) {
               </Space>
             </Form>
           )}
+          {!closed && flow.can_delegate && (
+            <Form form={delegate} layout="vertical" className={styles.form} onFinish={() => void submitDelegate()}>
+              <h4>{t('task.handover.delegateTitle')}</h4>
+              <Form.Item name="target" label={t('task.handover.target')} rules={[{ required: true, message: t('task.handover.targetRequired') }]}>
+                <UserPicker kind="transfer" disabled={busy} />
+              </Form.Item>
+              <Form.Item name="reason" label={t('task.handover.reason')} rules={[{ required: true, whitespace: true, message: t('task.handover.reasonRequired') }, { max: 2000 }]}>
+                <Input.TextArea rows={3} maxLength={2000} />
+              </Form.Item>
+              <Button type="primary" htmlType="submit" loading={busy}>{t('task.handover.submit')}</Button>
+            </Form>
+          )}
+          {flow.handover && <HandoverPanel taskId={taskId} value={flow.handover} onChanged={() => { void load(); onChanged(); }} />}
         </>
       )}
     </section>
