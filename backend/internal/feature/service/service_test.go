@@ -261,6 +261,44 @@ func TestReloadEmptySnapshotFallsBackToDB(t *testing.T) {
 	}
 }
 
+func TestLookupFallsBackWhenSnapshotOmitsKey(t *testing.T) {
+	rows := newMemRepo()
+	ctx := context.Background()
+	_ = rows.Create(ctx, &model.Flag{ID: uuid.New(), FlagKey: model.KeyCMSPublic, Name: "CMS", FlagType: model.TypeBoolean, Enabled: true})
+	_ = rows.Create(ctx, &model.Flag{ID: uuid.New(), FlagKey: "other.flag", Name: "Other", FlagType: model.TypeBoolean, Enabled: true})
+	store := NewMemorySnapshot()
+	if err := store.Set(ctx, []model.Flag{{FlagKey: "other.flag", Name: "Other", FlagType: model.TypeBoolean, Enabled: true}}); err != nil {
+		t.Fatal(err)
+	}
+	svc := New(rows, store, NewMemoryBus(), stubRoles{}, stubUsers{}, stubPerms{}).(*flagService)
+	if !svc.Enabled(ctx, model.KeyCMSPublic, feature.Subject{}) {
+		t.Fatal("omitted snapshot key should read db")
+	}
+}
+
+func TestInvalidateRefreshesWhenDeleteFails(t *testing.T) {
+	rows := newMemRepo()
+	ctx := context.Background()
+	id := uuid.New()
+	row := &model.Flag{ID: id, FlagKey: model.KeyCMSPublic, Name: "CMS", FlagType: model.TypeBoolean, Enabled: true}
+	_ = rows.Create(ctx, row)
+	store := &staleSnapshot{flags: []model.Flag{*row}}
+	svc := New(rows, store, NewMemoryBus(), stubRoles{}, stubUsers{}, stubPerms{}).(*flagService)
+	if err := svc.reload(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !svc.Enabled(ctx, model.KeyCMSPublic, feature.Subject{}) {
+		t.Fatal("want on")
+	}
+	off := false
+	if _, err := svc.Toggle(ctx, uuid.New(), id, &dto.ToggleRequest{Enabled: &off}); err != nil {
+		t.Fatal(err)
+	}
+	if svc.Enabled(ctx, model.KeyCMSPublic, feature.Subject{}) {
+		t.Fatal("toggle must close gate even if snapshot delete fails")
+	}
+}
+
 func TestInvalidateDropsSnapshotWhenSetFails(t *testing.T) {
 	rows := newMemRepo()
 	store := &stickySetSnapshot{}

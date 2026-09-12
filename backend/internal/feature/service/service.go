@@ -323,19 +323,21 @@ func (s *flagService) lookup(ctx context.Context, key string) *model.Flag {
 	s.mu.RUnlock()
 	if err := s.reload(ctx); err != nil {
 		logCacheErr("lookup-reload", err)
-		row, err := s.rows.GetByKey(ctx, key)
-		if err != nil || row == nil {
-			return nil
+	} else {
+		s.mu.RLock()
+		if f, ok := s.memory[key]; ok {
+			s.mu.RUnlock()
+			cp := f
+			return &cp
 		}
-		return row
+		s.mu.RUnlock()
 	}
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if f, ok := s.memory[key]; ok {
-		cp := f
-		return &cp
+	// Incomplete / stale snapshot must not hide a DB row.
+	row, err := s.rows.GetByKey(ctx, key)
+	if err != nil || row == nil {
+		return nil
 	}
-	return nil
+	return row
 }
 
 func (s *flagService) reload(ctx context.Context) error {
