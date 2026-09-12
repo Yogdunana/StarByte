@@ -1,0 +1,14 @@
+.announcement-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.7;
+}
+
+.announcement-html {
+  word-break: break-word;
+  line-height: 1.7;
+}
+
+.announcement-html img {
+  max-width: 100%;
+}

@@ -130,6 +130,11 @@ func allSeedPermissions() []seedPerm {
 	)
 	perms = append(perms, moduleCRUD("activity", "活动")...)
 	perms = append(perms, seedPerm{Name: "活动管理", Code: "activity:manage", Resource: "activity", Action: "manage"})
+	perms = append(perms, moduleCRUD("announcement", "公告")...)
+	perms = append(perms,
+		seedPerm{Name: "公告发布", Code: "announcement:publish", Resource: "announcement", Action: "publish"},
+		seedPerm{Name: "公告管理", Code: "announcement:manage", Resource: "announcement", Action: "manage"},
+	)
 	return perms
 }
 
@@ -220,8 +225,9 @@ func seedRolePermissions(db *gorm.DB) error {
 		FROM roles r CROSS JOIN permissions p
 		WHERE r.code = 'minister' AND (
 			p.action = 'read'
-			OR (p.resource IN ('member','interview','meeting','task','internship','schedule','file','workflow','notification','finance','discipline','contract','activity')
+			OR (p.resource IN ('member','interview','meeting','task','internship','schedule','file','workflow','notification','finance','discipline','contract','activity','announcement')
 			    AND p.action IN ('create','update'))
+			OR (p.resource = 'announcement' AND p.action = 'publish')
 			OR (p.resource = 'member' AND p.action IN ('approve','export','manage'))
 			OR (p.resource = 'interview' AND p.action IN ('manage','evaluate'))
 			OR (p.resource = 'meeting' AND p.action = 'manage')
@@ -247,8 +253,9 @@ func seedRolePermissions(db *gorm.DB) error {
 		FROM roles r CROSS JOIN permissions p
 		WHERE r.code = 'vice_minister' AND p.resource <> 'interview_private' AND (
 			p.action = 'read'
-			OR (p.resource IN ('member','interview','meeting','task','internship','schedule','file','finance','discipline','contract','activity')
+			OR (p.resource IN ('member','interview','meeting','task','internship','schedule','file','finance','discipline','contract','activity','announcement')
 			    AND p.action = 'create')
+			OR (p.resource = 'announcement' AND p.action = 'update')
 			OR (p.resource = 'task' AND p.action IN ('update','comment'))
 			OR (p.resource = 'form' AND p.action IN ('write', 'submit'))
 		)
@@ -268,6 +275,7 @@ func officerPermCodes() []string {
 		"user:read", "member:read", "member:create",
 		"interview:read", "interview:evaluate", "meeting:read",
 		"activity:read", "activity:create", "activity:update",
+		"announcement:read",
 		"task:read", "task:create", "task:update", "task:comment",
 		"file:read", "file:create",
 		"internship:read", "internship:create", "internship:update", "internship:delete",
@@ -280,7 +288,7 @@ func officerPermCodes() []string {
 func memberPermCodes() []string {
 	return []string{
 		"user:read", "member:read", "meeting:read", "task:read",
-		"activity:read",
+		"activity:read", "announcement:read",
 		"file:read", "file:create", "internship:read", "internship:create", "internship:update", "internship:delete",
 		"schedule:read", "schedule:create", "schedule:update", "schedule:delete",
 		"form:submit", "discipline:read",

@@ -32,6 +32,7 @@ const categoryLabelMap: Record<string, string> = {
   approval: '审批',
   member: '入会',
   interview: '面试',
+  announcement: '公告',
   other: '其他',
 };
 

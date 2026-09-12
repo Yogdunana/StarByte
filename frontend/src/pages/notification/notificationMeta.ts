@@ -5,6 +5,7 @@ export const categoryOptions = [
   { label: '会议', value: 'meeting' },
   { label: '审批', value: 'approval' },
   { label: '面试', value: 'interview' },
+  { label: '公告', value: 'announcement' },
   { label: '其他', value: 'other' },
 ];
 
@@ -14,6 +15,7 @@ export const categoryColorMap: Record<string, string> = {
   meeting: 'purple',
   approval: 'orange',
   interview: 'cyan',
+  announcement: 'gold',
   other: 'default',
 };
 
@@ -23,6 +25,7 @@ export const categoryLabelMap: Record<string, string> = {
   meeting: '会议',
   approval: '审批',
   interview: '面试',
+  announcement: '公告',
   other: '其他',
 };
 

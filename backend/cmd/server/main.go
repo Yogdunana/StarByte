@@ -16,6 +16,9 @@ import (
 	activityHandler "github.com/Yogdunana/StarByte/backend/internal/activity/handler"
 	activityRepo "github.com/Yogdunana/StarByte/backend/internal/activity/repo"
 	activityService "github.com/Yogdunana/StarByte/backend/internal/activity/service"
+	announcementHandler "github.com/Yogdunana/StarByte/backend/internal/announcement/handler"
+	announcementRepo "github.com/Yogdunana/StarByte/backend/internal/announcement/repo"
+	announcementService "github.com/Yogdunana/StarByte/backend/internal/announcement/service"
 	auditHandler "github.com/Yogdunana/StarByte/backend/internal/audit/handler"
 	auditRepo "github.com/Yogdunana/StarByte/backend/internal/audit/repo"
 	auditService "github.com/Yogdunana/StarByte/backend/internal/audit/service"
@@ -326,6 +329,14 @@ func main() {
 	actSvc := activityService.NewActivityService(actActivityRepo, actRegRepo, actSurveyRepo, actNotifier, database.DB())
 	actH := activityHandler.NewActivityHandler(actSvc)
 
+	// 公告与通知中心（/announcements，#77 phase-1）
+	annSvc := announcementService.New(
+		announcementRepo.New(database.DB()),
+		announcementService.NewNotifier(notifSvc),
+	)
+	annH := announcementHandler.New(annSvc)
+	schedService.RegisterHandler("announcement_scheduled_publish", "扫描并发布到期定时公告", annSvc.DispatchDuePublishes)
+
 	// 运行时业务配置（#47，复用 configs 表，不改 pkg/config YAML）
 	cfgSvc := cfgstoreService.NewConfigService(cfgRows, cfgStore).WithSMTP(cfg.Email, emailCh)
 	cfgH := cfgstoreHandler.NewConfigHandler(cfgSvc)
@@ -449,6 +460,9 @@ func main() {
 
 		// 活动管理与报名系统（/activities）
 		activityHandler.RegisterRoutes(protected, actH, cacheService)
+
+		// 公告中心（/announcements，#77）
+		announcementHandler.RegisterRoutes(protected, annH, cacheService)
 
 		// 任务流转（/tasks，不与 /workflow/tasks 冲突）
 		taskHandler.RegisterRoutes(protected, tkH, cacheService, database.DB(), deptRepo)

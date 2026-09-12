@@ -1,0 +1,96 @@
+import React, { useEffect } from 'react';
+import { DatePicker, Form, Input, Modal, Select, Switch } from 'antd';
+import dayjs from 'dayjs';
+import { useTranslation } from 'react-i18next';
+import type { Announcement } from '@/api/announcement';
+import { AnnouncementCategories } from './meta';
+
+interface Props {
+  open: boolean;
+  editing: Announcement | null;
+  onCancel: () => void;
+  onSubmit: (values: Record<string, unknown>) => Promise<void>;
+}
+
+const FormModal: React.FC<Props> = ({ open, editing, onCancel, onSubmit }) => {
+  const { t } = useTranslation();
+  const [form] = Form.useForm();
+
+  useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      form.setFieldsValue({
+        title: editing.title,
+        category: editing.category,
+        content: editing.content,
+        content_type: editing.content_type || 'markdown',
+        required: editing.required,
+        scheduled_at: editing.scheduled_at ? dayjs(editing.scheduled_at) : undefined,
+      });
+    } else {
+      form.resetFields();
+      form.setFieldsValue({ content_type: 'markdown', required: false });
+    }
+  }, [open, editing, form]);
+
+  return (
+    <Modal
+      title={editing ? t('announcement.edit') : t('announcement.create')}
+      open={open}
+      onCancel={onCancel}
+      onOk={() => form.submit()}
+      width={720}
+      destroyOnClose
+      okText={t('announcement.saveDraft')}
+    >
+      <Form
+        form={form}
+        layout="vertical"
+        onFinish={async (values) => {
+          await onSubmit({
+            title: values.title,
+            category: values.category,
+            content: values.content,
+            content_type: values.content_type,
+            required: values.required,
+            scheduled_at: values.scheduled_at
+              ? (values.scheduled_at as dayjs.Dayjs).toISOString()
+              : undefined,
+            clear_scheduled_at: Boolean(editing && !values.scheduled_at && editing.scheduled_at),
+          });
+        }}
+      >
+        <Form.Item name="title" label={t('announcement.title')} rules={[{ required: true }]}>
+          <Input maxLength={200} showCount />
+        </Form.Item>
+        <Form.Item name="category" label={t('announcement.categoryLabel')} rules={[{ required: true }]}>
+          <Select
+            options={AnnouncementCategories.map((item) => ({
+              value: item.value,
+              label: t(item.labelKey),
+            }))}
+          />
+        </Form.Item>
+        <Form.Item name="content_type" label={t('announcement.contentType')}>
+          <Select
+            options={[
+              { value: 'markdown', label: t('announcement.markdown') },
+              { value: 'html', label: t('announcement.html') },
+            ]}
+          />
+        </Form.Item>
+        <Form.Item name="content" label={t('announcement.content')}>
+          <Input.TextArea rows={10} maxLength={50000} showCount placeholder={t('announcement.contentHint')} />
+        </Form.Item>
+        <Form.Item name="scheduled_at" label={t('announcement.scheduledAt')}>
+          <DatePicker showTime style={{ width: '100%' }} />
+        </Form.Item>
+        <Form.Item name="required" label={t('announcement.required')} valuePropName="checked">
+          <Switch />
+        </Form.Item>
+      </Form>
+    </Modal>
+  );
+};
+
+export default FormModal;

@@ -32,6 +32,7 @@ package response
 //	25000-25999 Contract (#24)
 //	26000-26999 Duty (reserved; #154)
 //	27000-27999 Activity (#52)
+//	28000-28999 Announcement (#77; issue listed 10000-10499, taken by internship)
 //	29000-29999 Schedule / calendar (#78; issue listed 10500-10999, taken by internship)
 //
 //	Note: issue #71 asked for 9000-9499, but that range is already owned by
@@ -283,6 +284,13 @@ const (
 	CodeCheckinGPSRejected      = 27012 // GPS 签到超出围栏
 	CodeCheckinGPSNotConfigured = 27013 // 活动未配置地点半径，拒绝 GPS 签到
 
+	// ===== Announcement (#77, 28000-28999) =====
+	// Issue #77 listed 10000-10499; that range is the internship module.
+	CodeAnnouncementNotFound     = 28001 // 公告不存在
+	CodeAnnouncementInvalidState = 28002 // 公告状态不允许该操作
+	CodeAnnouncementNoAccess     = 28003 // 无权操作该公告
+	CodeAnnouncementInvalidCat   = 28004 // 公告分类不合法
+
 	// ===== Schedule / calendar (#78, 29000-29999) =====
 	// Issue #78 listed 10500-10999; that range is the internship module.
 	// 26000/27000 are reserved. Use 29000+.
@@ -332,5 +340,6 @@ var ModuleRanges = map[string][2]int{
 	"contract":     {25000, 25999},
 	"duty":         {26000, 26999},
 	"activity":     {27000, 27999},
+	"announcement": {28000, 28999},
 	"schedule":     {29000, 29999},
 }

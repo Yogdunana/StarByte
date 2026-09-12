@@ -18,18 +18,19 @@ const (
 var uuidLike = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 var resourceSingular = map[string]string{
-	"users":       "user",
-	"roles":       "role",
-	"departments": "department",
-	"permissions": "permission",
-	"positions":   "position",
-	"audit-logs":  "audit_log",
-	"members":     "member",
-	"interviews":  "interview",
-	"meetings":    "meeting",
-	"tasks":       "task",
-	"internships": "internship",
-	"activities":  "activity",
+	"users":         "user",
+	"roles":         "role",
+	"departments":   "department",
+	"permissions":   "permission",
+	"positions":     "position",
+	"audit-logs":    "audit_log",
+	"members":       "member",
+	"interviews":    "interview",
+	"meetings":      "meeting",
+	"tasks":         "task",
+	"internships":   "internship",
+	"activities":    "activity",
+	"announcements": "announcement",
 }
 
 // SetAuditSnapshot 由业务 handler 在写操作前写入实体 before 快照。

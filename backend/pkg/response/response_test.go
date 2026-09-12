@@ -389,6 +389,16 @@ func TestModuleRanges(t *testing.T) {
 	assert.Equal(t, 27013, CodeCheckinGPSNotConfigured)
 	assert.True(t, CodeActivityNotFound > ModuleRanges["duty"][1], "activity must not collide with duty 26000-26999")
 
+	r, ok = ModuleRanges["announcement"]
+	assert.True(t, ok)
+	assert.Equal(t, 28000, r[0])
+	assert.Equal(t, 28999, r[1])
+	assert.Equal(t, 28001, CodeAnnouncementNotFound)
+	assert.Equal(t, 28004, CodeAnnouncementInvalidCat)
+	assert.True(t, r[0] > ModuleRanges["internship"][1], "announcement must not collide with internship 10000-10999")
+	assert.True(t, r[0] > ModuleRanges["activity"][1], "announcement must not collide with activity 27000-27999")
+	assert.True(t, r[1] < ModuleRanges["schedule"][0], "announcement must not collide with schedule 29000-29999")
+
 	r, ok = ModuleRanges["schedule"]
 	assert.True(t, ok)
 	assert.Equal(t, 29000, r[0])

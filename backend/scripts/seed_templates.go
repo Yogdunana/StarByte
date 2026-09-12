@@ -156,6 +156,12 @@ var seedTemplatesData = []seedTemplate{
 		Body:   "「{{.title}}」将于 {{.start_at}} 开始（提前 {{.minutes}} 分钟）。",
 		Schema: `{"title":"string","start_at":"string","minutes":"string"}`,
 	},
+	{
+		Code: "announcement_published", Name: "公告发布", Category: "announcement",
+		Title:  "新公告：{{.title}}",
+		Body:   "「{{.title}}」已发布，请查看公告中心。",
+		Schema: `{"title":"string","category":"string","id":"string"}`,
+	},
 }
 
 func seedTemplates(db *gorm.DB) error {
