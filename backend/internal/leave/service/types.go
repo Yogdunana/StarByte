@@ -14,8 +14,12 @@ import (
 
 var typeCodeRe = regexp.MustCompile(`^[a-z][a-z0-9_]{0,19}$`)
 
+func canManageTypes(v Viewer) bool {
+	return v.CanApprove && isUnrestricted(v.Scope)
+}
+
 func (s *leaveService) CreateType(ctx context.Context, viewer Viewer, req *dto.UpsertLeaveTypeRequest) (*dto.LeaveTypeResponse, error) {
-	if !viewer.CanApprove {
+	if !canManageTypes(viewer) {
 		return nil, noAccess("无权配置请假类型")
 	}
 	code, name, err := normalizeType(req.Code, req.Name)
@@ -47,7 +51,7 @@ func (s *leaveService) CreateType(ctx context.Context, viewer Viewer, req *dto.U
 }
 
 func (s *leaveService) UpdateType(ctx context.Context, viewer Viewer, id uuid.UUID, req *dto.UpsertLeaveTypeRequest) (*dto.LeaveTypeResponse, error) {
-	if !viewer.CanApprove {
+	if !canManageTypes(viewer) {
 		return nil, noAccess("无权配置请假类型")
 	}
 	row, err := s.rows.GetLeaveTypeByID(ctx, id)

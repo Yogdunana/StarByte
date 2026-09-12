@@ -6,13 +6,16 @@ import ReactECharts from 'echarts-for-react';
 import { useTranslation } from 'react-i18next';
 import { createLeaveType, getLeaveCalendar, getLeaveStats, getLeaveTypes, updateLeaveType } from '@/api/leave';
 import type { LeaveApplication, LeaveStats, LeaveType, UpsertLeaveTypeParams } from '@/api/leave';
-import { usePermission } from '@/hooks/usePermission';
+import { useHasRole, usePermission } from '@/hooks/usePermission';
 import { leaveTypeLabel } from './meta';
 import './leave.css';
 
 const StatsPage: React.FC = () => {
   const { t } = useTranslation();
   const canApprove = usePermission('leave:approve');
+  const isPresident = useHasRole('president');
+  const isVicePresident = useHasRole('vice_president');
+  const canManageTypes = canApprove && (isPresident || isVicePresident);
   const [year, setYear] = useState(dayjs().year());
   const [month, setMonth] = useState(dayjs());
   const [stats, setStats] = useState<LeaveStats | null>(null);
@@ -67,7 +70,7 @@ const StatsPage: React.FC = () => {
             onChange={setYear}
             options={[year - 1, year, year + 1].map((y) => ({ value: y, label: String(y) }))}
           />
-          {canApprove && (
+          {canManageTypes && (
             <Button onClick={() => { setEditing(null); form.resetFields(); form.setFieldsValue({ enabled: true, deductible: false, default_days: 0 }); setOpen(true); }}>
               {t('leave.addType')}
             </Button>
@@ -156,7 +159,7 @@ const StatsPage: React.FC = () => {
           }}
         />
       </Card>
-      {canApprove && (
+      {canManageTypes && (
         <Card title={t('leave.typesTitle')}>
           <Table
             rowKey="id"

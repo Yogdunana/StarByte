@@ -468,6 +468,25 @@ func TestCreateAndUpdateType(t *testing.T) {
 	assert.Equal(t, response.CodeLeaveTypeDisabled, err.(*response.AppError).Code)
 }
 
+func TestDepartmentApproverCannotMutateTypes(t *testing.T) {
+	svc, _, _, approver, annualID := fixture()
+	ctx := context.Background()
+	dept := uuid.New()
+	minister := deptViewer(approver, dept, true)
+	_, err := svc.CreateType(ctx, minister, &dto.UpsertLeaveTypeRequest{Name: "调休加码", Code: "bonus", Deductible: true, DefaultDays: 366})
+	require.Error(t, err)
+	assert.Equal(t, response.CodeLeaveNoAccess, err.(*response.AppError).Code)
+
+	enabled := false
+	_, err = svc.UpdateType(ctx, minister, annualID, &dto.UpsertLeaveTypeRequest{Name: "年假", Code: "annual", Enabled: &enabled})
+	require.Error(t, err)
+	assert.Equal(t, response.CodeLeaveNoAccess, err.(*response.AppError).Code)
+
+	_, err = svc.CreateType(ctx, Viewer{UserID: approver, CanApprove: true}, &dto.UpsertLeaveTypeRequest{Name: "无范围", Code: "noscope"})
+	require.Error(t, err)
+	assert.Equal(t, response.CodeLeaveNoAccess, err.(*response.AppError).Code)
+}
+
 func TestCalendarAndTodosAndAttachments(t *testing.T) {
 	svc, _, applicant, approver, annualID := fixture()
 	ctx := context.Background()
