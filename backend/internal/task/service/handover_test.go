@@ -149,16 +149,19 @@ func TestCrossDepartmentHandoverWaitsForSignatures(t *testing.T) {
 	if _, err := svc.RequestHandover(ctx, id, ids[1], &dto.HandoverRequest{TargetID: peer.String(), Reason: "重复申请", Revision: 2}); err == nil {
 		t.Fatal("duplicate pending handover accepted")
 	}
-	if _, err := svc.DecideHandover(ctx, id, ids[1], &dto.HandoverDecision{Requirement: "source_minister", Decision: "approve", Comment: "自己签", Revision: 1}); err == nil {
+	if _, err := svc.DecideHandover(ctx, id, ids[1], &dto.HandoverDecision{TransferID: out.ID, Requirement: "source_minister", Decision: "approve", Comment: "自己签", Revision: 1}); err == nil {
 		t.Fatal("initiator signed own handover")
 	}
+	if _, err := svc.DecideHandover(ctx, id, minister, &dto.HandoverDecision{Requirement: "source_minister", Decision: "approve", Comment: "缺转办单ID", Revision: 1}); err == nil {
+		t.Fatal("task-level decide accepted without transfer id")
+	}
 	stub.done = false
-	first, err := svc.DecideHandover(ctx, id, minister, &dto.HandoverDecision{Requirement: "source_minister", Decision: "approve", Comment: "同意转出", Revision: 1})
+	first, err := svc.DecideHandover(ctx, id, minister, &dto.HandoverDecision{TransferID: out.ID, Requirement: "source_minister", Decision: "approve", Comment: "同意转出", Revision: 1})
 	if err != nil || first.Status != "pending" {
 		t.Fatalf("first signature: %v %+v", err, first)
 	}
 	stub.done = true
-	final, err := svc.DecideHandover(ctx, id, otherMinister, &dto.HandoverDecision{Requirement: "target_minister", Decision: "approve", Comment: "同意转入", Revision: 2})
+	final, err := svc.DecideHandover(ctx, id, otherMinister, &dto.HandoverDecision{TransferID: out.ID, Requirement: "target_minister", Decision: "approve", Comment: "同意转入", Revision: 2})
 	if err != nil || final.Status != "completed" || tasks.items[id].AssigneeID == nil || *tasks.items[id].AssigneeID != peer {
 		t.Fatalf("completed handover: %v %+v assignee=%v", err, final, tasks.items[id].AssigneeID)
 	}
@@ -184,10 +187,11 @@ func TestHandoverRejectKeepsOriginalAssignee(t *testing.T) {
 		t.Fatal(err)
 	}
 	id := uuid.MustParse(row.ID)
-	if _, err := svc.RequestHandover(ctx, id, ids[1], &dto.HandoverRequest{TargetID: peer.String(), Reason: "跨组", Revision: 1}); err != nil {
+	created, err := svc.RequestHandover(ctx, id, ids[1], &dto.HandoverRequest{TargetID: peer.String(), Reason: "跨组", Revision: 1})
+	if err != nil {
 		t.Fatal(err)
 	}
-	out, err := svc.DecideHandover(ctx, id, minister, &dto.HandoverDecision{Requirement: "source_minister", Decision: "reject", Comment: "人手不够", Revision: 1})
+	out, err := svc.DecideHandover(ctx, id, minister, &dto.HandoverDecision{TransferID: created.ID, Requirement: "source_minister", Decision: "reject", Comment: "人手不够", Revision: 1})
 	if err != nil || out.Status != "rejected" || *tasks.items[id].AssigneeID != ids[1] || !stub.terminated {
 		t.Fatalf("reject handover: %v %+v assignee=%v", err, out, tasks.items[id].AssigneeID)
 	}
@@ -410,6 +414,9 @@ func TestPendingHandoverBlocksSubmitAndIgnoresStaleTransferID(t *testing.T) {
 	if _, err := svc.DecideTransfer(ctx, oldID, minister, &dto.HandoverDecision{Requirement: "source_minister", Decision: "approve", Comment: "旧单仍想签", Revision: 1}); err == nil {
 		t.Fatal("stale transfer id signed the later handover")
 	}
+	if _, err := svc.DecideHandover(ctx, id, minister, &dto.HandoverDecision{TransferID: oldID.String(), Requirement: "source_minister", Decision: "approve", Comment: "任务级旧单仍想签", Revision: 1}); err == nil {
+		t.Fatal("task-level decide signed later handover with stale transfer id")
+	}
 	pending, err := store.Pending(ctx, id)
 	if err != nil || pending == nil || pending.ID.String() != next.ID {
 		t.Fatalf("later handover lost: %v %+v", err, pending)
@@ -448,7 +455,8 @@ func TestHandoverRequestDoesNotNotifyAsTransferred(t *testing.T) {
 		t.Fatal(err)
 	}
 	id := uuid.MustParse(row.ID)
-	if _, err := svc.RequestHandover(ctx, id, ids[1], &dto.HandoverRequest{TargetID: peer.String(), Reason: "跨组", Revision: 1}); err != nil {
+	created, err := svc.RequestHandover(ctx, id, ids[1], &dto.HandoverRequest{TargetID: peer.String(), Reason: "跨组", Revision: 1})
+	if err != nil {
 		t.Fatal(err)
 	}
 	flushNotify()
@@ -457,11 +465,11 @@ func TestHandoverRequestDoesNotNotifyAsTransferred(t *testing.T) {
 			t.Fatal("request notified as already transferred")
 		}
 	}
-	if _, err := svc.DecideHandover(ctx, id, minister, &dto.HandoverDecision{Requirement: "source_minister", Decision: "approve", Comment: "同意转出", Revision: 1}); err != nil {
+	if _, err := svc.DecideHandover(ctx, id, minister, &dto.HandoverDecision{TransferID: created.ID, Requirement: "source_minister", Decision: "approve", Comment: "同意转出", Revision: 1}); err != nil {
 		t.Fatal(err)
 	}
 	stub.done = true
-	if _, err := svc.DecideHandover(ctx, id, other, &dto.HandoverDecision{Requirement: "target_minister", Decision: "approve", Comment: "同意转入", Revision: 2}); err != nil {
+	if _, err := svc.DecideHandover(ctx, id, other, &dto.HandoverDecision{TransferID: created.ID, Requirement: "target_minister", Decision: "approve", Comment: "同意转入", Revision: 2}); err != nil {
 		t.Fatal(err)
 	}
 	flushNotify()
@@ -495,12 +503,13 @@ func TestSignedHandoverCancelsWhenExecutionAlreadyLeft(t *testing.T) {
 		t.Fatal(err)
 	}
 	id := uuid.MustParse(row.ID)
-	if _, err := svc.RequestHandover(ctx, id, ids[1], &dto.HandoverRequest{TargetID: peer.String(), Reason: "跨组", Revision: 1}); err != nil {
+	created, err := svc.RequestHandover(ctx, id, ids[1], &dto.HandoverRequest{TargetID: peer.String(), Reason: "跨组", Revision: 1})
+	if err != nil {
 		t.Fatal(err)
 	}
 	tasks.items[id].WorkflowStage = "review"
 	stub.done = true
-	out, err := svc.DecideHandover(ctx, id, minister, &dto.HandoverDecision{Requirement: "source_minister", Decision: "approve", Comment: "最后一签", Revision: 1})
+	out, err := svc.DecideHandover(ctx, id, minister, &dto.HandoverDecision{TransferID: created.ID, Requirement: "source_minister", Decision: "approve", Comment: "最后一签", Revision: 1})
 	if err != nil || out.Status != "cancelled" || *tasks.items[id].AssigneeID != ids[1] {
 		t.Fatalf("expected cancel not stuck complete: %v %+v assignee=%v", err, out, tasks.items[id].AssigneeID)
 	}
@@ -560,11 +569,11 @@ func TestCompletedHandoverMovesDepartmentAndKeepsSignerAccess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.DecideHandover(ctx, id, minister, &dto.HandoverDecision{Requirement: "source_minister", Decision: "approve", Comment: "同意转出", Revision: 1}); err != nil {
+	if _, err := svc.DecideHandover(ctx, id, minister, &dto.HandoverDecision{TransferID: created.ID, Requirement: "source_minister", Decision: "approve", Comment: "同意转出", Revision: 1}); err != nil {
 		t.Fatal(err)
 	}
 	stub.done = true
-	final, err := svc.DecideHandover(ctx, id, otherMinister, &dto.HandoverDecision{Requirement: "target_minister", Decision: "approve", Comment: "同意转入", Revision: 2})
+	final, err := svc.DecideHandover(ctx, id, otherMinister, &dto.HandoverDecision{TransferID: created.ID, Requirement: "target_minister", Decision: "approve", Comment: "同意转入", Revision: 2})
 	if err != nil || final.Status != "completed" {
 		t.Fatalf("completed handover: %v %+v", err, final)
 	}

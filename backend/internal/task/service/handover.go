@@ -54,13 +54,38 @@ func (s *taskService) GetTransfer(ctx context.Context, transferID, actor uuid.UU
 }
 
 func (s *taskService) DecideHandover(ctx context.Context, id, actor uuid.UUID, req *dto.HandoverDecision) (*dto.HandoverResponse, error) {
+	transferID, err := requiredTransferID(req)
+	if err != nil {
+		return nil, err
+	}
+	if s.transfers == nil {
+		return nil, response.NewError(response.CodeConflict, "转办服务未启用")
+	}
 	return taskMutation(ctx, s, id, func(b *taskService) (*dto.HandoverResponse, error) {
-		t, request, err := b.handoverVisible(ctx, id, actor)
+		current, err := b.transfers.Lock(ctx, transferID)
 		if err != nil {
 			return nil, err
 		}
-		return b.decideHandover(ctx, t, request, actor, req)
+		if current == nil || current.TaskID != id {
+			return nil, response.NewError(response.CodeTaskNotFound, "转办请求不存在")
+		}
+		t, err := b.transferVisible(ctx, current, actor)
+		if err != nil {
+			return nil, err
+		}
+		return b.decideHandover(ctx, t, current, actor, req)
 	})
+}
+
+func requiredTransferID(req *dto.HandoverDecision) (uuid.UUID, error) {
+	if req == nil {
+		return uuid.Nil, response.NewError(response.CodeBadRequest, "请指定要签署的转办单")
+	}
+	id, err := uuid.Parse(strings.TrimSpace(req.TransferID))
+	if err != nil || id == uuid.Nil {
+		return uuid.Nil, response.NewError(response.CodeBadRequest, "请指定要签署的转办单")
+	}
+	return id, nil
 }
 
 func (s *taskService) DecideTransfer(ctx context.Context, transferID, actor uuid.UUID, req *dto.HandoverDecision) (*dto.HandoverResponse, error) {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Form, Input, Space, Spin, message } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { decideTaskHandover, decideTaskTransfer, getTaskHandover, getTaskTransfer, type TaskHandover } from '@/api/taskWorkflow';
+import { decideTaskTransfer, getTaskHandover, getTaskTransfer, type TaskHandover } from '@/api/taskWorkflow';
 import styles from './WorkflowPanel.module.css';
 
 interface Props {
@@ -41,9 +41,7 @@ export default function HandoverPanel({ taskId, transferId, value, onChanged }: 
     }
     setBusy(true);
     try {
-      const next = transferId
-        ? await decideTaskTransfer(transferId, requirement, decision, comment, row.revision)
-        : await decideTaskHandover(row.task_id, requirement, decision, comment, row.revision);
+      const next = await decideTaskTransfer(row.id, requirement, decision, comment, row.revision);
       setRow(next);
       form.resetFields();
       message.success(decision === 'approve' ? t('task.handover.signed') : t('task.handover.rejected'));

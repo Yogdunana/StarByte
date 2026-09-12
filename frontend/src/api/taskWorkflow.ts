@@ -77,8 +77,8 @@ export function getTaskHandover(id: string): Promise<TaskHandover> {
   return request.get(`/tasks/${id}/handover`);
 }
 
-export function decideTaskHandover(id: string, requirement: string, decision: 'approve' | 'reject', comment: string, revision: number): Promise<TaskHandover> {
-  return request.post(`/tasks/${id}/handover/decisions`, { requirement, decision, comment, revision });
+export function decideTaskHandover(id: string, transferId: string, requirement: string, decision: 'approve' | 'reject', comment: string, revision: number): Promise<TaskHandover> {
+  return request.post(`/tasks/${id}/handover/decisions`, { transfer_id: transferId, requirement, decision, comment, revision });
 }
 
 export function getTaskTransfer(id: string): Promise<TaskHandover> {
