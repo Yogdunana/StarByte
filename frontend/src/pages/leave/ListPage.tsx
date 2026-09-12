@@ -19,11 +19,11 @@ const ListPage: React.FC = () => {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<LeaveStatus | ''>('pending');
   const [loading, setLoading] = useState(false);
+  const inbox = canApprove && status === 'pending';
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const inbox = canApprove && status === 'pending';
       const [res, stat] = await Promise.all([
         inbox
           ? getLeaveTodos({ page, page_size: 10 })
@@ -36,7 +36,7 @@ const ListPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [canApprove, page, status]);
+  }, [inbox, page, status]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -92,7 +92,7 @@ const ListPage: React.FC = () => {
     },
   ];
 
-  if (canApprove) {
+  if (inbox) {
     columns.push({
       title: t('common.actions'),
       width: 160,
