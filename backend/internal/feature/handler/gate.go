@@ -9,7 +9,7 @@ import (
 // BypassFunc lets staff keep managing a surface while members are in grayscale.
 type BypassFunc func(*gin.Context) bool
 
-// RequireFlag aborts with 33007 when the current user misses the flag.
+// RequireFlag aborts with 34007 when the current user misses the flag.
 func RequireFlag(svc service.Service, key string, bypass BypassFunc) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if bypass != nil && bypass(c) {

@@ -450,8 +450,11 @@ func TestModuleRanges(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, 33000, r[0])
 	assert.Equal(t, 33999, r[1])
+<<<<<<< HEAD
 	assert.Equal(t, 33001, CodeKnowledgeNotFound)
 	assert.Equal(t, 33004, CodeKnowledgeLoginRequired)
+=======
+>>>>>>> c546e9b (chore(feature): 迁移改为 000066，错误码改为 34000)
 	assert.True(t, r[0] > ModuleRanges["backup"][1], "knowledge must not collide with backup 32000-32999")
 
 	r, ok = ModuleRanges["feature"]

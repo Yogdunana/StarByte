@@ -66,10 +66,10 @@ ON CONFLICT (role_id, permission_id) DO NOTHING;
 INSERT INTO feature_flags (id, flag_key, name, description, flag_type, enabled, group_name, priority, rules, is_system)
 VALUES
     (
-        '00000000-0000-4000-8000-000000000064',
+        '00000000-0000-4000-8000-000000000166',
         'cms.public',
         '公开 CMS',
-        '已发布动态表单作为公开内容页。默认关闭，仅允许名单/角色/百分比灰度。',
+        '公开 CMS / 已发布内容页。默认关闭，仅允许名单/角色/百分比灰度。',
         'boolean',
         FALSE,
         'cms',
@@ -78,7 +78,7 @@ VALUES
         TRUE
     ),
     (
-        '00000000-0000-4000-8000-000000000065',
+        '00000000-0000-4000-8000-000000000167',
         'announcement.feed',
         '公告信息流',
         '工作台最新公告与公告列表（成员侧）。默认开启以免打断已上线公告；招新前可改为用户名单或百分比。',
@@ -90,7 +90,7 @@ VALUES
         TRUE
     ),
     (
-        '00000000-0000-4000-8000-000000000066',
+        '00000000-0000-4000-8000-000000000168',
         'membership.portal',
         '会员门户',
         '新的会员门户页（不替代入会申请）。默认关闭。',
