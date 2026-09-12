@@ -152,3 +152,11 @@ POST /api/v1/contracts
 - 字典 / 配置 / 缓存 / 调度 / 搜索 / 导出：见 `/system/*` 与 `/export/*`
 
 健康检查（无前缀）：`GET /health` `GET /health/ready` `GET /metrics`。
+
+### 运维监控（#87 phase-1，`monitor:read`）
+
+- `GET /monitor/server` CPU / 内存 / 磁盘 / 负载
+- `GET /monitor/app` 运行时长、Goroutine、MemStats / GC
+- `GET /monitor/database` `sql.DB` 连接池
+- `GET /monitor/redis` INFO（连接数 / 内存 / 命中率，不含主机凭据）
+- `GET /monitor/api-stats` Prometheus 请求计数；P50/P95 持久化见响应 `percentiles_note`

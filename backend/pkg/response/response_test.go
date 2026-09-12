@@ -419,6 +419,15 @@ func TestModuleRanges(t *testing.T) {
 	assert.Equal(t, 30003, CodeLeaveNoAccess)
 	assert.Equal(t, 30008, CodeLeaveBalanceMissing)
 	assert.True(t, r[0] > ModuleRanges["schedule"][1], "leave must not collide with schedule 29000-29999")
+
+	r, ok = ModuleRanges["monitor"]
+	assert.True(t, ok)
+	assert.Equal(t, 31000, r[0])
+	assert.Equal(t, 31999, r[1])
+	assert.Equal(t, 31001, CodeMonitorCollectFail)
+	assert.Equal(t, 31002, CodeMonitorRedisDown)
+	assert.Equal(t, 31003, CodeMonitorDBDown)
+	assert.True(t, r[0] > ModuleRanges["leave"][1], "monitor must not collide with leave 30000-30999")
 }
 
 // ========== TranslateGORMError tests ==========

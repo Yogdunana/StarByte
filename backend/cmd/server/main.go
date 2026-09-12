@@ -58,6 +58,8 @@ import (
 	memberidentity "github.com/Yogdunana/StarByte/backend/internal/member/identity"
 	memberRepo "github.com/Yogdunana/StarByte/backend/internal/member/repo"
 	memberService "github.com/Yogdunana/StarByte/backend/internal/member/service"
+	monitorHandler "github.com/Yogdunana/StarByte/backend/internal/monitor/handler"
+	monitorService "github.com/Yogdunana/StarByte/backend/internal/monitor/service"
 	notifHandler "github.com/Yogdunana/StarByte/backend/internal/notification/handler"
 	notifModel "github.com/Yogdunana/StarByte/backend/internal/notification/model"
 	notifRepo "github.com/Yogdunana/StarByte/backend/internal/notification/repo"
@@ -495,6 +497,10 @@ func main() {
 		cacheAdminSvc := cacheadminService.NewCacheService(redis.Client())
 		cacheAdminH := cacheadminHandler.NewCacheHandler(cacheAdminSvc)
 		cacheadminHandler.RegisterRoutes(protected, cacheAdminH, cacheService)
+
+		// 运维监控仪表盘（/monitor，#87 phase-1）
+		monitorH := monitorHandler.New(monitorService.New(database.DB(), redis.Client()))
+		monitorHandler.RegisterRoutes(protected, monitorH, cacheService)
 
 		// 定时任务调度（/system/scheduler，#73）
 		schedH := schedHandler.NewSchedulerHandler(schedSvc)
