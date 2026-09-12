@@ -6,7 +6,7 @@
 
 | 项 | 值 |
 |----|----|
-| 迁移 | `000066_feature_flags` + `000070_feature_flags_phase2` |
+| 迁移 | `000066_feature_flags` + `000071_feature_flags_phase2` |
 | 错误码 | `34000-34999`（`34008` = 没有可回滚快照） |
 | 热更新 | Redis `feature:snapshot` + pub/sub `feature:invalidate` |
 
