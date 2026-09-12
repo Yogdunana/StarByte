@@ -11,8 +11,9 @@ import (
 
 // Compose service names that address the same Postgres as DB_HOST=postgres.
 var composeClusterHosts = map[string]struct{}{
-	"postgres":          {},
-	"starbyte-postgres": {},
+	"postgres":              {},
+	"starbyte-postgres":     {},
+	"starbyte-postgres-dev": {},
 }
 
 var loopbackHosts = map[string]struct{}{

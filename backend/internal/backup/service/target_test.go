@@ -58,6 +58,12 @@ func TestSameDatabaseTreatsComposeAliases(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "不能是当前应用库")
 
+	_, err = ResolveDrillTarget(live, &dto.DrillRequest{
+		TargetDSN: "postgres://starbyte@starbyte-postgres-dev:5432/starbyte",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "不能是当前应用库")
+
 	got, err := ResolveDrillTarget(live, &dto.DrillRequest{TargetHost: "starbyte-postgres", TargetDBName: "starbyte_drill"})
 	require.NoError(t, err)
 	assert.Equal(t, "starbyte-postgres", got.Host)
