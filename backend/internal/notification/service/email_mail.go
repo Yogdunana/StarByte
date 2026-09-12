@@ -63,7 +63,10 @@ func smtpReady(cfg config.EmailConfig) error {
 }
 
 func (c *EmailChannel) SendMIME(ctx context.Context, job MailJob, files []MailAttachment) error {
-	cfg := c.resolve(ctx)
+	cfg, resolveErr := c.resolve(ctx)
+	if resolveErr != nil {
+		return resolveErr
+	}
 	if err := smtpReady(cfg); err != nil {
 		return err
 	}

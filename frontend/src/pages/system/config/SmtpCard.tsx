@@ -13,6 +13,7 @@ interface FormValues {
   from_name: string;
   username?: string;
   test_to?: string;
+  password?: string;
 }
 
 const SmtpCard: React.FC = () => {
@@ -42,10 +43,20 @@ const SmtpCard: React.FC = () => {
     }
   }, [form]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const save = async () => {
-    const values = await form.validateFields(['host', 'port', 'ssl_mode', 'from', 'from_name', 'username']);
+    const values = await form.validateFields([
+      'host',
+      'port',
+      'ssl_mode',
+      'from',
+      'from_name',
+      'username',
+      'password',
+    ]);
     setSaving(true);
     try {
       const data = await updateSMTPSettings({
@@ -55,8 +66,10 @@ const SmtpCard: React.FC = () => {
         from: values.from,
         from_name: values.from_name,
         username: values.username,
+        password: values.password || undefined,
       });
       setSettings(data);
+      form.setFieldValue('password', '');
       message.success(t('smtp.saved'));
     } finally {
       setSaving(false);
@@ -111,26 +124,36 @@ const SmtpCard: React.FC = () => {
         </div>
         <Form.Item label={t('smtp.password')}>
           <Space wrap>
-            <Input.Password
-              value={settings?.password_configured ? '********' : ''}
-              readOnly
-              visibilityToggle={false}
-              placeholder={t('smtp.passwordPlaceholder') || undefined}
-              style={{ width: 280 }}
-            />
+            <Form.Item name="password" noStyle rules={[{ max: 4096 }]}>
+              <Input.Password
+                disabled={!canUpdate}
+                autoComplete="new-password"
+                placeholder={t('smtp.webPasswordPlaceholder', '输入新密码；留空保留当前密码')}
+                style={{ width: 320 }}
+              />
+            </Form.Item>
             <Tag color={settings?.password_configured ? 'green' : 'orange'}>
               {settings?.password_configured ? t('smtp.passwordSet') : t('smtp.passwordMissing')}
             </Tag>
           </Space>
-          <div className="smtp-hint">{t('smtp.passwordHint')}</div>
+          <div className="smtp-hint">
+            {t(
+              'smtp.webPasswordHint',
+              '密码加密保存，不会回显。测试使用已保存的设置，请先保存再测试。',
+            )}
+          </div>
         </Form.Item>
         {canUpdate && (
           <Space wrap>
-            <Button type="primary" loading={saving} onClick={() => void save()}>{t('smtp.save')}</Button>
+            <Button type="primary" loading={saving} onClick={() => void save()}>
+              {t('smtp.save')}
+            </Button>
             <Form.Item name="test_to" style={{ marginBottom: 0 }}>
               <Input placeholder={t('smtp.testTo') || undefined} style={{ width: 240 }} />
             </Form.Item>
-            <Button loading={testing} onClick={() => void sendTest()}>{t('smtp.testSend')}</Button>
+            <Button loading={testing} onClick={() => void sendTest()}>
+              {t('smtp.testSend')}
+            </Button>
           </Space>
         )}
       </Form>

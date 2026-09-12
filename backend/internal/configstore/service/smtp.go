@@ -40,22 +40,41 @@ func (s *configService) UpdateSMTP(ctx context.Context, operator uuid.UUID, req 
 	if runtime.Username == "" {
 		runtime.Username = runtime.From
 	}
+	row, err := s.rows.GetByKey(ctx, config.SMTPSettingsKey)
+	if err != nil {
+		return nil, err
+	}
+	if row != nil {
+		previous, parseErr := config.ParseSMTPRuntime(row.ConfigValue)
+		if parseErr != nil {
+			return nil, response.NewError(response.CodeConfigInvalidValue, "SMTP 配置 JSON 无效")
+		}
+		runtime.PasswordCiphertext = previous.PasswordCiphertext
+	}
+	if req.Password != nil && *req.Password != "" {
+		if len(*req.Password) > 4096 {
+			return nil, response.NewError(response.CodeConfigInvalidValue, "SMTP 密码过长")
+		}
+		runtime.PasswordCiphertext, err = config.EncryptSMTPPassword(*req.Password)
+		if err != nil {
+			return nil, response.NewError(response.CodeConfigInvalidValue, err.Error())
+		}
+	}
+	if _, err := runtime.Resolve(s.fallback); err != nil {
+		return nil, response.NewError(response.CodeConfigInvalidValue, err.Error())
+	}
 	raw, err := json.Marshal(runtime)
 	if err != nil {
 		return nil, err
 	}
 	now := time.Now()
-	row, err := s.rows.GetByKey(ctx, config.SMTPSettingsKey)
-	if err != nil {
-		return nil, err
-	}
 	if row == nil {
 		row = &model.Config{
 			ID:          uuid.New(),
 			ConfigKey:   config.SMTPSettingsKey,
 			ConfigType:  model.TypeJSON,
 			Category:    "notification",
-			Description: "SMTP 发信设置（不含密码）",
+			Description: "SMTP 发信设置（密码加密保存）",
 			CreatedAt:   now,
 		}
 		row.ConfigValue = string(raw)
@@ -66,6 +85,7 @@ func (s *configService) UpdateSMTP(ctx context.Context, operator uuid.UUID, req 
 		}
 	} else {
 		row.ConfigValue = string(raw)
+		row.IsPublic = false
 		row.ConfigType = model.TypeJSON
 		row.Category = "notification"
 		row.UpdatedBy = &operator
@@ -86,8 +106,12 @@ func (s *configService) TestSMTP(ctx context.Context, req *dto.TestSMTPRequest) 
 	if req == nil || strings.TrimSpace(req.To) == "" {
 		return nil, response.NewError(response.CodeConfigInvalidValue, "请填写测试收件人")
 	}
-	if config.SMTPPasswordFromEnv() == "" {
-		return nil, response.NewError(response.CodeNotificationEmailFail, "未配置 STARBYTE_SMTP_PASSWORD")
+	cfg, err := s.resolveSMTP(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.Password == "" {
+		return nil, response.NewError(response.CodeNotificationEmailFail, "未配置 SMTP 密码")
 	}
 	if s.tester == nil {
 		return nil, response.NewError(response.CodeNotificationEmailFail, "邮件发送器不可用")
@@ -112,7 +136,7 @@ func (s *configService) resolveSMTP(ctx context.Context) (config.EmailConfig, er
 		if perr != nil {
 			return cfg, response.NewError(response.CodeConfigInvalidValue, "SMTP 配置 JSON 无效")
 		}
-		cfg = runtime.Overlay(cfg)
+		return runtime.Resolve(cfg)
 	}
 	return cfg.ApplyEnvPassword(), nil
 }
@@ -127,7 +151,7 @@ func smtpResponse(cfg config.EmailConfig) *dto.SMTPSettingsResponse {
 			FromName: cfg.FromName,
 			Username: cfg.EffectiveUsername(),
 		},
-		PasswordConfigured: config.SMTPPasswordFromEnv() != "",
-		PasswordSource:     config.SMTPPasswordSource(),
+		PasswordConfigured: cfg.Password != "",
+		PasswordSource:     cfg.PasswordSource,
 	}
 }

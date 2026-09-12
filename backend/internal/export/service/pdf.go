@@ -2,21 +2,19 @@ package service
 
 import (
 	"bytes"
+	_ "embed"
 	"fmt"
-	"os"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/Yogdunana/StarByte/backend/internal/export/dto"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/phpdave11/gofpdf"
+	"golang.org/x/net/html"
 )
 
-var pdfFontCandidates = []string{
-	"/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
-	"/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
-	"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-}
+//go:embed fonts/NotoSansSC-Regular.ttf
+var pdfFont []byte
 
 func buildTablePDF(req *dto.TableExportRequest) ([]byte, error) {
 	orient := "P"
@@ -74,7 +72,8 @@ func newPDF(orientation, watermark string) (*gofpdf.Fpdf, string) {
 		pdf.Ln(8)
 		pdf.SetTextColor(15, 23, 42)
 		pdf.SetDrawColor(29, 78, 216)
-		pdf.Line(14, 16, 196, 16)
+		pageW, _ := pdf.GetPageSize()
+		pdf.Line(14, 16, pageW-14, 16)
 	})
 	pdf.SetFooterFunc(func() {
 		pdf.SetY(-12)
@@ -86,36 +85,9 @@ func newPDF(orientation, watermark string) (*gofpdf.Fpdf, string) {
 }
 
 func addPDFFont(pdf *gofpdf.Fpdf) string {
-	for _, path := range pdfFontCandidates {
-		if _, err := os.Stat(path); err != nil {
-			continue
-		}
-		// TTC is not supported by UTF-8 embedding; skip after a failed probe.
-		if strings.HasSuffix(strings.ToLower(path), ".ttc") {
-			probe := gofpdf.New("P", "mm", "A4", "")
-			probe.AddUTF8Font("export", "", path)
-			if probe.Err() {
-				continue
-			}
-			pdf.AddUTF8Font("export", "", path)
-			if pdf.Err() {
-				pdf.ClearError()
-				continue
-			}
-			return "export"
-		}
-		data, err := os.ReadFile(path)
-		if err != nil || len(data) == 0 {
-			continue
-		}
-		pdf.AddUTF8FontFromBytes("export", "", data)
-		if pdf.Err() {
-			pdf.ClearError()
-			continue
-		}
-		return "export"
-	}
-	return "Helvetica"
+	// Always embed the same Unicode font; never fall back to Latin-only Helvetica.
+	pdf.AddUTF8FontFromBytes("export", "", pdfFont)
+	return "export"
 }
 
 func drawWatermark(pdf *gofpdf.Fpdf, font, text string) {
@@ -145,7 +117,7 @@ func drawPDFTable(pdf *gofpdf.Fpdf, font string, headers []string, rows [][]stri
 	pdf.SetFillColor(29, 78, 216)
 	pdf.SetTextColor(255, 255, 255)
 	for _, h := range headers {
-		pdf.CellFormat(colW, 8, clipPDF(h, 24), "1", 0, "C", true, 0, "")
+		pdf.CellFormat(colW, 8, fitPDFText(pdf, h, colW-4), "1", 0, "C", true, 0, "")
 	}
 	pdf.Ln(-1)
 	pdf.SetTextColor(15, 23, 42)
@@ -157,11 +129,27 @@ func drawPDFTable(pdf *gofpdf.Fpdf, font string, headers []string, rows [][]stri
 			if i < len(row) {
 				val = row[i]
 			}
-			pdf.CellFormat(colW, 7, clipPDF(val, 28), "1", 0, "L", fill, 0, "")
+			pdf.CellFormat(colW, 7, fitPDFText(pdf, val, colW-4), "1", 0, "L", fill, 0, "")
 		}
 		pdf.Ln(-1)
 		fill = !fill
 	}
+}
+
+// Fit by rendered glyph width, since CJK and Cyrillic characters differ in width.
+func fitPDFText(pdf *gofpdf.Fpdf, text string, width float64) string {
+	text = strings.ReplaceAll(text, "\n", " ")
+	if pdf.GetStringWidth(text) <= width {
+		return text
+	}
+	runes := []rune(text)
+	for len(runes) > 0 {
+		runes = runes[:len(runes)-1]
+		if pdf.GetStringWidth(string(runes)+"…") <= width {
+			return string(runes) + "…"
+		}
+	}
+	return ""
 }
 
 func clipPDF(s string, max int) string {
@@ -193,41 +181,42 @@ type htmlLine struct {
 }
 
 func parseSimpleHTML(raw string) []htmlLine {
-	raw = strings.ReplaceAll(raw, "\r", "")
+	doc, err := html.Parse(strings.NewReader(raw))
+	if err != nil {
+		return nil
+	}
 	var out []htmlLine
-	for _, p := range strings.Split(raw, "\n") {
-		p = strings.TrimSpace(p)
-		if p == "" {
-			continue
+	var content func(*html.Node) string
+	content = func(n *html.Node) string {
+		if n.Type == html.TextNode {
+			return n.Data
 		}
-		kind := "p"
-		if strings.Contains(p, "<h1") {
-			kind = "h1"
+		if n.Type == html.ElementNode && n.Data == "br" {
+			return "\n"
 		}
-		p = stripTags(p)
-		if p == "" {
-			continue
+		var b strings.Builder
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			b.WriteString(content(c))
 		}
-		out = append(out, htmlLine{kind: kind, text: p})
+		return b.String()
 	}
+	var walk func(*html.Node)
+	walk = func(n *html.Node) {
+		if n.Type == html.ElementNode {
+			switch n.Data {
+			case "head", "script", "style":
+				return
+			case "h1", "p", "li", "tr":
+				if text := strings.TrimSpace(content(n)); text != "" {
+					out = append(out, htmlLine{kind: n.Data, text: text})
+				}
+				return
+			}
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			walk(c)
+		}
+	}
+	walk(doc)
 	return out
-}
-
-func stripTags(s string) string {
-	var b strings.Builder
-	skip := false
-	for _, r := range s {
-		if r == '<' {
-			skip = true
-			continue
-		}
-		if r == '>' {
-			skip = false
-			continue
-		}
-		if !skip {
-			b.WriteRune(r)
-		}
-	}
-	return strings.TrimSpace(b.String())
 }

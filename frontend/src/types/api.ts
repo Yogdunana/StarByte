@@ -1307,6 +1307,7 @@ export interface SMTPSettings {
 }
 
 export interface UpdateSMTPSettingsParams {
+  password?: string;
   host: string;
   port: number;
   ssl_mode: SMTPSSLMode;

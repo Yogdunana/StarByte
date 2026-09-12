@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
@@ -18,7 +19,8 @@ func TestEmailChannelResolvesRuntimeOverlay(t *testing.T) {
 		`{"host":"smtp.runtime.test","port":465,"ssl_mode":"implicit","from":"from@runtime.test","from_name":"Runtime","username":"user@runtime.test"}`))
 	ch := NewEmailChannel("smtp.fallback.test", 25, "old", "yaml-pass", "old@x.test").
 		WithStore(configstore.New(nil, backend))
-	cfg := ch.resolve(context.Background())
+	cfg, err := ch.resolve(context.Background())
+	require.NoError(t, err)
 	assert.Equal(t, "smtp.runtime.test", cfg.SMTPHost)
 	assert.Equal(t, 465, cfg.SMTPPort)
 	assert.Equal(t, "from@runtime.test", cfg.From)
@@ -77,4 +79,24 @@ func TestSendMIMERefusesMissingPassword(t *testing.T) {
 	err = ch.SendMIME(context.Background(), MailJob{To: []string{"a@b.c"}, Subject: "s", Body: "b"}, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "password")
+}
+
+func TestEmailChannelUsesWebSecretAndRejectsWrongKey(t *testing.T) {
+	t.Setenv("STARBYTE_CONFIG_ENCRYPTION_KEY", "a2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2s=")
+	t.Setenv("STARBYTE_SMTP_PASSWORD", "old-env")
+	encrypted, err := config.EncryptSMTPPassword("web-secret")
+	require.NoError(t, err)
+	runtime := config.SMTPRuntime{PasswordCiphertext: encrypted}
+	raw, err := json.Marshal(runtime)
+	require.NoError(t, err)
+	backend := configstore.NewMemoryBackend()
+	require.NoError(t, backend.Save(context.Background(), config.SMTPSettingsKey, string(raw)))
+	ch := NewEmailChannel("smtp.example.test", 465, "user", "old", "a@example.test").WithStore(configstore.New(nil, backend))
+	cfg, err := ch.resolve(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "web-secret", cfg.Password)
+	t.Setenv("STARBYTE_CONFIG_ENCRYPTION_KEY", "")
+	require.False(t, ch.IsAvailable())
+	err = ch.SendTest(context.Background(), "to@example.test")
+	require.Error(t, err)
 }

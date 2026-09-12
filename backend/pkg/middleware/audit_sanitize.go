@@ -8,6 +8,7 @@ import (
 )
 
 var sensitivePaths = map[string]bool{
+	"/api/v1/system/smtp":       true,
 	"/api/v1/auth/login":        true,
 	"/api/v1/auth/register":     true,
 	"/api/v1/auth/cas/register": true,

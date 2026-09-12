@@ -1,8 +1,12 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"encoding/csv"
 	"encoding/json"
+	"github.com/xuri/excelize/v2"
+	"os"
 	"testing"
 	"time"
 
@@ -226,9 +230,8 @@ func TestFilenameAndSheetHelpers(t *testing.T) {
 }
 
 func TestHtmlToText(t *testing.T) {
-	got := stripTags("<h1>标题</h1><p>hello<br/>world</p>")
-	assert.Contains(t, got, "标题")
-	assert.Contains(t, got, "hello")
+	got := parseSimpleHTML("<h1>标题</h1><p>hello<br/>world</p>")
+	assert.Equal(t, []htmlLine{{kind: "h1", text: "标题"}, {kind: "p", text: "hello\nworld"}}, got)
 }
 
 func TestRenderTable_CSV(t *testing.T) {
@@ -236,4 +239,42 @@ func TestRenderTable_CSV(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "members.csv", name)
 	assert.Contains(t, string(data), "张三")
+}
+
+func TestUnicodePDFArtifact(t *testing.T) {
+	req := &dto.TableExportRequest{Title: "入会申请 / Application / Заявление", Columns: []string{"姓名 / Name", "学号 / ID", "备注 / Примечание"}, Rows: [][]string{{"张三", "202600001", "Привет, мир! Ёё"}, {"李四 / Иван", "202600002", "中文 English Русский"}}}
+	raw, err := buildTablePDF(req)
+	require.NoError(t, err)
+	if path := os.Getenv("STARBYTE_PDF_QA_OUTPUT"); path != "" {
+		require.NoError(t, os.WriteFile(path, raw, 0600))
+	}
+}
+
+func TestExportUnicodeRoundTrip(t *testing.T) {
+	req := &dto.TableExportRequest{Columns: []string{"姓名", "Name", "Имя"}, Rows: [][]string{{"张三", "Alice", "Иван Ёё"}}}
+	csvData, err := buildCSV(req)
+	require.NoError(t, err)
+	require.True(t, bytes.HasPrefix(csvData, []byte{0xef, 0xbb, 0xbf}))
+	rows, err := csv.NewReader(bytes.NewReader(csvData[3:])).ReadAll()
+	require.NoError(t, err)
+	require.Equal(t, req.Rows[0], rows[1])
+	excelData, err := buildExcel(req)
+	require.NoError(t, err)
+	book, err := excelize.OpenReader(bytes.NewReader(excelData))
+	require.NoError(t, err)
+	defer book.Close()
+	rows, err = book.GetRows(book.GetSheetName(0))
+	require.NoError(t, err)
+	require.Equal(t, req.Rows[0], rows[1])
+	html, err := renderTemplate("member_application", map[string]string{"Title": "申请 / Заявление", "RealName": "张三 & Иван <A>"})
+	require.NoError(t, err)
+	lines := parseSimpleHTML(html)
+	require.Equal(t, "h1", lines[0].kind)
+	require.Equal(t, "申请 / Заявление", lines[0].text)
+	require.Contains(t, lines, htmlLine{kind: "p", text: "申请人：张三 & Иван <A>"})
+	raw, err := buildTemplatePDF(html, "申请 / Заявление", "")
+	require.NoError(t, err)
+	if path := os.Getenv("STARBYTE_PDF_QA_OUTPUT"); path != "" {
+		require.NoError(t, os.WriteFile(path+".template.pdf", raw, 0600))
+	}
 }

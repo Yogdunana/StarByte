@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -95,20 +96,25 @@ func (c *EmailChannel) WithStore(store configstore.Store) *EmailChannel {
 func (c *EmailChannel) Type() string { return "email" }
 
 func (c *EmailChannel) IsAvailable() bool {
-	return smtpReady(c.resolve(context.Background())) == nil
+	cfg, err := c.resolve(context.Background())
+	return err == nil && smtpReady(cfg) == nil
 }
 
-func (c *EmailChannel) resolve(ctx context.Context) config.EmailConfig {
-	cfg := c.fallback
+func (c *EmailChannel) resolve(ctx context.Context) (config.EmailConfig, error) {
+	runtime := config.SMTPRuntime{}
 	if c.store != nil {
 		raw, err := c.store.Get(ctx, config.SMTPSettingsKey)
+		if err != nil && !errors.Is(err, configstore.ErrNotFound) {
+			return config.EmailConfig{}, err
+		}
 		if err == nil {
-			if runtime, perr := config.ParseSMTPRuntime(raw); perr == nil {
-				cfg = runtime.Overlay(cfg)
+			runtime, err = config.ParseSMTPRuntime(raw)
+			if err != nil {
+				return config.EmailConfig{}, errors.New("SMTP 配置 JSON 无效")
 			}
 		}
 	}
-	return cfg.ApplyEnvPassword()
+	return runtime.Resolve(c.fallback)
 }
 
 func (c *EmailChannel) SendTest(ctx context.Context, to string) error {

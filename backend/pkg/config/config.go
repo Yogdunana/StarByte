@@ -80,13 +80,14 @@ type MinIOConfig struct {
 // Password must come from the environment (STARBYTE_SMTP_PASSWORD or SMTP_PASSWORD), never from committed files.
 // Host / port / SSL / from are defaults only — overridable via env or runtime settings.
 type EmailConfig struct {
-	SMTPHost string `yaml:"smtp_host"`
-	SMTPPort int    `yaml:"smtp_port"`
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
-	From     string `yaml:"from"`
-	FromName string `yaml:"from_name"`
-	SSLMode  string `yaml:"ssl_mode"` // implicit | starttls | none
+	PasswordSource string `yaml:"-" json:"-"`
+	SMTPHost       string `yaml:"smtp_host"`
+	SMTPPort       int    `yaml:"smtp_port"`
+	Username       string `yaml:"username"`
+	Password       string `yaml:"password"`
+	From           string `yaml:"from"`
+	FromName       string `yaml:"from_name"`
+	SSLMode        string `yaml:"ssl_mode"` // implicit | starttls | none
 }
 
 // CASConfig holds campus Central Authentication Service (金智 IDS) settings.
