@@ -56,8 +56,10 @@ func TestReportReadPermissionMigrationPostgres(t *testing.T) {
 	down := readMigration(t, downMigrationName)
 	rollback := errors.New("rollback report permission migration test")
 	err = db.Transaction(func(tx *gorm.DB) error {
+		// CI only migrates; it does not seed RBAC. Use a permission inserted by
+		// an earlier migration, not a seed-only code such as user:read.
 		var initialOtherPermissionCount int64
-		require.NoError(t, tx.Table("permissions").Where("code = ?", "user:read").Count(&initialOtherPermissionCount).Error)
+		require.NoError(t, tx.Table("permissions").Where("code <> ?", "report:read").Count(&initialOtherPermissionCount).Error)
 		require.Greater(t, initialOtherPermissionCount, int64(0))
 
 		assertPermission(t, tx)
@@ -69,7 +71,7 @@ func TestReportReadPermissionMigrationPostgres(t *testing.T) {
 		assert.Zero(t, reportPermissionCount)
 
 		var otherPermissionCount int64
-		require.NoError(t, tx.Table("permissions").Where("code = ?", "user:read").Count(&otherPermissionCount).Error)
+		require.NoError(t, tx.Table("permissions").Where("code <> ?", "report:read").Count(&otherPermissionCount).Error)
 		assert.Equal(t, initialOtherPermissionCount, otherPermissionCount)
 
 		require.NoError(t, tx.Exec(up).Error)
