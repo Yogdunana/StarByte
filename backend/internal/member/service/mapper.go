@@ -29,6 +29,7 @@ func mapApplication(row *model.ApplicationWithNames) *dto.ApplicationResponse {
 		ContactEmail:   row.ContactEmail,
 		Status:         row.Status,
 		CurrentStage:   row.CurrentStage,
+		WorkflowKey:    row.WorkflowKey,
 		ReviewComment:  row.ReviewComment,
 		RequiredFields: []string(row.RequiredFields),
 		ReviewedAt:     row.ReviewedAt,

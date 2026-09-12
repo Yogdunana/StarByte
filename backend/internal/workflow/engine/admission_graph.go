@@ -15,6 +15,9 @@ func ValidateBusinessDefinition(key string, g *FlowGraph) error {
 	if key == TaskDefinitionKey {
 		return ValidateTaskDefinition(g)
 	}
+	if key == MemberApplicationDefinitionKey {
+		return validateMemberApplicationGraph(g)
+	}
 	if key != "officer_interview" && key != "member_admission" {
 		return nil
 	}

@@ -21,6 +21,7 @@ type AdmissionRepo interface {
 	AddSignature(context.Context, *model.AdmissionSignature) error
 	InterviewCompleted(context.Context, uuid.UUID, int16, time.Time) (bool, error)
 	SaveApplication(context.Context, *model.MemberApplication) error
+	WorkflowDefinitionKey(context.Context, uuid.UUID) (string, error)
 }
 type admissionRepo struct{ db *gorm.DB }
 
@@ -66,6 +67,14 @@ func (r *admissionRepo) InterviewCompleted(ctx context.Context, id uuid.UUID, ro
 }
 func (r *admissionRepo) SaveApplication(ctx context.Context, app *model.MemberApplication) error {
 	return r.db.WithContext(ctx).Save(app).Error
+}
+func (r *admissionRepo) WorkflowDefinitionKey(ctx context.Context, instanceID uuid.UUID) (string, error) {
+	var key string
+	err := r.db.WithContext(ctx).Raw(
+		`SELECT d.key FROM flow_instances i JOIN flow_definitions d ON d.id = i.definition_id WHERE i.id = ?`,
+		instanceID,
+	).Scan(&key).Error
+	return key, err
 }
 
 func (r *admissionRepo) Objections(ctx context.Context, id uuid.UUID) ([]model.AdmissionObjection, error) {

@@ -57,10 +57,12 @@ func (r *applicationRepo) GetByID(ctx context.Context, id uuid.UUID) (*model.Mem
 
 func (r *applicationRepo) namedQuery(ctx context.Context) *gorm.DB {
 	return r.db.WithContext(ctx).Table("member_applications AS a").
-		Select("a.*, u.username, COALESCE(d.name, '') AS department_name, COALESCE(r.real_name, '') AS reviewer_name").
+		Select("a.*, u.username, COALESCE(d.name, '') AS department_name, COALESCE(r.real_name, '') AS reviewer_name, COALESCE(fd.key, '') AS workflow_key").
 		Joins("LEFT JOIN users u ON u.id = a.user_id").
 		Joins("LEFT JOIN departments d ON d.id = a.department_id").
-		Joins("LEFT JOIN users r ON r.id = a.reviewer_id")
+		Joins("LEFT JOIN users r ON r.id = a.reviewer_id").
+		Joins("LEFT JOIN flow_instances fi ON fi.id = a.flow_instance_id").
+		Joins("LEFT JOIN flow_definitions fd ON fd.id = fi.definition_id")
 }
 
 func applyAppScope(q *gorm.DB, scope *rbacModel.DataScopeCondition) *gorm.DB {

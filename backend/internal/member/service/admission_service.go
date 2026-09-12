@@ -291,6 +291,10 @@ func (s *admissionService) Sign(ctx context.Context, viewer, id uuid.UUID, req *
 	return out, err
 }
 func (s *admissionService) ReviewMaterials(ctx context.Context, viewer, id uuid.UUID, action, comment string) error {
+	handled, err := s.tryEngineReview(ctx, viewer, id, action, comment, nil)
+	if handled || err != nil {
+		return err
+	}
 	snapshot, err := s.Snapshot(ctx, viewer, id)
 	if err != nil {
 		return err
@@ -303,6 +307,10 @@ func (s *admissionService) ReviewMaterials(ctx context.Context, viewer, id uuid.
 }
 
 func (s *admissionService) RequestSupplement(ctx context.Context, viewer, id uuid.UUID, req *dto.SupplementRequest) error {
+	handled, err := s.tryEngineReview(ctx, viewer, id, actionSupplement, req.Comment, req.RequiredFields)
+	if handled || err != nil {
+		return err
+	}
 	snapshot, err := s.Snapshot(ctx, viewer, id)
 	if err != nil {
 		return err

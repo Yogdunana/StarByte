@@ -34,19 +34,13 @@ func (s *admissionService) startAdmissionWorkflow(ctx context.Context, tx *gorm.
 	if err != nil {
 		return nil, err
 	}
-	key := "member_admission"
-	if app.Type == model.ApplicantOfficer {
-		key = officerInterviewKey
-	}
-	vars := map[string]interface{}{"application_id": app.ID.String(), "applicant_type": app.Type, "revision": app.AdmissionRevision}
-	if app.DepartmentID != nil {
-		vars["department_id"] = app.DepartmentID.String()
-	}
-	inst, err := flow.Start(ctx, key, app.ID.String(), "member_application", app.UserID, vars)
+	inst, err := flow.Start(ctx, engine.MemberApplicationDefinitionKey, app.ID.String(), "member_application", app.UserID, applicationVariables(app))
 	if err != nil {
 		return nil, err
 	}
 	app.FlowInstanceID = &inst.ID
+	app.Status = model.AppPending
+	app.CurrentStage = engineStageMinister
 	if err := store.SaveApplication(ctx, app); err != nil {
 		return nil, err
 	}

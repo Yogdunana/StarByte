@@ -50,7 +50,7 @@ func (n *ApprovalNode) OnEnter(ctx context.Context, inst *model.FlowInstance, no
 		}
 	} else if n.Approvers != nil {
 		var err error
-		assignees, err = n.resolveRuntime(ctx, config, inst.InitiatorID, assignees)
+		assignees, err = n.resolveRuntime(ctx, config, inst.InitiatorID, vars, assignees)
 		if err != nil {
 			return err
 		}
@@ -155,9 +155,11 @@ func (n *ApprovalNode) Validate(node *engine.FlowNode) error {
 				"静态处理人策略需要非空的 assignees 列表")
 		}
 	case "role":
-		if _, ok := config["roleId"].(string); !ok {
+		roleID, _ := config["roleId"].(string)
+		roleCode, _ := config["roleCode"].(string)
+		if roleID == "" && roleCode == "" {
 			return response.NewAppError(response.CodeWorkflowInvalidNode,
-				"角色处理人策略需要 roleId 配置")
+				"角色处理人策略需要 roleId 或 roleCode 配置")
 		}
 	case "dept_leader", "initiator":
 		// No additional fields required.

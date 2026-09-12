@@ -61,7 +61,7 @@ func NewFlowEngine(
 
 // Start initiates a new flow instance and begins execution from the start node.
 func (e *FlowEngine) start(ctx context.Context, definitionKey string, businessKey string, businessType string, initiatorID uuid.UUID, variables map[string]interface{}) (*model.FlowInstance, error) {
-	if (IsProtectedBusiness(businessType) || definitionKey == TaskDefinitionKey || IsTaskTransferDefinition(definitionKey) || definitionKey == "officer_interview" || definitionKey == "member_admission") && !e.businessTransaction {
+	if (IsProtectedBusiness(businessType) || definitionKey == TaskDefinitionKey || IsTaskTransferDefinition(definitionKey) || definitionKey == "officer_interview" || definitionKey == "member_admission" || definitionKey == MemberApplicationDefinitionKey) && !e.businessTransaction {
 		return nil, response.NewAppError(response.CodeForbidden, "业务流程须从对应业务页面发起")
 	}
 	if err := validateInputVariables(variables); err != nil {
@@ -164,5 +164,8 @@ func (e *FlowEngine) start(ctx context.Context, definitionKey string, businessKe
 
 // withTransaction runs a function within a database transaction.
 func (e *FlowEngine) withTransaction(ctx context.Context, fn func(tx *gorm.DB) error) error {
+	if e.db == nil {
+		return fn(nil)
+	}
 	return e.db.WithContext(ctx).Transaction(fn)
 }

@@ -132,7 +132,7 @@ POST /api/v1/contracts
 
 ### 会员 / 面试 / 会议 / 任务 / 实习
 
-- 入会：`/member/applications`、审核 approve/reject/supplement、`/member/profiles`
+- 入会：`/member/applications`、审核 approve/reject/supplement（新申请走 `member_application` 流程实例）、`/member/profiles`
 - 面试：`/interviews`、sessions、evaluations、stats
 - 会议：`/meetings`、attendees、agendas、votes
 - 任务：`/tasks`、指派/转交/评论/附件、`/tasks/my/*`

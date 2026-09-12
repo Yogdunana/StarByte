@@ -319,6 +319,7 @@ export interface MemberApplication {
   status: MemberApplicationStatus;
   current_stage?: string;
   flow_instance_id?: string;
+  workflow_key?: string;
   reviewer?: MemberReviewer;
   review_comment?: string;
   required_fields?: string[];

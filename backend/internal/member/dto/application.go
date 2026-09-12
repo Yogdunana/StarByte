@@ -77,6 +77,7 @@ type ApplicationResponse struct {
 	Status                   int16         `json:"status"`
 	CurrentStage             string        `json:"current_stage,omitempty"`
 	FlowInstanceID           string        `json:"flow_instance_id,omitempty"`
+	WorkflowKey              string        `json:"workflow_key,omitempty"`
 	Reviewer                 *ReviewerInfo `json:"reviewer,omitempty"`
 	ReviewComment            string        `json:"review_comment,omitempty"`
 	RequiredFields           []string      `json:"required_fields,omitempty"`
