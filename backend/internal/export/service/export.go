@@ -10,6 +10,7 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/export/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/export/model"
 	"github.com/Yogdunana/StarByte/backend/internal/export/repo"
+	"github.com/Yogdunana/StarByte/backend/pkg/locale"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/Yogdunana/StarByte/backend/pkg/storage"
 	"github.com/google/uuid"
@@ -216,7 +217,7 @@ func (s *exportService) runTemplateJob(ctx context.Context, taskID, templateID, 
 	}
 	if title == "" {
 		if meta := findBuiltin(templateID); meta != nil {
-			title = meta.Name
+			title = locale.Text(req.Locale, meta.Name)
 		}
 	}
 	data, err := buildTemplatePDF(htmlBody, title, req.Watermark, req.Locale)

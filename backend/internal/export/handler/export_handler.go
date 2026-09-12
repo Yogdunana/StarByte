@@ -147,6 +147,11 @@ func (h *ExportHandler) GetTask(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
+	if out != nil {
+		copy := *out
+		copy.Error = locale.Message(locale.FromHeader(c.GetHeader("Accept-Language")), copy.Error)
+		out = &copy
+	}
 	response.OK(c, out)
 }
 
