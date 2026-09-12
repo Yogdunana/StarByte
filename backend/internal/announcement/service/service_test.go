@@ -392,6 +392,32 @@ func TestCreate_ScheduleRejectsPast(t *testing.T) {
 	}
 }
 
+func TestUpdate_UpdateOnlyPreservesScheduledAt(t *testing.T) {
+	svc, _, _ := newTestSvc()
+	author := uuid.New()
+	when := time.Date(2026, 9, 12, 11, 0, 0, 0, time.UTC)
+	resp, err := svc.Create(context.Background(), Viewer{UserID: author, CanPublish: true}, &dto.CreateAnnouncementRequest{
+		Title: "定时草稿", Category: model.CategorySystem, ScheduledAt: &when,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	title := "副部长只改标题"
+	updated, err := svc.Update(context.Background(), Viewer{UserID: author}, parseID(t, resp.ID), &dto.UpdateAnnouncementRequest{
+		Title:      &title,
+		ClearSched: true,
+	})
+	if err != nil {
+		t.Fatalf("update-only edit should succeed: %v", err)
+	}
+	if updated.Title != title {
+		t.Fatalf("title = %q", updated.Title)
+	}
+	if updated.ScheduledAt == "" {
+		t.Fatal("update-only role must not clear scheduled_at")
+	}
+}
+
 func TestUpdate_ScheduleRequiresPublish(t *testing.T) {
 	svc, _, _ := newTestSvc()
 	author := uuid.New()

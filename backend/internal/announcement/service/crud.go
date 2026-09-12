@@ -115,6 +115,9 @@ func applyUpdate(a *model.Announcement, req *dto.UpdateAnnouncementRequest, canP
 		a.Required = *req.Required
 	}
 	if req.ClearSched || (req.ScheduledAt != nil && a.Status != model.StatusDraft) {
+		if !canPublish {
+			return nil
+		}
 		a.ScheduledAt = nil
 		return nil
 	}

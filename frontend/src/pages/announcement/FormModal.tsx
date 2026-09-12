@@ -59,7 +59,9 @@ const FormModal: React.FC<Props> = ({ open, editing, canSchedule, onCancel, onSu
             required: values.required,
             scheduled_at: isDraft && canSchedule ? scheduled : undefined,
             clear_scheduled_at: Boolean(
-              editing && (editing.status !== 0 || (!scheduled && editing.scheduled_at)),
+              canSchedule &&
+                editing &&
+                (editing.status !== 0 || (!scheduled && editing.scheduled_at)),
             ),
           });
         }}
