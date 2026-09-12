@@ -189,20 +189,20 @@ func (s *leaveService) Stats(ctx context.Context, viewer Viewer, year int) (*dto
 		return nil, noAccess("无权查看请假统计")
 	}
 	sqlScope := rewriteApplicantScope(viewer.Scope, viewer.UserID)
-	total, byStatus, byType, err := s.rows.CountStats(ctx, sqlScope)
-	if err != nil {
-		return nil, err
-	}
-	personalTotal, personalDays, personalTypes, err := s.rows.CountPersonalStats(ctx, viewer.UserID)
-	if err != nil {
-		return nil, err
-	}
-	depts, err := s.rows.CountDepartmentStats(ctx, sqlScope)
-	if err != nil {
-		return nil, err
-	}
 	if year == 0 {
 		year = bizYear(s.clock())
+	}
+	total, byStatus, byType, err := s.rows.CountStats(ctx, year, sqlScope)
+	if err != nil {
+		return nil, err
+	}
+	personalTotal, personalDays, personalTypes, err := s.rows.CountPersonalStats(ctx, viewer.UserID, year)
+	if err != nil {
+		return nil, err
+	}
+	depts, err := s.rows.CountDepartmentStats(ctx, year, sqlScope)
+	if err != nil {
+		return nil, err
 	}
 	months, err := s.rows.CountMonthlyStats(ctx, year, sqlScope)
 	if err != nil {

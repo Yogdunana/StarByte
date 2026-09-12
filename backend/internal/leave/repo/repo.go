@@ -35,13 +35,13 @@ type Repository interface {
 	LockApplicant(ctx context.Context, userID uuid.UUID) error
 	GetLeaveApplicationsByUser(ctx context.Context, userID uuid.UUID, status string, page, pageSize int, scope *rbacModel.DataScopeCondition) ([]model.ApplicationNamed, int64, error)
 	GetLeaveApplicationsByStatus(ctx context.Context, status string, page, pageSize int, scope *rbacModel.DataScopeCondition) ([]model.ApplicationNamed, int64, error)
-	UpdateApprovalStatus(ctx context.Context, id uuid.UUID, approverID uuid.UUID, status, remark string, at time.Time) error
+	UpdateApprovalStatus(ctx context.Context, id uuid.UUID, approverID uuid.UUID, status, remark string, at time.Time, balanceDeducted bool) error
 	SaveApplication(ctx context.Context, app *model.LeaveApplication) error
 	GetLeaveApplicationsByUserAndTimeRange(ctx context.Context, userID uuid.UUID, startTime, endTime time.Time) ([]model.LeaveApplication, error)
 	ListCalendar(ctx context.Context, from, to time.Time, userID *uuid.UUID, scope *rbacModel.DataScopeCondition) ([]model.ApplicationNamed, error)
-	CountStats(ctx context.Context, scope *rbacModel.DataScopeCondition) (total int64, byStatus map[string]int64, byType []TypeCount, err error)
-	CountPersonalStats(ctx context.Context, userID uuid.UUID) (total int64, days float64, byType []TypeCount, err error)
-	CountDepartmentStats(ctx context.Context, scope *rbacModel.DataScopeCondition) ([]DeptCount, error)
+	CountStats(ctx context.Context, year int, scope *rbacModel.DataScopeCondition) (total int64, byStatus map[string]int64, byType []TypeCount, err error)
+	CountPersonalStats(ctx context.Context, userID uuid.UUID, year int) (total int64, days float64, byType []TypeCount, err error)
+	CountDepartmentStats(ctx context.Context, year int, scope *rbacModel.DataScopeCondition) ([]DeptCount, error)
 	CountMonthlyStats(ctx context.Context, year int, scope *rbacModel.DataScopeCondition) ([]MonthCount, error)
 	GetUserDepartmentID(ctx context.Context, userID uuid.UUID) (*uuid.UUID, error)
 }
@@ -183,6 +183,13 @@ func applyApplicantScope(q *gorm.DB, scope *rbacModel.DataScopeCondition) *gorm.
 	return q.Where(scope.Query, scope.Args...)
 }
 
+func applyBizYear(q *gorm.DB, year int, column string) *gorm.DB {
+	if year <= 0 {
+		return q
+	}
+	return q.Where("extract(year from timezone('Asia/Shanghai', "+column+")) = ?", year)
+}
+
 func (r *leaveRepo) joinApplicant(q *gorm.DB, scope *rbacModel.DataScopeCondition) *gorm.DB {
 	if scope != nil && strings.Contains(scope.Query, "applicant.") {
 		q = q.Joins("JOIN users applicant ON applicant.id = leave_applications.applicant_id")
@@ -266,15 +273,16 @@ func (r *leaveRepo) GetLeaveApplicationsByStatus(ctx context.Context, status str
 	return paginateNamed(countQ, listQ, page, pageSize)
 }
 
-func (r *leaveRepo) UpdateApprovalStatus(ctx context.Context, id uuid.UUID, approverID uuid.UUID, status, remark string, at time.Time) error {
+func (r *leaveRepo) UpdateApprovalStatus(ctx context.Context, id uuid.UUID, approverID uuid.UUID, status, remark string, at time.Time, balanceDeducted bool) error {
 	res := r.db.WithContext(ctx).Model(&model.LeaveApplication{}).
 		Where("id = ? AND status = ?", id, model.ApprovalStatusPending).
 		Updates(map[string]interface{}{
-			"status":         status,
-			"approver_id":    approverID,
-			"approve_remark": remark,
-			"approved_at":    at,
-			"updated_at":     at,
+			"status":           status,
+			"approver_id":      approverID,
+			"approve_remark":   remark,
+			"approved_at":      at,
+			"updated_at":       at,
+			"balance_deducted": balanceDeducted,
 		})
 	if res.Error != nil {
 		return res.Error
@@ -310,9 +318,10 @@ func (r *leaveRepo) GetUserDepartmentID(ctx context.Context, userID uuid.UUID) (
 	return row.DepartmentID, nil
 }
 
-func (r *leaveRepo) CountStats(ctx context.Context, scope *rbacModel.DataScopeCondition) (int64, map[string]int64, []TypeCount, error) {
+func (r *leaveRepo) CountStats(ctx context.Context, year int, scope *rbacModel.DataScopeCondition) (int64, map[string]int64, []TypeCount, error) {
 	var total int64
-	if err := r.joinApplicant(r.db.WithContext(ctx).Model(&model.LeaveApplication{}), scope).Count(&total).Error; err != nil {
+	if err := applyBizYear(r.joinApplicant(r.db.WithContext(ctx).Model(&model.LeaveApplication{}), scope), year, "leave_applications.start_time").
+		Count(&total).Error; err != nil {
 		return 0, nil, nil, err
 	}
 	type statusRow struct {
@@ -320,7 +329,7 @@ func (r *leaveRepo) CountStats(ctx context.Context, scope *rbacModel.DataScopeCo
 		Count  int64
 	}
 	var statusRows []statusRow
-	if err := r.joinApplicant(r.db.WithContext(ctx).Model(&model.LeaveApplication{}), scope).
+	if err := applyBizYear(r.joinApplicant(r.db.WithContext(ctx).Model(&model.LeaveApplication{}), scope), year, "leave_applications.start_time").
 		Select("leave_applications.status, count(*) as count").
 		Group("leave_applications.status").
 		Scan(&statusRows).Error; err != nil {
@@ -335,11 +344,11 @@ func (r *leaveRepo) CountStats(ctx context.Context, scope *rbacModel.DataScopeCo
 		byStatus[row.Status] = row.Count
 	}
 	var typeRows []TypeCount
-	typeQ := r.db.WithContext(ctx).
+	typeQ := applyBizYear(r.db.WithContext(ctx).
 		Table("leave_applications AS a").
 		Select("a.leave_type_id, t.code, t.name, count(*) AS count, coalesce(sum(a.duration_days),0) AS days").
 		Joins("JOIN leave_types t ON t.id = a.leave_type_id").
-		Where("a.deleted_at IS NULL")
+		Where("a.deleted_at IS NULL"), year, "a.start_time")
 	if scope != nil && strings.Contains(scope.Query, "applicant.") {
 		typeQ = typeQ.Joins("JOIN users applicant ON applicant.id = a.applicant_id")
 	}
@@ -369,37 +378,38 @@ func (r *leaveRepo) ListCalendar(ctx context.Context, from, to time.Time, userID
 	return rows, err
 }
 
-func (r *leaveRepo) CountPersonalStats(ctx context.Context, userID uuid.UUID) (int64, float64, []TypeCount, error) {
+func (r *leaveRepo) CountPersonalStats(ctx context.Context, userID uuid.UUID, year int) (int64, float64, []TypeCount, error) {
+	base := applyBizYear(r.db.WithContext(ctx).Model(&model.LeaveApplication{}).
+		Where("applicant_id = ? AND status <> ?", userID, model.ApprovalStatusRejected), year, "start_time")
 	var total int64
-	if err := r.db.WithContext(ctx).Model(&model.LeaveApplication{}).
-		Where("applicant_id = ?", userID).Count(&total).Error; err != nil {
+	if err := base.Count(&total).Error; err != nil {
 		return 0, 0, nil, err
 	}
 	var days float64
-	if err := r.db.WithContext(ctx).Model(&model.LeaveApplication{}).
-		Where("applicant_id = ? AND status <> ?", userID, model.ApprovalStatusRejected).
+	if err := applyBizYear(r.db.WithContext(ctx).Model(&model.LeaveApplication{}).
+		Where("applicant_id = ? AND status <> ?", userID, model.ApprovalStatusRejected), year, "start_time").
 		Select("coalesce(sum(duration_days),0)").Scan(&days).Error; err != nil {
 		return 0, 0, nil, err
 	}
 	var typeRows []TypeCount
-	err := r.db.WithContext(ctx).
+	err := applyBizYear(r.db.WithContext(ctx).
 		Table("leave_applications AS a").
 		Select("a.leave_type_id, t.code, t.name, count(*) AS count, coalesce(sum(a.duration_days),0) AS days").
 		Joins("JOIN leave_types t ON t.id = a.leave_type_id").
-		Where("a.deleted_at IS NULL AND a.applicant_id = ?", userID).
+		Where("a.deleted_at IS NULL AND a.applicant_id = ? AND a.status <> ?", userID, model.ApprovalStatusRejected), year, "a.start_time").
 		Group("a.leave_type_id, t.code, t.name").
 		Order("t.code").
 		Scan(&typeRows).Error
 	return total, days, typeRows, err
 }
 
-func (r *leaveRepo) CountDepartmentStats(ctx context.Context, scope *rbacModel.DataScopeCondition) ([]DeptCount, error) {
-	q := r.db.WithContext(ctx).
+func (r *leaveRepo) CountDepartmentStats(ctx context.Context, year int, scope *rbacModel.DataScopeCondition) ([]DeptCount, error) {
+	q := applyBizYear(r.db.WithContext(ctx).
 		Table("leave_applications AS a").
 		Select("applicant.department_id, coalesce(d.name,'') AS department_name, count(*) AS count, coalesce(sum(a.duration_days),0) AS days").
 		Joins("JOIN users applicant ON applicant.id = a.applicant_id").
 		Joins("LEFT JOIN departments d ON d.id = applicant.department_id").
-		Where("a.deleted_at IS NULL AND a.status <> ?", model.ApprovalStatusRejected)
+		Where("a.deleted_at IS NULL AND a.status <> ?", model.ApprovalStatusRejected), year, "a.start_time")
 	if scope != nil && strings.Contains(scope.Query, "leave_applications.applicant_id") {
 		scope = &rbacModel.DataScopeCondition{
 			Query:  strings.ReplaceAll(scope.Query, "leave_applications.applicant_id", "a.applicant_id"),
@@ -419,7 +429,7 @@ func (r *leaveRepo) CountMonthlyStats(ctx context.Context, year int, scope *rbac
 	q := r.db.WithContext(ctx).
 		Table("leave_applications AS a").
 		Select("to_char(timezone('Asia/Shanghai', a.start_time), 'YYYY-MM') AS month, count(*) AS count, coalesce(sum(a.duration_days),0) AS days").
-		Where("a.deleted_at IS NULL")
+		Where("a.deleted_at IS NULL AND a.status <> ?", model.ApprovalStatusRejected)
 	if year > 0 {
 		q = q.Where("extract(year from timezone('Asia/Shanghai', a.start_time)) = ?", year)
 	}

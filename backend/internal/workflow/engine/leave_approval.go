@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/repo"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 )
@@ -34,7 +35,10 @@ func (e *FlowEngine) CompleteLeaveApproval(ctx context.Context, instanceID, revi
 	if err != nil {
 		return err
 	}
-	selected, err := e.selectApprovalTask(ctx, instanceID, nodeID, reviewer)
+	if err := e.leaveReviewerCompletedOtherStage(ctx, instanceID, nodeID, reviewer); err != nil {
+		return err
+	}
+	selected, err := e.selectAssignedApprovalTask(ctx, instanceID, nodeID, reviewer)
 	if err != nil {
 		return err
 	}
@@ -50,6 +54,57 @@ func (e *FlowEngine) CompleteLeaveApproval(ctx context.Context, instanceID, revi
 	}
 	if fresh != nil && fresh.Status == 0 {
 		return e.Terminate(ctx, instanceID, reviewer, "请假审批拒绝："+comment)
+	}
+	return nil
+}
+
+// selectAssignedApprovalTask only returns a pending task already assigned to
+// reviewer. Unlike selectApprovalTask it never mints a todo for an arbitrary
+// user, so leave:approve alone cannot skip minister/president assignment.
+func (e *FlowEngine) selectAssignedApprovalTask(ctx context.Context, instanceID uuid.UUID, nodeID string, reviewer uuid.UUID) (*model.FlowTask, error) {
+	tasks, err := e.taskRepo.ListTasksByInstance(ctx, instanceID)
+	if err != nil {
+		return nil, err
+	}
+	var selected *model.FlowTask
+	pending := false
+	for i := range tasks {
+		task := &tasks[i]
+		if task.NodeID != nodeID || task.Status != 0 {
+			continue
+		}
+		pending = true
+		if task.AssigneeID != nil && *task.AssigneeID == reviewer {
+			selected = task
+		}
+	}
+	if !pending {
+		return nil, response.NewError(response.CodeConflict, "当前审批环节没有待办")
+	}
+	if selected == nil {
+		return nil, response.NewError(response.CodeWorkflowTaskNoAccess, "当前请假审批环节未指派该审批人")
+	}
+	return selected, nil
+}
+
+// leaveReviewerCompletedOtherStage enforces segregation of duties: the same
+// person cannot approve both minister and president on one application.
+func (e *FlowEngine) leaveReviewerCompletedOtherStage(ctx context.Context, instanceID uuid.UUID, currentNodeID string, reviewer uuid.UUID) error {
+	tasks, err := e.taskRepo.ListTasksByInstance(ctx, instanceID)
+	if err != nil {
+		return err
+	}
+	for i := range tasks {
+		task := &tasks[i]
+		if task.NodeID == currentNodeID || task.TaskType != "approval" {
+			continue
+		}
+		if task.Status != 1 && task.Status != 2 {
+			continue
+		}
+		if task.AssigneeID != nil && *task.AssigneeID == reviewer {
+			return response.NewError(response.CodeForbidden, "同一审批人不能连续完成部长与社长两个环节")
+		}
 	}
 	return nil
 }

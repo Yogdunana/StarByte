@@ -83,10 +83,10 @@ func (s *leaveService) decideViaEngine(ctx context.Context, tx repo.Repository, 
 		app.Status = model.ApprovalStatusRejected
 		app.ApprovedAt = &now
 		app.WorkflowStage = ""
-		if err := tx.SaveApplication(ctx, &app.LeaveApplication); err != nil {
+		if err := s.restoreBalance(ctx, tx, app); err != nil {
 			return err
 		}
-		return s.restoreBalance(ctx, tx, app)
+		return tx.SaveApplication(ctx, &app.LeaveApplication)
 	}
 	nodeID, done, err := flow.RunningApprovalNode(ctx, *app.WorkflowInstanceID)
 	if err != nil {
@@ -106,29 +106,21 @@ func (s *leaveService) decideLegacy(ctx context.Context, tx repo.Repository, vie
 	status := model.ApprovalStatusApproved
 	if !approve {
 		status = model.ApprovalStatusRejected
-	}
-	if err := mapApprovalErr(tx.UpdateApprovalStatus(ctx, app.ID, viewer.UserID, status, remark, s.clock())); err != nil {
-		return err
-	}
-	if !approve {
-		return s.restoreBalance(ctx, tx, app)
-	}
-	return nil
-}
-
-func (s *leaveService) restoreBalance(ctx context.Context, tx repo.Repository, app *model.ApplicationNamed) error {
-	leaveType, err := tx.GetLeaveTypeByID(ctx, app.LeaveTypeID)
-	if err != nil {
-		return err
-	}
-	if leaveType == nil {
-		return typeNotFound()
-	}
-	if leaveType.Deductible {
-		year := bizYear(app.StartTime)
-		if err := tx.DeductLeaveBalance(ctx, app.ApplicantID, year, app.LeaveTypeID, -app.DurationDays); err != nil {
+		if err := s.restoreBalance(ctx, tx, app); err != nil {
 			return err
 		}
 	}
+	return mapApprovalErr(tx.UpdateApprovalStatus(ctx, app.ID, viewer.UserID, status, remark, s.clock(), app.BalanceDeducted))
+}
+
+func (s *leaveService) restoreBalance(ctx context.Context, tx repo.Repository, app *model.ApplicationNamed) error {
+	if !app.BalanceDeducted {
+		return nil
+	}
+	year := bizYear(app.StartTime)
+	if err := tx.DeductLeaveBalance(ctx, app.ApplicantID, year, app.LeaveTypeID, -app.DurationDays); err != nil {
+		return err
+	}
+	app.BalanceDeducted = false
 	return nil
 }

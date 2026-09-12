@@ -567,7 +567,7 @@
       "president": "President review"
     },
     "statsTitle": "Leave stats and calendar",
-    "statsHint": "Personal and department days, monthly trend, and this month's calendar.",
+    "statsHint": "Personal, department, and monthly totals use the selected year; rejected leave is excluded from occupied days.",
     "personalStats": "My leave",
     "personalDays": "{{days}} days including pending",
     "scopeStats": "Visible scope",

@@ -567,7 +567,7 @@
       "president": "待社长审批"
     },
     "statsTitle": "请假统计与日历",
-    "statsHint": "个人与部门请假天数、按月分布，以及当月日历。",
+    "statsHint": "个人、部门与月度均按所选年份统计；驳回不计入占用天数。",
     "personalStats": "个人请假",
     "personalDays": "累计 {{days}} 天（含待审批）",
     "scopeStats": "可见范围",

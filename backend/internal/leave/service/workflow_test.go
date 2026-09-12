@@ -24,6 +24,7 @@ type stubFlow struct {
 	failStart    error
 	failComplete error
 	started      int
+	approvedBy   uuid.UUID
 }
 
 func (s *stubFlow) Start(context.Context, string, string, string, uuid.UUID, map[string]interface{}) (*wfmodel.FlowInstance, error) {
@@ -36,7 +37,7 @@ func (s *stubFlow) Start(context.Context, string, string, string, uuid.UUID, map
 	return &wfmodel.FlowInstance{ID: uuid.New(), Status: 0}, nil
 }
 
-func (s *stubFlow) CompleteLeaveApproval(_ context.Context, _ uuid.UUID, _ uuid.UUID, action engine.TaskAction, _ string) error {
+func (s *stubFlow) CompleteLeaveApproval(_ context.Context, _ uuid.UUID, reviewer uuid.UUID, action engine.TaskAction, _ string) error {
 	if s.failComplete != nil {
 		return s.failComplete
 	}
@@ -44,6 +45,10 @@ func (s *stubFlow) CompleteLeaveApproval(_ context.Context, _ uuid.UUID, _ uuid.
 		s.rejected = true
 		return nil
 	}
+	if s.approvedBy != uuid.Nil && s.approvedBy == reviewer {
+		return response.NewError(response.CodeForbidden, "同一审批人不能连续完成部长与社长两个环节")
+	}
+	s.approvedBy = reviewer
 	s.idx++
 	return nil
 }
@@ -70,7 +75,9 @@ func workflowFixture(t *testing.T) (*leaveService, *memRepo, *stubFlow, uuid.UUI
 }
 
 func TestWorkflowSubmitApproveTwoLevels(t *testing.T) {
-	svc, _, flow, applicant, approver, annualID := workflowFixture(t)
+	svc, mem, flow, applicant, minister, annualID := workflowFixture(t)
+	president := uuid.New()
+	mem.addUser(president, "社长")
 	ctx := context.Background()
 	start := monday()
 	app, err := svc.Submit(ctx, applicantViewer(applicant), submitReq(annualID, start, start.Add(8*time.Hour)))
@@ -81,13 +88,13 @@ func TestWorkflowSubmitApproveTwoLevels(t *testing.T) {
 	require.NotEmpty(t, app.WorkflowInstanceID)
 
 	id := uuid.MustParse(app.ID)
-	require.NoError(t, svc.Approve(ctx, approverViewer(approver), id, "dept ok"))
+	require.NoError(t, svc.Approve(ctx, approverViewer(minister), id, "dept ok"))
 	got, err := svc.Get(ctx, applicantViewer(applicant), id)
 	require.NoError(t, err)
 	assert.Equal(t, model.ApprovalStatusPending, got.Status)
 	assert.Equal(t, model.StageOrg, got.WorkflowStage)
 
-	require.NoError(t, svc.Approve(ctx, approverViewer(approver), id, "org ok"))
+	require.NoError(t, svc.Approve(ctx, approverViewer(president), id, "org ok"))
 	got, err = svc.Get(ctx, applicantViewer(applicant), id)
 	require.NoError(t, err)
 	assert.Equal(t, model.ApprovalStatusApproved, got.Status)
@@ -95,6 +102,22 @@ func TestWorkflowSubmitApproveTwoLevels(t *testing.T) {
 	bals, err := svc.Balances(ctx, applicantViewer(applicant), "", 2026)
 	require.NoError(t, err)
 	assert.Equal(t, 4.0, findAnnual(bals, annualID).RemainingDays)
+}
+
+func TestWorkflowSameReviewerCannotApproveBothStages(t *testing.T) {
+	svc, _, _, applicant, approver, annualID := workflowFixture(t)
+	ctx := context.Background()
+	app, err := svc.Submit(ctx, applicantViewer(applicant), submitReq(annualID, monday(), monday().Add(8*time.Hour)))
+	require.NoError(t, err)
+	id := uuid.MustParse(app.ID)
+	require.NoError(t, svc.Approve(ctx, approverViewer(approver), id, "dept ok"))
+	err = svc.Approve(ctx, approverViewer(approver), id, "org ok")
+	require.Error(t, err)
+	assert.Equal(t, response.CodeForbidden, err.(*response.AppError).Code)
+	got, err := svc.Get(ctx, applicantViewer(applicant), id)
+	require.NoError(t, err)
+	assert.Equal(t, model.ApprovalStatusPending, got.Status)
+	assert.Equal(t, model.StageOrg, got.WorkflowStage)
 }
 
 func TestWorkflowRejectRestoresBalance(t *testing.T) {

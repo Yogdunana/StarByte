@@ -352,6 +352,71 @@ func TestBalanceIDORAndStats(t *testing.T) {
 	assert.Equal(t, int64(1), stats.ByStatus[model.ApprovalStatusPending])
 	assert.Equal(t, int64(0), stats.Personal.Total)
 	assert.NotEmpty(t, stats.ByMonth)
+
+	empty, err := svc.Stats(ctx, approverViewer(approver), 2025)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), empty.Total)
+	assert.Empty(t, empty.ByMonth)
+	assert.Empty(t, empty.Departments)
+}
+
+func TestStatsExcludeRejectedAndHonorYear(t *testing.T) {
+	svc, mem, applicant, approver, annualID := fixture()
+	ctx := context.Background()
+	app, err := svc.Submit(ctx, applicantViewer(applicant), submitReq(annualID, monday(), monday().Add(8*time.Hour)))
+	require.NoError(t, err)
+	require.NoError(t, svc.Reject(ctx, approverViewer(approver), uuid.MustParse(app.ID), "no"))
+
+	oldID := uuid.New()
+	oldStart := time.Date(2025, 6, 2, 9, 0, 0, 0, bizLocation())
+	mem.apps[oldID] = model.ApplicationNamed{
+		LeaveApplication: model.LeaveApplication{
+			ID: oldID, ApplicantID: applicant, LeaveTypeID: annualID,
+			StartTime: oldStart, EndTime: oldStart.Add(8 * time.Hour),
+			DurationDays: 1, Status: model.ApprovalStatusApproved,
+			LeaveType: mem.types[annualID],
+		},
+	}
+
+	self := Viewer{UserID: applicant, CanRead: true, CanApprove: true, Scope: &rbacModel.DataScopeCondition{}}
+	year2026, err := svc.Stats(ctx, self, 2026)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), year2026.Total)
+	assert.Equal(t, int64(1), year2026.ByStatus[model.ApprovalStatusRejected])
+	assert.Equal(t, int64(0), year2026.Personal.Total)
+	assert.Equal(t, 0.0, year2026.Personal.Days)
+	assert.Empty(t, year2026.Personal.ByType)
+	assert.Empty(t, year2026.ByMonth)
+
+	year2025, err := svc.Stats(ctx, self, 2025)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), year2025.Total)
+	assert.Equal(t, int64(1), year2025.Personal.Total)
+	assert.Equal(t, 1.0, year2025.Personal.Days)
+	require.Len(t, year2025.Personal.ByType, 1)
+	assert.Equal(t, int64(1), year2025.Personal.ByType[0].Count)
+	assert.Equal(t, 1.0, year2025.Personal.ByType[0].Days)
+}
+
+func TestRejectRestoresUsingDeductionSnapshot(t *testing.T) {
+	svc, mem, applicant, approver, annualID := fixture()
+	ctx := context.Background()
+	app, err := svc.Submit(ctx, applicantViewer(applicant), submitReq(annualID, monday(), monday().Add(8*time.Hour)))
+	require.NoError(t, err)
+	bals, err := svc.Balances(ctx, applicantViewer(applicant), "", 2026)
+	require.NoError(t, err)
+	assert.Equal(t, 4.0, findAnnual(bals, annualID).RemainingDays)
+
+	row := mem.types[annualID]
+	row.Deductible = false
+	mem.types[annualID] = row
+
+	require.NoError(t, svc.Reject(ctx, approverViewer(approver), uuid.MustParse(app.ID), "changed type"))
+	bals, err = svc.Balances(ctx, applicantViewer(applicant), "", 2026)
+	require.NoError(t, err)
+	assert.Equal(t, 5.0, findAnnual(bals, annualID).RemainingDays)
+	stored := mem.apps[uuid.MustParse(app.ID)]
+	assert.False(t, stored.BalanceDeducted)
 }
 
 func TestGetMissingAndUnknownType(t *testing.T) {

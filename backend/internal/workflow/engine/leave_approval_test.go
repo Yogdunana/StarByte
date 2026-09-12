@@ -77,3 +77,46 @@ func TestLeaveApprovalRequiresBusinessTransaction(t *testing.T) {
 	err := e.CompleteLeaveApproval(context.Background(), uuid.New(), uuid.New(), ActionApprove, "x")
 	require.Error(t, err)
 }
+
+func TestLeaveApprovalRejectsUnassignedReviewer(t *testing.T) {
+	minister, stranger, applicant := uuid.New(), uuid.New(), uuid.New()
+	tasks := newMockTaskRepo()
+	e, _ := leaveApprovalEngine(t, tasks)
+
+	inst, err := e.Start(context.Background(), LeaveDefinitionKey, uuid.New().String(), LeaveBusinessType, applicant, nil)
+	require.NoError(t, err)
+	addApprovalTask(tasks, inst.ID, "minister", minister)
+
+	err = e.CompleteLeaveApproval(context.Background(), inst.ID, stranger, ActionApprove, "skip")
+	require.Error(t, err)
+
+	nodeID, done, err := e.RunningApprovalNode(context.Background(), inst.ID)
+	require.NoError(t, err)
+	require.False(t, done)
+	require.Equal(t, "minister", nodeID)
+}
+
+func TestLeaveApprovalRejectsSameReviewerSecondStage(t *testing.T) {
+	minister, applicant := uuid.New(), uuid.New()
+	tasks := newMockTaskRepo()
+	e, _ := leaveApprovalEngine(t, tasks)
+
+	inst, err := e.Start(context.Background(), LeaveDefinitionKey, uuid.New().String(), LeaveBusinessType, applicant, nil)
+	require.NoError(t, err)
+	addApprovalTask(tasks, inst.ID, "minister", minister)
+	require.NoError(t, e.CompleteLeaveApproval(context.Background(), inst.ID, minister, ActionApprove, "dept ok"))
+
+	nodeID, done, err := e.RunningApprovalNode(context.Background(), inst.ID)
+	require.NoError(t, err)
+	require.False(t, done)
+	require.Equal(t, "president", nodeID)
+
+	addApprovalTask(tasks, inst.ID, "president", minister)
+	err = e.CompleteLeaveApproval(context.Background(), inst.ID, minister, ActionApprove, "org ok")
+	require.Error(t, err)
+
+	nodeID, done, err = e.RunningApprovalNode(context.Background(), inst.ID)
+	require.NoError(t, err)
+	require.False(t, done)
+	require.Equal(t, "president", nodeID)
+}

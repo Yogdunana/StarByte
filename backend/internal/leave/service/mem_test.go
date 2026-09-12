@@ -340,7 +340,7 @@ func pageSlice(all []model.ApplicationNamed, page, pageSize int) []model.Applica
 	return all[start:end]
 }
 
-func (m *memRepo) UpdateApprovalStatus(_ context.Context, id uuid.UUID, approverID uuid.UUID, status, remark string, at time.Time) error {
+func (m *memRepo) UpdateApprovalStatus(_ context.Context, id uuid.UUID, approverID uuid.UUID, status, remark string, at time.Time, balanceDeducted bool) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	row, ok := m.apps[id]
@@ -352,6 +352,7 @@ func (m *memRepo) UpdateApprovalStatus(_ context.Context, id uuid.UUID, approver
 	row.ApproveRemark = remark
 	row.ApprovedAt = &at
 	row.ApproverName = m.names[approverID]
+	row.BalanceDeducted = balanceDeducted
 	m.apps[id] = row
 	return nil
 }
@@ -422,20 +423,25 @@ func (m *memRepo) ListCalendar(_ context.Context, from, to time.Time, userID *uu
 	return out, nil
 }
 
-func (m *memRepo) CountPersonalStats(_ context.Context, userID uuid.UUID) (int64, float64, []repo.TypeCount, error) {
+func matchBizYear(t time.Time, year int) bool {
+	if year <= 0 {
+		return true
+	}
+	return t.In(bizLocation()).Year() == year
+}
+
+func (m *memRepo) CountPersonalStats(_ context.Context, userID uuid.UUID, year int) (int64, float64, []repo.TypeCount, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	typeAgg := map[uuid.UUID]repo.TypeCount{}
 	var n int64
 	var days float64
 	for _, row := range m.apps {
-		if row.ApplicantID != userID {
+		if row.ApplicantID != userID || row.Status == model.ApprovalStatusRejected || !matchBizYear(row.StartTime, year) {
 			continue
 		}
 		n++
-		if row.Status != model.ApprovalStatusRejected {
-			days += row.DurationDays
-		}
+		days += row.DurationDays
 		agg := typeAgg[row.LeaveTypeID]
 		agg.LeaveTypeID = row.LeaveTypeID
 		agg.Code = row.LeaveType.Code
@@ -451,7 +457,7 @@ func (m *memRepo) CountPersonalStats(_ context.Context, userID uuid.UUID) (int64
 	return n, days, types, nil
 }
 
-func (m *memRepo) CountDepartmentStats(_ context.Context, scope *rbacModel.DataScopeCondition) ([]repo.DeptCount, error) {
+func (m *memRepo) CountDepartmentStats(_ context.Context, year int, scope *rbacModel.DataScopeCondition) ([]repo.DeptCount, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	type key struct {
@@ -460,7 +466,7 @@ func (m *memRepo) CountDepartmentStats(_ context.Context, scope *rbacModel.DataS
 	}
 	agg := map[key]repo.DeptCount{}
 	for _, row := range m.apps {
-		if row.Status == model.ApprovalStatusRejected || !m.inScope(row, scope) {
+		if row.Status == model.ApprovalStatusRejected || !matchBizYear(row.StartTime, year) || !m.inScope(row, scope) {
 			continue
 		}
 		k := key{}
@@ -488,7 +494,7 @@ func (m *memRepo) CountMonthlyStats(_ context.Context, year int, scope *rbacMode
 	defer m.mu.Unlock()
 	agg := map[string]repo.MonthCount{}
 	for _, row := range m.apps {
-		if !m.inScope(row, scope) {
+		if row.Status == model.ApprovalStatusRejected || !m.inScope(row, scope) {
 			continue
 		}
 		local := row.StartTime.In(bizLocation())
@@ -509,7 +515,7 @@ func (m *memRepo) CountMonthlyStats(_ context.Context, year int, scope *rbacMode
 	return out, nil
 }
 
-func (m *memRepo) CountStats(_ context.Context, scope *rbacModel.DataScopeCondition) (int64, map[string]int64, []repo.TypeCount, error) {
+func (m *memRepo) CountStats(_ context.Context, year int, scope *rbacModel.DataScopeCondition) (int64, map[string]int64, []repo.TypeCount, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	byStatus := map[string]int64{
@@ -520,7 +526,7 @@ func (m *memRepo) CountStats(_ context.Context, scope *rbacModel.DataScopeCondit
 	typeAgg := map[uuid.UUID]repo.TypeCount{}
 	n := 0
 	for _, row := range m.apps {
-		if !m.inScope(row, scope) {
+		if !matchBizYear(row.StartTime, year) || !m.inScope(row, scope) {
 			continue
 		}
 		n++

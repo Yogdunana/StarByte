@@ -42,7 +42,8 @@ type LeaveBalance struct {
 
 func (LeaveBalance) TableName() string { return "leave_balances" }
 
-// LeaveApplication 请假申请。提交即扣余额、驳回返还，与 #162 一致。
+// LeaveApplication 请假申请。提交时若类型当时可扣则预扣并记下 BalanceDeducted；
+// 驳回按该快照返还，不读当前类型 Deductible。
 // 新申请走 leave_approval 流程实例；历史记录 workflow_instance_id 为空时单级回退。
 type LeaveApplication struct {
 	ID                 uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
@@ -58,6 +59,7 @@ type LeaveApplication struct {
 	ApprovedAt         *time.Time     `json:"approved_at"`
 	WorkflowInstanceID *uuid.UUID     `gorm:"type:uuid" json:"workflow_instance_id,omitempty"`
 	WorkflowStage      string         `gorm:"type:varchar(32);not null;default:''" json:"workflow_stage"`
+	BalanceDeducted    bool           `gorm:"not null;default:false" json:"balance_deducted"`
 	Attachments        AttachmentList `gorm:"type:jsonb;not null;default:'[]'" json:"attachments"`
 	CreatedAt          time.Time      `json:"created_at"`
 	UpdatedAt          time.Time      `json:"updated_at"`

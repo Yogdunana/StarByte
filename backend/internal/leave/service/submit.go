@@ -126,17 +126,18 @@ func (s *leaveService) submitInTx(ctx context.Context, tx repo.Repository, flow 
 	}
 
 	app := &model.LeaveApplication{
-		ID:           uuid.New(),
-		ApplicantID:  applicantID,
-		LeaveTypeID:  typeID,
-		StartTime:    req.StartTime,
-		EndTime:      req.EndTime,
-		DurationDays: durationDays,
-		Reason:       req.Reason,
-		Status:       model.ApprovalStatusPending,
-		Attachments:  attachments,
-		CreatedAt:    s.clock(),
-		UpdatedAt:    s.clock(),
+		ID:              uuid.New(),
+		ApplicantID:     applicantID,
+		LeaveTypeID:     typeID,
+		StartTime:       req.StartTime,
+		EndTime:         req.EndTime,
+		DurationDays:    durationDays,
+		Reason:          req.Reason,
+		Status:          model.ApprovalStatusPending,
+		BalanceDeducted: leaveType.Deductible,
+		Attachments:     attachments,
+		CreatedAt:       s.clock(),
+		UpdatedAt:       s.clock(),
 	}
 	if err := tx.CreateLeaveApplication(ctx, app); err != nil {
 		return uuid.Nil, err
