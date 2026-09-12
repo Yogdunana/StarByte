@@ -1,3 +1,4 @@
+import { tx } from '@/i18n/text';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   getStats,
@@ -22,7 +23,10 @@ export function findSeries(result: StatsResult | undefined, name: string): Stats
   return result?.series.find((s) => s.name === name);
 }
 
-export function seriesToXY(series: StatsSeries | undefined): { categories: string[]; values: number[] } {
+export function seriesToXY(series: StatsSeries | undefined): {
+  categories: string[];
+  values: number[];
+} {
   if (!series || !series.data.length) {
     return { categories: [], values: [] };
   }
@@ -54,49 +58,52 @@ export function useDashboardStats(refreshMs?: number): DashboardStatsState {
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const loaded = useRef(false);
 
-  const reload = useCallback(async (signal?: AbortSignal) => {
-    if (!loaded.current) {
-      setLoading(true);
-    }
-    try {
-      const ov = await getStatsOverview(signal);
-      setOverview(ov);
-    } catch (e) {
-      if (isCanceledError(e)) return;
+  const reload = useCallback(
+    async (signal?: AbortSignal) => {
       if (!loaded.current) {
-        setOverview(null);
+        setLoading(true);
       }
-    }
-    if (!canReadCharts) {
+      try {
+        const ov = await getStatsOverview(signal);
+        setOverview(ov);
+      } catch (e) {
+        if (isCanceledError(e)) return;
+        if (!loaded.current) {
+          setOverview(null);
+        }
+      }
+      if (!canReadCharts) {
+        setUpdatedAt(new Date());
+        setLoading(false);
+        loaded.current = true;
+        return;
+      }
+      const next: Partial<Record<StatsProviderCode, StatsResult>> = {};
+      const errs: Partial<Record<StatsProviderCode, string>> = {};
+      for (const code of DASHBOARD_PROVIDERS) {
+        if (signal?.aborted) return;
+        try {
+          next[code] = await getStats(code, undefined, signal);
+        } catch (e) {
+          if (isCanceledError(e)) return;
+          errs[code] = e instanceof Error ? e.message : tx('加载失败');
+        }
+      }
+      setCharts((prev) => {
+        const merged = { ...prev };
+        DASHBOARD_PROVIDERS.forEach((code) => {
+          const row = next[code];
+          if (row) merged[code] = row;
+        });
+        return merged;
+      });
+      setErrors(errs);
       setUpdatedAt(new Date());
       setLoading(false);
       loaded.current = true;
-      return;
-    }
-    const next: Partial<Record<StatsProviderCode, StatsResult>> = {};
-    const errs: Partial<Record<StatsProviderCode, string>> = {};
-    for (const code of DASHBOARD_PROVIDERS) {
-      if (signal?.aborted) return;
-      try {
-        next[code] = await getStats(code, undefined, signal);
-      } catch (e) {
-        if (isCanceledError(e)) return;
-        errs[code] = e instanceof Error ? e.message : '加载失败';
-      }
-    }
-    setCharts((prev) => {
-      const merged = { ...prev };
-      DASHBOARD_PROVIDERS.forEach((code) => {
-        const row = next[code];
-        if (row) merged[code] = row;
-      });
-      return merged;
-    });
-    setErrors(errs);
-    setUpdatedAt(new Date());
-    setLoading(false);
-    loaded.current = true;
-  }, [canReadCharts]);
+    },
+    [canReadCharts],
+  );
 
   useEffect(() => {
     const ac = new AbortController();

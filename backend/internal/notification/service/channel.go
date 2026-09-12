@@ -10,6 +10,7 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/notification/repo"
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
 	"github.com/Yogdunana/StarByte/backend/pkg/configstore"
+	"github.com/Yogdunana/StarByte/backend/pkg/locale"
 	"github.com/Yogdunana/StarByte/backend/pkg/logger"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -119,8 +120,8 @@ func (c *EmailChannel) resolve(ctx context.Context) (config.EmailConfig, error) 
 
 func (c *EmailChannel) SendTest(ctx context.Context, to string) error {
 	job := MailJob{
-		To: []string{to}, Subject: "StarByte SMTP test",
-		Body: "This is a StarByte SMTP configuration test. If you received it, mail settings work.",
+		To: []string{to}, Subject: locale.Text(locale.FromContext(ctx), "StarByte SMTP 测试"),
+		Body: locale.Text(locale.FromContext(ctx), "这是一封 StarByte SMTP 配置测试邮件。收到此邮件表示邮件设置有效。"),
 	}
 	return c.SendMIME(ctx, job, nil)
 }

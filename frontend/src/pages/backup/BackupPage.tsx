@@ -1,3 +1,4 @@
+import { tx } from '@/i18n/text';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert, Button, Card, Form, Input, InputNumber, Modal, Space, Statistic,
@@ -179,7 +180,7 @@ const BackupPage: React.FC = () => {
     }
   };
 
-  const flag = (ok: boolean) => (ok ? <Tag color="success">OK</Tag> : <Tag color="error">FAIL</Tag>);
+  const flag = (ok: boolean) => (ok ? <Tag color="success">OK</Tag> : <Tag color="error">{tx('失败')}</Tag>);
 
   const columns: ColumnsType<BackupRecord> = [
     {

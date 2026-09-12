@@ -1,11 +1,27 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Button, Card, Drawer, Form, Input, InputNumber, Modal, Select, Space, Switch, Table, Tag, message,
+  Button,
+  Card,
+  Drawer,
+  Form,
+  Input,
+  InputNumber,
+  Modal,
+  Select,
+  Space,
+  Switch,
+  Table,
+  Tag,
+  message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined } from '@ant-design/icons';
 import {
-  createRuntimeConfig, deleteRuntimeConfig, getRuntimeConfigs, updateRuntimeConfig,
+  createRuntimeConfig,
+  deleteRuntimeConfig,
+  getRuntimeConfigs,
+  updateRuntimeConfig,
 } from '@/api/config';
 import { usePermission } from '@/hooks/usePermission';
 import type { CreateRuntimeConfigParams, RuntimeConfig, RuntimeConfigType } from '@/types/api';
@@ -16,22 +32,68 @@ const protectedKeys = new Set(['internship_config', 'vote_weight_config', 'smtp_
 const hiddenKeys = new Set(['smtp_settings']);
 
 const categoryOptions = [
-  { value: 'system', label: '系统' },
-  { value: 'business', label: '业务' },
-  { value: 'notification', label: '通知' },
-  { value: 'security', label: '安全' },
-  { value: 'internship', label: '实习' },
-  { value: 'meeting', label: '会议' },
+  {
+    value: 'system',
+    get label() {
+      return tx('系统');
+    },
+  },
+  {
+    value: 'business',
+    get label() {
+      return tx('业务');
+    },
+  },
+  {
+    value: 'notification',
+    get label() {
+      return tx('通知');
+    },
+  },
+  {
+    value: 'security',
+    get label() {
+      return tx('安全');
+    },
+  },
+  {
+    value: 'internship',
+    get label() {
+      return tx('实习');
+    },
+  },
+  {
+    value: 'meeting',
+    get label() {
+      return tx('会议');
+    },
+  },
 ];
 
 const typeOptions: { value: RuntimeConfigType; label: string }[] = [
-  { value: 'string', label: '字符串' },
-  { value: 'number', label: '数字' },
-  { value: 'boolean', label: '布尔' },
+  {
+    value: 'string',
+    get label() {
+      return tx('字符串');
+    },
+  },
+  {
+    value: 'number',
+    get label() {
+      return tx('数字');
+    },
+  },
+  {
+    value: 'boolean',
+    get label() {
+      return tx('布尔');
+    },
+  },
   { value: 'json', label: 'JSON' },
 ];
 
-const categoryLabel = Object.fromEntries(categoryOptions.map((c) => [c.value, c.label]));
+const categoryLabel = (value: string) =>
+  categoryOptions.find((option) => option.value === value)?.label || value;
 
 interface FormValues {
   config_key: string;
@@ -59,11 +121,15 @@ function fillForm(row: RuntimeConfig): FormValues {
     is_public: row.is_public,
     text_value: row.config_type === 'string' || row.config_type === 'json' ? row.config_value : '',
     number_value: row.config_type === 'number' ? Number(row.config_value) : undefined,
-    bool_value: row.config_type === 'boolean' ? row.config_value === 'true' || row.config_value === '1' : false,
+    bool_value:
+      row.config_type === 'boolean'
+        ? row.config_value === 'true' || row.config_value === '1'
+        : false,
   };
 }
 
 const ConfigPage: React.FC = () => {
+  const uiLanguage = useLocale();
   const canCreate = usePermission('config:create');
   const canUpdate = usePermission('config:update');
   const canDelete = usePermission('config:delete');
@@ -79,14 +145,16 @@ const ConfigPage: React.FC = () => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const rows = await getRuntimeConfigs({ category, keyword: keyword || undefined }) || [];
+      const rows = (await getRuntimeConfigs({ category, keyword: keyword || undefined })) || [];
       setList(rows.filter((row) => !hiddenKeys.has(row.config_key)));
     } finally {
       setLoading(false);
     }
   }, [category, keyword]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const openCreate = () => {
     setEditing(null);
@@ -95,11 +163,14 @@ const ConfigPage: React.FC = () => {
     setOpen(true);
   };
 
-  const openEdit = (row: RuntimeConfig) => {
-    setEditing(row);
-    form.setFieldsValue(fillForm(row));
-    setOpen(true);
-  };
+  const openEdit = useCallback(
+    (row: RuntimeConfig) => {
+      setEditing(row);
+      form.setFieldsValue(fillForm(row));
+      setOpen(true);
+    },
+    [form],
+  );
 
   const submit = async () => {
     const values = await form.validateFields();
@@ -119,62 +190,85 @@ const ConfigPage: React.FC = () => {
         description: payload.description,
         is_public: payload.is_public,
       });
-      message.success('已保存');
+      message.success(tx('已保存'));
     } else {
       await createRuntimeConfig(payload);
-      message.success('已创建');
+      message.success(tx('已创建'));
     }
     setOpen(false);
     void load();
   };
 
-  const columns: ColumnsType<RuntimeConfig> = useMemo(() => [
-    { title: '键', dataIndex: 'config_key', width: 220 },
-    { title: '分组', dataIndex: 'category', width: 90, render: (v: string) => categoryLabel[v] || v },
-    { title: '类型', dataIndex: 'config_type', width: 80, render: (v: string) => <Tag>{v}</Tag> },
-    {
-      title: '值',
-      dataIndex: 'config_value',
-      ellipsis: true,
-      render: (v: string) => <span className="cfg-value">{v}</span>,
-    },
-    { title: '说明', dataIndex: 'description', ellipsis: true },
-    {
-      title: '操作',
-      width: 140,
-      render: (_, row) => (
-        <Space>
-          {canUpdate && <Button type="link" size="small" onClick={() => openEdit(row)}>编辑</Button>}
-          {canDelete && !protectedKeys.has(row.config_key) && (
-            <Button type="link" size="small" danger onClick={() => {
-              Modal.confirm({
-                title: '删除配置',
-                content: `确定删除 ${row.config_key}？`,
-                onOk: async () => {
-                  await deleteRuntimeConfig(row.id);
-                  message.success('已删除');
-                  void load();
-                },
-              });
-            }}
-            >
-              删除
-            </Button>
-          )}
-        </Space>
-      ),
-    },
-  ], [canDelete, canUpdate, load]);
+  const columns: ColumnsType<RuntimeConfig> = useMemo(() => {
+    void uiLanguage;
+    return [
+      { title: tx('键'), dataIndex: 'config_key', width: 220 },
+      {
+        title: tx('分组'),
+        dataIndex: 'category',
+        width: 90,
+        render: (v: string) => categoryLabel(v),
+      },
+      {
+        title: tx('类型'),
+        dataIndex: 'config_type',
+        width: 80,
+        render: (v: string) => <Tag>{v}</Tag>,
+      },
+      {
+        title: tx('值'),
+        dataIndex: 'config_value',
+        ellipsis: true,
+        render: (v: string) => <span className="cfg-value">{v}</span>,
+      },
+      { title: tx('说明'), dataIndex: 'description', ellipsis: true },
+      {
+        title: tx('操作'),
+        width: 140,
+        render: (_, row) => (
+          <Space>
+            {canUpdate && (
+              <Button type="link" size="small" onClick={() => openEdit(row)}>
+                {tx('编辑')}
+              </Button>
+            )}
+            {canDelete && !protectedKeys.has(row.config_key) && (
+              <Button
+                type="link"
+                size="small"
+                danger
+                onClick={() => {
+                  Modal.confirm({
+                    title: tx('删除配置'),
+                    content: tx('确定删除 {{value0}}？', { value0: row.config_key }),
+                    onOk: async () => {
+                      await deleteRuntimeConfig(row.id);
+                      message.success(tx('已删除'));
+                      void load();
+                    },
+                  });
+                }}
+              >
+                {tx('删除')}
+              </Button>
+            )}
+          </Space>
+        ),
+      },
+    ];
+  }, [canDelete, canUpdate, load, uiLanguage, openEdit]);
 
   return (
     <div>
       <div className="cfg-hero">
         <div>
-          <h2>运行时配置</h2>
-          <p>改完立即生效，不必重启服务。实习开关、投票权重等业务键不可删除。</p>
+          <h2>{tx('运行时配置')}</h2>
+          <p>{tx('改完立即生效，不必重启服务。实习开关、投票权重等业务键不可删除。')}</p>
         </div>
         {canCreate && (
-          <Button type="primary" size="large" icon={<PlusOutlined />} onClick={openCreate}>新建配置</Button>
+          <Button type="primary" size="large" icon={<PlusOutlined />} onClick={openCreate}>
+            {tx('新建配置')}
+          </Button>
         )}
       </div>
       <SmtpCard />
@@ -182,47 +276,68 @@ const ConfigPage: React.FC = () => {
         <Space style={{ marginBottom: 16 }} wrap>
           <Select
             allowClear
-            placeholder="分组"
+            placeholder={tx('分组')}
             style={{ width: 140 }}
             value={category}
             options={categoryOptions}
             onChange={(v) => setCategory(v)}
           />
-          <Input.Search allowClear placeholder="搜索键/说明" onSearch={setKeyword} style={{ width: 240 }} />
+          <Input.Search
+            allowClear
+            placeholder={tx('搜索键/说明')}
+            onSearch={setKeyword}
+            style={{ width: 240 }}
+          />
         </Space>
-        <Table rowKey="id" loading={loading} columns={columns} dataSource={list} pagination={false} />
+        <Table
+          rowKey="id"
+          loading={loading}
+          columns={columns}
+          dataSource={list}
+          pagination={false}
+        />
       </Card>
       <Drawer
-        title={editing ? '编辑配置' : '新建配置'}
+        title={editing ? tx('编辑配置') : tx('新建配置')}
         open={open}
         onClose={() => setOpen(false)}
-        extra={<Button type="primary" onClick={() => void submit()}>保存</Button>}
+        extra={
+          <Button type="primary" onClick={() => void submit()}>
+            {tx('保存')}
+          </Button>
+        }
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="config_key" label="键" rules={[{ required: true }]}>
+          <Form.Item name="config_key" label={tx('键')} rules={[{ required: true }]}>
             <Input disabled={!!editing} placeholder="site.name" />
           </Form.Item>
-          <Form.Item name="category" label="分组" rules={[{ required: true }]}>
+          <Form.Item name="category" label={tx('分组')} rules={[{ required: true }]}>
             <Select options={categoryOptions} />
           </Form.Item>
-          <Form.Item name="config_type" label="类型" rules={[{ required: true }]}>
+          <Form.Item name="config_type" label={tx('类型')} rules={[{ required: true }]}>
             <Select options={typeOptions} disabled={!!editing} />
           </Form.Item>
           {watchType === 'boolean' && (
-            <Form.Item name="bool_value" label="值" valuePropName="checked"><Switch /></Form.Item>
+            <Form.Item name="bool_value" label={tx('值')} valuePropName="checked">
+              <Switch />
+            </Form.Item>
           )}
           {watchType === 'number' && (
-            <Form.Item name="number_value" label="值" rules={[{ required: true }]}>
+            <Form.Item name="number_value" label={tx('值')} rules={[{ required: true }]}>
               <InputNumber style={{ width: '100%' }} />
             </Form.Item>
           )}
           {(watchType === 'string' || watchType === 'json' || !watchType) && (
-            <Form.Item name="text_value" label="值">
+            <Form.Item name="text_value" label={tx('值')}>
               <Input.TextArea rows={watchType === 'json' ? 8 : 3} />
             </Form.Item>
           )}
-          <Form.Item name="description" label="说明"><Input /></Form.Item>
-          <Form.Item name="is_public" label="公开可读" valuePropName="checked"><Switch /></Form.Item>
+          <Form.Item name="description" label={tx('说明')}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="is_public" label={tx('公开可读')} valuePropName="checked">
+            <Switch />
+          </Form.Item>
         </Form>
       </Drawer>
     </div>

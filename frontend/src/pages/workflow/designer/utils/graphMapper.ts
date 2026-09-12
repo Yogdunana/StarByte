@@ -1,3 +1,4 @@
+import { tx } from '@/i18n/text';
 import type {
   DesignerNodeType,
   FlowGraphData,
@@ -85,22 +86,42 @@ function mapLoadedNode(node: FlowNode | PublishGraphData['nodes'][number]): Flow
 }
 
 const NODE_FALLBACK: Record<DesignerNodeType, string> = {
-  start: '开始',
-  end: '结束',
-  approval: '审批',
-  condition: '条件',
-  parallel: '并行',
-  merge: '合并',
-  timer: '定时器',
-  notify: '通知',
+  get start() {
+    return tx('开始');
+  },
+  get end() {
+    return tx('结束');
+  },
+  get approval() {
+    return tx('审批');
+  },
+  get condition() {
+    return tx('条件');
+  },
+  get parallel() {
+    return tx('并行');
+  },
+  get merge() {
+    return tx('合并');
+  },
+  get timer() {
+    return tx('定时器');
+  },
+  get notify() {
+    return tx('通知');
+  },
 };
 
 /** 加载已发布版本：后端类型 → 短名 */
 export function fromBackendGraph(graph: FlowGraphData | PublishGraphData): FlowGraphData {
   return {
-    nodes: graph.nodes.map(node => {
+    nodes: graph.nodes.map((node) => {
       const mapped = mapLoadedNode(node);
-      if (node.type === 'parallel_gateway' && graph.edges.filter(edge => edge.target === node.id).length > 1) mapped.type = 'merge';
+      if (
+        node.type === 'parallel_gateway' &&
+        graph.edges.filter((edge) => edge.target === node.id).length > 1
+      )
+        mapped.type = 'merge';
       return mapped;
     }),
     edges: graph.edges,

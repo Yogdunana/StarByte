@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Table, Button, Input, Space, Form, message } from 'antd';
 import { PlusOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons';
@@ -18,6 +19,7 @@ function isFormValidateError(error: unknown): boolean {
 }
 
 const TemplateList: React.FC = () => {
+  useLocale();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<NotificationTemplate[]>([]);
   const [total, setTotal] = useState(0);
@@ -44,7 +46,7 @@ const TemplateList: React.FC = () => {
       setData(res.list);
       setTotal(res.total);
     } catch {
-      message.error('加载模板列表失败');
+      message.error(tx('加载模板列表失败'));
     } finally {
       setLoading(false);
     }
@@ -92,10 +94,10 @@ const TemplateList: React.FC = () => {
   const handleDelete = async (record: NotificationTemplate) => {
     try {
       await deleteNotificationTemplate(record.id);
-      message.success('删除成功');
+      message.success(tx('删除成功'));
       loadData();
     } catch {
-      message.error('删除失败');
+      message.error(tx('删除失败'));
     }
   };
 
@@ -108,16 +110,16 @@ const TemplateList: React.FC = () => {
       };
       if (editingTemplate) {
         await updateNotificationTemplate(editingTemplate.id, params);
-        message.success('更新成功');
+        message.success(tx('更新成功'));
       } else {
         await createNotificationTemplate(params);
-        message.success('创建成功');
+        message.success(tx('创建成功'));
       }
       setModalVisible(false);
       loadData();
     } catch (error: unknown) {
       if (isFormValidateError(error)) return;
-      message.error(editingTemplate ? '更新失败' : '创建失败');
+      message.error(editingTemplate ? tx('更新失败') : tx('创建失败'));
     }
   };
 
@@ -139,7 +141,7 @@ const TemplateList: React.FC = () => {
         try {
           variables = JSON.parse(rawStr) as Record<string, unknown>;
         } catch {
-          message.error('变量 JSON 格式不正确');
+          message.error(tx('变量 JSON 格式不正确'));
           setTestLoading(false);
           return;
         }
@@ -150,7 +152,7 @@ const TemplateList: React.FC = () => {
       setTestResult(result);
     } catch (error: unknown) {
       if (isFormValidateError(error)) return;
-      message.error('测试失败');
+      message.error(tx('测试失败'));
     } finally {
       setTestLoading(false);
     }
@@ -166,7 +168,7 @@ const TemplateList: React.FC = () => {
     <Card>
       <div style={{ marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
         <Input
-          placeholder="搜索模板编码/名称"
+          placeholder={tx('搜索模板编码/名称')}
           prefix={<SearchOutlined />}
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
@@ -175,15 +177,15 @@ const TemplateList: React.FC = () => {
         />
         <Space>
           <Button type="primary" onClick={handleSearch}>
-            搜索
+            {tx('搜索')}
           </Button>
           <Button icon={<ReloadOutlined />} onClick={handleReset}>
-            重置
+            {tx('重置')}
           </Button>
         </Space>
         <div style={{ flex: 1 }} />
         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-          新增模板
+          {tx('新增模板')}
         </Button>
       </div>
 
@@ -199,7 +201,7 @@ const TemplateList: React.FC = () => {
           total,
           showSizeChanger: true,
           showQuickJumper: true,
-          showTotal: (t) => `共 ${t} 条`,
+          showTotal: (t) => tx('共 {{value0}} 条', { value0: t }),
           onChange: (p, ps) => {
             setPage(p);
             setPageSize(ps);

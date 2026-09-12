@@ -1,17 +1,32 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Button, Card, Descriptions, Form, Input, Progress, Select, Space, Table, Tag, message,
+  Button,
+  Card,
+  Descriptions,
+  Form,
+  Input,
+  Progress,
+  Select,
+  Space,
+  Table,
+  Tag,
+  message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { DownloadOutlined, PrinterOutlined } from '@ant-design/icons';
 import {
-  downloadExportFile, exportCsv, exportExcel, exportJson, exportPdf, exportTemplate,
-  getExportTask, getExportTemplates,
+  downloadExportFile,
+  exportCsv,
+  exportExcel,
+  exportJson,
+  exportPdf,
+  exportTemplate,
+  getExportTask,
+  getExportTemplates,
 } from '@/api/export';
 import { usePermissions } from '@/hooks/usePermission';
-import type {
-  ExportFormat, ExportTableRequest, ExportTask, ExportTemplateInfo,
-} from '@/types/api';
+import type { ExportFormat, ExportTableRequest, ExportTask, ExportTemplateInfo } from '@/types/api';
 import './export.css';
 
 const formatOptions: { value: ExportFormat; label: string; perm: string }[] = [
@@ -23,16 +38,60 @@ const formatOptions: { value: ExportFormat; label: string; perm: string }[] = [
 
 const sampleTemplateVars: Record<string, Record<string, string>> = {
   member_application: {
-    Title: '入会申请表', Date: '2026-09-06', RealName: '张三',
-    StudentNo: '20210001', Department: '技术部', Phone: '13800000000', Reason: '希望加入协会',
+    get Title() {
+      return tx('入会申请表');
+    },
+    Date: '2026-09-06',
+    get RealName() {
+      return tx('张三');
+    },
+    StudentNo: '20210001',
+    get Department() {
+      return tx('技术部');
+    },
+    Phone: '13800000000',
+    get Reason() {
+      return tx('希望加入协会');
+    },
   },
   meeting_notice: {
-    Title: '会议通知', Date: '2026-09-06', RealName: '李四',
-    Subject: '招新评审', StartAt: '2026-09-07 19:00', Location: 'A101', Agenda: '面试安排',
+    get Title() {
+      return tx('会议通知');
+    },
+    Date: '2026-09-06',
+    get RealName() {
+      return tx('李四');
+    },
+    get Subject() {
+      return tx('招新评审');
+    },
+    StartAt: '2026-09-07 19:00',
+    Location: 'A101',
+    get Agenda() {
+      return tx('面试安排');
+    },
   },
   internship_record: {
-    Title: '实习记录', Date: '2026-09-06', RealName: '王五',
-    Department: '技术部', Mentor: '赵六', Period: '2026-07 ~ 2026-08', Content: '后端开发', Comment: '表现良好',
+    get Title() {
+      return tx('实习记录');
+    },
+    Date: '2026-09-06',
+    get RealName() {
+      return tx('王五');
+    },
+    get Department() {
+      return tx('技术部');
+    },
+    get Mentor() {
+      return tx('赵六');
+    },
+    Period: '2026-07 ~ 2026-08',
+    get Content() {
+      return tx('后端开发');
+    },
+    get Comment() {
+      return tx('表现良好');
+    },
   },
 };
 
@@ -68,39 +127,53 @@ async function startExport(format: ExportFormat, body: ExportTableRequest): Prom
 }
 
 const ExportPage: React.FC = () => {
+  const uiLanguage = useLocale();
   const [canExcel, canCsv, canPdf, canJson, canTpl, canDownload] = usePermissions([
-    'export:excel', 'export:csv', 'export:pdf', 'export:json', 'export:template', 'export:download',
+    'export:excel',
+    'export:csv',
+    'export:pdf',
+    'export:json',
+    'export:template',
+    'export:download',
   ]);
-  const allowedFormats = useMemo(
-    () => formatOptions.filter((o) => (
-      (o.value === 'excel' && canExcel)
-      || (o.value === 'csv' && canCsv)
-      || (o.value === 'pdf' && canPdf)
-      || (o.value === 'json' && canJson)
-    )),
-    [canExcel, canCsv, canPdf, canJson],
-  );
+  const allowedFormats = useMemo(() => {
+    void uiLanguage;
+    return formatOptions.filter(
+      (o) =>
+        (o.value === 'excel' && canExcel) ||
+        (o.value === 'csv' && canCsv) ||
+        (o.value === 'pdf' && canPdf) ||
+        (o.value === 'json' && canJson),
+    );
+  }, [canExcel, canCsv, canPdf, canJson, uiLanguage]);
   const [form] = Form.useForm<FormValues>();
   const [templates, setTemplates] = useState<ExportTemplateInfo[]>([]);
   const [task, setTask] = useState<ExportTask | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    void getExportTemplates().then((list) => setTemplates(list || [])).catch(() => undefined);
+    void getExportTemplates()
+      .then((list) => setTemplates(list || []))
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
     if (!task?.task_id || task.status === 'done' || task.status === 'failed') return undefined;
     const id = task.task_id;
     const timer = window.setInterval(() => {
-      void getExportTask(id).then(setTask).catch(() => undefined);
+      void getExportTask(id)
+        .then(setTask)
+        .catch(() => undefined);
     }, 1000);
     return () => window.clearInterval(timer);
   }, [task?.task_id, task?.status]);
 
   const onSubmit = useCallback(async () => {
     const values = await form.validateFields();
-    const columns = values.columns.split(',').map((s) => s.trim()).filter(Boolean);
+    const columns = values.columns
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
     const rows = parseRows(values.rows);
     setSubmitting(true);
     try {
@@ -113,8 +186,8 @@ const ExportPage: React.FC = () => {
         delimiter: values.delimiter,
       });
       setTask(res);
-      if (res.status === 'done') message.success('导出完成');
-      else message.info('已提交异步导出任务');
+      if (res.status === 'done') message.success(tx('导出完成'));
+      else message.info(tx('已提交异步导出任务'));
     } finally {
       setSubmitting(false);
     }
@@ -126,10 +199,14 @@ const ExportPage: React.FC = () => {
       const res = await exportTemplate(tpl.id, {
         filename: tpl.id,
         watermark: 'StarByte',
-        vars: sampleTemplateVars[tpl.id] || { Title: tpl.name, Date: '2026-09-06', RealName: '张三' },
+        vars: sampleTemplateVars[tpl.id] || {
+          Title: tpl.name,
+          Date: '2026-09-06',
+          RealName: tx('张三'),
+        },
       });
       setTask(res);
-      message.success('模板已生成');
+      message.success(tx('模板已生成'));
     } finally {
       setSubmitting(false);
     }
@@ -141,10 +218,10 @@ const ExportPage: React.FC = () => {
   };
 
   const tplColumns: ColumnsType<ExportTemplateInfo> = [
-    { title: '模板', dataIndex: 'name', width: 140 },
-    { title: '说明', dataIndex: 'description' },
+    { title: tx('模板'), dataIndex: 'name', width: 140 },
+    { title: tx('说明'), dataIndex: 'description' },
     {
-      title: '操作',
+      title: tx('操作'),
       width: 100,
       render: (_, row) => (
         <Button
@@ -154,7 +231,7 @@ const ExportPage: React.FC = () => {
           disabled={!canTpl}
           onClick={() => void onPrint(row)}
         >
-          打印
+          {tx('打印')}
         </Button>
       ),
     },
@@ -164,76 +241,98 @@ const ExportPage: React.FC = () => {
     <div>
       <div className="export-hero">
         <div>
-          <h2>打印 / 报表导出</h2>
-          <p>将列表数据导出为 Excel、CSV、PDF、JSON，或使用内置模板打印。大表异步任务可在此查询进度。</p>
+          <h2>{tx('打印 / 报表导出')}</h2>
+          <p>
+            {tx(
+              '将列表数据导出为 Excel、CSV、PDF、JSON，或使用内置模板打印。大表异步任务可在此查询进度。',
+            )}
+          </p>
         </div>
       </div>
       <div className="export-layout">
-        <Card className="page-shell" title="表格导出">
+        <Card className="page-shell" title={tx('表格导出')}>
           <Form
             form={form}
             layout="vertical"
             initialValues={{
               format: allowedFormats[0]?.value || 'excel',
               filename: 'members',
-              title: '会员名单',
-              columns: '姓名,部门',
-              rows: '张三,技术部\n李四,宣传部',
+              title: tx('会员名单'),
+              columns: tx('姓名,部门'),
+              rows: tx('张三,技术部\n李四,宣传部'),
               sheet: 'Sheet1',
               delimiter: ',',
             }}
           >
-            <Form.Item name="format" label="格式" rules={[{ required: true }]}>
+            <Form.Item name="format" label={tx('格式')} rules={[{ required: true }]}>
               <Select options={allowedFormats} />
             </Form.Item>
             <Space wrap style={{ width: '100%' }}>
-              <Form.Item name="filename" label="文件名" rules={[{ required: true }]}>
+              <Form.Item name="filename" label={tx('文件名')} rules={[{ required: true }]}>
                 <Input style={{ width: 180 }} />
               </Form.Item>
-              <Form.Item name="title" label="标题">
+              <Form.Item name="title" label={tx('标题')}>
                 <Input style={{ width: 200 }} />
               </Form.Item>
-              <Form.Item name="sheet" label="Sheet">
+              <Form.Item name="sheet" label={tx('工作表')}>
                 <Input style={{ width: 140 }} />
               </Form.Item>
-              <Form.Item name="delimiter" label="CSV 分隔符">
+              <Form.Item name="delimiter" label={tx('CSV 分隔符')}>
                 <Input style={{ width: 100 }} />
               </Form.Item>
             </Space>
-            <Form.Item name="columns" label="列（逗号分隔）" rules={[{ required: true }]}>
-              <Input placeholder="姓名,部门" />
+            <Form.Item name="columns" label={tx('列（逗号分隔）')} rules={[{ required: true }]}>
+              <Input placeholder={tx('姓名,部门')} />
             </Form.Item>
-            <Form.Item name="rows" label="行（每行一条，逗号分隔）" rules={[{ required: true }]}>
-              <Input.TextArea rows={6} placeholder={'张三,技术部'} />
+            <Form.Item
+              name="rows"
+              label={tx('行（每行一条，逗号分隔）')}
+              rules={[{ required: true }]}
+            >
+              <Input.TextArea rows={6} placeholder={tx('张三,技术部')} />
             </Form.Item>
-            <Button type="primary" loading={submitting} disabled={!allowedFormats.length} onClick={() => void onSubmit()}>
-              开始导出
+            <Button
+              type="primary"
+              loading={submitting}
+              disabled={!allowedFormats.length}
+              onClick={() => void onSubmit()}
+            >
+              {tx('开始导出')}
             </Button>
           </Form>
         </Card>
-        <Card className="page-shell" title="任务进度 / 模板打印">
+        <Card className="page-shell" title={tx('任务进度 / 模板打印')}>
           {task ? (
             <Descriptions column={1} size="small" style={{ marginBottom: 16 }}>
-              <Descriptions.Item label="任务">{task.task_id}</Descriptions.Item>
-              <Descriptions.Item label="状态">
-                <Tag color={task.status === 'done' ? 'green' : task.status === 'failed' ? 'red' : 'blue'}>
+              <Descriptions.Item label={tx('任务')}>{task.task_id}</Descriptions.Item>
+              <Descriptions.Item label={tx('状态')}>
+                <Tag
+                  color={
+                    task.status === 'done' ? 'green' : task.status === 'failed' ? 'red' : 'blue'
+                  }
+                >
                   {task.status}
                 </Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="进度">
+              <Descriptions.Item label={tx('进度')}>
                 <Progress percent={task.progress} size="small" />
               </Descriptions.Item>
-              {task.error && <Descriptions.Item label="错误">{task.error}</Descriptions.Item>}
+              {task.error && <Descriptions.Item label={tx('错误')}>{task.error}</Descriptions.Item>}
               {task.file_id && canDownload && (
-                <Descriptions.Item label="下载">
-                  <Button type="primary" icon={<DownloadOutlined />} onClick={() => void onDownload()}>
-                    下载 {task.filename}
+                <Descriptions.Item label={tx('下载')}>
+                  <Button
+                    type="primary"
+                    icon={<DownloadOutlined />}
+                    onClick={() => void onDownload()}
+                  >
+                    {tx('下载')}
+                    {task.filename}
                   </Button>
                 </Descriptions.Item>
               )}
             </Descriptions>
           ) : (
-            <p style={{ color: '#64748b' }}>提交导出后可在此查看进度。</p>
+            <p style={{ color: '#64748b' }}>{tx('提交导出后可在此查看进度。')}</p>
           )}
           <Table
             rowKey="id"

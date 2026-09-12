@@ -1,13 +1,9 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useState } from 'react';
 import { Button, Form, Input, InputNumber, Modal, Space, Switch, Table, Tag, message } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import {
-  createDictType,
-  deleteDictType,
-  updateDictType,
-  type DictType,
-} from '@/api/dict';
+import { createDictType, deleteDictType, updateDictType, type DictType } from '@/api/dict';
 
 interface Props {
   types: DictType[];
@@ -21,8 +17,16 @@ interface Props {
 }
 
 const TypePanel: React.FC<Props> = ({
-  types, loading, selectedId, canCreate, canUpdate, canDelete, onSelect, onChanged,
+  types,
+  loading,
+  selectedId,
+  canCreate,
+  canUpdate,
+  canDelete,
+  onSelect,
+  onChanged,
 }) => {
+  useLocale();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<DictType | null>(null);
   const [form] = Form.useForm<Record<string, unknown>>();
@@ -37,7 +41,10 @@ const TypePanel: React.FC<Props> = ({
   const openEdit = (row: DictType) => {
     setEditing(row);
     form.setFieldsValue({
-      name: row.name, description: row.description, sort_order: row.sort_order, status: row.status === 0,
+      name: row.name,
+      description: row.description,
+      sort_order: row.sort_order,
+      status: row.status === 0,
     });
     setOpen(true);
   };
@@ -52,7 +59,7 @@ const TypePanel: React.FC<Props> = ({
         sort_order: Number(values.sort_order ?? 0),
         status: status as 0 | 1,
       });
-      message.success('类型已更新');
+      message.success(tx('类型已更新'));
     } else {
       await createDictType({
         code: String(values.code),
@@ -61,35 +68,57 @@ const TypePanel: React.FC<Props> = ({
         sort_order: Number(values.sort_order ?? 0),
         status: status as 0 | 1,
       });
-      message.success('类型已创建');
+      message.success(tx('类型已创建'));
     }
     setOpen(false);
     onChanged();
   };
 
   const columns: ColumnsType<DictType> = [
-    { title: '名称', dataIndex: 'name', render: (v: string, r) => <Button type="link" onClick={() => onSelect(r)}>{v}</Button> },
-    { title: '编码', dataIndex: 'code', width: 150 },
     {
-      title: '标记',
+      title: tx('名称'),
+      dataIndex: 'name',
+      render: (v: string, r) => (
+        <Button type="link" onClick={() => onSelect(r)}>
+          {v}
+        </Button>
+      ),
+    },
+    { title: tx('编码'), dataIndex: 'code', width: 150 },
+    {
+      title: tx('标记'),
       width: 90,
       render: (_, r) => (
         <Space size={4}>
-          {r.is_system && <Tag color="blue">系统</Tag>}
-          {r.status === 1 && <Tag>禁用</Tag>}
+          {r.is_system && <Tag color="blue">{tx('系统')}</Tag>}
+          {r.status === 1 && <Tag>{tx('禁用')}</Tag>}
         </Space>
       ),
     },
     {
-      title: '操作',
+      title: tx('操作'),
       width: 120,
       render: (_, r) => (
         <Space>
-          {canUpdate && <Button type="link" size="small" onClick={() => openEdit(r)}>编辑</Button>}
+          {canUpdate && (
+            <Button type="link" size="small" onClick={() => openEdit(r)}>
+              {tx('编辑')}
+            </Button>
+          )}
           {canDelete && !r.is_system && (
-            <Button type="link" size="small" danger onClick={() => {
-              void deleteDictType(r.id).then(() => { message.success('已删除'); onChanged(); });
-            }}>删除</Button>
+            <Button
+              type="link"
+              size="small"
+              danger
+              onClick={() => {
+                void deleteDictType(r.id).then(() => {
+                  message.success(tx('已删除'));
+                  onChanged();
+                });
+              }}
+            >
+              {tx('删除')}
+            </Button>
           )}
         </Space>
       ),
@@ -99,7 +128,11 @@ const TypePanel: React.FC<Props> = ({
   return (
     <>
       <Space style={{ marginBottom: 12 }}>
-        {canCreate && <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新建类型</Button>}
+        {canCreate && (
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+            {tx('新建类型')}
+          </Button>
+        )}
       </Space>
       <Table<DictType>
         rowKey="id"
@@ -112,7 +145,7 @@ const TypePanel: React.FC<Props> = ({
         onRow={(r) => ({ onClick: () => onSelect(r) })}
       />
       <Modal
-        title={editing ? '编辑字典类型' : '新建字典类型'}
+        title={editing ? tx('编辑字典类型') : tx('新建字典类型')}
         open={open}
         onOk={() => void submit()}
         onCancel={() => setOpen(false)}
@@ -120,20 +153,28 @@ const TypePanel: React.FC<Props> = ({
       >
         <Form form={form} layout="vertical">
           {!editing && (
-            <Form.Item name="code" label="编码" rules={[{ required: true, message: '请输入编码' }]}>
-              <Input placeholder="例如 task_priority" />
+            <Form.Item
+              name="code"
+              label={tx('编码')}
+              rules={[{ required: true, message: tx('请输入编码') }]}
+            >
+              <Input placeholder={tx('例如 task_priority')} />
             </Form.Item>
           )}
-          <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入名称' }]}>
+          <Form.Item
+            name="name"
+            label={tx('名称')}
+            rules={[{ required: true, message: tx('请输入名称') }]}
+          >
             <Input />
           </Form.Item>
-          <Form.Item name="description" label="说明">
+          <Form.Item name="description" label={tx('说明')}>
             <Input.TextArea rows={2} />
           </Form.Item>
-          <Form.Item name="sort_order" label="排序">
+          <Form.Item name="sort_order" label={tx('排序')}>
             <InputNumber min={0} style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item name="status" label="启用" valuePropName="checked">
+          <Form.Item name="status" label={tx('启用')} valuePropName="checked">
             <Switch />
           </Form.Item>
         </Form>

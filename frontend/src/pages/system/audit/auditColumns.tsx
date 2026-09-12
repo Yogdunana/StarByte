@@ -1,3 +1,4 @@
+import { tx } from '@/i18n/text';
 import { Button, Tag, Tooltip } from 'antd';
 import { EyeOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
@@ -32,20 +33,20 @@ export function buildAuditColumns(
 ): ColumnsType<AuditLogItem> {
   return [
     {
-      title: '时间',
+      title: tx('时间'),
       dataIndex: 'timestamp',
       key: 'timestamp',
       width: 170,
       render: (time: string) => (time ? dayjs(time).format('YYYY-MM-DD HH:mm:ss') : '-'),
     },
     {
-      title: '用户',
+      title: tx('用户'),
       key: 'user',
       width: 120,
-      render: (_, record) => record.user?.username || '未认证',
+      render: (_, record) => record.user?.username || tx('未认证'),
     },
     {
-      title: '动作',
+      title: tx('动作'),
       dataIndex: 'action',
       key: 'action',
       width: 100,
@@ -53,21 +54,20 @@ export function buildAuditColumns(
         action ? <Tag color={actionColorMap[action] || 'default'}>{action}</Tag> : '-',
     },
     {
-      title: '模块',
+      title: tx('模块'),
       dataIndex: 'module',
       key: 'module',
       width: 100,
     },
     {
-      title: '方法',
+      title: tx('方法'),
       dataIndex: 'method',
       key: 'method',
       width: 80,
-      render: (m: string) =>
-        m ? <Tag color={methodColorMap[m] || 'default'}>{m}</Tag> : '-',
+      render: (m: string) => (m ? <Tag color={methodColorMap[m] || 'default'}>{m}</Tag> : '-'),
     },
     {
-      title: '路径',
+      title: tx('路径'),
       dataIndex: 'path',
       key: 'path',
       width: 240,
@@ -85,7 +85,7 @@ export function buildAuditColumns(
       width: 130,
     },
     {
-      title: '合规',
+      title: tx('合规'),
       dataIndex: 'compliance_flags',
       key: 'compliance_flags',
       width: 140,
@@ -99,27 +99,27 @@ export function buildAuditColumns(
           : '-',
     },
     {
-      title: '状态码',
+      title: tx('状态码'),
       dataIndex: 'response_code',
       key: 'response_code',
       width: 90,
       render: (status: number) => <Tag color={statusColorMap(status)}>{status}</Tag>,
     },
     {
-      title: '耗时',
+      title: tx('耗时'),
       dataIndex: 'duration_ms',
       key: 'duration_ms',
       width: 80,
       render: (ms: number) => `${ms}ms`,
     },
     {
-      title: '操作',
+      title: tx('操作'),
       key: 'action_btn',
       width: 80,
       fixed: 'right',
       render: (_, record) => (
         <Button type="link" size="small" icon={<EyeOutlined />} onClick={() => onView(record)}>
-          详情
+          {tx('详情')}
         </Button>
       ),
     },

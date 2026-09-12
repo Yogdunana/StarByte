@@ -4,6 +4,7 @@ import "time"
 
 // TableExportRequest is the body for Excel / CSV / PDF / JSON table exports.
 type TableExportRequest struct {
+	Locale    string     `json:"-"`
 	Filename  string     `json:"filename"`
 	Title     string     `json:"title"`
 	Columns   []string   `json:"columns"`
@@ -14,6 +15,7 @@ type TableExportRequest struct {
 
 // TemplateExportRequest is the body for built-in HTML template printing.
 type TemplateExportRequest struct {
+	Locale    string            `json:"-"`
 	Filename  string            `json:"filename"`
 	Watermark string            `json:"watermark"`
 	Vars      map[string]string `json:"vars"`

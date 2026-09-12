@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useState } from 'react';
 import { Button, Card, Form, Input, Radio, Select, Space, message } from 'antd';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +14,7 @@ interface PasswordFormValues {
 }
 
 const AccountSettingsPage: React.FC = () => {
+  useLocale();
   const { t } = useTranslation();
   const { preference, setPreference, lang, setLang } = useThemeLang();
   const [form] = Form.useForm<PasswordFormValues>();
@@ -57,8 +59,9 @@ const AccountSettingsPage: React.FC = () => {
               value={lang}
               onChange={(v: AppLang) => setLang(v)}
               options={[
-                { value: 'zh-CN', label: '简体中文' },
+                { value: 'zh-CN', label: tx('简体中文') },
                 { value: 'en-US', label: 'English' },
+                { value: 'ru-RU', label: 'Русский' },
               ]}
             />
           </div>
@@ -71,17 +74,17 @@ const AccountSettingsPage: React.FC = () => {
           style={{ maxWidth: 420 }}
           onFinish={(values) => void handleSubmit(values)}
         >
-          <Form.Item name="old_password" label={t('settings.oldPassword')} rules={[{ required: true }]}>
+          <Form.Item
+            name="old_password"
+            label={t('settings.oldPassword')}
+            rules={[{ required: true }]}
+          >
             <Input.Password autoComplete="current-password" />
           </Form.Item>
           <Form.Item
             name="new_password"
             label={t('settings.newPassword')}
-            rules={[
-              { required: true },
-              { min: 8 },
-              { pattern: /^(?=.*[A-Za-z])(?=.*\d).+$/ },
-            ]}
+            rules={[{ required: true }, { min: 8 }, { pattern: /^(?=.*[A-Za-z])(?=.*\d).+$/ }]}
           >
             <Input.Password autoComplete="new-password" />
           </Form.Item>

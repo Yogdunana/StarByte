@@ -205,7 +205,7 @@ func (s *exportService) runTableJob(ctx context.Context, taskID, format, userID 
 
 func (s *exportService) runTemplateJob(ctx context.Context, taskID, templateID, userID string, req *dto.TemplateExportRequest) error {
 	_ = s.patchTask(ctx, taskID, model.StatusRunning, 10, "", "")
-	htmlBody, err := renderTemplate(templateID, req.Vars)
+	htmlBody, err := renderTemplate(templateID, req.Vars, req.Locale)
 	if err != nil {
 		_ = s.failTask(ctx, taskID, err.Error())
 		return err
@@ -219,7 +219,7 @@ func (s *exportService) runTemplateJob(ctx context.Context, taskID, templateID, 
 			title = meta.Name
 		}
 	}
-	data, err := buildTemplatePDF(htmlBody, title, req.Watermark)
+	data, err := buildTemplatePDF(htmlBody, title, req.Watermark, req.Locale)
 	if err != nil {
 		_ = s.failTask(ctx, taskID, err.Error())
 		return response.NewError(response.CodeInternalError, "生成 PDF 失败")

@@ -1,3 +1,4 @@
+import { tx } from '@/i18n/text';
 import type { BackupPreview } from '@/api/backup';
 
 export interface PreviewTicket {
@@ -53,7 +54,7 @@ export function canContinueRestore(
 
 export function previewErrorMessage(err: unknown): string {
   if (err instanceof Error && err.message) return err.message;
-  return '完整性检查失败';
+  return tx('完整性检查失败');
 }
 
 /** Network / timeout failure still belongs to the selected backup, never ready. */

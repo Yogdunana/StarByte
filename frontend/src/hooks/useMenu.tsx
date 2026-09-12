@@ -1,3 +1,4 @@
+import { useLocale, tx } from '@/i18n/text';
 import React, { useEffect, useMemo, useState } from 'react';
 import type { MenuProps } from 'antd';
 import { useLocation } from 'react-router-dom';
@@ -77,14 +78,22 @@ const iconMap: Record<string, React.FC> = {
   CloudServerOutlined,
 };
 
-function hasMenuPermission(permissions: string[], meta?: RouteMeta, flags?: Record<string, boolean>): boolean {
+function hasMenuPermission(
+  permissions: string[],
+  meta?: RouteMeta,
+  flags?: Record<string, boolean>,
+): boolean {
   if (meta?.featureFlag && !flags?.[meta.featureFlag]) return false;
   if (permissions.includes('*')) return true;
   if (!meta?.permission) return true;
   return permissions.includes(meta.permission);
 }
 
-function hasVisibleChildren(route: AppRouteObject, permissions: string[], flags?: Record<string, boolean>): boolean {
+function hasVisibleChildren(
+  route: AppRouteObject,
+  permissions: string[],
+  flags?: Record<string, boolean>,
+): boolean {
   if (route.meta?.featureFlag && !flags?.[route.meta.featureFlag]) return false;
   if (!route.children || route.children.length === 0) return false;
   return route.children.some((child) => {
@@ -112,9 +121,7 @@ function buildMenuNodes(
       return hasMenuPermission(permissions, route.meta, flags);
     })
     .map((route) => {
-      const fullPath = route.path!.startsWith('/')
-        ? route.path!
-        : `${parentPath}/${route.path}`;
+      const fullPath = route.path!.startsWith('/') ? route.path! : `${parentPath}/${route.path}`;
       const IconComponent = route.meta?.icon ? iconMap[route.meta.icon] : null;
       const node: MenuNode = {
         key: fullPath,
@@ -176,6 +183,7 @@ function toAntdItems(nodes: MenuNode[]): MenuItem[] {
  * 侧栏菜单：按权限过滤、关键词搜索、折叠与 selected/open keys。
  */
 export function useMenu(): UseMenuResult {
+  const uiLanguage = useLocale();
   const location = useLocation();
   const collapsed = useSelector(selectCollapsed);
   const permissions = useSelector(selectPermissions);
@@ -185,36 +193,62 @@ export function useMenu(): UseMenuResult {
   const [openKeys, setOpenKeys] = useState<string[]>([]);
 
   const allNodes = useMemo(() => {
+    // Invalidate cached labels when the selected language changes.
+    void uiLanguage;
     const layoutRoute = (routes as AppRouteObject[]).find((r) =>
       r.children?.some((child) => child.path === 'dashboard'),
     );
-    const labelOf = (path: string, fallback: string) => t(`menu.${path}`, { defaultValue: fallback });
+    const labelOf = (path: string, fallback: string) =>
+      t(`menu.${path}`, { defaultValue: fallback });
     return layoutRoute?.children
       ? buildMenuNodes(layoutRoute.children, permissions, '', labelOf, flags)
       : [];
-  }, [permissions, flags, t]);
+  }, [permissions, flags, t, uiLanguage]);
 
-  const visibleNodes = useMemo(
-    () => filterMenuNodes(allNodes, searchKeyword),
-    [allNodes, searchKeyword],
-  );
+  const visibleNodes = useMemo(() => {
+    void uiLanguage;
+    return filterMenuNodes(allNodes, searchKeyword);
+  }, [allNodes, searchKeyword, uiLanguage]);
 
   const menuItems = useMemo(() => {
+    // Invalidate cached labels when the selected language changes.
+    void uiLanguage;
     const sections = [
-      { title: '我的工作', keys: ['/dashboard', '/notification'] },
-      { title: '成员与招新', keys: ['/member', '/interview', '/discipline'] },
-      { title: '协作与活动', keys: ['/task', '/meeting', '/internship', '/announcement', '/knowledge', '/leave'] },
-      { title: '资源与财务', keys: ['/files', '/finance', '/contract', '/stats'] },
-      { title: '组织与系统', keys: ['/user', '/workflow', '/forms', '/system', '/monitor', '/backup'] },
+      { title: tx('我的工作'), keys: ['/dashboard', '/notification'] },
+      { title: tx('成员与招新'), keys: ['/member', '/interview', '/discipline'] },
+      {
+        title: tx('协作与活动'),
+        keys: ['/task', '/meeting', '/internship', '/announcement', '/knowledge', '/leave'],
+      },
+      { title: tx('资源与财务'), keys: ['/files', '/finance', '/contract', '/stats'] },
+      {
+        title: tx('组织与系统'),
+        keys: ['/user', '/workflow', '/forms', '/system', '/monitor', '/backup'],
+      },
     ];
-    const known = new Set(sections.flatMap(section => section.keys));
-    const otherNodes = visibleNodes.filter(node => !known.has(node.key));
-    return [...sections.flatMap(section => {
-      const children = visibleNodes.filter(node => section.keys.includes(node.key));
-      return children.length ? [{ type: 'group' as const, key: section.title, label: section.title, children: toAntdItems(children) }] : [];
-    }), ...toAntdItems(otherNodes)];
-  }, [visibleNodes]);
-  const selectedKeys = useMemo(() => [location.pathname], [location.pathname]);
+    const known = new Set(sections.flatMap((section) => section.keys));
+    const otherNodes = visibleNodes.filter((node) => !known.has(node.key));
+    return [
+      ...sections.flatMap((section) => {
+        const children = visibleNodes.filter((node) => section.keys.includes(node.key));
+        return children.length
+          ? [
+              {
+                type: 'group' as const,
+                key: section.title,
+                label: section.title,
+                children: toAntdItems(children),
+              },
+            ]
+          : [];
+      }),
+      ...toAntdItems(otherNodes),
+    ];
+  }, [visibleNodes, uiLanguage]);
+  const selectedKeys = useMemo(() => {
+    void uiLanguage;
+    return [location.pathname];
+  }, [location.pathname, uiLanguage]);
 
   useEffect(() => {
     if (searchKeyword.trim()) {

@@ -1,7 +1,13 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, Card, Col, Drawer, Input, Row, Space, message } from 'antd';
 import { useNavigate, useParams } from 'react-router-dom';
-import { FormEngine, FIELD_TYPE_LABELS, type FormField, type FormFieldType } from '@/components/FormEngine';
+import {
+  FormEngine,
+  FIELD_TYPE_LABELS,
+  type FormField,
+  type FormFieldType,
+} from '@/components/FormEngine';
 import { createForm, getForm, updateForm } from '@/api/forms';
 import Palette from './Palette';
 import FieldList from './FieldList';
@@ -20,9 +26,10 @@ function slug(type: FormFieldType, used: Set<string>): string {
 }
 
 const DesignerPage: React.FC = () => {
+  useLocale();
   const { id } = useParams();
   const nav = useNavigate();
-  const [name, setName] = useState('未命名表单');
+  const [name, setName] = useState(tx('未命名表单'));
   const [description, setDescription] = useState('');
   const [fields, setFields] = useState<FormField[]>([]);
   const [selected, setSelected] = useState<string>();
@@ -42,22 +49,27 @@ const DesignerPage: React.FC = () => {
 
   const selectedField = fields.find((f) => f.name === selected);
 
-  const addField = useCallback((type: FormFieldType) => {
-    const names = new Set(fields.map((f) => f.name));
-    const nameKey = slug(type, names);
-    const next: FormField = { name: nameKey, label: FIELD_TYPE_LABELS[type], type };
-    setFields((prev) => [...prev, next]);
-    setSelected(nameKey);
-  }, [fields]);
+  const addField = useCallback(
+    (type: FormFieldType) => {
+      const names = new Set(fields.map((f) => f.name));
+      const nameKey = slug(type, names);
+      const next: FormField = { name: nameKey, label: FIELD_TYPE_LABELS[type], type };
+      setFields((prev) => [...prev, next]);
+      setSelected(nameKey);
+    },
+    [fields],
+  );
 
   const patchField = (patch: Partial<FormField>) => {
     if (!selected) return;
-    setFields((prev) => prev.map((f) => {
-      if (f.name !== selected) return f;
-      const next = { ...f, ...patch };
-      if (patch.name && patch.name !== f.name) setSelected(patch.name);
-      return next;
-    }));
+    setFields((prev) =>
+      prev.map((f) => {
+        if (f.name !== selected) return f;
+        const next = { ...f, ...patch };
+        if (patch.name && patch.name !== f.name) setSelected(patch.name);
+        return next;
+      }),
+    );
   };
 
   const move = (fname: string, dir: -1 | 1) => {
@@ -85,14 +97,16 @@ const DesignerPage: React.FC = () => {
         setFormId(out.id);
         nav(`/forms/designer/${out.id}`, { replace: true });
       }
-      message.success(publish ? '已保存并发布' : '已保存');
+      message.success(publish ? tx('已保存并发布') : tx('已保存'));
     } finally {
       setSaving(false);
     }
   };
 
   const exportJSON = () => {
-    const blob = new Blob([JSON.stringify({ name, description, fields }, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify({ name, description, fields }, null, 2)], {
+      type: 'application/json',
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -103,23 +117,51 @@ const DesignerPage: React.FC = () => {
 
   return (
     <Card
-      title="表单设计器"
-      extra={(
+      title={tx('表单设计器')}
+      extra={
         <Space>
-          <Button onClick={() => nav('/forms')}>返回列表</Button>
-          <Button onClick={() => setPreview(true)}>预览</Button>
-          <Button onClick={exportJSON}>导出 JSON</Button>
-          <Button loading={saving} onClick={() => { void save(false); }}>保存草稿</Button>
-          <Button type="primary" loading={saving} onClick={() => { void save(true); }}>保存并发布</Button>
+          <Button onClick={() => nav('/forms')}>{tx('返回列表')}</Button>
+          <Button onClick={() => setPreview(true)}>{tx('预览')}</Button>
+          <Button onClick={exportJSON}>{tx('导出 JSON')}</Button>
+          <Button
+            loading={saving}
+            onClick={() => {
+              void save(false);
+            }}
+          >
+            {tx('保存草稿')}
+          </Button>
+          <Button
+            type="primary"
+            loading={saving}
+            onClick={() => {
+              void save(true);
+            }}
+          >
+            {tx('保存并发布')}
+          </Button>
         </Space>
-      )}
+      }
     >
       <Space direction="vertical" style={{ width: '100%', marginBottom: 16 }}>
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="表单名称" maxLength={100} />
-        <Input.TextArea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="说明" rows={2} maxLength={500} />
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder={tx('表单名称')}
+          maxLength={100}
+        />
+        <Input.TextArea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder={tx('说明')}
+          rows={2}
+          maxLength={500}
+        />
       </Space>
       <Row gutter={16}>
-        <Col xs={24} md={5}><Palette onAdd={addField} /></Col>
+        <Col xs={24} md={5}>
+          <Palette onAdd={addField} />
+        </Col>
         <Col xs={24} md={11}>
           <FieldList
             fields={fields}
@@ -131,10 +173,14 @@ const DesignerPage: React.FC = () => {
           />
         </Col>
         <Col xs={24} md={8}>
-          <PropPanel field={selectedField} allNames={fields.map((f) => f.name)} onChange={patchField} />
+          <PropPanel
+            field={selectedField}
+            allNames={fields.map((f) => f.name)}
+            onChange={patchField}
+          />
         </Col>
       </Row>
-      <Drawer title="实时预览" open={preview} onClose={() => setPreview(false)} width={480}>
+      <Drawer title={tx('实时预览')} open={preview} onClose={() => setPreview(false)} width={480}>
         <FormEngine schema={{ fields }} showSubmit={false} />
       </Drawer>
     </Card>

@@ -1,3 +1,6 @@
+import { notificationText, notificationSender } from './localizedText';
+import i18n from '@/i18n';
+import { tx } from '@/i18n/text';
 import { Button, Space, Tag, Badge, Typography, Popconfirm } from 'antd';
 import { CheckOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
@@ -22,30 +25,30 @@ export function getNotificationColumns(
 ): ColumnsType<Notification> {
   return [
     {
-      title: '状态',
+      title: tx('状态'),
       dataIndex: 'is_read',
       key: 'is_read',
       width: 70,
       render: (isRead: boolean) =>
-        isRead ? <Tag>已读</Tag> : <Badge status="error" text="未读" />,
+        isRead ? <Tag>{tx('已读')}</Tag> : <Badge status="error" text={tx('未读')} />,
     },
     {
-      title: '标题',
+      title: tx('标题'),
       dataIndex: 'title',
       key: 'title',
       width: 200,
-      render: (text: string, record: Notification) => (
+      render: (_text: string, record: Notification) => (
         <Text
           strong={!record.is_read}
           style={{ cursor: 'pointer' }}
           onClick={() => handlers.onView(record)}
         >
-          {text}
+          {notificationText(record, 'title')}
         </Text>
       ),
     },
     {
-      title: '分类',
+      title: tx('分类'),
       dataIndex: 'category',
       key: 'category',
       width: 90,
@@ -56,7 +59,7 @@ export function getNotificationColumns(
       ),
     },
     {
-      title: '优先级',
+      title: tx('优先级'),
       dataIndex: 'priority',
       key: 'priority',
       width: 80,
@@ -67,21 +70,20 @@ export function getNotificationColumns(
       ),
     },
     {
-      title: '发送者',
+      title: tx('发送者'),
       key: 'sender',
       width: 100,
-      render: (_: unknown, record: Notification) => record.sender?.name || '-',
+      render: (_: unknown, record: Notification) => notificationSender(record) || '-',
     },
     {
-      title: '时间',
+      title: tx('时间'),
       dataIndex: 'created_at',
       key: 'created_at',
       width: 160,
-      render: (time: string) =>
-        new Date(time).toLocaleString('zh-CN', { hour12: false }),
+      render: (time: string) => new Date(time).toLocaleString(i18n.language, { hour12: false }),
     },
     {
-      title: '操作',
+      title: tx('操作'),
       key: 'action',
       width: 150,
       fixed: 'right',
@@ -93,7 +95,7 @@ export function getNotificationColumns(
             icon={<EyeOutlined />}
             onClick={() => handlers.onView(record)}
           >
-            查看
+            {tx('查看')}
           </Button>
           {!record.is_read && (
             <Button
@@ -102,15 +104,12 @@ export function getNotificationColumns(
               icon={<CheckOutlined />}
               onClick={() => handlers.onMarkRead(record)}
             >
-              已读
+              {tx('已读')}
             </Button>
           )}
-          <Popconfirm
-            title="确认删除此通知？"
-            onConfirm={() => handlers.onDelete(record)}
-          >
+          <Popconfirm title={tx('确认删除此通知？')} onConfirm={() => handlers.onDelete(record)}>
             <Button type="link" size="small" danger icon={<DeleteOutlined />}>
-              删除
+              {tx('删除')}
             </Button>
           </Popconfirm>
         </Space>

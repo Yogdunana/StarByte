@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useEffect, useState } from 'react';
 import { Card, Col, Empty, Row, Spin } from 'antd';
 import ReactECharts from 'echarts-for-react';
@@ -5,6 +6,7 @@ import { getApplicationStats, getMemberStats } from '@/api/member';
 import type { MemberStatItem } from '@/types/api';
 
 const MemberStats: React.FC = () => {
+  useLocale();
   const [loading, setLoading] = useState(true);
   const [trend, setTrend] = useState<MemberStatItem[]>([]);
   const [dept, setDept] = useState<MemberStatItem[]>([]);
@@ -28,9 +30,9 @@ const MemberStats: React.FC = () => {
   return (
     <Row gutter={16}>
       <Col span={14}>
-        <Card title="申请趋势" size="small">
+        <Card title={tx('申请趋势')} size="small">
           {trend.length === 0 ? (
-            <Empty description="暂无申请数据" />
+            <Empty description={tx('暂无申请数据')} />
           ) : (
             <ReactECharts
               style={{ height: 280 }}
@@ -45,9 +47,9 @@ const MemberStats: React.FC = () => {
         </Card>
       </Col>
       <Col span={10}>
-        <Card title="会员部门分布" size="small">
+        <Card title={tx('会员部门分布')} size="small">
           {dept.length === 0 ? (
-            <Empty description="暂无档案数据" />
+            <Empty description={tx('暂无档案数据')} />
           ) : (
             <ReactECharts
               style={{ height: 280 }}

@@ -8,9 +8,7 @@ import { updateMyProfile } from '@/api/user';
 import ProfileMePage from './ProfileMePage';
 vi.mock('@/api/auth', () => ({ getCurrentUser: vi.fn() }));
 vi.mock('@/api/user', () => ({ updateMyProfile: vi.fn().mockResolvedValue(undefined) }));
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string, fallback: string) => fallback || key }),
-}));
+
 afterEach(cleanup);
 it('saves only editable fields then refreshes the current user', async () => {
   const user = {

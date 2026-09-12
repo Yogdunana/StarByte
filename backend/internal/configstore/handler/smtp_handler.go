@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/Yogdunana/StarByte/backend/internal/configstore/dto"
+	"github.com/Yogdunana/StarByte/backend/pkg/locale"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/gin-gonic/gin"
 )
@@ -73,7 +74,7 @@ func (h *ConfigHandler) TestSMTP(c *gin.Context) {
 		response.BadRequest(c, "参数错误: "+err.Error())
 		return
 	}
-	out, err := h.svc.TestSMTP(c.Request.Context(), &req)
+	out, err := h.svc.TestSMTP(locale.WithContext(c.Request.Context(), locale.FromHeader(c.GetHeader("Accept-Language"))), &req)
 	if err != nil {
 		response.Error(c, err)
 		return

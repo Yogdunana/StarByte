@@ -1,3 +1,4 @@
+import { tx } from '@/i18n/text';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Button, Card, DatePicker, Drawer, Form, Input, InputNumber, Modal, Select, Space, Switch,
@@ -249,7 +250,7 @@ const FeaturePage: React.FC = () => {
           <Form.Item name="starts_at" label={t('feature.startsAt')}><DatePicker showTime style={{ width: '100%' }} /></Form.Item>
           <Form.Item name="ends_at" label={t('feature.endsAt')}><DatePicker showTime style={{ width: '100%' }} /></Form.Item>
           {flagType === 'user_allowlist' && (
-            <Form.Item name="user_ids" label={t('feature.userIds')}><Input.TextArea rows={3} placeholder="uuid, one per line" /></Form.Item>
+            <Form.Item name="user_ids" label={t('feature.userIds')}><Input.TextArea rows={3} placeholder={tx('每行一个 UUID')} /></Form.Item>
           )}
           {flagType === 'role_dept' && (
             <>

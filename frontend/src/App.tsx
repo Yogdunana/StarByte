@@ -3,7 +3,7 @@ import { useRoutes } from 'react-router-dom';
 import { ConfigProvider, theme as antdTheme } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import enUS from 'antd/locale/en_US';
-import { useTranslation } from 'react-i18next';
+import ruRU from 'antd/locale/ru_RU';
 
 import routes from './router/routes';
 import lightTheme, { darkComponents, darkTokens } from './styles/theme';
@@ -14,8 +14,7 @@ import MotionRoot from './motion/MotionRoot';
 const ThemedApp: React.FC = () => {
   const element = useRoutes(routes);
   const { resolved, lang } = useThemeLang();
-  const { i18n } = useTranslation();
-  const locale = (lang === 'en-US' || i18n.language === 'en-US') ? enUS : zhCN;
+  const locale = lang === 'ru-RU' ? ruRU : lang === 'en-US' ? enUS : zhCN;
   const algorithm = resolved === 'dark' ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm;
   const isDark = resolved === 'dark';
 
@@ -28,9 +27,7 @@ const ThemedApp: React.FC = () => {
         components: isDark ? darkComponents : lightTheme.components,
       }}
     >
-      <ErrorBoundary>
-        {element}
-      </ErrorBoundary>
+      <ErrorBoundary>{element}</ErrorBoundary>
     </ConfigProvider>
   );
 };

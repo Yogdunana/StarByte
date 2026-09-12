@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React from 'react';
 import { Tag } from 'antd';
 import type { StatusMap } from '@/types/common';
@@ -11,11 +12,8 @@ export interface StatusTagProps {
 /**
  * 状态标签 — 通过数字状态码映射到颜色和文本
  */
-const StatusTag: React.FC<StatusTagProps> = ({
-  status,
-  mapping,
-  fallbackText = '未知',
-}) => {
+const StatusTag: React.FC<StatusTagProps> = ({ status, mapping, fallbackText = tx('未知') }) => {
+  useLocale();
   const item = mapping[status];
   const color = item?.color || 'default';
   const text = item?.text || fallbackText;

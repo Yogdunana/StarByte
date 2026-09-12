@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useEffect } from 'react';
 import { DatePicker, Form, Input, InputNumber, Modal, Select } from 'antd';
 import dayjs from 'dayjs';
@@ -12,6 +13,7 @@ interface Props {
 }
 
 const FormModal: React.FC<Props> = ({ open, editing, onCancel, onSubmit }) => {
+  useLocale();
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -29,7 +31,7 @@ const FormModal: React.FC<Props> = ({ open, editing, onCancel, onSubmit }) => {
 
   return (
     <Modal
-      title={editing ? '编辑活动' : '新建活动'}
+      title={editing ? tx('编辑活动') : tx('新建活动')}
       open={open}
       onCancel={onCancel}
       onOk={() => form.submit()}
@@ -56,34 +58,34 @@ const FormModal: React.FC<Props> = ({ open, editing, onCancel, onSubmit }) => {
           });
         }}
       >
-        <Form.Item name="title" label="标题" rules={[{ required: true }]}>
+        <Form.Item name="title" label={tx('标题')} rules={[{ required: true }]}>
           <Input maxLength={200} showCount />
         </Form.Item>
-        <Form.Item name="time_range" label="时间" rules={[{ required: true }]}>
+        <Form.Item name="time_range" label={tx('时间')} rules={[{ required: true }]}>
           <DatePicker.RangePicker showTime style={{ width: '100%' }} />
         </Form.Item>
-        <Form.Item name="category" label="分类">
+        <Form.Item name="category" label={tx('分类')}>
           <Select options={ActivityCategoryOptions} allowClear />
         </Form.Item>
-        <Form.Item name="location" label="地点">
+        <Form.Item name="location" label={tx('地点')}>
           <Input maxLength={200} />
         </Form.Item>
-        <Form.Item name="latitude" label="纬度（GPS 围栏，可选）">
+        <Form.Item name="latitude" label={tx('纬度（GPS 围栏，可选）')}>
           <InputNumber min={-90} max={90} step={0.000001} style={{ width: '100%' }} />
         </Form.Item>
-        <Form.Item name="longitude" label="经度（GPS 围栏，可选）">
+        <Form.Item name="longitude" label={tx('经度（GPS 围栏，可选）')}>
           <InputNumber min={-180} max={180} step={0.000001} style={{ width: '100%' }} />
         </Form.Item>
-        <Form.Item name="checkin_radius_m" label="签到半径（米，未配置则拒绝 GPS 签到）">
+        <Form.Item name="checkin_radius_m" label={tx('签到半径（米，未配置则拒绝 GPS 签到）')}>
           <InputNumber min={0} style={{ width: '100%' }} />
         </Form.Item>
-        <Form.Item name="max_participants" label="人数上限（0 表示不限）">
+        <Form.Item name="max_participants" label={tx('人数上限（0 表示不限）')}>
           <InputNumber min={0} style={{ width: '100%' }} />
         </Form.Item>
-        <Form.Item name="tags" label="标签">
-          <Select mode="tags" placeholder="输入标签后回车" />
+        <Form.Item name="tags" label={tx('标签')}>
+          <Select mode="tags" placeholder={tx('输入标签后回车')} />
         </Form.Item>
-        <Form.Item name="description" label="说明">
+        <Form.Item name="description" label={tx('说明')}>
           <Input.TextArea rows={3} maxLength={2000} showCount />
         </Form.Item>
       </Form>

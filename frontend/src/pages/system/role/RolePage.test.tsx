@@ -1,6 +1,7 @@
-import { fireEvent, render, screen, waitFor, cleanup } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, cleanup } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import RolePage from './RolePage';
+import i18n from '@/i18n';
 import * as api from '@/api/role';
 import { usePermissions } from '@/hooks/usePermission';
 vi.mock('@/api/role', () => ({
@@ -14,9 +15,7 @@ vi.mock('@/api/role', () => ({
 }));
 vi.mock('@/hooks/usePermission', () => ({ usePermissions: vi.fn() }));
 vi.mock('react-redux', () => ({ useDispatch: () => vi.fn() }));
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string, fallback: string) => fallback || key }),
-}));
+
 afterEach(cleanup);
 beforeEach(() => {
   vi.clearAllMocks();
@@ -46,4 +45,26 @@ it('hides mutation actions without their permissions', async () => {
   expect(screen.queryByText('新增')).toBeNull();
   expect(screen.queryByText('分配权限')).toBeNull();
   expect(screen.queryByText('编辑')).toBeNull();
+});
+
+it('switches language without discarding the open role form or refetching records', async () => {
+  render(<RolePage />);
+  await screen.findByText('自定义审核员');
+  fireEvent.click(screen.getByRole('button', { name: /新\s*增/ }));
+  fireEvent.change(screen.getByLabelText('名称'), { target: { value: 'Keep my draft' } });
+  const requests = vi.mocked(api.getRoleList).mock.calls.length;
+  await act(async () => {
+    await i18n.changeLanguage('ru-RU');
+  });
+  expect(screen.getByLabelText('Название')).toHaveValue('Keep my draft');
+  expect(screen.getByText('Создать роль')).toBeInTheDocument();
+  expect(api.getRoleList).toHaveBeenCalledTimes(requests);
+  await act(async () => {
+    await i18n.changeLanguage('en-US');
+  });
+  expect(screen.getByLabelText('Name')).toHaveValue('Keep my draft');
+  expect(screen.getByText('Create role')).toBeInTheDocument();
+  await act(async () => {
+    await i18n.changeLanguage('zh-CN');
+  });
 });

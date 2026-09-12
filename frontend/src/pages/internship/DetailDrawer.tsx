@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useEffect, useState } from 'react';
 import { Button, Descriptions, Drawer, Input, Space, Tabs, Tag, message } from 'antd';
 import StatusTag from '@/components/StatusTag/StatusTag';
@@ -18,6 +19,7 @@ interface Props {
 }
 
 const DetailDrawer: React.FC<Props> = ({ id, onClose, onChanged }) => {
+  useLocale();
   const canUpdate = usePermission('internship:update');
   const canEvaluate = usePermission('internship:evaluate');
   const [row, setRow] = useState<Internship | null>(null);
@@ -44,56 +46,75 @@ const DetailDrawer: React.FC<Props> = ({ id, onClose, onChanged }) => {
   };
 
   return (
-    <Drawer title="实习详情" open={!!id} onClose={onClose} width={560} destroyOnClose>
+    <Drawer title={tx('实习详情')} open={!!id} onClose={onClose} width={560} destroyOnClose>
       {row && (
         <>
           <Descriptions column={1} size="small" bordered>
-            <Descriptions.Item label="项目">{row.title}</Descriptions.Item>
-            <Descriptions.Item label="成员">{row.user.name}</Descriptions.Item>
-            <Descriptions.Item label="单位">{row.organization}</Descriptions.Item>
-            <Descriptions.Item label="部门">{row.department?.name || '-'}</Descriptions.Item>
-            <Descriptions.Item label="类型">
+            <Descriptions.Item label={tx('项目')}>{row.title}</Descriptions.Item>
+            <Descriptions.Item label={tx('成员')}>{row.user.name}</Descriptions.Item>
+            <Descriptions.Item label={tx('单位')}>{row.organization}</Descriptions.Item>
+            <Descriptions.Item label={tx('部门')}>{row.department?.name || '-'}</Descriptions.Item>
+            <Descriptions.Item label={tx('类型')}>
               <StatusTag status={row.type} mapping={InternshipTypeMap} />
             </Descriptions.Item>
-            <Descriptions.Item label="状态">
+            <Descriptions.Item label={tx('状态')}>
               <StatusTag status={row.status} mapping={InternshipStatusMap} />
             </Descriptions.Item>
-            <Descriptions.Item label="周期">
-              {row.start_date.slice(0, 10)} ~ {row.end_date ? row.end_date.slice(0, 10) : '进行中'}
+            <Descriptions.Item label={tx('周期')}>
+              {row.start_date.slice(0, 10)} ~{' '}
+              {row.end_date ? row.end_date.slice(0, 10) : tx('进行中')}
             </Descriptions.Item>
-            <Descriptions.Item label="时长">{row.duration_days} 天</Descriptions.Item>
-            <Descriptions.Item label="导师">{row.mentor?.name || '-'}</Descriptions.Item>
-            <Descriptions.Item label="技能">
-              {(row.skills || []).map((s) => <Tag key={s}>{s}</Tag>)}
+            <Descriptions.Item label={tx('时长')}>
+              {row.duration_days} {tx('天')}
             </Descriptions.Item>
-            <Descriptions.Item label="说明">{row.description || '-'}</Descriptions.Item>
-            <Descriptions.Item label="成果">{row.achievements || '-'}</Descriptions.Item>
+            <Descriptions.Item label={tx('导师')}>{row.mentor?.name || '-'}</Descriptions.Item>
+            <Descriptions.Item label={tx('技能')}>
+              {(row.skills || []).map((s) => (
+                <Tag key={s}>{s}</Tag>
+              ))}
+            </Descriptions.Item>
+            <Descriptions.Item label={tx('说明')}>{row.description || '-'}</Descriptions.Item>
+            <Descriptions.Item label={tx('成果')}>{row.achievements || '-'}</Descriptions.Item>
           </Descriptions>
           <Tabs
             style={{ marginTop: 16 }}
             items={[
               {
                 key: 'report',
-                label: '实习报告',
+                label: tx('实习报告'),
                 children: (
                   <Space direction="vertical" style={{ width: '100%' }}>
-                    <Input.TextArea rows={6} value={report} onChange={(e) => setReport(e.target.value)} />
+                    <Input.TextArea
+                      rows={6}
+                      value={report}
+                      onChange={(e) => setReport(e.target.value)}
+                    />
                     {canUpdate && (
                       <Space>
-                        <Button onClick={() => submitInternshipReport(row.id, report).then(() => {
-                          message.success('报告已保存');
-                          void reload();
-                        })}>
-                          保存报告
+                        <Button
+                          onClick={() =>
+                            submitInternshipReport(row.id, report).then(() => {
+                              message.success(tx('报告已保存'));
+                              void reload();
+                            })
+                          }
+                        >
+                          {tx('保存报告')}
                         </Button>
                         {row.status === 0 && (
-                          <Button type="primary" onClick={() => completeInternship(row.id, {
-                            report, achievements: row.achievements,
-                          }).then(() => {
-                            message.success('已完成实习');
-                            void reload();
-                          })}>
-                            完成实习
+                          <Button
+                            type="primary"
+                            onClick={() =>
+                              completeInternship(row.id, {
+                                report,
+                                achievements: row.achievements,
+                              }).then(() => {
+                                message.success(tx('已完成实习'));
+                                void reload();
+                              })
+                            }
+                          >
+                            {tx('完成实习')}
                           </Button>
                         )}
                       </Space>
@@ -103,16 +124,25 @@ const DetailDrawer: React.FC<Props> = ({ id, onClose, onChanged }) => {
               },
               {
                 key: 'comment',
-                label: '导师评价',
+                label: tx('导师评价'),
                 children: (
                   <Space direction="vertical" style={{ width: '100%' }}>
-                    <Input.TextArea rows={5} value={comment} onChange={(e) => setComment(e.target.value)} />
+                    <Input.TextArea
+                      rows={5}
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                    />
                     {canEvaluate && (
-                      <Button type="primary" onClick={() => commentInternship(row.id, comment).then(() => {
-                        message.success('评价已保存');
-                        void reload();
-                      })}>
-                        提交评价
+                      <Button
+                        type="primary"
+                        onClick={() =>
+                          commentInternship(row.id, comment).then(() => {
+                            message.success(tx('评价已保存'));
+                            void reload();
+                          })
+                        }
+                      >
+                        {tx('提交评价')}
                       </Button>
                     )}
                   </Space>

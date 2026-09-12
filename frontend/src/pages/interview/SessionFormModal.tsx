@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useEffect } from 'react';
 import { DatePicker, Form, Input, InputNumber, Modal, Select } from 'antd';
 import dayjs from 'dayjs';
@@ -12,6 +13,7 @@ interface Props {
 }
 
 const SessionFormModal: React.FC<Props> = ({ open, editing, departments, onCancel, onSubmit }) => {
+  useLocale();
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -29,7 +31,7 @@ const SessionFormModal: React.FC<Props> = ({ open, editing, departments, onCance
 
   return (
     <Modal
-      title={editing ? '编辑场次' : '新建场次'}
+      title={editing ? tx('编辑场次') : tx('新建场次')}
       open={open}
       onCancel={onCancel}
       onOk={() => form.submit()}
@@ -53,32 +55,40 @@ const SessionFormModal: React.FC<Props> = ({ open, editing, departments, onCance
           });
         }}
       >
-        <Form.Item name="title" label="场次名称" rules={[{ required: true, message: '请输入名称' }]}>
+        <Form.Item
+          name="title"
+          label={tx('场次名称')}
+          rules={[{ required: true, message: tx('请输入名称') }]}
+        >
           <Input maxLength={200} />
         </Form.Item>
-        <Form.Item name="round" label="轮次" rules={[{ required: true }]}>
+        <Form.Item name="round" label={tx('轮次')} rules={[{ required: true }]}>
           <InputNumber min={1} max={20} style={{ width: '100%' }} />
         </Form.Item>
-        <Form.Item name="department_id" label="部门">
+        <Form.Item name="department_id" label={tx('部门')}>
           <Select
             allowClear
             options={departments.map((d) => ({ label: d.name, value: d.id }))}
-            placeholder="可选"
+            placeholder={tx('可选')}
           />
         </Form.Item>
-        <Form.Item name="time_range" label="时间" rules={[{ required: true, message: '请选择时间' }]}>
+        <Form.Item
+          name="time_range"
+          label={tx('时间')}
+          rules={[{ required: true, message: tx('请选择时间') }]}
+        >
           <DatePicker.RangePicker showTime style={{ width: '100%' }} />
         </Form.Item>
-        <Form.Item name="location" label="地点">
+        <Form.Item name="location" label={tx('地点')}>
           <Input />
         </Form.Item>
-        <Form.Item name="online_link" label="线上链接">
+        <Form.Item name="online_link" label={tx('线上链接')}>
           <Input />
         </Form.Item>
-        <Form.Item name="max_candidates" label="最大人数" rules={[{ required: true }]}>
+        <Form.Item name="max_candidates" label={tx('最大人数')} rules={[{ required: true }]}>
           <InputNumber min={1} max={500} style={{ width: '100%' }} />
         </Form.Item>
-        <Form.Item name="description" label="说明">
+        <Form.Item name="description" label={tx('说明')}>
           <Input.TextArea rows={3} />
         </Form.Item>
       </Form>

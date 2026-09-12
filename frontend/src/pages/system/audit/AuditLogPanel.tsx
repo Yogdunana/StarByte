@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Space, Modal, message } from 'antd';
 import { ExportOutlined, DatabaseOutlined } from '@ant-design/icons';
@@ -24,6 +25,7 @@ const emptyFilter: AuditFilterValue = {
 };
 
 const AuditLogPanel: React.FC = () => {
+  useLocale();
   const canExport = usePermission('audit:export');
   const canArchive = usePermission('audit:archive');
   const [loading, setLoading] = useState(false);
@@ -65,7 +67,7 @@ const AuditLogPanel: React.FC = () => {
       setData(res.list);
       setTotal(res.total);
     } catch {
-      message.error('加载审计日志列表失败');
+      message.error(tx('加载审计日志列表失败'));
     } finally {
       setLoading(false);
     }
@@ -81,7 +83,7 @@ const AuditLogPanel: React.FC = () => {
     try {
       setDetail(await getAuditLogDetail(record.id));
     } catch {
-      message.error('加载审计日志详情失败');
+      message.error(tx('加载审计日志详情失败'));
     } finally {
       setDetailLoading(false);
     }
@@ -91,9 +93,9 @@ const AuditLogPanel: React.FC = () => {
     setExporting(true);
     try {
       await exportAuditLogs({ ...buildParams(page, pageSize), format });
-      message.success('导出成功');
+      message.success(tx('导出成功'));
     } catch {
-      message.error('导出失败');
+      message.error(tx('导出失败'));
     } finally {
       setExporting(false);
     }
@@ -101,16 +103,18 @@ const AuditLogPanel: React.FC = () => {
 
   const handleArchive = () => {
     Modal.confirm({
-      title: '手动触发归档',
-      content: '将归档 90 天前的审计日志到 MinIO 并删除原记录，确定继续吗？',
+      title: tx('手动触发归档'),
+      content: tx('将归档 90 天前的审计日志到 MinIO 并删除原记录，确定继续吗？'),
       onOk: async () => {
         setArchiving(true);
         try {
           const res = await triggerArchive(90);
-          message.success(res.message || `成功归档 ${res.record_count} 条日志`);
+          message.success(
+            res.message || tx('成功归档 {{value0}} 条日志', { value0: res.record_count }),
+          );
           loadList(buildParams(page, pageSize));
         } catch {
-          message.error('归档失败');
+          message.error(tx('归档失败'));
         } finally {
           setArchiving(false);
         }
@@ -137,11 +141,19 @@ const AuditLogPanel: React.FC = () => {
         <Space>
           {canExport && (
             <>
-              <Button icon={<ExportOutlined />} loading={exporting} onClick={() => handleExport('csv')}>
-                导出 CSV
+              <Button
+                icon={<ExportOutlined />}
+                loading={exporting}
+                onClick={() => handleExport('csv')}
+              >
+                {tx('导出 CSV')}
               </Button>
-              <Button icon={<ExportOutlined />} loading={exporting} onClick={() => handleExport('excel')}>
-                导出 Excel
+              <Button
+                icon={<ExportOutlined />}
+                loading={exporting}
+                onClick={() => handleExport('excel')}
+              >
+                {tx('导出 Excel')}
               </Button>
             </>
           )}
@@ -153,7 +165,7 @@ const AuditLogPanel: React.FC = () => {
               loading={archiving}
               onClick={handleArchive}
             >
-              归档
+              {tx('归档')}
             </Button>
           )}
         </Space>
@@ -171,7 +183,7 @@ const AuditLogPanel: React.FC = () => {
           total,
           showSizeChanger: true,
           showQuickJumper: true,
-          showTotal: (t) => `共 ${t} 条`,
+          showTotal: (t) => tx('共 {{value0}} 条', { value0: t }),
           onChange: (p, ps) => {
             setPage(p);
             setPageSize(ps);

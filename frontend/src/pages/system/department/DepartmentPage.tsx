@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Empty, Space, Tag, Tree, Typography } from 'antd';
 import type { DataNode } from 'antd/es/tree';
@@ -40,7 +41,7 @@ function toTreeData(nodes: Department[]): DataNode[] {
     title: (
       <Space size={8}>
         <span>{n.name}</span>
-        <Tag color={isCenter(n) ? 'geekblue' : 'blue'}>{isCenter(n) ? '中心' : '部门'}</Tag>
+        <Tag color={isCenter(n) ? 'geekblue' : 'blue'}>{isCenter(n) ? tx('中心') : tx('部门')}</Tag>
       </Space>
     ),
     children: n.children?.length ? toTreeData(n.children) : undefined,
@@ -71,6 +72,7 @@ function allKeys(nodes: Department[]): React.Key[] {
 }
 
 const DepartmentPage: React.FC = () => {
+  const uiLanguage = useLocale();
   const [tree, setTree] = useState<Department[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<string>();
@@ -89,22 +91,32 @@ const DepartmentPage: React.FC = () => {
   }, []);
 
   const selected = selectedId ? findNode(tree, selectedId) : undefined;
-  const leaves = useMemo(() => flattenLeaves(tree), [tree]);
-  const treeData = useMemo(() => toTreeData(tree), [tree]);
+  const leaves = useMemo(() => {
+    void uiLanguage;
+    return flattenLeaves(tree);
+  }, [tree, uiLanguage]);
+  const treeData = useMemo(() => {
+    void uiLanguage;
+    return toTreeData(tree);
+  }, [tree, uiLanguage]);
 
   return (
     <div>
       <div className="dept-hero">
         <div>
-          <h2>组织架构</h2>
-          <p>按计协章程铺三大中心、七大职能部门。入会、面试、任务下拉只出现职能部门，不选中心。</p>
+          <h2>{tx('组织架构')}</h2>
+          <p>
+            {tx(
+              '按计协章程铺三大中心、七大职能部门。入会、面试、任务下拉只出现职能部门，不选中心。',
+            )}
+          </p>
         </div>
-        <Tag color="gold">章程第十九条–二十二条</Tag>
+        <Tag color="gold">{tx('章程第十九条–二十二条')}</Tag>
       </div>
       <div className="dept-grid">
-        <Card className="page-shell" title="中心与部门树" loading={loading}>
+        <Card className="page-shell" title={tx('中心与部门树')} loading={loading}>
           {tree.length === 0 && !loading ? (
-            <Empty description="暂无部门，请先执行 seed" />
+            <Empty description={tx('暂无部门，请先执行 seed')} />
           ) : (
             <Tree
               showLine
@@ -118,26 +130,30 @@ const DepartmentPage: React.FC = () => {
             />
           )}
         </Card>
-        <Card className="page-shell" title="节点说明">
+        <Card className="page-shell" title={tx('节点说明')}>
           {selected ? (
             <Space direction="vertical" size={8} style={{ width: '100%' }}>
               <Text strong>{selected.name}</Text>
               <Space>
                 <Tag>{selected.code}</Tag>
                 <Tag color={isCenter(selected) ? 'geekblue' : 'blue'}>
-                  {isCenter(selected) ? '三大中心' : '职能部门'}
+                  {isCenter(selected) ? tx('三大中心') : tx('职能部门')}
                 </Tag>
               </Space>
               <Paragraph type="secondary" style={{ marginBottom: 0 }}>
-                {selected.description || '暂无职能说明'}
+                {selected.description || tx('暂无职能说明')}
               </Paragraph>
             </Space>
           ) : (
-            <Empty description="点击左侧节点查看职能" />
+            <Empty description={tx('点击左侧节点查看职能')} />
           )}
         </Card>
       </div>
-      <Card className="page-shell" title={`七大职能部门（${leaves.length}）`} style={{ marginTop: 16 }}>
+      <Card
+        className="page-shell"
+        title={tx('七大职能部门（{{value0}}）', { value0: leaves.length })}
+        style={{ marginTop: 16 }}
+      >
         <div className="dept-leaf-list">
           {leaves.map((d) => (
             <button

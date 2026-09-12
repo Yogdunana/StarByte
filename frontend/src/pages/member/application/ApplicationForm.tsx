@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useEffect, useState } from 'react';
 import { Button, Form, Input, Select, Steps, Tag, Modal, message } from 'antd';
 import { getCurrentUser } from '@/api/auth';
@@ -12,6 +13,7 @@ interface ApplicationFormProps {
 }
 
 const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
+  useLocale();
   const { t } = useTranslation();
   const [identity, setIdentity] = useState<Partial<CreateMemberApplicationParams>>({});
   const [locked, setLocked] = useState({ real_name: false, student_no: false });
@@ -76,7 +78,7 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
         ...values,
         skills: values.skills || [],
       });
-      message.success('申请已提交');
+      message.success(tx('申请已提交'));
       form.resetFields();
       form.setFieldsValue(identity);
       setLocked({ real_name: !!identity.real_name, student_no: !!identity.student_no });
@@ -92,25 +94,25 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
       <Steps
         current={step}
         style={{ marginBottom: 24 }}
-        items={[{ title: '基本信息' }, { title: '联系方式' }, { title: '申请材料' }]}
+        items={[{ title: tx('基本信息') }, { title: tx('联系方式') }, { title: tx('申请材料') }]}
       />
       <Form form={form} layout="vertical" initialValues={{ applicant_type: 1, skills: [] }}>
         <div style={{ display: step === 0 ? 'block' : 'none' }}>
-          <Form.Item name="applicant_type" label="申请类型" rules={[{ required: true }]}>
+          <Form.Item name="applicant_type" label={tx('申请类型')} rules={[{ required: true }]}>
             <Select
               options={[
-                { value: 1, label: '会员' },
-                { value: 2, label: '干事（需面试）' },
+                { value: 1, label: tx('会员') },
+                { value: 2, label: tx('干事（需面试）') },
               ]}
             />
           </Form.Item>
           <Form.Item
             name="real_name"
-            label="姓名"
+            label={tx('姓名')}
             rules={[{ required: true, whitespace: true, max: 50 }]}
           >
             <Input
-              placeholder="真实姓名"
+              placeholder={tx('真实姓名')}
               readOnly={locked.real_name}
               style={
                 locked.real_name
@@ -132,11 +134,11 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
           </Form.Item>
           <Form.Item
             name="student_no"
-            label="学号"
+            label={tx('学号')}
             rules={[{ required: true, whitespace: true, max: 30 }]}
           >
             <Input
-              placeholder="学号"
+              placeholder={tx('学号')}
               readOnly={locked.student_no}
               style={
                 locked.student_no
@@ -158,47 +160,51 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
           </Form.Item>
           <Form.Item
             name="department_id"
-            label="意向部门"
-            rules={[{ required: applicantType === 2, message: '干事申请请选择意向部门' }]}
+            label={tx('意向部门')}
+            rules={[{ required: applicantType === 2, message: tx('干事申请请选择意向部门') }]}
           >
             <Select
               allowClear
-              placeholder="选择部门"
+              placeholder={tx('选择部门')}
               options={departments.map((d) => ({ value: d.id, label: d.name }))}
             />
           </Form.Item>
         </div>
         <div style={{ display: step === 1 ? 'block' : 'none' }}>
-          <Form.Item name="contact_phone" label="手机号" rules={[{ required: true, max: 20 }]}>
-            <Input placeholder="11 位手机号" />
+          <Form.Item
+            name="contact_phone"
+            label={tx('手机号')}
+            rules={[{ required: true, max: 20 }]}
+          >
+            <Input placeholder={tx('11 位手机号')} />
           </Form.Item>
           <Form.Item
             name="contact_email"
-            label="邮箱"
+            label={tx('邮箱')}
             rules={[{ required: true, type: 'email', max: 100 }]}
           >
-            <Input placeholder="联系邮箱" />
+            <Input placeholder={tx('联系邮箱')} />
           </Form.Item>
         </div>
         <div style={{ display: step === 2 ? 'block' : 'none' }}>
           <Form.Item
             name="reason"
-            label="申请理由"
+            label={tx('申请理由')}
             rules={[{ required: true, whitespace: true, max: 2000 }]}
           >
-            <TextArea rows={4} placeholder="为什么想加入协会" />
+            <TextArea rows={4} placeholder={tx('为什么想加入协会')} />
           </Form.Item>
-          <Form.Item name="skills" label="技能标签">
-            <Select mode="tags" placeholder="输入后回车，如 Go / React" />
+          <Form.Item name="skills" label={tx('技能标签')}>
+            <Select mode="tags" placeholder={tx('输入后回车，如 Go / React')} />
           </Form.Item>
-          <Form.Item name="experience" label="项目经历">
-            <TextArea rows={4} placeholder="过往项目、社团经历" />
+          <Form.Item name="experience" label={tx('项目经历')}>
+            <TextArea rows={4} placeholder={tx('过往项目、社团经历')} />
           </Form.Item>
         </div>
       </Form>
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
         <Button disabled={step === 0} onClick={() => setStep((s) => s - 1)}>
-          上一步
+          {tx('上一步')}
         </Button>
         {step < 2 ? (
           <Button
@@ -207,7 +213,7 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
               void next().catch(() => undefined);
             }}
           >
-            下一步
+            {tx('下一步')}
           </Button>
         ) : (
           <Button
@@ -217,14 +223,14 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
               void handleSubmit().catch(() => undefined);
             }}
           >
-            提交申请
+            {tx('提交申请')}
           </Button>
         )}
       </div>
       {step === 2 && (
         <div style={{ marginTop: 16 }}>
-          <Tag color="blue">会员：资料审核后直接通过/拒绝</Tag>
-          <Tag color="green">干事：面试 → 正式签字 → 候补期</Tag>
+          <Tag color="blue">{tx('会员：资料审核后直接通过/拒绝')}</Tag>
+          <Tag color="green">{tx('干事：面试 → 正式签字 → 候补期')}</Tag>
         </div>
       )}
     </>

@@ -1,3 +1,4 @@
+import { tx } from '@/i18n/text';
 export type FormFieldType =
   | 'text'
   | 'textarea'
@@ -64,18 +65,42 @@ export interface FormEngineProps {
 }
 
 export const FIELD_TYPE_LABELS: Record<FormFieldType, string> = {
-  text: '单行文本',
-  textarea: '多行文本',
-  number: '数字',
-  select: '下拉选择',
-  radio: '单选',
-  checkbox: '多选',
-  date: '日期',
-  datetime: '日期时间',
-  file: '文件',
-  rating: '评分',
-  switch: '开关',
-  cascader: '级联',
+  get text() {
+    return tx('单行文本');
+  },
+  get textarea() {
+    return tx('多行文本');
+  },
+  get number() {
+    return tx('数字');
+  },
+  get select() {
+    return tx('下拉选择');
+  },
+  get radio() {
+    return tx('单选');
+  },
+  get checkbox() {
+    return tx('多选');
+  },
+  get date() {
+    return tx('日期');
+  },
+  get datetime() {
+    return tx('日期时间');
+  },
+  get file() {
+    return tx('文件');
+  },
+  get rating() {
+    return tx('评分');
+  },
+  get switch() {
+    return tx('开关');
+  },
+  get cascader() {
+    return tx('级联');
+  },
 };
 
 export const FIELD_TYPES = Object.keys(FIELD_TYPE_LABELS) as FormFieldType[];

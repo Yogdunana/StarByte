@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React from 'react';
 import { Alert, Button, Card, Dropdown, Empty, Space } from 'antd';
 import { DownloadOutlined } from '@ant-design/icons';
@@ -27,6 +28,7 @@ const ChartCard: React.FC<ChartCardProps> = ({
   onExport,
   actions,
 }) => {
+  useLocale();
   const hideChart = !!error || (!!empty && !loading);
   const theme = useSelector(selectTheme);
   const { ref, chart } = useECharts(hideChart ? undefined : option, loading && !error, theme);
@@ -60,7 +62,9 @@ const ChartCard: React.FC<ChartCardProps> = ({
             onClick: ({ key }) => onExport(key === 'csv' ? 'csv' : 'excel'),
           }}
         >
-          <Button size="small" disabled={loading}>导出</Button>
+          <Button size="small" disabled={loading}>
+            {tx('导出')}
+          </Button>
         </Dropdown>
       ) : null}
     </Space>
@@ -71,11 +75,24 @@ const ChartCard: React.FC<ChartCardProps> = ({
       {error ? <Alert type="error" message={error} showIcon style={{ marginBottom: 12 }} /> : null}
       <div style={{ position: 'relative', height }}>
         {empty && !loading && !error ? (
-          <div style={{ position: 'absolute', inset: 0, zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff' }}>
-            <Empty description="暂无数据" />
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: '#fff',
+            }}
+          >
+            <Empty description={tx('暂无数据')} />
           </div>
         ) : null}
-        <div ref={ref} style={{ width: '100%', height, visibility: error ? 'hidden' : 'visible' }} />
+        <div
+          ref={ref}
+          style={{ width: '100%', height, visibility: error ? 'hidden' : 'visible' }}
+        />
       </div>
     </Card>
   );

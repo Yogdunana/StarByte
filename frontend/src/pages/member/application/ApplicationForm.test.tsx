@@ -9,9 +9,7 @@ vi.mock('@/api/member', () => ({
   getMemberDepartments: vi.fn().mockResolvedValue([]),
   submitApplication: vi.fn(),
 }));
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string, fallback: string) => fallback || key }),
-}));
+
 afterEach(() => {
   cleanup();
   Modal.destroyAll();

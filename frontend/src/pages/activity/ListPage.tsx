@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Card, Input, Select, Space, Table, message } from 'antd';
@@ -6,8 +7,13 @@ import type { ColumnsType } from 'antd/es/table';
 import StatusTag from '@/components/StatusTag/StatusTag';
 import { usePermission } from '@/hooks/usePermission';
 import {
-  cancelActivity, createActivity, deleteActivity, endActivity, getActivityList,
-  startActivity, updateActivity,
+  cancelActivity,
+  createActivity,
+  deleteActivity,
+  endActivity,
+  getActivityList,
+  startActivity,
+  updateActivity,
 } from '@/api/activity';
 import type { Activity, ActivityStatus } from '@/api/activity';
 import { formatDateTime } from '@/utils/format';
@@ -16,6 +22,7 @@ import FormModal from './FormModal';
 import { toCreateParams, toUpdateParams } from './formPayload';
 
 const ListPage: React.FC = () => {
+  useLocale();
   const nav = useNavigate();
   const canCreate = usePermission('activity:create');
   const canUpdate = usePermission('activity:update');
@@ -40,41 +47,86 @@ const ListPage: React.FC = () => {
     }
   }, [page, status, keyword]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const columns: ColumnsType<Activity> = [
-    { title: '标题', dataIndex: 'title', render: (v: string, r) => <Button type="link" style={{ padding: 0 }} onClick={() => nav(`/activity/${r.id}`)}>{v}</Button> },
-    { title: '分类', dataIndex: 'category', width: 100, render: (v?: string) => v || '-' },
-    { title: '地点', dataIndex: 'location', width: 140, render: (v?: string) => v || '-' },
-    { title: '开始', dataIndex: 'start_time', width: 160, render: (v: string) => formatDateTime(v, 'YYYY-MM-DD HH:mm') },
-    { title: '组织者', key: 'org', width: 100, render: (_, r) => r.organizer?.name || '-' },
     {
-      title: '报名/上限',
+      title: tx('标题'),
+      dataIndex: 'title',
+      render: (v: string, r) => (
+        <Button type="link" style={{ padding: 0 }} onClick={() => nav(`/activity/${r.id}`)}>
+          {v}
+        </Button>
+      ),
+    },
+    { title: tx('分类'), dataIndex: 'category', width: 100, render: (v?: string) => v || '-' },
+    { title: tx('地点'), dataIndex: 'location', width: 140, render: (v?: string) => v || '-' },
+    {
+      title: tx('开始'),
+      dataIndex: 'start_time',
+      width: 160,
+      render: (v: string) => formatDateTime(v, 'YYYY-MM-DD HH:mm'),
+    },
+    { title: tx('组织者'), key: 'org', width: 100, render: (_, r) => r.organizer?.name || '-' },
+    {
+      title: tx('报名/上限'),
       key: 'n',
       width: 90,
-      render: (_, r) => `${r.registered_count}/${r.max_participants === 0 ? '不限' : r.max_participants}`,
+      render: (_, r) =>
+        `${r.registered_count}/${r.max_participants === 0 ? tx('不限') : r.max_participants}`,
     },
-    { title: '状态', dataIndex: 'status', width: 90, render: (v: number) => <StatusTag status={v} mapping={ActivityStatusMap} /> },
     {
-      title: '操作',
+      title: tx('状态'),
+      dataIndex: 'status',
+      width: 90,
+      render: (v: number) => <StatusTag status={v} mapping={ActivityStatusMap} />,
+    },
+    {
+      title: tx('操作'),
       width: 280,
       render: (_, record) => (
         <Space wrap>
-          <Button type="link" size="small" onClick={() => nav(`/activity/${record.id}`)}>详情</Button>
+          <Button type="link" size="small" onClick={() => nav(`/activity/${record.id}`)}>
+            {tx('详情')}
+          </Button>
           {canUpdate && (record.status === 0 || record.status === 1) && (
-            <Button type="link" size="small" onClick={() => { setEditing(record); setOpen(true); }}>编辑</Button>
+            <Button
+              type="link"
+              size="small"
+              onClick={() => {
+                setEditing(record);
+                setOpen(true);
+              }}
+            >
+              {tx('编辑')}
+            </Button>
           )}
           {canUpdate && record.status === 1 && (
-            <Button type="link" size="small" onClick={() => startActivity(record.id).then(load)}>开始</Button>
+            <Button type="link" size="small" onClick={() => startActivity(record.id).then(load)}>
+              {tx('开始')}
+            </Button>
           )}
           {canUpdate && record.status === 2 && (
-            <Button type="link" size="small" onClick={() => endActivity(record.id).then(load)}>结束</Button>
+            <Button type="link" size="small" onClick={() => endActivity(record.id).then(load)}>
+              {tx('结束')}
+            </Button>
           )}
           {canUpdate && (record.status === 0 || record.status === 1 || record.status === 2) && (
-            <Button type="link" size="small" onClick={() => cancelActivity(record.id).then(load)}>取消</Button>
+            <Button type="link" size="small" onClick={() => cancelActivity(record.id).then(load)}>
+              {tx('取消')}
+            </Button>
           )}
           {canDelete && (record.status === 0 || record.status === 3 || record.status === 4) && (
-            <Button type="link" size="small" danger onClick={() => deleteActivity(record.id).then(load)}>删除</Button>
+            <Button
+              type="link"
+              size="small"
+              danger
+              onClick={() => deleteActivity(record.id).then(load)}
+            >
+              {tx('删除')}
+            </Button>
           )}
         </Space>
       ),
@@ -83,22 +135,44 @@ const ListPage: React.FC = () => {
 
   return (
     <Card
-      title="活动列表"
-      extra={canCreate && (
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditing(null); setOpen(true); }}>
-          新建活动
-        </Button>
-      )}
+      title={tx('活动列表')}
+      extra={
+        canCreate && (
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => {
+              setEditing(null);
+              setOpen(true);
+            }}
+          >
+            {tx('新建活动')}
+          </Button>
+        )
+      }
     >
       <Space style={{ marginBottom: 16 }}>
-        <Input.Search allowClear placeholder="搜索标题/地点" onSearch={(v) => { setKeyword(v); setPage(1); }} />
+        <Input.Search
+          allowClear
+          placeholder={tx('搜索标题/地点')}
+          onSearch={(v) => {
+            setKeyword(v);
+            setPage(1);
+          }}
+        />
         <Select
           allowClear
-          placeholder="状态"
+          placeholder={tx('状态')}
           style={{ width: 140 }}
           value={status}
-          onChange={(v) => { setStatus(v); setPage(1); }}
-          options={Object.entries(ActivityStatusMap).map(([k, v]) => ({ value: Number(k), label: v.text }))}
+          onChange={(v) => {
+            setStatus(v);
+            setPage(1);
+          }}
+          options={Object.entries(ActivityStatusMap).map(([k, v]) => ({
+            value: Number(k),
+            label: v.text,
+          }))}
         />
       </Space>
       <Table
@@ -115,10 +189,10 @@ const ListPage: React.FC = () => {
         onSubmit={async (values) => {
           if (editing) {
             await updateActivity(editing.id, toUpdateParams(values));
-            message.success('已更新');
+            message.success(tx('已更新'));
           } else {
             await createActivity(toCreateParams(values));
-            message.success('已创建');
+            message.success(tx('已创建'));
           }
           setOpen(false);
           await load();

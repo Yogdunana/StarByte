@@ -1,3 +1,4 @@
+import { tx } from '@/i18n/text';
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { getCurrentUser } from '@/api/auth';
 import type { UserInfo } from '@/types/api';
@@ -18,13 +19,10 @@ const initialState: UserState = {
 };
 
 // 获取当前用户信息
-export const fetchCurrentUser = createAsyncThunk(
-  'user/fetchCurrentUser',
-  async () => {
-    const response = await getCurrentUser();
-    return response;
-  }
-);
+export const fetchCurrentUser = createAsyncThunk('user/fetchCurrentUser', async () => {
+  const response = await getCurrentUser();
+  return response;
+});
 
 const userSlice = createSlice({
   name: 'user',
@@ -56,7 +54,7 @@ const userSlice = createSlice({
       })
       .addCase(fetchCurrentUser.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || '获取用户信息失败';
+        state.error = action.error.message || tx('获取用户信息失败');
       });
   },
 });

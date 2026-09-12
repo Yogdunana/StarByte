@@ -1,7 +1,13 @@
+import { tx } from '@/i18n/text';
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { login as loginApi, refreshToken as refreshTokenApi } from '@/api/auth';
 import type { LoginRequest, LoginResponse, RefreshResponse } from '@/types/api';
-import { setToken as saveToken, getRefreshToken, removeToken, setRefreshToken } from '@/utils/storage';
+import {
+  setToken as saveToken,
+  getRefreshToken,
+  removeToken,
+  setRefreshToken,
+} from '@/utils/storage';
 import type { RootState } from '@/store';
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -38,9 +44,9 @@ export const login = createAsyncThunk(
       const response = await loginApi(params);
       return response;
     } catch (error: unknown) {
-      return rejectWithValue(getErrorMessage(error, '登录失败'));
+      return rejectWithValue(getErrorMessage(error, tx('登录失败')));
     }
-  }
+  },
 );
 
 // 刷新 Token
@@ -50,14 +56,14 @@ export const refreshToken = createAsyncThunk(
     try {
       const token = getRefreshToken();
       if (!token) {
-        throw new Error('无 refresh token');
+        throw new Error(tx('无 refresh token'));
       }
       const response = await refreshTokenApi(token);
       return response;
     } catch (error: unknown) {
-      return rejectWithValue(getErrorMessage(error, '刷新 Token 失败'));
+      return rejectWithValue(getErrorMessage(error, tx('刷新 Token 失败')));
     }
-  }
+  },
 );
 
 const authSlice = createSlice({

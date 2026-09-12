@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useEffect, useState } from 'react';
 import { Form, Input, Modal, Select, Table } from 'antd';
 import { getFlowDefinitionList } from '@/api/workflow';
@@ -16,6 +17,7 @@ export const CreateDefinitionModal: React.FC<CreateModalProps> = ({
   onCancel,
   onOk,
 }) => {
+  useLocale();
   const [form] = Form.useForm<CreateDefinitionPayload>();
 
   useEffect(() => {
@@ -31,30 +33,38 @@ export const CreateDefinitionModal: React.FC<CreateModalProps> = ({
 
   return (
     <Modal
-      title="创建流程定义"
+      title={tx('创建流程定义')}
       open={open}
       confirmLoading={confirmLoading}
       onCancel={onCancel}
       onOk={() => form.validateFields().then(onOk)}
     >
       <Form form={form} layout="vertical">
-        <Form.Item name="name" label="流程名称" rules={[{ required: true, message: '请输入名称' }]}>
+        <Form.Item
+          name="name"
+          label={tx('流程名称')}
+          rules={[{ required: true, message: tx('请输入名称') }]}
+        >
           <Input />
         </Form.Item>
-        <Form.Item name="key" label="流程标识" rules={[{ required: true, message: '请输入标识' }]}>
+        <Form.Item
+          name="key"
+          label={tx('流程标识')}
+          rules={[{ required: true, message: tx('请输入标识') }]}
+        >
           <Input />
         </Form.Item>
-        <Form.Item name="category" label="分类">
+        <Form.Item name="category" label={tx('分类')}>
           <Select
             options={[
-              { label: '自定义', value: 'custom' },
-              { label: '面试', value: 'interview' },
-              { label: '会员', value: 'member' },
-              { label: '任务', value: 'task' },
+              { label: tx('自定义'), value: 'custom' },
+              { label: tx('面试'), value: 'interview' },
+              { label: tx('会员'), value: 'member' },
+              { label: tx('任务'), value: 'task' },
             ]}
           />
         </Form.Item>
-        <Form.Item name="description" label="描述">
+        <Form.Item name="description" label={tx('描述')}>
           <Input.TextArea rows={3} />
         </Form.Item>
       </Form>
@@ -69,6 +79,7 @@ interface OpenModalProps {
 }
 
 export const OpenDefinitionModal: React.FC<OpenModalProps> = ({ open, onCancel, onSelect }) => {
+  useLocale();
   const [loading, setLoading] = useState(false);
   const [list, setList] = useState<FlowDefinitionDTO[]>([]);
   const [keyword, setKeyword] = useState('');
@@ -83,9 +94,9 @@ export const OpenDefinitionModal: React.FC<OpenModalProps> = ({ open, onCancel, 
   }, [open, keyword]);
 
   return (
-    <Modal title="打开已有流程" open={open} onCancel={onCancel} footer={null} width={720}>
+    <Modal title={tx('打开已有流程')} open={open} onCancel={onCancel} footer={null} width={720}>
       <Input.Search
-        placeholder="搜索名称或标识"
+        placeholder={tx('搜索名称或标识')}
         allowClear
         onSearch={setKeyword}
         style={{ marginBottom: 12 }}
@@ -100,12 +111,13 @@ export const OpenDefinitionModal: React.FC<OpenModalProps> = ({ open, onCancel, 
           onClick: () => onSelect(record.id),
         })}
         columns={[
-          { title: '名称', dataIndex: 'name' },
-          { title: '标识', dataIndex: 'key' },
+          { title: tx('名称'), dataIndex: 'name' },
+          { title: tx('标识'), dataIndex: 'key' },
           {
-            title: '状态',
+            title: tx('状态'),
             dataIndex: 'status',
-            render: (status: number) => (status === 1 ? '已发布' : status === 2 ? '已停用' : '草稿'),
+            render: (status: number) =>
+              status === 1 ? tx('已发布') : status === 2 ? tx('已停用') : tx('草稿'),
           },
         ]}
       />

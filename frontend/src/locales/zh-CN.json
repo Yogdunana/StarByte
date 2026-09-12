@@ -8,7 +8,18 @@
     "searchMenu": "搜索菜单",
     "loading": "加载中...",
     "loadingUser": "正在加载用户信息...",
-    "user": "用户"
+    "user": "用户",
+    "saveSuccess": "保存成功",
+    "create": "新增",
+    "name": "名称",
+    "type": "类型",
+    "status": "状态",
+    "enabled": "启用",
+    "disabled": "禁用",
+    "description": "说明",
+    "remove": "移除",
+    "cancel": "取消",
+    "appTitle": "StarByte - 计算机协会管理系统"
   },
   "login": {
     "brand": "计算机协会一体化管理平台",
@@ -357,8 +368,19 @@
     "revoke": "撤销",
     "appeal": "申诉",
     "flow": "流程实例",
-    "level": { "1": "警告", "2": "严重警告", "3": "记过", "4": "留会察看", "5": "开除会籍" },
-    "status": { "0": "待审批", "1": "生效", "2": "已撤销", "3": "申诉中" }
+    "level": {
+      "1": "警告",
+      "2": "严重警告",
+      "3": "记过",
+      "4": "留会察看",
+      "5": "开除会籍"
+    },
+    "status": {
+      "0": "待审批",
+      "1": "生效",
+      "2": "已撤销",
+      "3": "申诉中"
+    }
   },
   "contract": {
     "list": "合同列表",
@@ -375,8 +397,18 @@
     "upload": "上传附件",
     "uploadHint": "支持 pdf / office / 图片",
     "expiring": "即将到期",
-    "type": { "1": "赞助", "2": "活动", "3": "采购", "4": "其他" },
-    "status": { "0": "草稿", "1": "生效中", "2": "已到期", "3": "已终止" }
+    "type": {
+      "1": "赞助",
+      "2": "活动",
+      "3": "采购",
+      "4": "其他"
+    },
+    "status": {
+      "0": "草稿",
+      "1": "生效中",
+      "2": "已到期",
+      "3": "已终止"
+    }
   },
   "schedule": {
     "eyebrow": "图层日历",
@@ -410,10 +442,31 @@
     "remind": "提醒",
     "minutes": "提前 {{n}} 分钟",
     "recurrenceLabel": "重复",
-    "view": { "month": "月", "week": "周", "day": "日", "agenda": "议程" },
-    "type": { "1": "个人", "2": "部门", "3": "项目/共享" },
-    "source": { "personal": "个人", "timetable": "课表", "import": "导入", "google": "Google", "activity": "活动", "interview": "面试" },
-    "recurrence": { "none": "不重复", "daily": "每天", "weekly": "每周", "monthly": "每月" },
+    "view": {
+      "month": "月",
+      "week": "周",
+      "day": "日",
+      "agenda": "议程"
+    },
+    "type": {
+      "1": "个人",
+      "2": "部门",
+      "3": "项目/共享"
+    },
+    "source": {
+      "personal": "个人",
+      "timetable": "课表",
+      "import": "导入",
+      "google": "Google",
+      "activity": "活动",
+      "interview": "面试"
+    },
+    "recurrence": {
+      "none": "不重复",
+      "daily": "每天",
+      "weekly": "每周",
+      "monthly": "每月"
+    },
     "google": {
       "title": "Google 日历",
       "notConfigured": "未配置 GOOGLE_CALENDAR_* 环境变量，同步接口已预留（source=google）。",
@@ -426,7 +479,7 @@
   },
   "smtp": {
     "title": "SMTP 发信设置",
-    "desc": "管理员可改主机、端口、加密方式和发件人。密码只通过服务器环境变量 STARBYTE_SMTP_PASSWORD 注入，接口不会回传。",
+    "desc": "设置 SMTP 服务器、端口、加密方式和发件人。网页密码加密保存，不会回显。",
     "host": "SMTP 主机",
     "port": "端口",
     "sslMode": "SSL/TLS 模式",
@@ -438,16 +491,18 @@
     "username": "SMTP 用户名",
     "usernameHint": "留空则使用发件地址",
     "password": "SMTP 密码",
-    "passwordPlaceholder": "仅通过环境变量设置",
-    "passwordHint": "在 10.100.13.17 的 deploy/.env 写入 STARBYTE_SMTP_PASSWORD，然后重启 backend 容器。不要把真实密码提交到仓库。",
-    "passwordSet": "已从环境变量加载",
+    "passwordPlaceholder": "输入新密码；留空保留当前密码",
+    "passwordHint": "密码加密保存，不会回显。测试使用已保存的设置，请先保存再测试。",
+    "passwordSet": "密码已配置",
     "passwordMissing": "未配置密码",
     "save": "保存 SMTP 设置",
     "saved": "SMTP 设置已保存",
     "testTo": "测试收件人邮箱",
     "testToRequired": "请填写测试收件人",
     "testSend": "发送测试邮件",
-    "testOk": "测试邮件已发送"
+    "testOk": "测试邮件已发送",
+    "webPasswordPlaceholder": "输入新密码；留空保留当前密码",
+    "webPasswordHint": "密码加密保存，不会回显。测试使用已保存的设置，请先保存再测试。"
   },
   "announcement": {
     "menu": "公告中心",
@@ -927,5 +982,48 @@
       "4": "未通过",
       "5": "待补材料"
     }
+  },
+  "application": {
+    "confirmIdentityEdit": "是否确定修改",
+    "identityEditHint": "此信息已自动获取，请确认修改后的信息准确。"
+  },
+  "rbac": {
+    "permissions": "权限管理",
+    "code": "编码",
+    "confirmDeletePermission": "确定删除该权限？",
+    "editPermission": "编辑权限",
+    "createPermission": "新增权限",
+    "parentPermission": "父级权限",
+    "path": "页面路径",
+    "method": "请求方法",
+    "apiPath": "接口路径",
+    "members": "角色成员",
+    "selectUser": "搜索并选择用户",
+    "addMember": "添加成员",
+    "confirmRemoveMember": "确定移除该角色成员？",
+    "roles": "角色管理",
+    "searchRoles": "搜索角色",
+    "system": "系统内置",
+    "assignPermissions": "分配权限",
+    "confirmDeleteRole": "确定删除该角色？",
+    "editRole": "编辑角色",
+    "createRole": "新增角色"
+  },
+  "profile": {
+    "name": "姓名",
+    "username": "用户名",
+    "empty": "未填写",
+    "title": "个人中心",
+    "edit": "编辑资料",
+    "studentNo": "学号",
+    "gender": "性别",
+    "grade": "年级",
+    "major": "专业",
+    "department": "部门",
+    "position": "职位",
+    "email": "邮箱",
+    "phone": "手机",
+    "roles": "角色",
+    "noRoles": "未分配"
   }
 }

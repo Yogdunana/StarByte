@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useEffect, useState } from 'react';
 import { Card, Col, Empty, Row, Spin, Statistic } from 'antd';
 import ReactECharts from 'echarts-for-react';
@@ -5,6 +6,7 @@ import { getInterviewStats } from '@/api/interview';
 import type { InterviewStats } from '@/types/api';
 
 const StatsPage: React.FC = () => {
+  useLocale();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<InterviewStats | null>(null);
 
@@ -18,16 +20,24 @@ const StatsPage: React.FC = () => {
   if (!stats) return <Empty />;
 
   return (
-    <Card title="面试统计">
+    <Card title={tx('面试统计')}>
       <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={6}><Statistic title="总场次/记录" value={stats.total} /></Col>
-        <Col span={6}><Statistic title="通过" value={stats.pass_count} /></Col>
-        <Col span={6}><Statistic title="不通过" value={stats.fail_count} /></Col>
-        <Col span={6}><Statistic title="通过率" value={stats.pass_rate} suffix="%" /></Col>
+        <Col span={6}>
+          <Statistic title={tx('总场次/记录')} value={stats.total} />
+        </Col>
+        <Col span={6}>
+          <Statistic title={tx('通过')} value={stats.pass_count} />
+        </Col>
+        <Col span={6}>
+          <Statistic title={tx('不通过')} value={stats.fail_count} />
+        </Col>
+        <Col span={6}>
+          <Statistic title={tx('通过率')} value={stats.pass_rate} suffix="%" />
+        </Col>
       </Row>
       <Row gutter={16}>
         <Col span={12}>
-          <Card size="small" title="评分分布">
+          <Card size="small" title={tx('评分分布')}>
             {stats.score_buckets.every((b) => b.count === 0) ? (
               <Empty />
             ) : (
@@ -44,7 +54,7 @@ const StatsPage: React.FC = () => {
           </Card>
         </Col>
         <Col span={12}>
-          <Card size="small" title="各部门面试人数">
+          <Card size="small" title={tx('各部门面试人数')}>
             {stats.by_department.length === 0 ? (
               <Empty />
             ) : (
@@ -55,8 +65,16 @@ const StatsPage: React.FC = () => {
                   xAxis: { type: 'category', data: stats.by_department.map((d) => d.department) },
                   yAxis: { type: 'value', minInterval: 1 },
                   series: [
-                    { name: '人数', type: 'bar', data: stats.by_department.map((d) => d.count) },
-                    { name: '通过', type: 'bar', data: stats.by_department.map((d) => d.pass_count) },
+                    {
+                      name: tx('人数'),
+                      type: 'bar',
+                      data: stats.by_department.map((d) => d.count),
+                    },
+                    {
+                      name: tx('通过'),
+                      type: 'bar',
+                      data: stats.by_department.map((d) => d.pass_count),
+                    },
                   ],
                 }}
               />

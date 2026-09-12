@@ -1,3 +1,5 @@
+import i18n from '@/i18n';
+import { tx } from '@/i18n/text';
 import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosError } from 'axios';
 import { message } from 'antd';
 import { getToken, getRefreshToken, setToken, setRefreshToken, removeToken } from '@/utils/storage';
@@ -78,6 +80,7 @@ request.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     // 添加请求 ID
     config.headers['X-Request-ID'] = generateRequestId();
+    config.headers['Accept-Language'] = i18n.language;
 
     // 添加 Token
     const token = getToken();
@@ -87,7 +90,7 @@ request.interceptors.request.use(
 
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 // 是否正在刷新 Token
@@ -110,8 +113,8 @@ request.interceptors.response.use(
     }
 
     // 业务错误
-    message.error(msg || '请求失败');
-    return Promise.reject(new Error(msg || '请求失败'));
+    message.error(msg || tx('请求失败'));
+    return Promise.reject(new Error(msg || tx('请求失败')));
   },
   async (error: AxiosError) => {
     // 卸载/切页取消请求：不重试、不弹「网络连接失败」
@@ -134,7 +137,7 @@ request.interceptors.response.use(
         try {
           const refreshToken = getRefreshToken();
           if (!refreshToken) {
-            throw new Error('无 refresh token');
+            throw new Error(tx('无 refresh token'));
           }
 
           // 调用刷新 Token 接口（用 axios 直接调用，避免走拦截器循环）
@@ -157,7 +160,7 @@ request.interceptors.response.use(
           // 刷新失败：公开接口不硬跳转，并回传原始 401 给页面（/?next=）
           removeToken();
           if (!skipRedirect) {
-            message.error('登录已过期，请重新登录');
+            message.error(tx('登录已过期，请重新登录'));
             window.location.href = loginPath(window.location.pathname + window.location.search);
           }
           return Promise.reject(error);
@@ -190,7 +193,7 @@ request.interceptors.response.use(
       message.error(errorMsg);
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 export default request;

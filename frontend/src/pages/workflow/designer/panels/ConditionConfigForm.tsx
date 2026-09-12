@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React from 'react';
 import { AutoComplete, Button, Checkbox, Form, Input, Select, Space } from 'antd';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
@@ -37,6 +38,7 @@ const ConditionConfigForm: React.FC<ConditionConfigFormProps> = ({
   onChange,
   onRetarget,
 }) => {
+  useLocale();
   const updateBranch = (index: number, next: ConditionBranch) => {
     const branches = value.branches.map((branch, i) => (i === index ? next : branch));
     onChange({ branches });
@@ -47,7 +49,12 @@ const ConditionConfigForm: React.FC<ConditionConfigFormProps> = ({
     onChange({
       branches: [
         ...value.branches,
-        { id, label: `条件${value.branches.length + 1}`, expression: '', is_default: false },
+        {
+          id,
+          label: tx('条件{{value0}}', { value0: value.branches.length + 1 }),
+          expression: '',
+          is_default: false,
+        },
       ],
     });
   };
@@ -63,12 +70,13 @@ const ConditionConfigForm: React.FC<ConditionConfigFormProps> = ({
         return (
           <div key={branch.id} style={{ marginBottom: 12, padding: 8, background: '#fafafa' }}>
             <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-              <span>分支 {index + 1}</span>
-              {!disabled && (
-                <MinusCircleOutlined onClick={() => removeBranch(index)} />
-              )}
+              <span>
+                {tx('分支')}
+                {index + 1}
+              </span>
+              {!disabled && <MinusCircleOutlined onClick={() => removeBranch(index)} />}
             </Space>
-            <Form.Item label="变量">
+            <Form.Item label={tx('变量')}>
               <AutoComplete
                 disabled={disabled}
                 value={parsed.variable}
@@ -82,7 +90,7 @@ const ConditionConfigForm: React.FC<ConditionConfigFormProps> = ({
                 }
               />
             </Form.Item>
-            <Form.Item label="运算符">
+            <Form.Item label={tx('运算符')}>
               <Select
                 disabled={disabled}
                 value={parsed.operator}
@@ -96,20 +104,21 @@ const ConditionConfigForm: React.FC<ConditionConfigFormProps> = ({
                 }
               />
             </Form.Item>
-            <Form.Item label="值">
+            <Form.Item label={tx('值')}>
               <Input
                 disabled={disabled}
                 value={parsed.value}
                 onChange={(event) =>
                   updateBranch(index, {
                     ...branch,
-                    expression: `${parsed.variable} ${parsed.operator} ${event.target.value}`.trim(),
+                    expression:
+                      `${parsed.variable} ${parsed.operator} ${event.target.value}`.trim(),
                     label: `${parsed.variable} ${parsed.operator} ${event.target.value}`.trim(),
                   })
                 }
               />
             </Form.Item>
-            <Form.Item label="目标节点">
+            <Form.Item label={tx('目标节点')}>
               <Select
                 disabled={disabled}
                 allowClear
@@ -125,14 +134,14 @@ const ConditionConfigForm: React.FC<ConditionConfigFormProps> = ({
                 updateBranch(index, { ...branch, is_default: event.target.checked })
               }
             >
-              默认分支
+              {tx('默认分支')}
             </Checkbox>
           </div>
         );
       })}
       {!disabled && (
         <Button type="dashed" block icon={<PlusOutlined />} onClick={addBranch}>
-          添加条件
+          {tx('添加条件')}
         </Button>
       )}
     </>

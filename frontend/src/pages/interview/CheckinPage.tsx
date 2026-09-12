@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -7,6 +8,7 @@ import { selectCurrentUser } from '@/store/slices/userSlice';
 import type { Interview } from '@/types/api';
 
 const CheckinPage: React.FC = () => {
+  const uiLanguage = useLocale();
   const [params] = useSearchParams();
   const sessionId = params.get('session_id') || '';
   const token = params.get('token') || '';
@@ -30,35 +32,48 @@ const CheckinPage: React.FC = () => {
       .finally(() => setLoading(false));
   }, [sessionId, currentUser]);
 
-  const title = useMemo(() => (mine ? `${mine.applicant.name} · ${mine.session_title || '面试'}` : '面试签到'), [mine]);
+  const title = useMemo(() => {
+    void uiLanguage;
+    return mine ? `${mine.applicant.name} · ${mine.session_title || tx('面试')}` : tx('面试签到');
+  }, [mine, uiLanguage]);
 
   const doCheckin = async () => {
     if (!mine) return;
     await checkinInterview(mine.id, token || undefined);
-    message.success('签到成功');
+    message.success(tx('签到成功'));
     setDone(true);
   };
 
   if (loading) return <Spin />;
 
   if (done) {
-    return <Result status="success" title="签到成功" subTitle={title} />;
+    return <Result status="success" title={tx('签到成功')} subTitle={title} />;
   }
 
   return (
-    <Card title="面试签到">
+    <Card title={tx('面试签到')}>
       {!mine ? (
-        <Result status="info" title="没有待签到的面试" />
+        <Result status="info" title={tx('没有待签到的面试')} />
       ) : (
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
           <div>{title}</div>
-          <div>地点：{mine.location || '-'}</div>
-          <div>预约：{mine.scheduled_time || '待定'}</div>
+          <div>
+            {tx('地点：')}
+            {mine.location || '-'}
+          </div>
+          <div>
+            {tx('预约：')}
+            {mine.scheduled_time || tx('待定')}
+          </div>
           {qr && (
-            <img alt="签到二维码" src={`data:image/png;base64,${qr}`} style={{ width: 220 }} />
+            <img
+              alt={tx('签到二维码')}
+              src={`data:image/png;base64,${qr}`}
+              style={{ width: 220 }}
+            />
           )}
           <Button type="primary" disabled={mine.status !== 0} onClick={() => void doCheckin()}>
-            {mine.status === 0 ? '手动签到' : '已签到或不可签到'}
+            {mine.status === 0 ? tx('手动签到') : tx('已签到或不可签到')}
           </Button>
         </Space>
       )}

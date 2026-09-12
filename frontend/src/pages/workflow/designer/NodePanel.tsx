@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React from 'react';
 import { NODE_PALETTE, DND_TYPE } from './constants';
 import type { DesignerNodeType } from '@/types/workflow';
@@ -8,6 +9,7 @@ interface NodePanelProps {
 }
 
 const NodePanel: React.FC<NodePanelProps> = ({ disabled, onAddNode }) => {
+  useLocale();
   const onDragStart = (event: React.DragEvent, type: DesignerNodeType) => {
     if (disabled) return;
     event.dataTransfer.setData(DND_TYPE, type);
@@ -17,7 +19,7 @@ const NodePanel: React.FC<NodePanelProps> = ({ disabled, onAddNode }) => {
 
   return (
     <div className="designer-side-panel">
-      <h4>节点面板</h4>
+      <h4>{tx('节点面板')}</h4>
       <div className="node-palette">
         {NODE_PALETTE.map((item) => (
           <div

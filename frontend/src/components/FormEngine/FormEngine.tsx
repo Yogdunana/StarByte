@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useMemo } from 'react';
 import { Button, Form } from 'antd';
 import FieldControl from './FieldControl';
@@ -12,11 +13,14 @@ const FormEngine: React.FC<FormEngineProps> = ({
   onSubmit,
   loading,
   layout = 'vertical',
-  submitText = '提交',
+  submitText = tx('提交'),
   showSubmit = true,
 }) => {
+  const uiLanguage = useLocale();
   const [form] = Form.useForm<Record<string, unknown>>();
   const defaults = useMemo(() => {
+    // Invalidate cached labels when the selected language changes.
+    void uiLanguage;
     const acc: Record<string, unknown> = { ...(initialValues || {}) };
     schema.fields.forEach((f) => {
       if (acc[f.name] === undefined && f.default !== undefined && f.default !== null) {
@@ -24,7 +28,7 @@ const FormEngine: React.FC<FormEngineProps> = ({
       }
     });
     return acc;
-  }, [schema.fields, initialValues]);
+  }, [schema.fields, initialValues, uiLanguage]);
 
   return (
     <Form
@@ -39,18 +43,25 @@ const FormEngine: React.FC<FormEngineProps> = ({
       <Form.Item shouldUpdate noStyle>
         {() => {
           const values = form.getFieldsValue(true) as Record<string, unknown>;
-          return schema.fields.map((field) => (
+          return schema.fields.map((field) =>
             isFieldVisible(field, values) ? (
-              <Form.Item key={field.name} name={field.name} label={field.label} rules={fieldRules(field)}>
+              <Form.Item
+                key={field.name}
+                name={field.name}
+                label={field.label}
+                rules={fieldRules(field)}
+              >
                 <FieldControl field={field} />
               </Form.Item>
-            ) : null
-          ));
+            ) : null,
+          );
         }}
       </Form.Item>
       {showSubmit ? (
         <Form.Item>
-          <Button type="primary" htmlType="submit" loading={loading}>{submitText}</Button>
+          <Button type="primary" htmlType="submit" loading={loading}>
+            {submitText}
+          </Button>
         </Form.Item>
       ) : null}
     </Form>

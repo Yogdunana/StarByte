@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React from 'react';
 import { Drawer, Button, Form, Input, Typography } from 'antd';
 import { ExperimentOutlined } from '@ant-design/icons';
@@ -25,52 +26,52 @@ const TemplateTestDrawer: React.FC<TemplateTestDrawerProps> = ({
   result,
   onClose,
   onRun,
-}) => (
-  <Drawer
-    title="测试模板渲染"
-    open={open}
-    onClose={onClose}
-    width={560}
-    extra={
-      <Button
-        type="primary"
-        loading={loading}
-        onClick={onRun}
-        icon={<ExperimentOutlined />}
-      >
-        执行测试
-      </Button>
-    }
-  >
-    {template && (
-      <div>
-        <div style={{ marginBottom: 16 }}>
-          <Text type="secondary">模板：</Text>
-          <Text code>{template.code}</Text>
-          <Text>（{template.name}）</Text>
-        </div>
-        <Form form={form} layout="vertical">
-          <Form.Item label="测试变量（JSON 格式）" name="variables_raw">
-            <TextArea
-              rows={6}
-              placeholder={'输入 JSON 格式的变量，如：\n{"TaskName": "完成需求文档", "DueDate": "2024-12-31"}'}
-            />
-          </Form.Item>
-        </Form>
-        {result && (
-          <div style={{ marginTop: 16 }}>
-            <Text strong>渲染结果：</Text>
-            <div style={{ marginTop: 8, padding: 16, background: '#f5f5f5', borderRadius: 6 }}>
-              <Text strong>标题：</Text>
-              <Paragraph>{result.title}</Paragraph>
-              <Text strong>正文：</Text>
-              <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{result.content}</Paragraph>
-            </div>
+}) => {
+  useLocale();
+  return (
+    <Drawer
+      title={tx('测试模板渲染')}
+      open={open}
+      onClose={onClose}
+      width={560}
+      extra={
+        <Button type="primary" loading={loading} onClick={onRun} icon={<ExperimentOutlined />}>
+          {tx('执行测试')}
+        </Button>
+      }
+    >
+      {template && (
+        <div>
+          <div style={{ marginBottom: 16 }}>
+            <Text type="secondary">{tx('模板：')}</Text>
+            <Text code>{template.code}</Text>
+            <Text>（{template.name}）</Text>
           </div>
-        )}
-      </div>
-    )}
-  </Drawer>
-);
+          <Form form={form} layout="vertical">
+            <Form.Item label={tx('测试变量（JSON 格式）')} name="variables_raw">
+              <TextArea
+                rows={6}
+                placeholder={tx(
+                  '输入 JSON 格式的变量，如：\n{"TaskName": "完成需求文档", "DueDate": "2024-12-31"}',
+                )}
+              />
+            </Form.Item>
+          </Form>
+          {result && (
+            <div style={{ marginTop: 16 }}>
+              <Text strong>{tx('渲染结果：')}</Text>
+              <div style={{ marginTop: 8, padding: 16, background: '#f5f5f5', borderRadius: 6 }}>
+                <Text strong>{tx('标题：')}</Text>
+                <Paragraph>{result.title}</Paragraph>
+                <Text strong>{tx('正文：')}</Text>
+                <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{result.content}</Paragraph>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </Drawer>
+  );
+};
 
 export default TemplateTestDrawer;

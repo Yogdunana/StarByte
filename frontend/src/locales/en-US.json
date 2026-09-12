@@ -8,7 +8,18 @@
     "searchMenu": "Search menu",
     "loading": "Loading...",
     "loadingUser": "Loading your profile...",
-    "user": "User"
+    "user": "User",
+    "saveSuccess": "Saved successfully",
+    "create": "Create",
+    "name": "Name",
+    "type": "Type",
+    "status": "Status",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "description": "Description",
+    "remove": "Remove",
+    "cancel": "Cancel",
+    "appTitle": "StarByte - Computer Association"
   },
   "login": {
     "brand": "Computer Association management platform",
@@ -357,8 +368,19 @@
     "revoke": "Revoke",
     "appeal": "Appeal",
     "flow": "Workflow instance",
-    "level": { "1": "Warning", "2": "Severe warning", "3": "Demerit", "4": "Probation", "5": "Expulsion" },
-    "status": { "0": "Pending", "1": "Active", "2": "Revoked", "3": "Appealing" }
+    "level": {
+      "1": "Warning",
+      "2": "Severe warning",
+      "3": "Demerit",
+      "4": "Probation",
+      "5": "Expulsion"
+    },
+    "status": {
+      "0": "Pending",
+      "1": "Active",
+      "2": "Revoked",
+      "3": "Appealing"
+    }
   },
   "contract": {
     "list": "Contracts",
@@ -375,8 +397,18 @@
     "upload": "Upload file",
     "uploadHint": "pdf, office, or image",
     "expiring": "Expiring soon",
-    "type": { "1": "Sponsorship", "2": "Event", "3": "Purchase", "4": "Other" },
-    "status": { "0": "Draft", "1": "Active", "2": "Expired", "3": "Terminated" }
+    "type": {
+      "1": "Sponsorship",
+      "2": "Event",
+      "3": "Purchase",
+      "4": "Other"
+    },
+    "status": {
+      "0": "Draft",
+      "1": "Active",
+      "2": "Expired",
+      "3": "Terminated"
+    }
   },
   "schedule": {
     "eyebrow": "Layered calendars",
@@ -410,10 +442,31 @@
     "remind": "Reminders",
     "minutes": "{{n}} minutes before",
     "recurrenceLabel": "Repeat",
-    "view": { "month": "Month", "week": "Week", "day": "Day", "agenda": "Agenda" },
-    "type": { "1": "Personal", "2": "Department", "3": "Project" },
-    "source": { "personal": "Personal", "timetable": "Timetable", "import": "Import", "google": "Google", "activity": "Activity", "interview": "Interview" },
-    "recurrence": { "none": "None", "daily": "Daily", "weekly": "Weekly", "monthly": "Monthly" },
+    "view": {
+      "month": "Month",
+      "week": "Week",
+      "day": "Day",
+      "agenda": "Agenda"
+    },
+    "type": {
+      "1": "Personal",
+      "2": "Department",
+      "3": "Project"
+    },
+    "source": {
+      "personal": "Personal",
+      "timetable": "Timetable",
+      "import": "Import",
+      "google": "Google",
+      "activity": "Activity",
+      "interview": "Interview"
+    },
+    "recurrence": {
+      "none": "None",
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "monthly": "Monthly"
+    },
     "google": {
       "title": "Google Calendar",
       "notConfigured": "GOOGLE_CALENDAR_* env vars are unset. The source=google interface is ready.",
@@ -426,7 +479,7 @@
   },
   "smtp": {
     "title": "SMTP mail settings",
-    "desc": "Admins can change host, port, TLS mode, and From. The password is injected only via STARBYTE_SMTP_PASSWORD and is never returned by the API.",
+    "desc": "Set the SMTP server, port, encryption, and sender. Passwords saved from this page are encrypted and never shown again.",
     "host": "SMTP host",
     "port": "Port",
     "sslMode": "SSL/TLS mode",
@@ -438,16 +491,18 @@
     "username": "SMTP username",
     "usernameHint": "Leave empty to use the From address",
     "password": "SMTP password",
-    "passwordPlaceholder": "Set via environment only",
-    "passwordHint": "Set STARBYTE_SMTP_PASSWORD in deploy/.env on 10.100.13.17 and restart the backend container. Never commit the real password.",
-    "passwordSet": "Loaded from environment",
+    "passwordPlaceholder": "Enter a new password; leave blank to keep the current one",
+    "passwordHint": "Passwords are encrypted and never shown again. Save settings before sending a test.",
+    "passwordSet": "Password configured",
     "passwordMissing": "Password not configured",
     "save": "Save SMTP settings",
     "saved": "SMTP settings saved",
     "testTo": "Test recipient email",
     "testToRequired": "Enter a test recipient",
     "testSend": "Send test email",
-    "testOk": "Test email sent"
+    "testOk": "Test email sent",
+    "webPasswordPlaceholder": "Enter a new password; leave blank to keep the current one",
+    "webPasswordHint": "Passwords are encrypted and never shown again. Save settings before sending a test."
   },
   "announcement": {
     "menu": "Announcements",
@@ -927,5 +982,48 @@
       "4": "Rejected",
       "5": "Need materials"
     }
+  },
+  "application": {
+    "confirmIdentityEdit": "Are you sure you want to change this?",
+    "identityEditHint": "This information was filled automatically. Please verify any changes."
+  },
+  "rbac": {
+    "permissions": "Permissions",
+    "code": "Code",
+    "confirmDeletePermission": "Delete this permission?",
+    "editPermission": "Edit permission",
+    "createPermission": "Create permission",
+    "parentPermission": "Parent permission",
+    "path": "Page path",
+    "method": "Request method",
+    "apiPath": "API path",
+    "members": "Role members",
+    "selectUser": "Search and select a user",
+    "addMember": "Add member",
+    "confirmRemoveMember": "Remove this role member?",
+    "roles": "Roles",
+    "searchRoles": "Search roles",
+    "system": "Built-in",
+    "assignPermissions": "Assign permissions",
+    "confirmDeleteRole": "Delete this role?",
+    "editRole": "Edit role",
+    "createRole": "Create role"
+  },
+  "profile": {
+    "name": "Full name",
+    "username": "Username",
+    "empty": "Not provided",
+    "title": "My profile",
+    "edit": "Edit profile",
+    "studentNo": "Student ID",
+    "gender": "Gender",
+    "grade": "Year of study",
+    "major": "Major",
+    "department": "Department",
+    "position": "Position",
+    "email": "Email",
+    "phone": "Phone",
+    "roles": "Roles",
+    "noRoles": "Not assigned"
   }
 }

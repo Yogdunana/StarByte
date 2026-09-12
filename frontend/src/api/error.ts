@@ -1,3 +1,4 @@
+import { tx } from '@/i18n/text';
 import axios, { type AxiosError } from 'axios';
 
 /** 主动取消（AbortSignal / 卸载）不算失败，拦截器不应弹 toast。 */
@@ -13,51 +14,141 @@ export function isCanceledError(error: unknown): boolean {
  * 仅包含前端需要特殊处理或展示的常见错误码
  */
 const errorCodeMessages: Record<number, string> = {
-  1001: '参数错误',
-  1002: '未授权，请先登录',
-  1003: '没有权限执行此操作',
-  1004: '资源不存在',
-  1005: '请求过于频繁，请稍后再试',
-  2001: '用户不存在',
-  2002: '用户名或密码错误',
-  2003: '用户名已存在',
-  2004: '用户已被禁用',
-  2005: '原密码错误',
-  3001: '角色不存在',
-  3002: '权限不足',
-  3003: '角色编码已存在',
-  3004: '部门不存在',
-  4001: '流程定义不存在',
-  4002: '流程已结束',
-  4003: '流程实例不存在',
-  5001: '审计日志不存在',
-  5002: '导出格式不支持',
-  6001: '申请不存在',
-  6002: '当前状态不允许该操作',
-  6003: '已有待处理的入会申请',
-  6004: '档案不存在',
-  6005: '无权操作该档案',
-  6006: '学号已存在',
-  6007: '导出失败',
-  6008: '请补充必填字段',
-  7001: '面试场次不存在',
-  7002: '时间冲突',
-  8001: '会议不存在',
-  8002: '投票已结束',
-  9001: '任务不存在',
-  9002: '无权操作此任务',
-  10001: '实习记录不存在',
-  10002: '无权操作此实习记录',
-  10003: '实习状态不允许该操作',
-  10004: '实习已结束，无法修改',
-  10005: '排行榜暂未开放',
-  10006: '实习已完成',
-  12001: '通知不存在',
-  12003: '通知模板已存在',
-  22001: '表单不存在',
-  22002: '表单未发布',
-  22003: '必填字段缺失',
-  22004: '字段校验失败',
+  get 1001() {
+    return tx('参数错误');
+  },
+  get 1002() {
+    return tx('未授权，请先登录');
+  },
+  get 1003() {
+    return tx('没有权限执行此操作');
+  },
+  get 1004() {
+    return tx('资源不存在');
+  },
+  get 1005() {
+    return tx('请求过于频繁，请稍后再试');
+  },
+  get 2001() {
+    return tx('用户不存在');
+  },
+  get 2002() {
+    return tx('用户名或密码错误');
+  },
+  get 2003() {
+    return tx('用户名已存在');
+  },
+  get 2004() {
+    return tx('用户已被禁用');
+  },
+  get 2005() {
+    return tx('原密码错误');
+  },
+  get 3001() {
+    return tx('角色不存在');
+  },
+  get 3002() {
+    return tx('权限不足');
+  },
+  get 3003() {
+    return tx('角色编码已存在');
+  },
+  get 3004() {
+    return tx('部门不存在');
+  },
+  get 4001() {
+    return tx('流程定义不存在');
+  },
+  get 4002() {
+    return tx('流程已结束');
+  },
+  get 4003() {
+    return tx('流程实例不存在');
+  },
+  get 5001() {
+    return tx('审计日志不存在');
+  },
+  get 5002() {
+    return tx('导出格式不支持');
+  },
+  get 6001() {
+    return tx('申请不存在');
+  },
+  get 6002() {
+    return tx('当前状态不允许该操作');
+  },
+  get 6003() {
+    return tx('已有待处理的入会申请');
+  },
+  get 6004() {
+    return tx('档案不存在');
+  },
+  get 6005() {
+    return tx('无权操作该档案');
+  },
+  get 6006() {
+    return tx('学号已存在');
+  },
+  get 6007() {
+    return tx('导出失败');
+  },
+  get 6008() {
+    return tx('请补充必填字段');
+  },
+  get 7001() {
+    return tx('面试场次不存在');
+  },
+  get 7002() {
+    return tx('时间冲突');
+  },
+  get 8001() {
+    return tx('会议不存在');
+  },
+  get 8002() {
+    return tx('投票已结束');
+  },
+  get 9001() {
+    return tx('任务不存在');
+  },
+  get 9002() {
+    return tx('无权操作此任务');
+  },
+  get 10001() {
+    return tx('实习记录不存在');
+  },
+  get 10002() {
+    return tx('无权操作此实习记录');
+  },
+  get 10003() {
+    return tx('实习状态不允许该操作');
+  },
+  get 10004() {
+    return tx('实习已结束，无法修改');
+  },
+  get 10005() {
+    return tx('排行榜暂未开放');
+  },
+  get 10006() {
+    return tx('实习已完成');
+  },
+  get 12001() {
+    return tx('通知不存在');
+  },
+  get 12003() {
+    return tx('通知模板已存在');
+  },
+  get 22001() {
+    return tx('表单不存在');
+  },
+  get 22002() {
+    return tx('表单未发布');
+  },
+  get 22003() {
+    return tx('必填字段缺失');
+  },
+  get 22004() {
+    return tx('字段校验失败');
+  },
 };
 
 /**
@@ -74,7 +165,7 @@ export function handleApiError(error: unknown): string {
   // 非 Axios 错误
   if (!isAxiosError(error)) {
     if (error instanceof Error) return error.message;
-    return '请求失败';
+    return tx('请求失败');
   }
 
   const axiosError = error as AxiosError<{ code?: number; message?: string }>;
@@ -95,39 +186,39 @@ export function handleApiError(error: unknown): string {
   if (status) {
     switch (status) {
       case 400:
-        return '参数错误';
+        return tx('参数错误');
       case 401:
-        return '未授权，请先登录';
+        return tx('未授权，请先登录');
       case 403:
-        return '没有权限执行此操作';
+        return tx('没有权限执行此操作');
       case 404:
-        return '请求的资源不存在';
+        return tx('请求的资源不存在');
       case 408:
-        return '请求超时，请稍后重试';
+        return tx('请求超时，请稍后重试');
       case 429:
-        return '请求过于频繁，请稍后再试';
+        return tx('请求过于频繁，请稍后再试');
       case 500:
-        return '服务器内部错误';
+        return tx('服务器内部错误');
       case 502:
-        return '网关错误';
+        return tx('网关错误');
       case 503:
-        return '服务暂时不可用';
+        return tx('服务暂时不可用');
       case 504:
-        return '网关超时';
+        return tx('网关超时');
       default:
-        return `请求失败（${status}）`;
+        return tx('请求失败（{{value0}}）', { value0: status });
     }
   }
 
   // 网络错误（无 response）
   if (axiosError.code === 'ECONNABORTED') {
-    return '请求超时，请稍后重试';
+    return tx('请求超时，请稍后重试');
   }
   if (axiosError.code === 'ERR_NETWORK' || !axiosError.response) {
-    return '网络连接失败，请检查网络';
+    return tx('网络连接失败，请检查网络');
   }
 
-  return '请求失败';
+  return tx('请求失败');
 }
 
 /**
