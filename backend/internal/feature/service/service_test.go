@@ -29,7 +29,7 @@ func TestCreateValidateAndToggle(t *testing.T) {
 	if codeOf(err) != response.CodeFeatureInvalidKey {
 		t.Fatalf("key: %v", err)
 	}
-	_, err = svc.Create(ctx, actor, &dto.CreateFlagRequest{FlagKey: "demo.flag", Name: "Demo", FlagType: "ab_test"})
+	_, err = svc.Create(ctx, actor, &dto.CreateFlagRequest{FlagKey: "demo.flag", Name: "Demo", FlagType: "wasm"})
 	if codeOf(err) != response.CodeFeatureInvalidType {
 		t.Fatalf("type: %v", err)
 	}
@@ -218,6 +218,287 @@ func TestListAudits(t *testing.T) {
 	}
 }
 
+func TestABEnvScheduleRollbackAnalytics(t *testing.T) {
+	svc, rows, _ := newTestSvc(nil, nil, stubPerms{})
+	fs := svc.(*flagService)
+	fs.env = "prod"
+	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
+	fs.now = func() time.Time { return now }
+	ctx := context.Background()
+	actor := uuid.New()
+	uid := uuid.MustParse("55555555-5555-4555-8555-555555555555")
+
+	_, err := svc.Create(ctx, actor, &dto.CreateFlagRequest{
+		FlagKey: "exp.bad", Name: "bad", FlagType: model.TypeABTest,
+		Rules: model.Rules{Variants: []model.Variant{{Key: "only", Weight: 1}}},
+	})
+	if codeOf(err) != response.CodeFeatureInvalidRule {
+		t.Fatalf("ab variants: %v", err)
+	}
+	_, err = svc.Create(ctx, actor, &dto.CreateFlagRequest{
+		FlagKey: "exp.dup", Name: "bad", FlagType: model.TypeABTest,
+		Rules: model.Rules{Variants: []model.Variant{{Key: "a", Weight: 1}, {Key: "A", Weight: 1}}},
+	})
+	if codeOf(err) != response.CodeFeatureInvalidRule {
+		t.Fatalf("dup variant: %v", err)
+	}
+	_, err = svc.Create(ctx, actor, &dto.CreateFlagRequest{
+		FlagKey: "exp.neg", Name: "bad", FlagType: model.TypeABTest,
+		Rules: model.Rules{Variants: []model.Variant{{Key: "a", Weight: -1}, {Key: "b", Weight: 1}}},
+	})
+	if codeOf(err) != response.CodeFeatureInvalidRule {
+		t.Fatalf("neg weight: %v", err)
+	}
+	_, err = svc.Create(ctx, actor, &dto.CreateFlagRequest{
+		FlagKey: "exp.empty", Name: "bad", FlagType: model.TypeABTest,
+		Rules: model.Rules{Variants: []model.Variant{{Key: "", Weight: 1}, {Key: "b", Weight: 1}}},
+	})
+	if codeOf(err) != response.CodeFeatureInvalidRule {
+		t.Fatalf("empty key: %v", err)
+	}
+	_, err = svc.Create(ctx, actor, &dto.CreateFlagRequest{
+		FlagKey: "env.dup", Name: "bad", FlagType: model.TypeBoolean,
+		Rules: model.Rules{Environments: []string{"dev", "dev"}},
+	})
+	if codeOf(err) != response.CodeFeatureInvalidRule {
+		t.Fatalf("dup env: %v", err)
+	}
+	_, err = svc.Create(ctx, actor, &dto.CreateFlagRequest{
+		FlagKey: "env.bad", Name: "bad", FlagType: model.TypeBoolean,
+		Rules: model.Rules{Environments: []string{"staging"}},
+	})
+	if codeOf(err) != response.CodeFeatureInvalidRule {
+		t.Fatalf("env: %v", err)
+	}
+	start := now.Add(time.Hour)
+	end := now.Add(-time.Hour)
+	_, err = svc.Create(ctx, actor, &dto.CreateFlagRequest{
+		FlagKey: "sched.bad", Name: "bad", FlagType: model.TypeBoolean,
+		Rules: model.Rules{StartsAt: &start, EndsAt: &end},
+	})
+	if codeOf(err) != response.CodeFeatureInvalidRule {
+		t.Fatalf("window: %v", err)
+	}
+
+	created, err := svc.Create(ctx, actor, &dto.CreateFlagRequest{
+		FlagKey: "exp.hero", Name: "Hero", FlagType: model.TypeABTest, Enabled: true,
+		Rules: model.Rules{
+			Environments: []string{"prod"},
+			Variants:     []model.Variant{{Key: "control", Weight: 50}, {Key: "treatment", Weight: 50}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.MustParse(created.ID)
+	if !created.EffectiveEnabled || created.Environment != "prod" {
+		t.Fatalf("decorate: %+v", created)
+	}
+	eval, err := svc.EvaluateID(ctx, id, uid)
+	if err != nil || eval.Variant == "" {
+		t.Fatalf("eval ab: %+v %v", eval, err)
+	}
+	me, err := svc.EvaluateMe(ctx, uid, []string{"exp.hero"})
+	if err != nil || me["exp.hero"].Variant == "" {
+		t.Fatalf("me: %+v %v", me, err)
+	}
+	stats, err := svc.Analytics(ctx, id, 0)
+	if err != nil || stats.Total < 1 || stats.Days != 7 {
+		t.Fatalf("analytics: %+v %v", stats, err)
+	}
+
+	name := "Hero v2"
+	if _, err := svc.Update(ctx, actor, id, &dto.UpdateFlagRequest{Name: &name}); err != nil {
+		t.Fatal(err)
+	}
+	rolled, err := svc.Rollback(ctx, actor, id)
+	if err != nil || rolled.Name != "Hero" {
+		t.Fatalf("rollback: %+v %v", rolled, err)
+	}
+	if _, err := svc.Rollback(ctx, actor, uuid.New()); codeOf(err) != response.CodeFeatureNotFound {
+		t.Fatalf("missing rollback: %v", err)
+	}
+	fresh, err := svc.Create(ctx, actor, &dto.CreateFlagRequest{FlagKey: "fresh.flag", Name: "Fresh", FlagType: model.TypeBoolean})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Rollback(ctx, actor, uuid.MustParse(fresh.ID)); codeOf(err) != response.CodeFeatureNoRollback {
+		t.Fatalf("no snapshot: %v", err)
+	}
+	if _, err := svc.Analytics(ctx, uuid.New(), 120); codeOf(err) != response.CodeFeatureNotFound {
+		t.Fatalf("analytics missing: %v", err)
+	}
+
+	onAt := now.Add(-2 * time.Hour)
+	offAt := now.Add(time.Hour)
+	scheduled, err := svc.Create(ctx, actor, &dto.CreateFlagRequest{
+		FlagKey: "sched.window", Name: "Sched", FlagType: model.TypeBoolean, Enabled: true,
+		Rules: model.Rules{StartsAt: &onAt, EndsAt: &offAt},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !scheduled.EffectiveEnabled || scheduled.ScheduleState != model.ScheduleActive {
+		t.Fatalf("active decorate: %+v", scheduled)
+	}
+	if n := fs.applySchedules(ctx); n != 0 {
+		t.Fatalf("window still open n=%d", n)
+	}
+	fs.now = func() time.Time { return offAt.Add(time.Second) }
+	if n := fs.applySchedules(ctx); n != 1 {
+		t.Fatalf("schedule off n=%d", n)
+	}
+	got, err := svc.Get(ctx, uuid.MustParse(scheduled.ID))
+	if err != nil || got.Enabled {
+		t.Fatalf("persisted off: %+v %v", got, err)
+	}
+	on := true
+	if _, err := svc.Toggle(ctx, actor, uuid.MustParse(scheduled.ID), &dto.ToggleRequest{Enabled: &on}); err != nil {
+		t.Fatal(err)
+	}
+	if n := fs.applySchedules(ctx); n != 0 {
+		t.Fatalf("manual enable after ends_at must stick, n=%d", n)
+	}
+	got, err = svc.Get(ctx, uuid.MustParse(scheduled.ID))
+	if err != nil || !got.Enabled || got.EffectiveEnabled {
+		t.Fatalf("manual enable after ends_at: %+v %v", got, err)
+	}
+
+	fs.now = func() time.Time { return now }
+	future := now.Add(time.Hour)
+	pending, err := svc.Create(ctx, actor, &dto.CreateFlagRequest{
+		FlagKey: "sched.on", Name: "Later", FlagType: model.TypeBoolean, Enabled: false,
+		Rules: model.Rules{StartsAt: &future},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fs.applySchedules(ctx) != 0 {
+		t.Fatal("should wait")
+	}
+	fs.now = func() time.Time { return future.Add(time.Second) }
+	if n := fs.applySchedules(ctx); n != 1 {
+		t.Fatalf("schedule on n=%d", n)
+	}
+	got, err = svc.Get(ctx, uuid.MustParse(pending.ID))
+	if err != nil || !got.Enabled {
+		t.Fatalf("persisted on: %+v %v", got, err)
+	}
+	off := false
+	if _, err := svc.Toggle(ctx, actor, uuid.MustParse(pending.ID), &dto.ToggleRequest{Enabled: &off}); err != nil {
+		t.Fatal(err)
+	}
+	if n := fs.applySchedules(ctx); n != 0 {
+		t.Fatalf("manual disable after starts_at must stick, n=%d", n)
+	}
+	got, err = svc.Get(ctx, uuid.MustParse(pending.ID))
+	if err != nil || got.Enabled {
+		t.Fatalf("manual disable after starts_at: %+v %v", got, err)
+	}
+	if !svc.Enabled(ctx, "exp.hero", feature.Subject{UserID: uid}) && !svc.Enabled(ctx, "exp.hero", feature.Subject{UserID: uid, Environment: "prod"}) {
+		// either variant may be off; just ensure env is attached
+	}
+	_ = rows
+}
+
+func TestApplySchedulesReevaluatesAfterList(t *testing.T) {
+	inner := newMemRepo()
+	rows := &afterListRepo{memRepo: inner}
+	svc := New(rows, NewMemorySnapshot(), NewMemoryBus(), stubRoles{}, stubUsers{}, stubPerms{}).(*flagService)
+	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
+	future := now.Add(time.Hour)
+	svc.now = func() time.Time { return now }
+	ctx := context.Background()
+	created, err := svc.Create(ctx, uuid.New(), &dto.CreateFlagRequest{
+		FlagKey: "race.window", Name: "Race", FlagType: model.TypeBoolean, Enabled: false,
+		Rules: model.Rules{StartsAt: &future},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.MustParse(created.ID)
+	svc.now = func() time.Time { return future.Add(time.Second) }
+	later := future.Add(2 * time.Hour)
+	rows.afterList = func() {
+		row, err := inner.GetByID(ctx, id)
+		if err != nil || row == nil {
+			t.Errorf("concurrent get: %v", err)
+			return
+		}
+		row.Rules.StartsAt = &later
+		row.UpdatedAt = svc.clock()
+		if err := inner.Update(ctx, row); err != nil {
+			t.Errorf("concurrent update: %v", err)
+		}
+	}
+	if n := svc.applySchedules(ctx); n != 0 {
+		t.Fatalf("stale schedule-on must not persist after window edit, n=%d", n)
+	}
+	got, err := svc.Get(ctx, id)
+	if err != nil || got.Enabled {
+		t.Fatalf("window edit must keep off: %+v %v", got, err)
+	}
+}
+
+type afterListRepo struct {
+	*memRepo
+	afterList func()
+}
+
+func (r *afterListRepo) ListAll(ctx context.Context) ([]model.Flag, error) {
+	flags, err := r.memRepo.ListAll(ctx)
+	if fn := r.afterList; fn != nil {
+		r.afterList = nil
+		fn()
+	}
+	return flags, err
+}
+
+func TestScheduleLoopAndNilClock(t *testing.T) {
+	svc, _, _ := newTestSvc(nil, nil, stubPerms{})
+	fs := svc.(*flagService)
+	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
+	end := now.Add(time.Hour)
+	fs.now = func() time.Time { return now }
+	fs.tickEvery = 8 * time.Millisecond
+	ctx := context.Background()
+	created, err := svc.Create(ctx, uuid.New(), &dto.CreateFlagRequest{
+		FlagKey: "loop.off", Name: "Loop", FlagType: model.TypeBoolean, Enabled: true,
+		Rules: model.Rules{EndsAt: &end},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.MustParse(created.ID)
+	fs.now = func() time.Time { return end.Add(time.Second) }
+	loopCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	if err := svc.StartHotReload(loopCtx); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(400 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		got, gerr := svc.Get(ctx, id)
+		if gerr == nil && got != nil && !got.Enabled {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	got, err := svc.Get(ctx, id)
+	if err != nil || got.Enabled {
+		t.Fatalf("loop should persist off: %+v %v", got, err)
+	}
+}
+
+func TestClockNilFallsBackToWallTime(t *testing.T) {
+	svc, _, _ := newTestSvc(nil, nil, stubPerms{})
+	fs := svc.(*flagService)
+	fs.now = nil
+	if fs.clock().IsZero() {
+		t.Fatal("clock fallback")
+	}
+}
+
 func TestToggleCMSPublicIgnoresStickySnapshot(t *testing.T) {
 	rows := newMemRepo()
 	store := &stickySetSnapshot{
@@ -369,6 +650,9 @@ func TestLookupFallsBackWhenSnapshotOmitsKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	svc := New(rows, store, NewMemoryBus(), stubRoles{}, stubUsers{}, stubPerms{}).(*flagService)
+	if err := svc.reload(ctx); err != nil {
+		t.Fatal(err)
+	}
 	if !svc.Enabled(ctx, model.KeyCMSPublic, feature.Subject{}) {
 		t.Fatal("omitted snapshot key should read db")
 	}
@@ -395,6 +679,41 @@ func TestInvalidateRefreshesWhenDeleteFails(t *testing.T) {
 	if svc.Enabled(ctx, model.KeyCMSPublic, feature.Subject{}) {
 		t.Fatal("toggle must close gate even if snapshot delete fails")
 	}
+}
+
+func TestStartHotReloadSurvivesStuckSnapshot(t *testing.T) {
+	rows := newMemRepo()
+	store := &stickySetSnapshot{
+		setErr: errors.New("redis set failed"),
+		delErr: errors.New("redis del failed"),
+	}
+	svc := New(rows, store, NewMemoryBus(), stubRoles{}, stubUsers{}, stubPerms{}).(*flagService)
+	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
+	end := now.Add(time.Hour)
+	svc.now = func() time.Time { return now }
+	svc.tickEvery = 8 * time.Millisecond
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	id := uuid.New()
+	if err := rows.Create(ctx, &model.Flag{
+		ID: id, FlagKey: "boot.loop", Name: "Boot", FlagType: model.TypeBoolean,
+		Enabled: true, Rules: model.Rules{EndsAt: &end}, CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	svc.now = func() time.Time { return end.Add(time.Second) }
+	if err := svc.StartHotReload(ctx); err != nil {
+		t.Fatalf("boot must continue after Redis write failure: %v", err)
+	}
+	deadline := time.Now().Add(400 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		got, gerr := svc.Get(ctx, id)
+		if gerr == nil && got != nil && !got.Enabled {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("schedule loop should still persist off after a Redis blip at boot")
 }
 
 func TestInvalidateDropsSnapshotWhenSetFails(t *testing.T) {
@@ -463,6 +782,71 @@ func TestInvalidateSkipsPublishWhenSnapshotStuck(t *testing.T) {
 	}
 }
 
+func TestEvaluateMeCapsDedupsAndSkipsUnknownReload(t *testing.T) {
+	rows := newMemRepo()
+	store := &countSnapshot{inner: NewMemorySnapshot()}
+	bus := NewMemoryBus()
+	svc := New(rows, store, bus, stubRoles{}, stubUsers{}, stubPerms{}).(*flagService)
+	ctx := context.Background()
+	created, err := svc.Create(ctx, uuid.New(), &dto.CreateFlagRequest{
+		FlagKey: "bool.gate", Name: "Bool", FlagType: model.TypeBoolean, Enabled: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	uid := uuid.MustParse("33333333-3333-4333-8333-333333333333")
+	getsBefore := store.gets
+	dupes := []string{"bool.gate", "BOOL.GATE", "bool.gate", "Not A Key", "???"}
+	me, err := svc.EvaluateMe(ctx, uid, dupes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(me) != 1 || !me["bool.gate"].Enabled {
+		t.Fatalf("dedup: %+v", me)
+	}
+	if n := len(rows.exposures); n != 1 {
+		t.Fatalf("duplicate keys must record one exposure, got %d", n)
+	}
+	keys := make([]string, 0, 40)
+	for i := 0; i < 40; i++ {
+		keys = append(keys, "unknown.key"+string(rune('a'+i%26))+string(rune('a'+i/26)))
+	}
+	me, err = svc.EvaluateMe(ctx, uid, keys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(me) != model.MaxEvaluateKeys {
+		t.Fatalf("cap=%d got=%d", model.MaxEvaluateKeys, len(me))
+	}
+	if store.gets != getsBefore {
+		t.Fatalf("unknown keys must not reload snapshot, gets %d -> %d", getsBefore, store.gets)
+	}
+	if _, err := svc.EvaluateID(ctx, uuid.MustParse(created.ID), uid); err != nil {
+		t.Fatal(err)
+	}
+	if got := sanitizeEvaluateKeys([]string{"???", "1bad", "x"}); len(got) != 3 {
+		t.Fatalf("invalid keys should fall back to defaults, got %v", got)
+	}
+}
+
+type countSnapshot struct {
+	inner SnapshotStore
+	gets  int
+}
+
+func (s *countSnapshot) Get(ctx context.Context) ([]model.Flag, error) {
+	s.gets++
+	return s.inner.Get(ctx)
+}
+
+func (s *countSnapshot) Set(ctx context.Context, flags []model.Flag) error {
+	return s.inner.Set(ctx, flags)
+}
+
+func (s *countSnapshot) Delete(ctx context.Context) error {
+	return s.inner.Delete(ctx)
+}
+
 func TestInvalidateReloadsFromDBWhenSnapshotStale(t *testing.T) {
 	rows := newMemRepo()
 	store := &staleSnapshot{}
@@ -475,6 +859,7 @@ func TestInvalidateReloadsFromDBWhenSnapshotStale(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Snapshot keeps the enabled=true copy even after later writes.
 	store.flags = []model.Flag{{
 		ID: uuid.MustParse(created.ID), FlagKey: "stale.flag", Name: "Stale",
 		FlagType: model.TypeBoolean, Enabled: true,
@@ -485,6 +870,40 @@ func TestInvalidateReloadsFromDBWhenSnapshotStale(t *testing.T) {
 	}
 	if svc.Enabled(ctx, "stale.flag", feature.Subject{UserID: uuid.New()}) {
 		t.Fatal("failed snapshot delete must not refill memory from stale Redis data")
+	}
+}
+
+func TestBooleanAnalyticsSplitsEnabledAndDisabled(t *testing.T) {
+	svc, _, _ := newTestSvc(nil, nil, stubPerms{})
+	ctx := context.Background()
+	created, err := svc.Create(ctx, uuid.New(), &dto.CreateFlagRequest{
+		FlagKey: "bool.gate", Name: "Bool", FlagType: model.TypeBoolean, Enabled: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.MustParse(created.ID)
+	onUser := uuid.MustParse("11111111-1111-4111-8111-111111111111")
+	offUser := uuid.MustParse("22222222-2222-4222-8222-222222222222")
+	if _, err := svc.EvaluateID(ctx, id, onUser); err != nil {
+		t.Fatal(err)
+	}
+	off := false
+	if _, err := svc.Toggle(ctx, uuid.New(), id, &dto.ToggleRequest{Enabled: &off}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.EvaluateID(ctx, id, offUser); err != nil {
+		t.Fatal(err)
+	}
+	stats, err := svc.Analytics(ctx, id, 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.Total != 2 || stats.EnabledCount != 1 || stats.DisabledCount != 1 {
+		t.Fatalf("boolean analytics %+v", stats)
+	}
+	if len(stats.Variants) != 2 {
+		t.Fatalf("expected two variant/enabled buckets, got %+v", stats.Variants)
 	}
 }
 

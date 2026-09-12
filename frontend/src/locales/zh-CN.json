@@ -850,7 +850,7 @@
   },
   "feature": {
     "gated": "该功能正在小范围灰度，尚未对你开放。",
-    "intro": "招新前灰度：改开关后通过 Redis 热更新，无需重启。登录与 CAS 不受影响。",
+    "intro": "灰度与特性开关：改规则后 Redis 热更新，无需重启。支持定时上/下线、多变体 AB、dev/test/prod 定向。登录与 CAS 不受影响。",
     "search": "搜索开关键或名称",
     "create": "新建开关",
     "created": "已创建",
@@ -875,11 +875,38 @@
     "action": "动作",
     "reason": "原因",
     "time": "时间",
+    "effective": "当前生效",
+    "schedule": "定时",
+    "startsAt": "定时上线",
+    "endsAt": "定时下线",
+    "environments": "生效环境",
+    "environmentsAll": "全部环境（留空）",
+    "variants": "实验变体",
+    "variant": "变体",
+    "weight": "权重",
+    "addVariant": "添加变体",
+    "analytics": "曝光分析",
+    "exposureTotal": "独立用户曝光",
+    "exposureCount": "人数",
+    "rollback": "回滚",
+    "rollbackHint": "恢复到最近一次更新/切换/定时动作之前的规则。",
+    "rolledBack": "已回滚",
+    "scheduleStates": {
+      "pending": "未到点",
+      "active": "窗口内",
+      "expired": "已过期"
+    },
+    "envs": {
+      "dev": "开发",
+      "test": "测试",
+      "prod": "生产"
+    },
     "types": {
       "boolean": "布尔",
       "user_allowlist": "用户名单",
       "role_dept": "角色/部门",
-      "percentage": "百分比"
+      "percentage": "百分比",
+      "ab_test": "AB 测试"
     }
   },
   "cms": {

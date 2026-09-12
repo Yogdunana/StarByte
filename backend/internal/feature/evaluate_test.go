@@ -2,6 +2,7 @@ package feature
 
 import (
 	"testing"
+	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/feature/model"
 	"github.com/google/uuid"
@@ -83,9 +84,152 @@ func TestEvaluate_Percentage(t *testing.T) {
 }
 
 func TestEvaluate_InvalidType(t *testing.T) {
-	flag := &model.Flag{FlagType: "ab_test", Enabled: true}
+	flag := &model.Flag{FlagType: "wasm", Enabled: true}
 	if got := Evaluate(flag, Subject{}); got.Enabled || got.Reason != ReasonInvalidType {
 		t.Fatalf("invalid: %+v", got)
+	}
+}
+
+func TestEvaluate_Environment(t *testing.T) {
+	flag := &model.Flag{
+		FlagType: model.TypeBoolean, Enabled: true,
+		Rules: model.Rules{Environments: []string{"prod"}},
+	}
+	if got := Evaluate(flag, Subject{Environment: "dev"}); got.Enabled || got.Reason != ReasonEnvMiss {
+		t.Fatalf("dev: %+v", got)
+	}
+	if got := Evaluate(flag, Subject{}); got.Enabled || got.Reason != ReasonEnvMiss {
+		t.Fatalf("empty env: %+v", got)
+	}
+	if got := Evaluate(flag, Subject{Environment: "prod"}); !got.Enabled {
+		t.Fatalf("prod: %+v", got)
+	}
+	open := &model.Flag{FlagType: model.TypeBoolean, Enabled: true}
+	if got := Evaluate(open, Subject{Environment: "dev"}); !got.Enabled {
+		t.Fatalf("no env list should match: %+v", got)
+	}
+}
+
+func TestEvaluate_ScheduleWindow(t *testing.T) {
+	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
+	start := now.Add(time.Hour)
+	end := now.Add(-time.Hour)
+	pending := &model.Flag{FlagType: model.TypeBoolean, Enabled: true, Rules: model.Rules{StartsAt: &start}}
+	if got := Evaluate(pending, Subject{Now: now}); got.Enabled || got.Reason != ReasonScheduleWait {
+		t.Fatalf("pending: %+v", got)
+	}
+	expired := &model.Flag{FlagType: model.TypeBoolean, Enabled: true, Rules: model.Rules{EndsAt: &end}}
+	if got := Evaluate(expired, Subject{Now: now}); got.Enabled || got.Reason != ReasonScheduleEnd {
+		t.Fatalf("expired: %+v", got)
+	}
+	activeEnd := now.Add(time.Hour)
+	active := &model.Flag{FlagType: model.TypeBoolean, Enabled: true, Rules: model.Rules{StartsAt: &end, EndsAt: &activeEnd}}
+	if got := Evaluate(active, Subject{Now: now}); !got.Enabled {
+		t.Fatalf("active: %+v", got)
+	}
+}
+
+func TestEvaluate_ABVariants(t *testing.T) {
+	uid := uuid.MustParse("44444444-4444-4444-8444-444444444444")
+	on := true
+	off := false
+	flag := &model.Flag{
+		FlagKey:  "exp.hero",
+		FlagType: model.TypeABTest,
+		Enabled:  true,
+		Rules: model.Rules{
+			Salt: "v1",
+			Variants: []model.Variant{
+				{Key: "control", Weight: 50, Enabled: &off},
+				{Key: "treatment", Weight: 50, Enabled: &on},
+			},
+		},
+	}
+	anon := Evaluate(flag, Subject{})
+	if anon.Enabled || anon.Reason != ReasonAnonymous || anon.Variant != "" {
+		t.Fatalf("anon ab: %+v", anon)
+	}
+	treatmentFirst := *flag
+	treatmentFirst.Rules.Variants = []model.Variant{
+		{Key: "treatment", Weight: 50, Enabled: &on},
+		{Key: "control", Weight: 50, Enabled: &off},
+	}
+	open := Evaluate(&treatmentFirst, Subject{})
+	if open.Enabled || open.Reason != ReasonAnonymous {
+		t.Fatalf("anon ab must fail closed even when variants[0] is a gate-on bucket: %+v", open)
+	}
+	a := Evaluate(flag, Subject{UserID: uid})
+	b := Evaluate(flag, Subject{UserID: uid})
+	if a != b || a.Variant == "" || a.Reason != ReasonVariantHit {
+		t.Fatalf("unstable ab: %+v vs %+v", a, b)
+	}
+	empty := Evaluate(&model.Flag{FlagType: model.TypeABTest, Enabled: true}, Subject{UserID: uid})
+	if empty.Enabled || empty.Reason != ReasonInvalidRule {
+		t.Fatalf("empty variants: %+v", empty)
+	}
+	zeroW := Evaluate(&model.Flag{
+		FlagType: model.TypeABTest, Enabled: true,
+		Rules: model.Rules{Variants: []model.Variant{{Key: "a", Weight: 0}}},
+	}, Subject{UserID: uid})
+	if zeroW.Enabled || zeroW.Reason != ReasonInvalidRule {
+		t.Fatalf("zero weight: %+v", zeroW)
+	}
+	implicit := Evaluate(&model.Flag{
+		FlagKey: "exp.imp", FlagType: model.TypeABTest, Enabled: true,
+		Rules: model.Rules{Variants: []model.Variant{{Key: "control", Weight: 1}, {Key: "on", Weight: 1}}},
+	}, Subject{UserID: uid})
+	if implicit.Variant != "control" && implicit.Variant != "on" {
+		t.Fatalf("implicit: %+v", implicit)
+	}
+	if implicit.Variant == "control" && implicit.Enabled {
+		t.Fatalf("control should be off: %+v", implicit)
+	}
+}
+
+func TestScheduleHelpers(t *testing.T) {
+	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
+	future := now.Add(time.Hour)
+	past := now.Add(-time.Hour)
+	if ScheduleState(nil, now) != model.ScheduleNone {
+		t.Fatal("nil")
+	}
+	plain := &model.Flag{}
+	if ScheduleState(plain, now) != model.ScheduleNone {
+		t.Fatal("none")
+	}
+	if ScheduleState(&model.Flag{Rules: model.Rules{StartsAt: &future}}, now) != model.SchedulePending {
+		t.Fatal("pending")
+	}
+	if ScheduleState(&model.Flag{Rules: model.Rules{EndsAt: &past}}, now) != model.ScheduleExpired {
+		t.Fatal("expired")
+	}
+	wall := time.Now()
+	wallStart := wall.Add(-time.Hour)
+	wallEnd := wall.Add(time.Hour)
+	if ScheduleState(&model.Flag{Rules: model.Rules{StartsAt: &wallStart, EndsAt: &wallEnd}}, time.Time{}) != model.ScheduleActive {
+		t.Fatal("active with zero now")
+	}
+	off := &model.Flag{Enabled: false, Rules: model.Rules{StartsAt: &past, EndsAt: &future}}
+	if !ShouldScheduleOn(off, now) || ShouldScheduleOff(off, now) {
+		t.Fatal("should turn on when UpdatedAt is unset")
+	}
+	off.UpdatedAt = now
+	if ShouldScheduleOn(off, now) {
+		t.Fatal("manual disable after starts_at must not be scheduled on")
+	}
+	on := &model.Flag{Enabled: true, Rules: model.Rules{EndsAt: &past}}
+	if !ShouldScheduleOff(on, now) || ShouldScheduleOn(on, now) {
+		t.Fatal("should turn off when UpdatedAt is unset")
+	}
+	on.UpdatedAt = now
+	if ShouldScheduleOff(on, now) {
+		t.Fatal("manual enable after ends_at must not be scheduled off")
+	}
+	if MasterOn(nil, "prod", now) || MasterOn(&model.Flag{Enabled: true, Rules: model.Rules{Environments: []string{"prod"}}}, "dev", now) {
+		t.Fatal("master off")
+	}
+	if !MasterOn(&model.Flag{Enabled: true}, "dev", now) {
+		t.Fatal("master on")
 	}
 }
 

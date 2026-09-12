@@ -1,49 +1,20 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Button, Card, Drawer, Form, Input, InputNumber, Modal, Select, Space, Switch,
+  Button, Card, DatePicker, Drawer, Form, Input, InputNumber, Modal, Select, Space, Switch,
   Table, Tabs, Tag, message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import {
-  createFeature, evaluateFeature, listFeatureAudits, listFeatures, toggleFeature, updateFeature,
-  type FeatureAudit, type FeatureFlag, type FeatureType,
+  createFeature, evaluateFeature, getFeatureAnalytics, listFeatureAudits, listFeatures,
+  rollbackFeature, toggleFeature, updateFeature,
+  type FeatureAnalytics, type FeatureAudit, type FeatureFlag,
 } from '@/api/feature';
 import { usePermissions } from '@/hooks/usePermission';
 import { formatDateTime } from '@/utils/format';
+import { FEATURE_ENVS, FEATURE_TYPES, analyticsRowKey, flagToForm, toRules, type FlagForm } from './form';
 import './feature.css';
-
-const types: FeatureType[] = ['boolean', 'user_allowlist', 'role_dept', 'percentage'];
-
-interface FlagForm {
-  flag_key: string;
-  name: string;
-  description?: string;
-  flag_type: FeatureType;
-  enabled?: boolean;
-  group_name?: string;
-  priority?: number;
-  user_ids?: string;
-  role_codes?: string;
-  department_ids?: string;
-  percent?: number;
-  salt?: string;
-}
-
-function splitLines(raw?: string): string[] {
-  return (raw || '').split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
-}
-
-function toRules(v: FlagForm) {
-  return {
-    user_ids: splitLines(v.user_ids),
-    role_codes: splitLines(v.role_codes),
-    department_ids: splitLines(v.department_ids),
-    percent: v.percent ?? 0,
-    salt: v.salt || '',
-  };
-}
 
 const FeaturePage: React.FC = () => {
   const { t } = useTranslation();
@@ -56,10 +27,13 @@ const FeaturePage: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<FeatureFlag | null>(null);
   const [form] = Form.useForm<FlagForm>();
+  const flagType = Form.useWatch('flag_type', form);
   const [audits, setAudits] = useState<FeatureAudit[]>([]);
   const [evalOpen, setEvalOpen] = useState<FeatureFlag | null>(null);
   const [evalUser, setEvalUser] = useState('');
   const [evalResult, setEvalResult] = useState('');
+  const [statsOpen, setStatsOpen] = useState<FeatureFlag | null>(null);
+  const [stats, setStats] = useState<FeatureAnalytics | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -107,21 +81,35 @@ const FeaturePage: React.FC = () => {
 
   const openEdit = (row?: FeatureFlag) => {
     setEditing(row || null);
-    form.setFieldsValue(row ? {
-      flag_key: row.flag_key,
-      name: row.name,
-      description: row.description,
-      flag_type: row.flag_type,
-      enabled: row.enabled,
-      group_name: row.group_name,
-      priority: row.priority,
-      user_ids: (row.rules.user_ids || []).join('\n'),
-      role_codes: (row.rules.role_codes || []).join('\n'),
-      department_ids: (row.rules.department_ids || []).join('\n'),
-      percent: row.rules.percent,
-      salt: row.rules.salt,
-    } : { flag_type: 'boolean', enabled: false, priority: 0 });
+    form.setFieldsValue(flagToForm(row));
     setOpen(true);
+  };
+
+  const openStats = async (row: FeatureFlag) => {
+    setStatsOpen(row);
+    setStats(null);
+    const res = await getFeatureAnalytics(row.id, 7);
+    setStats(res);
+  };
+
+  const onRollback = (row: FeatureFlag) => {
+    Modal.confirm({
+      title: t('feature.rollback'),
+      content: t('feature.rollbackHint'),
+      onOk: async () => {
+        await rollbackFeature(row.id);
+        message.success(t('feature.rolledBack'));
+        void load();
+        void loadAudits();
+      },
+    });
+  };
+
+  const scheduleColor = (state?: string) => {
+    if (state === 'pending') return 'gold';
+    if (state === 'expired') return 'default';
+    if (state === 'active') return 'green';
+    return 'blue';
   };
 
   const columns: ColumnsType<FeatureFlag> = [
@@ -131,7 +119,7 @@ const FeaturePage: React.FC = () => {
     {
       title: t('feature.enabled'),
       dataIndex: 'enabled',
-      width: 100,
+      width: 90,
       render: (v: boolean, row) => (
         <Switch
           checked={v}
@@ -145,14 +133,28 @@ const FeaturePage: React.FC = () => {
         />
       ),
     },
-    { title: t('feature.group'), dataIndex: 'group_name', width: 120 },
+    {
+      title: t('feature.effective'),
+      dataIndex: 'effective_enabled',
+      width: 90,
+      render: (v: boolean) => <Tag color={v ? 'green' : 'default'}>{v ? 'ON' : 'OFF'}</Tag>,
+    },
+    {
+      title: t('feature.schedule'),
+      dataIndex: 'schedule_state',
+      width: 110,
+      render: (v?: string) => (v ? <Tag color={scheduleColor(v)}>{t(`feature.scheduleStates.${v}`)}</Tag> : '—'),
+    },
+    { title: t('feature.group'), dataIndex: 'group_name', width: 100 },
     {
       title: t('common.actions'),
-      width: 180,
+      width: 280,
       render: (_, row) => (
-        <Space>
+        <Space wrap>
           {canUpdate && <Button type="link" size="small" onClick={() => openEdit(row)}>{t('common.edit')}</Button>}
           <Button type="link" size="small" onClick={() => { setEvalOpen(row); setEvalResult(''); }}>{t('feature.evaluate')}</Button>
+          <Button type="link" size="small" onClick={() => void openStats(row)}>{t('feature.analytics')}</Button>
+          {canUpdate && <Button type="link" size="small" onClick={() => onRollback(row)}>{t('feature.rollback')}</Button>}
         </Space>
       ),
     },
@@ -180,6 +182,7 @@ const FeaturePage: React.FC = () => {
                   loading={loading}
                   columns={columns}
                   dataSource={list}
+                  scroll={{ x: 1100 }}
                   pagination={{ current: page, total, pageSize: 10, onChange: setPage }}
                 />
               ),
@@ -194,7 +197,7 @@ const FeaturePage: React.FC = () => {
                   pagination={false}
                   columns={[
                     { title: t('feature.key'), dataIndex: 'flag_key' },
-                    { title: t('feature.action'), dataIndex: 'action', width: 100 },
+                    { title: t('feature.action'), dataIndex: 'action', width: 120 },
                     { title: t('feature.reason'), dataIndex: 'reason' },
                     { title: t('feature.time'), dataIndex: 'created_at', render: (v: string) => formatDateTime(v) },
                   ]}
@@ -211,7 +214,7 @@ const FeaturePage: React.FC = () => {
         onCancel={() => { setOpen(false); setEditing(null); }}
         onOk={() => void onSave()}
         destroyOnClose
-        width={640}
+        width={720}
       >
         <Form form={form} layout="vertical">
           <Form.Item name="flag_key" label={t('feature.key')} rules={[{ required: true }]}>
@@ -220,16 +223,69 @@ const FeaturePage: React.FC = () => {
           <Form.Item name="name" label={t('feature.name')} rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item name="description" label={t('feature.description')}><Input.TextArea rows={2} /></Form.Item>
           <Form.Item name="flag_type" label={t('feature.type')} rules={[{ required: true }]}>
-            <Select options={types.map((value) => ({ value, label: t(`feature.types.${value}`) }))} />
+            <Select
+              options={FEATURE_TYPES.map((value) => ({ value, label: t(`feature.types.${value}`) }))}
+              onChange={(value) => {
+                if (value === 'ab_test' && !(form.getFieldValue('variants') || []).length) {
+                  form.setFieldValue('variants', [
+                    { key: 'control', weight: 50, enabled: false },
+                    { key: 'treatment', weight: 50, enabled: true },
+                  ]);
+                }
+              }}
+            />
           </Form.Item>
           <Form.Item name="group_name" label={t('feature.group')}><Input /></Form.Item>
           <Form.Item name="priority" label={t('feature.priority')}><InputNumber min={0} style={{ width: '100%' }} /></Form.Item>
           <Form.Item name="enabled" label={t('feature.enabled')} valuePropName="checked"><Switch /></Form.Item>
-          <Form.Item name="user_ids" label={t('feature.userIds')}><Input.TextArea rows={3} placeholder="uuid, one per line" /></Form.Item>
-          <Form.Item name="role_codes" label={t('feature.roleCodes')}><Input.TextArea rows={2} placeholder="minister" /></Form.Item>
-          <Form.Item name="department_ids" label={t('feature.deptIds')}><Input.TextArea rows={2} /></Form.Item>
-          <Form.Item name="percent" label={t('feature.percent')}><InputNumber min={0} max={100} style={{ width: '100%' }} /></Form.Item>
-          <Form.Item name="salt" label={t('feature.salt')}><Input /></Form.Item>
+          <Form.Item name="environments" label={t('feature.environments')}>
+            <Select
+              mode="multiple"
+              allowClear
+              placeholder={t('feature.environmentsAll')}
+              options={FEATURE_ENVS.map((value) => ({ value, label: t(`feature.envs.${value}`) }))}
+            />
+          </Form.Item>
+          <Form.Item name="starts_at" label={t('feature.startsAt')}><DatePicker showTime style={{ width: '100%' }} /></Form.Item>
+          <Form.Item name="ends_at" label={t('feature.endsAt')}><DatePicker showTime style={{ width: '100%' }} /></Form.Item>
+          {flagType === 'user_allowlist' && (
+            <Form.Item name="user_ids" label={t('feature.userIds')}><Input.TextArea rows={3} placeholder="uuid, one per line" /></Form.Item>
+          )}
+          {flagType === 'role_dept' && (
+            <>
+              <Form.Item name="role_codes" label={t('feature.roleCodes')}><Input.TextArea rows={2} placeholder="minister" /></Form.Item>
+              <Form.Item name="department_ids" label={t('feature.deptIds')}><Input.TextArea rows={2} /></Form.Item>
+            </>
+          )}
+          {flagType === 'percentage' && (
+            <Form.Item name="percent" label={t('feature.percent')}><InputNumber min={0} max={100} style={{ width: '100%' }} /></Form.Item>
+          )}
+          {(flagType === 'percentage' || flagType === 'ab_test') && (
+            <Form.Item name="salt" label={t('feature.salt')}><Input /></Form.Item>
+          )}
+          {flagType === 'ab_test' && (
+            <Form.List name="variants">
+              {(fields, { add, remove }) => (
+                <div className="feature-variants">
+                  {fields.map((field) => (
+                    <Space key={field.key} align="baseline" className="feature-variant-row">
+                      <Form.Item name={[field.name, 'key']} rules={[{ required: true }]}>
+                        <Input placeholder={t('feature.variant')} />
+                      </Form.Item>
+                      <Form.Item name={[field.name, 'weight']}>
+                        <InputNumber min={0} placeholder={t('feature.weight')} />
+                      </Form.Item>
+                      <Form.Item name={[field.name, 'enabled']} valuePropName="checked">
+                        <Switch checkedChildren="ON" unCheckedChildren="OFF" />
+                      </Form.Item>
+                      {fields.length > 2 && <Button type="link" onClick={() => remove(field.name)}>{t('common.delete')}</Button>}
+                    </Space>
+                  ))}
+                  <Button type="dashed" onClick={() => add({ key: '', weight: 0, enabled: true })}>{t('feature.addVariant')}</Button>
+                </div>
+              )}
+            </Form.List>
+          )}
         </Form>
       </Modal>
 
@@ -241,13 +297,34 @@ const FeaturePage: React.FC = () => {
             onClick={async () => {
               if (!evalOpen) return;
               const res = await evaluateFeature(evalOpen.id, evalUser || undefined);
-              setEvalResult(`${res.enabled ? 'ON' : 'OFF'} · ${res.reason}`);
+              const variant = res.variant ? ` · ${res.variant}` : '';
+              setEvalResult(`${res.enabled ? 'ON' : 'OFF'} · ${res.reason}${variant}`);
             }}
           >
             {t('feature.evaluate')}
           </Button>
           {evalResult && <Tag color="blue">{evalResult}</Tag>}
         </Space>
+      </Drawer>
+
+      <Drawer title={t('feature.analytics')} open={Boolean(statsOpen)} onClose={() => { setStatsOpen(null); setStats(null); }}>
+        {stats ? (
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <div>{stats.flag_key}</div>
+            <div>{t('feature.exposureTotal')}: {stats.total} / {stats.days}d</div>
+            <Table
+              rowKey={analyticsRowKey}
+              pagination={false}
+              size="small"
+              dataSource={stats.variants || []}
+              columns={[
+                { title: t('feature.variant'), dataIndex: 'variant', render: (v: string) => v || '—' },
+                { title: t('feature.exposureCount'), dataIndex: 'count' },
+                { title: t('feature.enabled'), dataIndex: 'enabled', render: (v: boolean) => (v ? 'ON' : 'OFF') },
+              ]}
+            />
+          </Space>
+        ) : <div>{t('common.loading')}</div>}
       </Drawer>
     </div>
   );

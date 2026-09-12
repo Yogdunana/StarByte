@@ -1,7 +1,13 @@
 import request from './request';
 import type { PageResponse } from '@/types/api';
 
-export type FeatureType = 'boolean' | 'user_allowlist' | 'role_dept' | 'percentage';
+export type FeatureType = 'boolean' | 'user_allowlist' | 'role_dept' | 'percentage' | 'ab_test';
+
+export interface FeatureVariant {
+  key: string;
+  weight: number;
+  enabled?: boolean;
+}
 
 export interface FeatureRules {
   user_ids?: string[];
@@ -9,6 +15,10 @@ export interface FeatureRules {
   department_ids?: string[];
   percent?: number;
   salt?: string;
+  environments?: string[];
+  starts_at?: string;
+  ends_at?: string;
+  variants?: FeatureVariant[];
 }
 
 export interface FeatureFlag {
@@ -18,6 +28,9 @@ export interface FeatureFlag {
   description: string;
   flag_type: FeatureType;
   enabled: boolean;
+  effective_enabled?: boolean;
+  schedule_state?: string;
+  environment?: string;
   group_name: string;
   priority: number;
   rules: FeatureRules;
@@ -31,6 +44,16 @@ export interface FeatureEvaluate {
   enabled: boolean;
   reason: string;
   flag_type?: string;
+  variant?: string;
+}
+
+export interface FeatureAnalytics {
+  flag_key: string;
+  days: number;
+  total: number;
+  enabled_count: number;
+  disabled_count: number;
+  variants: Array<{ variant: string; count: number; enabled: boolean }>;
 }
 
 export interface FeatureAudit {
@@ -90,6 +113,14 @@ export function listFeatureAudits(params?: {
   page?: number; page_size?: number; flag_key?: string;
 }): Promise<PageResponse<FeatureAudit>> {
   return request.get('/system/features/audit', { params });
+}
+
+export function getFeatureAnalytics(id: string, days = 7): Promise<FeatureAnalytics> {
+  return request.get(`/system/features/${id}/analytics`, { params: { days } });
+}
+
+export function rollbackFeature(id: string): Promise<FeatureFlag> {
+  return request.post(`/system/features/${id}/rollback`);
 }
 
 export function evaluateMyFeatures(keys?: string[]): Promise<Record<string, FeatureEvaluate>> {

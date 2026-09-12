@@ -365,6 +365,7 @@ const (
 	CodeFeatureInvalidRule = 34005 // 灰度规则不合法
 	CodeFeatureProtected   = 34006 // 系统预置开关不可删除
 	CodeFeatureDisabled    = 34007 // 当前用户未命中灰度
+	CodeFeatureNoRollback  = 34008 // 没有可回滚的审计快照
 )
 
 // ModuleRanges maps each module name to its error-code range [min, max].

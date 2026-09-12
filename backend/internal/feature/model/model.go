@@ -29,13 +29,24 @@ type Flag struct {
 
 func (Flag) TableName() string { return "feature_flags" }
 
+// Variant is one arm of an ab_test flag.
+type Variant struct {
+	Key     string `json:"key"`
+	Weight  int    `json:"weight"`
+	Enabled *bool  `json:"enabled,omitempty"`
+}
+
 // Rules is type-specific targeting. Unused fields are ignored.
 type Rules struct {
-	UserIDs       []string `json:"user_ids,omitempty"`
-	RoleCodes     []string `json:"role_codes,omitempty"`
-	DepartmentIDs []string `json:"department_ids,omitempty"`
-	Percent       int      `json:"percent,omitempty"`
-	Salt          string   `json:"salt,omitempty"`
+	UserIDs       []string   `json:"user_ids,omitempty"`
+	RoleCodes     []string   `json:"role_codes,omitempty"`
+	DepartmentIDs []string   `json:"department_ids,omitempty"`
+	Percent       int        `json:"percent,omitempty"`
+	Salt          string     `json:"salt,omitempty"`
+	Environments  []string   `json:"environments,omitempty"`
+	StartsAt      *time.Time `json:"starts_at,omitempty"`
+	EndsAt        *time.Time `json:"ends_at,omitempty"`
+	Variants      []Variant  `json:"variants,omitempty"`
 }
 
 func (r Rules) Value() (driver.Value, error) {
@@ -81,3 +92,25 @@ type Audit struct {
 }
 
 func (Audit) TableName() string { return "feature_flag_audits" }
+
+// Exposure is a recorded evaluation (SDK / admin evaluate), used for AB analytics.
+type Exposure struct {
+	ID          uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
+	FlagID      *uuid.UUID `gorm:"type:uuid" json:"flag_id,omitempty"`
+	FlagKey     string     `gorm:"type:varchar(128);not null" json:"flag_key"`
+	UserID      *uuid.UUID `gorm:"type:uuid" json:"user_id,omitempty"`
+	Variant     string     `gorm:"type:varchar(64);not null;default:''" json:"variant"`
+	Enabled     bool       `gorm:"not null;default:false" json:"enabled"`
+	Reason      string     `gorm:"type:varchar(64);not null;default:''" json:"reason"`
+	Environment string     `gorm:"type:varchar(16);not null;default:''" json:"environment"`
+	CreatedAt   time.Time  `json:"created_at"`
+}
+
+func (Exposure) TableName() string { return "feature_flag_exposures" }
+
+// ExposureBucket is a grouped analytics row.
+type ExposureBucket struct {
+	Variant string
+	Count   int64
+	Enabled bool
+}

@@ -19,15 +19,16 @@ import (
 func init() { gin.SetMode(gin.TestMode) }
 
 type stubSvc struct {
-	flag   *dto.FlagResponse
-	list   []dto.FlagResponse
-	total  int64
-	eval   *dto.EvaluateResponse
-	me     map[string]dto.EvaluateResponse
-	audits []dto.AuditResponse
-	err    error
-	sub    feature.Subject
-	on     bool
+	flag      *dto.FlagResponse
+	list      []dto.FlagResponse
+	total     int64
+	eval      *dto.EvaluateResponse
+	me        map[string]dto.EvaluateResponse
+	audits    []dto.AuditResponse
+	analytics *dto.AnalyticsResponse
+	err       error
+	sub       feature.Subject
+	on        bool
 }
 
 func (s *stubSvc) List(context.Context, dto.ListQuery) ([]dto.FlagResponse, int64, error) {
@@ -56,6 +57,12 @@ func (s *stubSvc) Resolve(context.Context, uuid.UUID) (feature.Subject, error) {
 }
 func (s *stubSvc) ListAudits(context.Context, dto.AuditQuery) ([]dto.AuditResponse, int64, error) {
 	return s.audits, s.total, s.err
+}
+func (s *stubSvc) Rollback(context.Context, uuid.UUID, uuid.UUID) (*dto.FlagResponse, error) {
+	return s.flag, s.err
+}
+func (s *stubSvc) Analytics(context.Context, uuid.UUID, int) (*dto.AnalyticsResponse, error) {
+	return s.analytics, s.err
 }
 func (s *stubSvc) StartHotReload(context.Context) error { return s.err }
 
@@ -256,6 +263,43 @@ func TestStaffBypassStar(t *testing.T) {
 	c2, _ := gin.CreateTestContext(httptest.NewRecorder())
 	if fn(c2) {
 		t.Fatal("empty")
+	}
+}
+
+func TestHandlerAnalyticsAndRollback(t *testing.T) {
+	h := New(&stubSvc{
+		flag:      &dto.FlagResponse{FlagKey: "exp.hero"},
+		analytics: &dto.AnalyticsResponse{FlagKey: "exp.hero", Total: 3, Days: 7},
+	})
+	if withUser(h.Analytics, http.MethodGet, "/api/v1/system/features/x/analytics?days=7", nil).Code != http.StatusOK {
+		t.Fatal("analytics")
+	}
+	if withUser(h.Rollback, http.MethodPost, "/api/v1/system/features/x/rollback", []byte(`{}`)).Code != http.StatusOK {
+		t.Fatal("rollback")
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/system/features/bad/rollback", nil)
+	c.Set("request_id", "rid")
+	c.Set(auth.ContextKeyUserID, uuid.New().String())
+	c.Params = gin.Params{{Key: "id", Value: "bad"}}
+	h.Rollback(c)
+	if w.Code == http.StatusOK {
+		t.Fatal("bad rollback id")
+	}
+	w = httptest.NewRecorder()
+	c, _ = gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/system/features/bad/analytics", nil)
+	c.Set("request_id", "rid")
+	c.Params = gin.Params{{Key: "id", Value: "bad"}}
+	h.Analytics(c)
+	if w.Code == http.StatusOK {
+		t.Fatal("bad analytics id")
+	}
+	h2 := New(&stubSvc{err: response.NewError(response.CodeFeatureNoRollback, "none")})
+	w = withUser(h2.Rollback, http.MethodPost, "/api/v1/system/features/x/rollback", []byte(`{}`))
+	if w.Code == http.StatusOK {
+		t.Fatal("no snapshot")
 	}
 }
 

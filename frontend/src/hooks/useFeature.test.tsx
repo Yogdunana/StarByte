@@ -26,6 +26,15 @@ describe('mapEvaluate', () => {
     expect(got.flags['cms.public']).toBe(true);
     expect(got.flags['membership.portal']).toBe(false);
     expect(got.reasons['cms.public']).toBe('allowlist_hit');
+    expect(got.variants['cms.public']).toBe('');
+  });
+
+  it('maps AB variants', () => {
+    const got = mapEvaluate({
+      'exp.hero': { key: 'exp.hero', enabled: true, reason: 'variant_hit', variant: 'treatment' },
+    });
+    expect(got.flags['exp.hero']).toBe(true);
+    expect(got.variants['exp.hero']).toBe('treatment');
   });
 
   it('fails closed on empty payload', () => {

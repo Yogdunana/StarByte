@@ -56,20 +56,23 @@ type AuditQuery struct {
 }
 
 type FlagResponse struct {
-	ID          string      `json:"id"`
-	FlagKey     string      `json:"flag_key"`
-	Name        string      `json:"name"`
-	Description string      `json:"description"`
-	FlagType    string      `json:"flag_type"`
-	Enabled     bool        `json:"enabled"`
-	GroupName   string      `json:"group_name"`
-	Priority    int         `json:"priority"`
-	Rules       model.Rules `json:"rules"`
-	IsSystem    bool        `json:"is_system"`
-	CreatedBy   string      `json:"created_by,omitempty"`
-	UpdatedBy   string      `json:"updated_by,omitempty"`
-	CreatedAt   time.Time   `json:"created_at"`
-	UpdatedAt   time.Time   `json:"updated_at"`
+	ID               string      `json:"id"`
+	FlagKey          string      `json:"flag_key"`
+	Name             string      `json:"name"`
+	Description      string      `json:"description"`
+	FlagType         string      `json:"flag_type"`
+	Enabled          bool        `json:"enabled"`
+	EffectiveEnabled bool        `json:"effective_enabled"`
+	ScheduleState    string      `json:"schedule_state,omitempty"`
+	Environment      string      `json:"environment,omitempty"`
+	GroupName        string      `json:"group_name"`
+	Priority         int         `json:"priority"`
+	Rules            model.Rules `json:"rules"`
+	IsSystem         bool        `json:"is_system"`
+	CreatedBy        string      `json:"created_by,omitempty"`
+	UpdatedBy        string      `json:"updated_by,omitempty"`
+	CreatedAt        time.Time   `json:"created_at"`
+	UpdatedAt        time.Time   `json:"updated_at"`
 }
 
 type EvaluateResponse struct {
@@ -77,6 +80,26 @@ type EvaluateResponse struct {
 	Enabled bool   `json:"enabled"`
 	Reason  string `json:"reason"`
 	Type    string `json:"flag_type,omitempty"`
+	Variant string `json:"variant,omitempty"`
+}
+
+type AnalyticsQuery struct {
+	Days int `form:"days"`
+}
+
+type VariantCount struct {
+	Variant string `json:"variant"`
+	Count   int64  `json:"count"`
+	Enabled bool   `json:"enabled"`
+}
+
+type AnalyticsResponse struct {
+	FlagKey       string         `json:"flag_key"`
+	Days          int            `json:"days"`
+	Total         int64          `json:"total"`
+	EnabledCount  int64          `json:"enabled_count"`
+	DisabledCount int64          `json:"disabled_count"`
+	Variants      []VariantCount `json:"variants"`
 }
 
 type AuditResponse struct {

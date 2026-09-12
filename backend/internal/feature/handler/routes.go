@@ -33,9 +33,11 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, cache rbacService.Permission
 	read.GET("/audit", h.Audit)
 	read.GET("/:id", h.Get)
 	read.GET("/:id/evaluate", h.Evaluate)
+	read.GET("/:id/analytics", h.Analytics)
 
 	withPermission(g, "feature:create", cache).POST("", h.Create)
 	withPermission(g, "feature:update", cache).PUT("/:id", h.Update)
+	withPermission(g, "feature:update", cache).POST("/:id/rollback", h.Rollback)
 	withPermission(g, "feature:manage", cache).POST("/:id/toggle", h.Toggle)
 }
 

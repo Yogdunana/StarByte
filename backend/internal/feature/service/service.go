@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -43,6 +44,8 @@ type Service interface {
 	Enabled(ctx context.Context, key string, sub feature.Subject) bool
 	Resolve(ctx context.Context, userID uuid.UUID) (feature.Subject, error)
 	ListAudits(ctx context.Context, q dto.AuditQuery) ([]dto.AuditResponse, int64, error)
+	Rollback(ctx context.Context, actor, id uuid.UUID) (*dto.FlagResponse, error)
+	Analytics(ctx context.Context, id uuid.UUID, days int) (*dto.AnalyticsResponse, error)
 	StartHotReload(ctx context.Context) error
 }
 
@@ -53,6 +56,9 @@ type flagService struct {
 	roles           RoleLookup
 	users           UserLookup
 	perms           PermLookup
+	env             string
+	now             func() time.Time
+	tickEvery       time.Duration
 	mu              sync.RWMutex
 	memory          map[string]model.Flag
 	loaded          bool
@@ -66,13 +72,18 @@ func New(rows repo.Repository, store SnapshotStore, bus Broadcaster, roles RoleL
 	if bus == nil {
 		bus = NewMemoryBus()
 	}
-	return &flagService{rows: rows, store: store, bus: bus, roles: roles, users: users, perms: perms, memory: map[string]model.Flag{}}
+	return &flagService{
+		rows: rows, store: store, bus: bus, roles: roles, users: users, perms: perms,
+		env: normalizeEnv(os.Getenv("APP_ENV")), now: time.Now, tickEvery: 30 * time.Second,
+		memory: map[string]model.Flag{},
+	}
 }
 
 func (s *flagService) StartHotReload(ctx context.Context) error {
 	if err := s.reloadFromDB(ctx); err != nil {
 		return err
 	}
+	s.startScheduleLoop(ctx)
 	return s.bus.Subscribe(ctx, func(string) {
 		if err := s.reload(context.Background()); err != nil {
 			logCacheErr("reload", err)
@@ -87,7 +98,7 @@ func (s *flagService) List(ctx context.Context, q dto.ListQuery) ([]dto.FlagResp
 	}
 	out := make([]dto.FlagResponse, 0, len(rows))
 	for i := range rows {
-		out = append(out, dto.ToFlag(&rows[i]))
+		out = append(out, s.decorate(&rows[i]))
 	}
 	return out, total, nil
 }
@@ -97,7 +108,7 @@ func (s *flagService) Get(ctx context.Context, id uuid.UUID) (*dto.FlagResponse,
 	if err != nil {
 		return nil, err
 	}
-	resp := dto.ToFlag(row)
+	resp := s.decorate(row)
 	return &resp, nil
 }
 
@@ -119,7 +130,7 @@ func (s *flagService) Create(ctx context.Context, actor uuid.UUID, req *dto.Crea
 	if exist != nil {
 		return nil, response.NewError(response.CodeFeatureKeyExists, "开关键已存在")
 	}
-	now := time.Now()
+	now := s.clock()
 	row := &model.Flag{
 		ID: uuid.New(), FlagKey: key, Name: strings.TrimSpace(req.Name), Description: req.Description,
 		FlagType: req.FlagType, Enabled: req.Enabled, GroupName: strings.TrimSpace(req.GroupName),
@@ -131,7 +142,7 @@ func (s *flagService) Create(ctx context.Context, actor uuid.UUID, req *dto.Crea
 	}
 	s.audit(ctx, row, actor, model.ActionCreate, nil, row, "")
 	s.invalidate(ctx)
-	resp := dto.ToFlag(row)
+	resp := s.decorate(row)
 	return &resp, nil
 }
 
@@ -169,13 +180,13 @@ func (s *flagService) Update(ctx context.Context, actor, id uuid.UUID, req *dto.
 		return nil, err
 	}
 	row.UpdatedBy = &actor
-	row.UpdatedAt = time.Now()
+	row.UpdatedAt = s.clock()
 	if err := s.rows.Update(ctx, row); err != nil {
 		return nil, fmt.Errorf("update flag: %w", err)
 	}
 	s.audit(ctx, row, actor, model.ActionUpdate, &before, row, "")
 	s.invalidate(ctx)
-	resp := dto.ToFlag(row)
+	resp := s.decorate(row)
 	return &resp, nil
 }
 
@@ -195,13 +206,13 @@ func (s *flagService) Toggle(ctx context.Context, actor, id uuid.UUID, req *dto.
 		reason = strings.TrimSpace(req.Reason)
 	}
 	row.UpdatedBy = &actor
-	row.UpdatedAt = time.Now()
+	row.UpdatedAt = s.clock()
 	if err := s.rows.Update(ctx, row); err != nil {
 		return nil, fmt.Errorf("toggle flag: %w", err)
 	}
 	s.audit(ctx, row, actor, model.ActionToggle, &before, row, reason)
 	s.invalidate(ctx)
-	resp := dto.ToFlag(row)
+	resp := s.decorate(row)
 	return &resp, nil
 }
 
@@ -231,7 +242,8 @@ func (s *flagService) EvaluateID(ctx context.Context, id, userID uuid.UUID) (*dt
 		return nil, err
 	}
 	got := feature.Evaluate(row, sub)
-	return &dto.EvaluateResponse{Key: row.FlagKey, Enabled: got.Enabled, Reason: got.Reason, Type: row.FlagType}, nil
+	s.recordExposure(ctx, row, userID, got)
+	return toEval(row, got), nil
 }
 
 func (s *flagService) EvaluateMe(ctx context.Context, userID uuid.UUID, keys []string) (map[string]dto.EvaluateResponse, error) {
@@ -240,36 +252,63 @@ func (s *flagService) EvaluateMe(ctx context.Context, userID uuid.UUID, keys []s
 		return nil, err
 	}
 	staff := s.announcementStaff(ctx, userID)
-	if len(keys) == 0 {
-		keys = []string{model.KeyCMSPublic, model.KeyAnnouncementFeed, model.KeyMembershipPortal}
-	}
+	keys = sanitizeEvaluateKeys(keys)
 	out := make(map[string]dto.EvaluateResponse, len(keys))
 	for _, key := range keys {
-		key = strings.TrimSpace(key)
-		if key == "" {
-			continue
-		}
 		if key == model.KeyAnnouncementFeed && staff {
 			out[key] = dto.EvaluateResponse{Key: key, Enabled: true, Reason: "staff_bypass", Type: model.TypeBoolean}
 			continue
 		}
 		flag := s.lookup(ctx, key)
 		got := feature.Evaluate(flag, sub)
-		typ := ""
 		if flag != nil {
-			typ = flag.FlagType
+			s.recordExposure(ctx, flag, userID, got)
+			out[key] = *toEval(flag, got)
+			continue
 		}
-		out[key] = dto.EvaluateResponse{Key: key, Enabled: got.Enabled, Reason: got.Reason, Type: typ}
+		out[key] = dto.EvaluateResponse{Key: key, Enabled: got.Enabled, Reason: got.Reason}
 	}
 	return out, nil
 }
 
+func sanitizeEvaluateKeys(keys []string) []string {
+	if len(keys) == 0 {
+		return []string{model.KeyCMSPublic, model.KeyAnnouncementFeed, model.KeyMembershipPortal}
+	}
+	seen := make(map[string]struct{}, model.MaxEvaluateKeys)
+	out := make([]string, 0, min(len(keys), model.MaxEvaluateKeys))
+	for _, key := range keys {
+		key = strings.ToLower(strings.TrimSpace(key))
+		if key == "" || !keyPattern.MatchString(key) {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, key)
+		if len(out) >= model.MaxEvaluateKeys {
+			break
+		}
+	}
+	if len(out) == 0 {
+		return []string{model.KeyCMSPublic, model.KeyAnnouncementFeed, model.KeyMembershipPortal}
+	}
+	return out
+}
+
 func (s *flagService) Enabled(ctx context.Context, key string, sub feature.Subject) bool {
+	if sub.Environment == "" {
+		sub.Environment = s.env
+	}
+	if sub.Now.IsZero() {
+		sub.Now = s.clock()
+	}
 	return feature.Evaluate(s.lookup(ctx, key), sub).Enabled
 }
 
 func (s *flagService) Resolve(ctx context.Context, userID uuid.UUID) (feature.Subject, error) {
-	sub := feature.Subject{UserID: userID}
+	sub := feature.Subject{UserID: userID, Environment: s.env, Now: s.clock()}
 	if userID == uuid.Nil {
 		return sub, nil
 	}
@@ -340,6 +379,9 @@ func (s *flagService) lookup(ctx context.Context, key string) *model.Flag {
 			s.mu.RUnlock()
 		}
 	}
+	// Incomplete / stale snapshot must not hide a DB row. A finished load
+	// still does GetByKey so a partial Redis generation cannot fail-close
+	// cms.public; unknown keys do not trigger another full snapshot reload.
 	row, err := s.rows.GetByKey(ctx, key)
 	if err != nil || row == nil {
 		return nil
@@ -415,6 +457,7 @@ func (s *flagService) replaceMemory(flags []model.Flag) {
 }
 
 func (s *flagService) invalidate(ctx context.Context) {
+	// Rebuild from DB first so Set overwrites a stuck snapshot before peers Get.
 	ok, err := s.loadFromDB(ctx)
 	if err != nil {
 		logCacheErr("reload-db", err)
@@ -474,6 +517,9 @@ func (s *flagService) announcementStaff(ctx context.Context, userID uuid.UUID) b
 }
 
 func validateRules(flagType string, rules model.Rules) error {
+	if err := validateSharedRules(rules); err != nil {
+		return err
+	}
 	switch flagType {
 	case model.TypePercentage:
 		if rules.Percent < 0 || rules.Percent > 100 {
@@ -497,6 +543,170 @@ func validateRules(flagType string, rules model.Rules) error {
 				return response.NewError(response.CodeFeatureInvalidRule, "部门名单含无效 UUID")
 			}
 		}
+	case model.TypeABTest:
+		if err := validateAB(rules.Variants); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+func validateSharedRules(rules model.Rules) error {
+	seen := map[string]struct{}{}
+	for _, env := range rules.Environments {
+		env = strings.ToLower(strings.TrimSpace(env))
+		if env == "" {
+			continue
+		}
+		if !model.ValidEnv(env) {
+			return response.NewError(response.CodeFeatureInvalidRule, "环境仅支持 dev/test/prod")
+		}
+		if _, ok := seen[env]; ok {
+			return response.NewError(response.CodeFeatureInvalidRule, "环境列表重复")
+		}
+		seen[env] = struct{}{}
+	}
+	if rules.StartsAt != nil && rules.EndsAt != nil && !rules.StartsAt.Before(*rules.EndsAt) {
+		return response.NewError(response.CodeFeatureInvalidRule, "定时上线须早于下线")
+	}
+	return nil
+}
+
+func validateAB(variants []model.Variant) error {
+	if len(variants) < 2 {
+		return response.NewError(response.CodeFeatureInvalidRule, "AB 测试至少需要两个变体")
+	}
+	keys := map[string]struct{}{}
+	total := 0
+	for _, v := range variants {
+		key := strings.TrimSpace(v.Key)
+		if key == "" {
+			return response.NewError(response.CodeFeatureInvalidRule, "变体 key 不能为空")
+		}
+		if _, ok := keys[strings.ToLower(key)]; ok {
+			return response.NewError(response.CodeFeatureInvalidRule, "变体 key 重复")
+		}
+		keys[strings.ToLower(key)] = struct{}{}
+		if v.Weight < 0 {
+			return response.NewError(response.CodeFeatureInvalidRule, "变体权重不能为负")
+		}
+		total += v.Weight
+	}
+	if total <= 0 {
+		return response.NewError(response.CodeFeatureInvalidRule, "变体权重之和须大于 0")
+	}
+	return nil
+}
+
+func (s *flagService) Rollback(ctx context.Context, actor, id uuid.UUID) (*dto.FlagResponse, error) {
+	row, err := s.require(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	snap, err := s.rows.LatestMutableAudit(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("latest audit: %w", err)
+	}
+	if snap == nil || len(snap.BeforeJSON) == 0 {
+		return nil, response.NewError(response.CodeFeatureNoRollback, "没有可回滚的审计快照")
+	}
+	var prev model.Flag
+	if err := json.Unmarshal(snap.BeforeJSON, &prev); err != nil {
+		return nil, response.NewError(response.CodeFeatureNoRollback, "审计快照无法解析")
+	}
+	if err := validateRules(prev.FlagType, prev.Rules); err != nil {
+		return nil, err
+	}
+	before := *row
+	row.Name = prev.Name
+	row.Description = prev.Description
+	row.FlagType = prev.FlagType
+	row.Enabled = prev.Enabled
+	row.GroupName = prev.GroupName
+	row.Priority = prev.Priority
+	row.Rules = prev.Rules
+	row.UpdatedBy = &actor
+	row.UpdatedAt = s.clock()
+	if err := s.rows.Update(ctx, row); err != nil {
+		return nil, fmt.Errorf("rollback flag: %w", err)
+	}
+	s.audit(ctx, row, actor, model.ActionRollback, &before, row, snap.Action)
+	s.invalidate(ctx)
+	resp := s.decorate(row)
+	return &resp, nil
+}
+
+func (s *flagService) Analytics(ctx context.Context, id uuid.UUID, days int) (*dto.AnalyticsResponse, error) {
+	row, err := s.require(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if days <= 0 {
+		days = 7
+	}
+	if days > 90 {
+		days = 90
+	}
+	since := s.clock().Add(-time.Duration(days) * 24 * time.Hour)
+	buckets, err := s.rows.SummarizeExposures(ctx, row.FlagKey, since)
+	if err != nil {
+		return nil, fmt.Errorf("summarize exposures: %w", err)
+	}
+	out := &dto.AnalyticsResponse{FlagKey: row.FlagKey, Days: days, Variants: make([]dto.VariantCount, 0, len(buckets))}
+	for _, b := range buckets {
+		out.Variants = append(out.Variants, dto.VariantCount{Variant: b.Variant, Count: b.Count, Enabled: b.Enabled})
+		out.Total += b.Count
+		if b.Enabled {
+			out.EnabledCount += b.Count
+		} else {
+			out.DisabledCount += b.Count
+		}
+	}
+	return out, nil
+}
+
+func (s *flagService) decorate(flag *model.Flag) dto.FlagResponse {
+	out := dto.ToFlag(flag)
+	now := s.clock()
+	out.EffectiveEnabled = feature.MasterOn(flag, s.env, now)
+	out.ScheduleState = feature.ScheduleState(flag, now)
+	out.Environment = s.env
+	return out
+}
+
+func toEval(flag *model.Flag, got feature.Result) *dto.EvaluateResponse {
+	typ := ""
+	key := ""
+	if flag != nil {
+		typ = flag.FlagType
+		key = flag.FlagKey
+	}
+	return &dto.EvaluateResponse{Key: key, Enabled: got.Enabled, Reason: got.Reason, Type: typ, Variant: got.Variant}
+}
+
+func (s *flagService) recordExposure(ctx context.Context, flag *model.Flag, userID uuid.UUID, got feature.Result) {
+	if flag == nil || userID == uuid.Nil {
+		return
+	}
+	id := flag.ID
+	uid := userID
+	row := &model.Exposure{
+		ID: uuid.New(), FlagID: &id, FlagKey: flag.FlagKey, UserID: &uid,
+		Variant: got.Variant, Enabled: got.Enabled, Reason: got.Reason,
+		Environment: s.env, CreatedAt: s.clock(),
+	}
+	if err := s.rows.CreateExposure(ctx, row); err != nil {
+		logCacheErr("exposure", err)
+	}
+}
+
+func (s *flagService) clock() time.Time {
+	if s.now == nil {
+		return time.Now().UTC()
+	}
+	return s.now().UTC()
+}
+
+func normalizeEnv(env string) string {
+	return strings.ToLower(strings.TrimSpace(env))
 }
