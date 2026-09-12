@@ -23,11 +23,11 @@ func fixture() (*leaveService, *memRepo, uuid.UUID, uuid.UUID, uuid.UUID) {
 	mem := newMemRepo()
 	annual := model.LeaveType{
 		ID: uuid.New(), Name: "年假", Code: model.TypeAnnual,
-		Deductible: true, DefaultDays: 5,
+		Deductible: true, DefaultDays: 5, Enabled: true, SortOrder: 10,
 	}
 	personal := model.LeaveType{
 		ID: uuid.New(), Name: "事假", Code: model.TypePersonal,
-		Deductible: false, DefaultDays: 0,
+		Deductible: false, DefaultDays: 0, Enabled: true, SortOrder: 30,
 	}
 	mem.addType(annual)
 	mem.addType(personal)
@@ -344,12 +344,87 @@ func TestBalanceIDORAndStats(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, bals)
 
-	_, err = svc.Stats(ctx, applicantViewer(applicant))
+	_, err = svc.Stats(ctx, applicantViewer(applicant), 2026)
 	require.Error(t, err)
-	stats, err := svc.Stats(ctx, approverViewer(approver))
+	stats, err := svc.Stats(ctx, approverViewer(approver), 2026)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), stats.Total)
 	assert.Equal(t, int64(1), stats.ByStatus[model.ApprovalStatusPending])
+	assert.Equal(t, int64(0), stats.Personal.Total)
+	assert.NotEmpty(t, stats.ByMonth)
+
+	empty, err := svc.Stats(ctx, approverViewer(approver), 2025)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), empty.Total)
+	assert.Empty(t, empty.ByMonth)
+	assert.Empty(t, empty.Departments)
+}
+
+func TestStatsExcludeRejectedAndHonorYear(t *testing.T) {
+	svc, mem, applicant, approver, annualID := fixture()
+	ctx := context.Background()
+	app, err := svc.Submit(ctx, applicantViewer(applicant), submitReq(annualID, monday(), monday().Add(8*time.Hour)))
+	require.NoError(t, err)
+	require.NoError(t, svc.Reject(ctx, approverViewer(approver), uuid.MustParse(app.ID), "no"))
+
+	oldID := uuid.New()
+	oldStart := time.Date(2025, 6, 2, 9, 0, 0, 0, bizLocation())
+	mem.apps[oldID] = model.ApplicationNamed{
+		LeaveApplication: model.LeaveApplication{
+			ID: oldID, ApplicantID: applicant, LeaveTypeID: annualID,
+			StartTime: oldStart, EndTime: oldStart.Add(8 * time.Hour),
+			DurationDays: 1, Status: model.ApprovalStatusApproved,
+			LeaveType: mem.types[annualID],
+		},
+	}
+
+	self := Viewer{UserID: applicant, CanRead: true, CanApprove: true, Scope: &rbacModel.DataScopeCondition{}}
+	year2026, err := svc.Stats(ctx, self, 2026)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), year2026.Total)
+	assert.Equal(t, int64(1), year2026.ByStatus[model.ApprovalStatusRejected])
+	assert.Equal(t, int64(0), year2026.Personal.Total)
+	assert.Equal(t, 0.0, year2026.Personal.Days)
+	assert.Empty(t, year2026.Personal.ByType)
+	assert.Empty(t, year2026.ByMonth)
+
+	year2025, err := svc.Stats(ctx, self, 2025)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), year2025.Total)
+	assert.Equal(t, int64(1), year2025.Personal.Total)
+	assert.Equal(t, 1.0, year2025.Personal.Days)
+	require.Len(t, year2025.Personal.ByType, 1)
+	assert.Equal(t, int64(1), year2025.Personal.ByType[0].Count)
+	assert.Equal(t, 1.0, year2025.Personal.ByType[0].Days)
+
+	inbox, err := svc.Stats(ctx, self, 0)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), inbox.Total)
+	assert.Equal(t, int64(1), inbox.ByStatus[model.ApprovalStatusRejected])
+	assert.Equal(t, int64(1), inbox.ByStatus[model.ApprovalStatusApproved])
+	assert.Equal(t, int64(1), inbox.Personal.Total)
+	assert.Equal(t, 1.0, inbox.Personal.Days)
+}
+
+func TestRejectRestoresUsingDeductionSnapshot(t *testing.T) {
+	svc, mem, applicant, approver, annualID := fixture()
+	ctx := context.Background()
+	app, err := svc.Submit(ctx, applicantViewer(applicant), submitReq(annualID, monday(), monday().Add(8*time.Hour)))
+	require.NoError(t, err)
+	bals, err := svc.Balances(ctx, applicantViewer(applicant), "", 2026)
+	require.NoError(t, err)
+	assert.Equal(t, 4.0, findAnnual(bals, annualID).RemainingDays)
+
+	row := mem.types[annualID]
+	row.Deductible = false
+	mem.types[annualID] = row
+
+	require.NoError(t, svc.Reject(ctx, approverViewer(approver), uuid.MustParse(app.ID), "changed type"))
+	bals, err = svc.Balances(ctx, applicantViewer(applicant), "", 2026)
+	require.NoError(t, err)
+	assert.Equal(t, 5.0, findAnnual(bals, annualID).RemainingDays)
+	stored := mem.apps[uuid.MustParse(app.ID)]
+	assert.False(t, stored.BalanceDeducted)
 }
 
 func TestGetMissingAndUnknownType(t *testing.T) {
@@ -375,6 +450,100 @@ func TestDefaultPage(t *testing.T) {
 func mustTypes(mem *memRepo) []model.LeaveType {
 	rows, _ := mem.GetAllLeaveTypes(context.Background())
 	return rows
+}
+
+func TestCreateAndUpdateType(t *testing.T) {
+	svc, _, applicant, approver, _ := fixture()
+	ctx := context.Background()
+	_, err := svc.CreateType(ctx, applicantViewer(applicant), &dto.UpsertLeaveTypeRequest{Name: "婚假", Code: "marriage", DefaultDays: 3})
+	require.Error(t, err)
+	enabled := true
+	got, err := svc.CreateType(ctx, approverViewer(approver), &dto.UpsertLeaveTypeRequest{
+		Name: "婚假", Code: "Marriage", Deductible: false, DefaultDays: 3, Enabled: &enabled, SortOrder: 50,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "marriage", got.Code)
+	assert.True(t, got.Enabled)
+
+	disabled := false
+	got, err = svc.UpdateType(ctx, approverViewer(approver), uuid.MustParse(got.ID), &dto.UpsertLeaveTypeRequest{
+		Name: "婚假", Code: "marriage", Enabled: &disabled,
+	})
+	require.NoError(t, err)
+	assert.False(t, got.Enabled)
+	_, err = svc.Submit(ctx, applicantViewer(applicant), submitReq(uuid.MustParse(got.ID), monday(), monday().Add(time.Hour)))
+	require.Error(t, err)
+	assert.Equal(t, response.CodeLeaveTypeDisabled, err.(*response.AppError).Code)
+}
+
+func TestDepartmentApproverCannotMutateTypes(t *testing.T) {
+	svc, _, _, approver, annualID := fixture()
+	ctx := context.Background()
+	dept := uuid.New()
+	minister := deptViewer(approver, dept, true)
+	_, err := svc.CreateType(ctx, minister, &dto.UpsertLeaveTypeRequest{Name: "调休加码", Code: "bonus", Deductible: true, DefaultDays: 366})
+	require.Error(t, err)
+	assert.Equal(t, response.CodeLeaveNoAccess, err.(*response.AppError).Code)
+
+	enabled := false
+	_, err = svc.UpdateType(ctx, minister, annualID, &dto.UpsertLeaveTypeRequest{Name: "年假", Code: "annual", Enabled: &enabled})
+	require.Error(t, err)
+	assert.Equal(t, response.CodeLeaveNoAccess, err.(*response.AppError).Code)
+
+	_, err = svc.CreateType(ctx, Viewer{UserID: approver, CanApprove: true}, &dto.UpsertLeaveTypeRequest{Name: "无范围", Code: "noscope"})
+	require.Error(t, err)
+	assert.Equal(t, response.CodeLeaveNoAccess, err.(*response.AppError).Code)
+}
+
+func TestCalendarAndTodosAndAttachments(t *testing.T) {
+	svc, _, applicant, approver, annualID := fixture()
+	ctx := context.Background()
+	start := monday()
+	req := submitReq(annualID, start, start.Add(8*time.Hour))
+	req.Attachments = []dto.Attachment{{FileID: uuid.New().String(), Name: "note.pdf", Size: 12}}
+	app, err := svc.Submit(ctx, applicantViewer(applicant), req)
+	require.NoError(t, err)
+	require.Len(t, app.Attachments, 1)
+
+	cal, err := svc.Calendar(ctx, applicantViewer(applicant), &dto.ListLeaveRequest{From: "2026-09-01", To: "2026-09-30"})
+	require.NoError(t, err)
+	require.Len(t, cal, 1)
+
+	_, _, err = svc.ListTodos(ctx, applicantViewer(applicant), &dto.ListLeaveRequest{})
+	require.Error(t, err)
+	todos, total, err := svc.ListTodos(ctx, approverViewer(approver), &dto.ListLeaveRequest{})
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), total)
+	require.Len(t, todos, 1)
+}
+
+func TestListTodosOnlyAssignedWorkflowStage(t *testing.T) {
+	svc, mem, flow, applicant, minister, annualID := workflowFixture(t)
+	president := uuid.New()
+	mem.addUser(president, "社长")
+	ctx := context.Background()
+	app, err := svc.Submit(ctx, applicantViewer(applicant), submitReq(annualID, monday(), monday().Add(8*time.Hour)))
+	require.NoError(t, err)
+	id := uuid.MustParse(app.ID)
+	mem.assignTodo(id, minister)
+
+	mine, total, err := svc.ListTodos(ctx, approverViewer(minister), &dto.ListLeaveRequest{})
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), total)
+	require.Len(t, mine, 1)
+
+	theirs, total, err := svc.ListTodos(ctx, approverViewer(president), &dto.ListLeaveRequest{})
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), total)
+	assert.Empty(t, theirs)
+
+	require.NoError(t, svc.Approve(ctx, approverViewer(minister), id, "dept ok"))
+	assert.Equal(t, 1, flow.idx)
+	mem.assignees[id] = []uuid.UUID{president}
+	next, total, err := svc.ListTodos(ctx, approverViewer(president), &dto.ListLeaveRequest{})
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), total)
+	require.Len(t, next, 1)
 }
 
 func findAnnual(bals []*dto.LeaveBalanceResponse, id uuid.UUID) *dto.LeaveBalanceResponse {

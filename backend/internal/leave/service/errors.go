@@ -33,3 +33,15 @@ func overlap() error {
 func balanceMissing() error {
 	return response.NewError(response.CodeLeaveBalanceMissing, "未找到该类型的假期余额")
 }
+
+func typeDisabled() error {
+	return response.NewError(response.CodeLeaveTypeDisabled, "该请假类型已停用")
+}
+
+func typeInvalid(msg string) error {
+	return response.NewError(response.CodeLeaveTypeInvalid, msg)
+}
+
+func workflowUnavailable() error {
+	return response.NewError(response.CodeLeaveWorkflow, "请假审批流程未发布或引擎不可用")
+}

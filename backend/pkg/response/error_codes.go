@@ -324,6 +324,9 @@ const (
 	CodeLeaveTypeNotFound   = 30006 // 请假类型不存在
 	CodeLeaveOverlap        = 30007 // 请假时间重叠
 	CodeLeaveBalanceMissing = 30008 // 未找到假期余额
+	CodeLeaveTypeDisabled   = 30009 // 请假类型已停用
+	CodeLeaveTypeInvalid    = 30010 // 请假类型编码或名称不合法
+	CodeLeaveWorkflow       = 30011 // 请假流程引擎不可用或未发布
 
 	// ===== Monitor / ops dashboard (#87, 31000-31999) =====
 	CodeMonitorCollectFail = 31001 // 采集主机指标失败

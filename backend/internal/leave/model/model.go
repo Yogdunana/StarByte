@@ -16,6 +16,8 @@ type LeaveType struct {
 	Deductible  bool           `gorm:"not null;default:true" json:"deductible"`
 	DefaultDays float64        `gorm:"type:numeric(6,1);not null;default:0" json:"default_days"`
 	Description string         `gorm:"type:varchar(255)" json:"description"`
+	Enabled     bool           `gorm:"not null;default:true" json:"enabled"`
+	SortOrder   int            `gorm:"not null;default:0" json:"sort_order"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
@@ -40,23 +42,29 @@ type LeaveBalance struct {
 
 func (LeaveBalance) TableName() string { return "leave_balances" }
 
-// LeaveApplication 请假申请。提交即扣余额、驳回返还，与 #162 一致。
+// LeaveApplication 请假申请。提交时若类型当时可扣则预扣并记下 BalanceDeducted；
+// 驳回按该快照返还，不读当前类型 Deductible。
+// 新申请走 leave_approval 流程实例；历史记录 workflow_instance_id 为空时单级回退。
 type LeaveApplication struct {
-	ID            uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
-	ApplicantID   uuid.UUID      `gorm:"type:uuid;not null;index" json:"applicant_id"`
-	LeaveTypeID   uuid.UUID      `gorm:"type:uuid;not null" json:"leave_type_id"`
-	StartTime     time.Time      `gorm:"not null" json:"start_time"`
-	EndTime       time.Time      `gorm:"not null" json:"end_time"`
-	DurationDays  float64        `gorm:"type:numeric(6,1);not null" json:"duration_days"`
-	Reason        string         `gorm:"type:varchar(500)" json:"reason"`
-	Status        string         `gorm:"type:varchar(20);not null;default:pending;index" json:"status"`
-	ApproverID    *uuid.UUID     `gorm:"type:uuid" json:"approver_id,omitempty"`
-	ApproveRemark string         `gorm:"type:varchar(500)" json:"approve_remark"`
-	ApprovedAt    *time.Time     `json:"approved_at"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
-	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
-	LeaveType     LeaveType      `gorm:"foreignKey:LeaveTypeID" json:"leave_type,omitempty"`
+	ID                 uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
+	ApplicantID        uuid.UUID      `gorm:"type:uuid;not null;index" json:"applicant_id"`
+	LeaveTypeID        uuid.UUID      `gorm:"type:uuid;not null" json:"leave_type_id"`
+	StartTime          time.Time      `gorm:"not null" json:"start_time"`
+	EndTime            time.Time      `gorm:"not null" json:"end_time"`
+	DurationDays       float64        `gorm:"type:numeric(6,1);not null" json:"duration_days"`
+	Reason             string         `gorm:"type:varchar(500)" json:"reason"`
+	Status             string         `gorm:"type:varchar(20);not null;default:pending;index" json:"status"`
+	ApproverID         *uuid.UUID     `gorm:"type:uuid" json:"approver_id,omitempty"`
+	ApproveRemark      string         `gorm:"type:varchar(500)" json:"approve_remark"`
+	ApprovedAt         *time.Time     `json:"approved_at"`
+	WorkflowInstanceID *uuid.UUID     `gorm:"type:uuid" json:"workflow_instance_id,omitempty"`
+	WorkflowStage      string         `gorm:"type:varchar(32);not null;default:''" json:"workflow_stage"`
+	BalanceDeducted    bool           `gorm:"not null;default:false" json:"balance_deducted"`
+	Attachments        AttachmentList `gorm:"type:jsonb;not null;default:'[]'" json:"attachments"`
+	CreatedAt          time.Time      `json:"created_at"`
+	UpdatedAt          time.Time      `json:"updated_at"`
+	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
+	LeaveType          LeaveType      `gorm:"foreignKey:LeaveTypeID" json:"leave_type,omitempty"`
 }
 
 func (LeaveApplication) TableName() string { return "leave_applications" }

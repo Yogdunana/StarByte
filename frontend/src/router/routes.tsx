@@ -69,6 +69,7 @@ const AnnouncementListPage = lazy(() => import('@/pages/announcement/ListPage'))
 const AnnouncementDetailPage = lazy(() => import('@/pages/announcement/DetailPage'));
 const LeaveMyPage = lazy(() => import('@/pages/leave/MyPage'));
 const LeaveListPage = lazy(() => import('@/pages/leave/ListPage'));
+const LeaveStatsPage = lazy(() => import('@/pages/leave/StatsPage'));
 const MonitorPage = lazy(() => import('@/pages/monitor/MonitorPage'));
 const BackupPage = lazy(() => import('@/pages/backup/BackupPage'));
 const AboutUsPage = lazy(() => import('@/pages/public/AboutUsPage'));
@@ -418,7 +419,12 @@ const routes: AppRouteObject[] = [
           {
             path: 'list',
             element: lazyGuarded(LeaveListPage, 'leave:read'),
-            meta: { title: '请假审批', permission: 'leave:read' },
+            meta: { title: '请假待办', permission: 'leave:read' },
+          },
+          {
+            path: 'stats',
+            element: lazyGuarded(LeaveStatsPage, 'leave:read'),
+            meta: { title: '请假统计', permission: 'leave:read' },
           },
         ],
       },

@@ -14,3 +14,8 @@ export const LeaveStatuses: LeaveStatus[] = ['pending', 'approved', 'rejected'];
 export function leaveTypeLabel(t: TFunction, code: string, fallback: string): string {
   return t(`leave.type.${code}`, { defaultValue: fallback });
 }
+
+export function leaveStageLabel(t: TFunction, stage?: string): string {
+  if (!stage) return '';
+  return t(`leave.stage.${stage}`, { defaultValue: stage });
+}

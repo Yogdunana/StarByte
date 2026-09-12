@@ -15,8 +15,8 @@ func (s *leaveService) Submit(ctx context.Context, viewer Viewer, req *dto.Submi
 		return nil, typeNotFound()
 	}
 	var createdID uuid.UUID
-	err = s.rows.WithTx(ctx, func(tx repo.Repository) error {
-		id, txErr := s.submitInTx(ctx, tx, viewer.UserID, typeID, req)
+	err = s.withFlow(ctx, func(tx repo.Repository, flow LeaveFlow) error {
+		id, txErr := s.submitInTx(ctx, tx, flow, viewer.UserID, typeID, req)
 		createdID = id
 		return txErr
 	})
@@ -26,7 +26,61 @@ func (s *leaveService) Submit(ctx context.Context, viewer Viewer, req *dto.Submi
 	return s.Get(ctx, viewer, createdID)
 }
 
-func (s *leaveService) submitInTx(ctx context.Context, tx repo.Repository, applicantID, typeID uuid.UUID, req *dto.SubmitLeaveRequest) (uuid.UUID, error) {
+func (s *leaveService) withFlow(ctx context.Context, fn func(repo.Repository, LeaveFlow) error) error {
+	var deliver func(context.Context)
+	err := s.rows.WithTx(ctx, func(tx repo.Repository) error {
+		var flow LeaveFlow
+		if s.engine != nil {
+			bound, flush, bindErr := s.engine.BindTransaction(tx.DB())
+			if bindErr != nil {
+				return bindErr
+			}
+			flow = bound
+			deliver = flush
+		}
+		return fn(tx, flow)
+	})
+	if err == nil && deliver != nil {
+		deliver(ctx)
+	}
+	return err
+}
+
+func (s *leaveService) startWorkflow(ctx context.Context, tx repo.Repository, flow LeaveFlow, app *model.LeaveApplication, applicantID uuid.UUID) error {
+	if s.engine == nil {
+		return nil
+	}
+	if flow == nil {
+		return workflowUnavailable()
+	}
+	dept, err := tx.GetUserDepartmentID(ctx, applicantID)
+	if err != nil {
+		return err
+	}
+	vars := map[string]interface{}{
+		"application_id": app.ID.String(),
+		"applicant":      applicantID.String(),
+		"leave_type":     app.LeaveTypeID.String(),
+	}
+	if dept != nil {
+		vars["department_id"] = dept.String()
+	}
+	inst, err := flow.Start(ctx, "leave_approval", app.ID.String(), "leave_application", applicantID, vars)
+	if err != nil {
+		return err
+	}
+	app.WorkflowInstanceID = &inst.ID
+	nodeID, done, err := flow.RunningApprovalNode(ctx, inst.ID)
+	if err != nil {
+		return err
+	}
+	if !done {
+		app.WorkflowStage = nodeID
+	}
+	return tx.SaveApplication(ctx, app)
+}
+
+func (s *leaveService) submitInTx(ctx context.Context, tx repo.Repository, flow LeaveFlow, applicantID, typeID uuid.UUID, req *dto.SubmitLeaveRequest) (uuid.UUID, error) {
 	if err := tx.LockApplicant(ctx, applicantID); err != nil {
 		return uuid.Nil, err
 	}
@@ -36,6 +90,13 @@ func (s *leaveService) submitInTx(ctx context.Context, tx repo.Repository, appli
 	}
 	if leaveType == nil {
 		return uuid.Nil, typeNotFound()
+	}
+	if !leaveType.Enabled {
+		return uuid.Nil, typeDisabled()
+	}
+	attachments, err := parseAttachments(req.Attachments)
+	if err != nil {
+		return uuid.Nil, err
 	}
 	if !req.StartTime.Before(req.EndTime) {
 		return uuid.Nil, invalidTime("开始时间必须早于结束时间")
@@ -65,18 +126,23 @@ func (s *leaveService) submitInTx(ctx context.Context, tx repo.Repository, appli
 	}
 
 	app := &model.LeaveApplication{
-		ID:           uuid.New(),
-		ApplicantID:  applicantID,
-		LeaveTypeID:  typeID,
-		StartTime:    req.StartTime,
-		EndTime:      req.EndTime,
-		DurationDays: durationDays,
-		Reason:       req.Reason,
-		Status:       model.ApprovalStatusPending,
-		CreatedAt:    s.clock(),
-		UpdatedAt:    s.clock(),
+		ID:              uuid.New(),
+		ApplicantID:     applicantID,
+		LeaveTypeID:     typeID,
+		StartTime:       req.StartTime,
+		EndTime:         req.EndTime,
+		DurationDays:    durationDays,
+		Reason:          req.Reason,
+		Status:          model.ApprovalStatusPending,
+		BalanceDeducted: leaveType.Deductible,
+		Attachments:     attachments,
+		CreatedAt:       s.clock(),
+		UpdatedAt:       s.clock(),
 	}
 	if err := tx.CreateLeaveApplication(ctx, app); err != nil {
+		return uuid.Nil, err
+	}
+	if err := s.startWorkflow(ctx, tx, flow, app, applicantID); err != nil {
 		return uuid.Nil, err
 	}
 	return app.ID, nil

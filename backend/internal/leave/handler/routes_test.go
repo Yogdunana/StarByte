@@ -66,9 +66,25 @@ func (f *fakeSvc) Balances(_ context.Context, v service.Viewer, _ string, _ int)
 	f.lastViewer = v
 	return nil, nil
 }
-func (f *fakeSvc) Stats(_ context.Context, v service.Viewer) (*dto.LeaveStatsResponse, error) {
+func (f *fakeSvc) Stats(_ context.Context, v service.Viewer, _ int) (*dto.LeaveStatsResponse, error) {
 	f.lastViewer = v
 	return &dto.LeaveStatsResponse{Total: 2}, nil
+}
+func (f *fakeSvc) ListTodos(_ context.Context, v service.Viewer, _ *dto.ListLeaveRequest) ([]*dto.LeaveApplicationResponse, int64, error) {
+	f.lastViewer = v
+	return []*dto.LeaveApplicationResponse{{ID: "todo"}}, 1, nil
+}
+func (f *fakeSvc) Calendar(_ context.Context, v service.Viewer, _ *dto.ListLeaveRequest) ([]*dto.LeaveApplicationResponse, error) {
+	f.lastViewer = v
+	return []*dto.LeaveApplicationResponse{{ID: "cal"}}, nil
+}
+func (f *fakeSvc) CreateType(_ context.Context, v service.Viewer, _ *dto.UpsertLeaveTypeRequest) (*dto.LeaveTypeResponse, error) {
+	f.lastViewer = v
+	return &dto.LeaveTypeResponse{Code: "marriage"}, nil
+}
+func (f *fakeSvc) UpdateType(_ context.Context, v service.Viewer, _ uuid.UUID, _ *dto.UpsertLeaveTypeRequest) (*dto.LeaveTypeResponse, error) {
+	f.lastViewer = v
+	return &dto.LeaveTypeResponse{Code: "marriage"}, nil
 }
 
 func setupLeaveRouter(t *testing.T, svc *fakeSvc, perms []string) (*gin.Engine, uuid.UUID) {
@@ -108,6 +124,18 @@ func TestRoutes_TypesAndStatsNotCapturedByID(t *testing.T) {
 	}
 	if env.Data.Total != 2 {
 		t.Fatalf("stats total %d", env.Data.Total)
+	}
+
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/leave/calendar?from=2026-09-01&to=2026-09-30", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("calendar status %d body=%s", w.Code, w.Body.String())
+	}
+
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/leave/todos", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("todos status %d body=%s", w.Code, w.Body.String())
 	}
 }
 

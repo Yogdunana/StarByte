@@ -3,6 +3,12 @@ import type { PageResponse } from '@/types/api';
 
 export type LeaveStatus = 'pending' | 'approved' | 'rejected';
 
+export interface LeaveAttachment {
+  file_id: string;
+  name: string;
+  size: number;
+}
+
 export interface LeaveType {
   id: string;
   name: string;
@@ -10,6 +16,8 @@ export interface LeaveType {
   deductible: boolean;
   default_days: number;
   description: string;
+  enabled: boolean;
+  sort_order: number;
 }
 
 export interface LeavePerson {
@@ -26,6 +34,9 @@ export interface LeaveApplication {
   duration_days: number;
   reason: string;
   status: LeaveStatus;
+  workflow_instance_id?: string;
+  workflow_stage?: string;
+  attachments?: LeaveAttachment[];
   approver?: LeavePerson;
   approve_remark?: string;
   approved_at?: string;
@@ -48,6 +59,17 @@ export interface SubmitLeaveParams {
   start_time: string;
   end_time: string;
   reason: string;
+  attachments?: LeaveAttachment[];
+}
+
+export interface UpsertLeaveTypeParams {
+  name: string;
+  code: string;
+  deductible: boolean;
+  default_days: number;
+  description?: string;
+  enabled?: boolean;
+  sort_order?: number;
 }
 
 export interface ListLeaveParams {
@@ -56,16 +78,29 @@ export interface ListLeaveParams {
   status?: LeaveStatus | '';
   user_id?: string;
   year?: number;
+  from?: string;
+  to?: string;
 }
 
 export interface LeaveStats {
   total: number;
   by_status: Record<string, number>;
   by_type: { leave_type_id: string; code: string; name: string; count: number; days: number }[];
+  personal: { total: number; days: number; by_type: LeaveStats['by_type'] };
+  departments: { department_id: string; department_name: string; count: number; days: number }[];
+  by_month: { month: string; count: number; days: number }[];
 }
 
 export function getLeaveTypes(): Promise<LeaveType[]> {
   return request.get('/leave/types');
+}
+
+export function createLeaveType(data: UpsertLeaveTypeParams): Promise<LeaveType> {
+  return request.post('/leave/types', data);
+}
+
+export function updateLeaveType(id: string, data: UpsertLeaveTypeParams): Promise<LeaveType> {
+  return request.put(`/leave/types/${id}`, data);
 }
 
 export function getMyLeaveList(params?: ListLeaveParams): Promise<PageResponse<LeaveApplication>> {
@@ -74,6 +109,14 @@ export function getMyLeaveList(params?: ListLeaveParams): Promise<PageResponse<L
 
 export function getLeaveList(params?: ListLeaveParams): Promise<PageResponse<LeaveApplication>> {
   return request.get('/leave', { params });
+}
+
+export function getLeaveTodos(params?: ListLeaveParams): Promise<PageResponse<LeaveApplication>> {
+  return request.get('/leave/todos', { params });
+}
+
+export function getLeaveCalendar(params?: ListLeaveParams): Promise<LeaveApplication[]> {
+  return request.get('/leave/calendar', { params });
 }
 
 export function getLeaveDetail(id: string): Promise<LeaveApplication> {
@@ -96,6 +139,6 @@ export function getLeaveBalances(params?: { user_id?: string; year?: number }): 
   return request.get('/leave/balance', { params });
 }
 
-export function getLeaveStats(): Promise<LeaveStats> {
-  return request.get('/leave/stats');
+export function getLeaveStats(params?: { year?: number }): Promise<LeaveStats> {
+  return request.get('/leave/stats', { params });
 }
