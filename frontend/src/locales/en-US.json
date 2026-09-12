@@ -750,7 +750,7 @@
   "task": {
     "engine": {
       "title": "Task review progress",
-      "hint": "New tasks use publish → claim/assign → execute → review → accept. Edit the task_lifecycle definition in the designer to publish a new version. Timeout escalation and extra auto-assign strategies are follow-ups.",
+      "hint": "New tasks use publish → claim/assign → execute → review → accept. Department, role, and round-robin auto-assign, timeout escalation, and delegate/transfer are available. Edit the task_lifecycle definition in the designer to publish a new version.",
       "viewFlow": "Open workflow instance",
       "refresh": "Refresh progress",
       "comment": "Delivery note or review comment",
@@ -772,6 +772,12 @@
       "waitingAssignee": "Waiting for an assignee",
       "assignmentMode": "Assignment",
       "assignmentManual": "Manual / claim",
+      "assignment": {
+        "manual": "Manual / claim",
+        "department": "Department · fewest open tasks",
+        "role": "Role · fewest open tasks",
+        "round_robin": "Round-robin"
+      },
       "submission": "Delivery note",
       "submissionEmpty": "The assignee has not submitted a delivery note",
       "steps": {
@@ -781,6 +787,55 @@
         "acceptance": "Accept",
         "completed": "Done"
       }
+    },
+    "handover": {
+      "title": "Transfer approval",
+      "delegateTitle": "Delegate to someone else",
+      "target": "Recipient",
+      "targetRequired": "Choose a recipient",
+      "reason": "Reason for the handover",
+      "reasonRequired": "Explain what the recipient should take over",
+      "submit": "Submit delegate / transfer",
+      "submitted": "Handover submitted",
+      "comment": "Signature comment",
+      "commentRequired": "Enter a signature comment",
+      "approve": "Approve transfer",
+      "reject": "Reject transfer",
+      "signed": "Transfer signed",
+      "rejected": "Transfer rejected",
+      "waived": "Signed by a superior",
+      "loadFailed": "Failed to load the handover. Refresh and try again.",
+      "kind": {
+        "internal": "Same-department delegate",
+        "department": "Cross-department transfer",
+        "center": "Cross-center transfer"
+      },
+      "status": {
+        "pending": "Waiting for signatures",
+        "completed": "Handover completed",
+        "rejected": "Rejected",
+        "cancelled": "Cancelled"
+      },
+      "requirement": {
+        "supervisor": "Department lead",
+        "source_minister": "Source department minister",
+        "target_minister": "Target department minister",
+        "source_center": "Source center lead",
+        "target_center": "Target center lead"
+      }
+    },
+    "form": {
+      "assignmentMode": "Assignment mode",
+      "assignmentExtra": "Auto-assign stays inside the task department and skips reviewers, acceptors, and disabled accounts.",
+      "manual": "Manual / assign later",
+      "department": "Department · fewest open tasks",
+      "role": "Role · fewest open tasks",
+      "roundRobin": "Round-robin in the department",
+      "roleLabel": "Assignment role",
+      "roleRequired": "Choose an assignment role",
+      "roleSearch": "Search role names",
+      "roundRobinExtra": "Optional. Leave empty to rotate across the whole department.",
+      "roleFailed": "Could not load roles. Search again by name."
     }
   },
   "feature": {

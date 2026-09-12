@@ -750,7 +750,7 @@
   "task": {
     "engine": {
       "title": "任务审批进度",
-      "hint": "新任务走默认发布 → 认领/分配 → 执行 → 审核 → 验收链。可在流程设计器编辑 task_lifecycle 后发布新版本。超时升级与轮询分配属后续迭代。",
+      "hint": "新任务走默认发布 → 认领/分配 → 执行 → 审核 → 验收链。支持部门/角色/轮询自动分配、超时升级与委托转办。可在流程设计器编辑 task_lifecycle 后发布新版本。",
       "viewFlow": "查看流程实例",
       "refresh": "刷新进度",
       "comment": "交付说明或审批意见",
@@ -772,6 +772,12 @@
       "waitingAssignee": "等待指定执行人",
       "assignmentMode": "分配方式",
       "assignmentManual": "手动指定 / 认领",
+      "assignment": {
+        "manual": "手动指定 / 认领",
+        "department": "部门内 · 待办较少优先",
+        "role": "指定角色 · 待办较少优先",
+        "round_robin": "轮流分配"
+      },
       "submission": "交付说明",
       "submissionEmpty": "执行人尚未提交交付说明",
       "steps": {
@@ -781,6 +787,55 @@
         "acceptance": "验收",
         "completed": "完成"
       }
+    },
+    "handover": {
+      "title": "转办签字",
+      "delegateTitle": "委托给其他人",
+      "target": "接手人",
+      "targetRequired": "请选择接手人",
+      "reason": "委托或转办原因",
+      "reasonRequired": "请说明需要接手的内容和原因",
+      "submit": "提交委托 / 转办",
+      "submitted": "已提交委托或转办",
+      "comment": "签字意见",
+      "commentRequired": "请填写签字意见",
+      "approve": "同意转办",
+      "reject": "拒绝转办",
+      "signed": "已签署转办",
+      "rejected": "已拒绝转办",
+      "waived": "上级代签",
+      "loadFailed": "转办进度加载失败，请刷新后重试。",
+      "kind": {
+        "internal": "同部门委托",
+        "department": "跨部门转办",
+        "center": "跨中心转办"
+      },
+      "status": {
+        "pending": "待负责人签字",
+        "completed": "已完成交接",
+        "rejected": "已拒绝",
+        "cancelled": "已取消"
+      },
+      "requirement": {
+        "supervisor": "部门负责人",
+        "source_minister": "转出部门部长",
+        "target_minister": "转入部门部长",
+        "source_center": "转出中心负责人",
+        "target_center": "转入中心负责人"
+      }
+    },
+    "form": {
+      "assignmentMode": "分配方式",
+      "assignmentExtra": "自动分配限任务所属部门，并排除审核人、验收人和停用账号。",
+      "manual": "手动指定 / 稍后分配",
+      "department": "部门内 · 优先分给待办较少的人",
+      "role": "指定角色 · 优先分给待办较少的人",
+      "roundRobin": "轮流分配 · 按队列依次接单",
+      "roleLabel": "分配角色",
+      "roleRequired": "请选择分配角色",
+      "roleSearch": "搜索角色名称",
+      "roundRobinExtra": "可选。不限制时，在整个部门的可用成员中轮流分配。",
+      "roleFailed": "角色加载失败，请重新输入名称搜索"
     }
   },
   "feature": {

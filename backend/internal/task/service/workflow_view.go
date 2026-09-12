@@ -52,11 +52,26 @@ func (s *taskService) GetWorkflow(ctx context.Context, id, actor uuid.UUID) (*dt
 	out.CanStart = executable && t.Status == model.StatusPending
 	out.CanPause = executable && t.Status == model.StatusDoing
 	out.CanResume = executable && t.Status == model.StatusHeld
-	out.CanSubmit = t.WorkflowStage == "execution" && t.Status == model.StatusDoing && t.AssigneeID != nil && *t.AssigneeID == actor
+	out.CanSubmit = executable && t.Status == model.StatusDoing
 	out.CanApprove = !model.IsClosed(t.Status) && ((t.WorkflowStage == "review" && t.ReviewerID != nil && *t.ReviewerID == actor) || (t.WorkflowStage == "acceptance" && t.AcceptorID != nil && *t.AcceptorID == actor))
 	out.CanReturn = out.CanApprove
 	out.CanReject = out.CanApprove
 	out.CanClaim = t.WorkflowStage == "assignment" && t.AssigneeID == nil && !model.IsClosed(t.Status) && validateWorkflowAssignee(t, &actor) == nil
+	out.CanDelegate = executable && !model.IsClosed(t.Status)
+	if pending, err := s.pendingTransfer(ctx, id); err != nil {
+		return nil, err
+	} else if pending != nil {
+		out.CanDelegate = false
+		out.CanStart = false
+		out.CanPause = false
+		out.CanResume = false
+		out.CanSubmit = false
+		handover, err := s.handoverSnapshot(ctx, t, pending, actor)
+		if err != nil {
+			return nil, err
+		}
+		out.Handover = handover
+	}
 	logs, err := s.logs.ListByTask(ctx, id)
 	if err != nil {
 		return nil, err

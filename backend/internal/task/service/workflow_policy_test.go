@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -24,6 +25,9 @@ type workflowStub struct {
 	calls      []checkpointCall
 	fail       error
 	terminated bool
+	next       uuid.UUID
+	overdue    []engine.OverdueCollaborationTodo
+	done       bool
 }
 
 func (w *workflowStub) Start(context.Context, string, string, string, uuid.UUID, map[string]interface{}) (*wfmodel.FlowInstance, error) {
@@ -31,6 +35,9 @@ func (w *workflowStub) Start(context.Context, string, string, string, uuid.UUID,
 	return &wfmodel.FlowInstance{ID: uuid.New()}, w.fail
 }
 func (w *workflowStub) BusinessStage(context.Context, uuid.UUID) (string, bool, error) {
+	if w.done {
+		return "", true, w.fail
+	}
 	return w.stage, w.stage == "completed", w.fail
 }
 func (w *workflowStub) TaskCheckpoint(_ context.Context, _ uuid.UUID, stage string, actor uuid.UUID, action, comment string) error {
@@ -337,4 +344,23 @@ func (w *workflowStub) CompleteTaskTransferApproval(context.Context, uuid.UUID, 
 }
 func (w *workflowStub) ReassignTaskExecution(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, string) error {
 	return w.fail
+}
+func (w *workflowStub) ReassignStage(_ context.Context, _ uuid.UUID, stage string, _, next, operator uuid.UUID, _ string) error {
+	if w.fail != nil {
+		return w.fail
+	}
+	w.calls = append(w.calls, checkpointCall{stage, "reassign", operator})
+	w.next = next
+	return nil
+}
+func (w *workflowStub) TransferTaskExecution(_ context.Context, _ uuid.UUID, from, to uuid.UUID, _ string) error {
+	if w.fail != nil {
+		return w.fail
+	}
+	w.calls = append(w.calls, checkpointCall{"execution", "delegate", from})
+	w.next = to
+	return nil
+}
+func (w *workflowStub) ListOverdueCollaborationTodos(context.Context, time.Time) ([]engine.OverdueCollaborationTodo, error) {
+	return w.overdue, w.fail
 }

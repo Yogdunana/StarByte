@@ -27,7 +27,7 @@ func taskCapabilities(ctx context.Context, t *model.Task, out *dto.TaskResponse)
 		out.CanUpdate = out.CanUpdate && (t.WorkflowStage == "assignment" || t.WorkflowStage == "execution")
 		out.CanDelete = out.CanDelete && !live
 		out.CanAssign = out.CanAssign && t.WorkflowStage == "assignment" && t.CreatorID == v.ID
-		out.CanTransfer = false
+		out.CanTransfer = live && t.WorkflowStage == "execution" && t.AssigneeID != nil && *t.AssigneeID == v.ID && can("task:transfer")
 		out.CanCancel = out.CanCancel && t.CreatorID == v.ID
 	}
 	out.CanUrge = live && t.CreatorID == v.ID && t.AssigneeID != nil && can("task:create")

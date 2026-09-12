@@ -84,3 +84,19 @@ func TestTaskGraphCannotSkipReviewOrAcceptance(t *testing.T) {
 		}
 	}
 }
+
+func TestTaskTransferGraphsMatchPublishedKeys(t *testing.T) {
+	for _, kind := range []string{"internal", "department", "center"} {
+		key := TaskTransferDefinitionKey(kind)
+		graph, err := ParseGraph(TaskTransferBPMN(kind))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := ValidateBusinessDefinition(key, graph); err != nil {
+			t.Fatalf("%s: %v", kind, err)
+		}
+	}
+	if TaskTransferDefinitionKey("unknown") != "" || len(TaskTransferBPMN("unknown")) < 10 {
+		t.Fatal("unknown transfer kind produced a real definition")
+	}
+}

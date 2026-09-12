@@ -8,6 +8,7 @@ type HandoverRequest struct {
 	Revision int64  `json:"revision" binding:"required,min=1"`
 }
 type HandoverDecision struct {
+	TransferID  string `json:"transfer_id" binding:"omitempty,uuid"`
 	Requirement string `json:"requirement" binding:"required"`
 	Decision    string `json:"decision" binding:"required,oneof=approve reject"`
 	Comment     string `json:"comment" binding:"required,max=2000"`

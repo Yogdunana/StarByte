@@ -137,13 +137,13 @@ POST /api/v1/contracts
 - 入会：`/member/applications`、审核 approve/reject/supplement（新申请走 `member_application` 流程实例）、`/member/profiles`
 - 面试：`/interviews`、sessions、evaluations、stats
 - 会议：`/meetings`、attendees、agendas、votes
-- 任务：`/tasks`、指派/转交/评论/附件、`/tasks/my/*`；开启审核验收的新任务走 `task_lifecycle` 流程实例（`GET|POST /tasks/:id/workflow`，拒绝终止实例）
+- 任务：`/tasks`、指派/转交/评论/附件、`/tasks/my/*`；开启审核验收的新任务走 `task_lifecycle` 流程实例（`GET|POST /tasks/:id/workflow`，拒绝终止实例）。委托/转办：`POST /tasks/:id/transfer` 或 `POST /tasks/:id/handover`（同部门直接委托，跨部门/中心走 `task_transfer_*` 签字）；`GET /tasks/:id/handover`、`POST /tasks/:id/handover/decisions`（body 须带 `transfer_id`）、`GET|POST /tasks/transfers/:id`。创建时可按部门/角色/轮询自动分配。超时由调度扫描流程待办 `dueDays` 并升级/重新分配。
 - 实习：`/internships`、complete/report、stats
 - 请假：`GET|POST /leave`、`GET /leave/my`、`GET /leave/types`、`POST /leave/types`、`PUT /leave/types/:id`、`GET /leave/balance`、`GET /leave/stats`、`GET /leave/calendar`、`GET /leave/todos`、`PUT /leave/:id/approve|reject`；新申请走 `leave_approval` 流程实例（部长→社长），历史记录无实例时单级回退
 
 ### 流程 / 表单 / 文件 / 通知 / 统计
 
-- 流程定义与实例：`/workflow/definitions`、`/workflow/instances`、`/workflow/tasks`
+- 流程定义与实例：`/workflow/definitions`、`/workflow/instances`、`/workflow/tasks`；任务转办待办 `business_type=task_transfer` 须在任务面板签字，不能走通用 CompleteTask
 - 表单：`/forms`、submit、submissions
 - 文件：`POST /files/upload`、`GET /files/:id/download`
 - 通知：`/notifications`、模板、邮件

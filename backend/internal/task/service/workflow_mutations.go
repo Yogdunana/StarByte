@@ -30,19 +30,12 @@ func (s *taskService) workflowAssignment(ctx context.Context, t *model.Task, act
 	}
 	return s.projectWorkflow(ctx, t)
 }
-func (s *taskService) workflowTransfer(ctx context.Context, t *model.Task, actor, target uuid.UUID, reason string) error {
+func (s *taskService) workflowTransfer(ctx context.Context, t *model.Task, actor, target uuid.UUID, reason string) (applied bool, err error) {
 	if t.WorkflowInstanceID == nil {
-		return nil
+		return true, nil
 	}
-	if t.WorkflowStage != "execution" || t.AssigneeID == nil || *t.AssigneeID != actor {
-		return response.NewError(response.CodeForbidden, "仅执行环节的当前执行人可申请转办")
-	}
-	if err := validateWorkflowAssignee(t, &target); err != nil {
-		return err
-	}
-	// Both same-department and cross-department handovers require a leader
-	// signature under the approved specification. Never silently bypass it.
-	return response.NewError(response.CodeConflict, "流程任务转办需要负责人签字，当前转办审批配置尚未完成")
+	_, err = s.requestHandover(ctx, t, actor, &dto.HandoverRequest{TargetID: target.String(), Reason: reason, Revision: t.WorkflowRevision})
+	return false, err
 }
 func (s *taskService) workflowStatus(ctx context.Context, t *model.Task, actor uuid.UUID, req *dto.StatusRequest) error {
 	if t.WorkflowInstanceID == nil {

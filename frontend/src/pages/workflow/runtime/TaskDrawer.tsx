@@ -6,6 +6,7 @@ import { selectCurrentUser } from '@/store/slices/userSlice';
 import { decideWorkflowTask, getWorkflowCandidates, getWorkflowHistory, getWorkflowTask, rollbackWorkflowTask, transferWorkflowTask, type WorkflowHistory, type WorkflowPerson, type WorkflowTask } from '@/api/workflowRuntime';
 import HistoryTimeline from './HistoryTimeline';
 import AdmissionTask from './AdmissionTask';
+import HandoverPanel from '@/pages/task/HandoverPanel';
 import { dateLabel, taskLabels } from './meta';
 import styles from './Runtime.module.css';
 interface Props { id: string | null; onClose: () => void; onChanged: () => void }
@@ -60,7 +61,7 @@ export default function TaskDrawer({ id, onClose, onChanged }: Props) {
     finally { setBusy(false); }
   };
   const targets = [...new Map(history.filter(item => item.action === 'approve' && item.node_id !== task?.node_id).map(item => [item.node_id, { value: item.node_id, label: item.node_name }])).values()];
-  const canAct = task?.business_type !== 'member_application' && task?.business_type !== 'collaboration_task' && task?.status === 0 && task.instance_status === 0 && task.assignee_id === user?.id;
+  const canAct = task?.business_type !== 'member_application' && task?.business_type !== 'collaboration_task' && task?.business_type !== 'task_transfer' && task?.status === 0 && task.instance_status === 0 && task.assignee_id === user?.id;
   return <Drawer open={!!id} title={task?.node_name || '审批待办'} onClose={onClose} width="min(600px, 100vw)" destroyOnClose>
     {loading ? <Skeleton active paragraph={{ rows: 8 }} /> : failed ? <Alert type="warning" showIcon message="任务或操作记录暂不可用" action={<Button onClick={() => void load()}>重试</Button>} /> : task && <>
       <Space wrap><Tag color={task.status === 0 ? 'gold' : 'green'}>{taskLabels[task.status]}</Tag><strong>{task.definition_name || '审批流程'}</strong></Space>
@@ -72,6 +73,7 @@ export default function TaskDrawer({ id, onClose, onChanged }: Props) {
       ]} />
       {task.instance_status === 3 && <Alert showIcon type="info" message="流程已挂起，恢复后才能继续处理" />}
       {task.business_type === 'collaboration_task' && <TaskWorkflowPanel taskId={task.business_key} onChanged={() => { onChanged(); onClose(); }} />}
+      {task.business_type === 'task_transfer' && <HandoverPanel transferId={task.business_key} onChanged={() => { onChanged(); onClose(); }} />}
       {task.business_type === 'member_application' && <AdmissionTask applicationId={task.business_key} instanceId={task.instance_id} onChanged={() => { onChanged(); onClose(); }} />}
       {canAct && <Form form={form} layout="vertical" initialValues={{ action: 'approve' }} onFinish={values => void submit(values)} className={styles.form}>
         <Form.Item name="action" label="处理方式" rules={[{ required: true }]}><Select options={[{ value: 'approve', label: '同意' }, { value: 'reject', label: '拒绝' }, { value: 'transfer', label: '转办给其他人' }, ...(targets.length ? [{ value: 'rollback', label: '退回已审批环节' }] : [])]} /></Form.Item>

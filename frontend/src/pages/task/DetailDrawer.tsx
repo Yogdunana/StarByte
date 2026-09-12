@@ -13,7 +13,7 @@ import AssignmentModal from './AssignmentModal';
 import WorkflowPanel from './WorkflowPanel';
 import styles from './TaskWorkspace.module.css';
 interface Props { taskId: string | null; open: boolean; onClose: () => void; onChanged: () => void }
-const actionNames: Record<string, string> = { auto_assign: '按规则自动分配', create: '创建任务', assign: '分配负责人', transfer: '转办任务', status_change: '更新状态', comment: '添加评论', urge: '催办任务', delete: '删除任务', attachment_add: '添加附件', attachment_remove: '删除附件', attachment_remove_requested: '申请删除附件' };
+const actionNames: Record<string, string> = { auto_assign: '按规则自动分配', create: '创建任务', assign: '分配负责人', transfer: '转办任务', status_change: '更新状态', comment: '添加评论', urge: '催办任务', delete: '删除任务', attachment_add: '添加附件', attachment_remove: '删除附件', attachment_remove_requested: '申请删除附件', workflow_delegate: '委托任务', workflow_handover: '申请转办', workflow_handover_approve: '转办签字通过', workflow_handover_reject: '转办被拒绝', workflow_handover_cancel: '转办已取消', workflow_escalate: '超时升级' };
 const historyText = (log: TaskLog) => log.action_type === 'status_change' ? `${TaskStatusMap[Number(log.old_value)]?.text || '原状态'} → ${TaskStatusMap[Number(log.new_value)]?.text || '新状态'}` : log.action_type === 'create' ? log.new_value : '';
 export default function DetailDrawer({ taskId, open, onClose, onChanged }: Props) {
   const me = useSelector(selectCurrentUser);

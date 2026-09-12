@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -14,6 +15,9 @@ import (
 type TaskWorkflowRuntime interface {
 	CompleteTaskTransferApproval(context.Context, uuid.UUID, string, uuid.UUID, uuid.UUID, bool) error
 	ReassignTaskExecution(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, string) error
+	ReassignStage(context.Context, uuid.UUID, string, uuid.UUID, uuid.UUID, uuid.UUID, string) error
+	TransferTaskExecution(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string) error
+	ListOverdueCollaborationTodos(context.Context, time.Time) ([]engine.OverdueCollaborationTodo, error)
 
 	Start(context.Context, string, string, string, uuid.UUID, map[string]interface{}) (*wfmodel.FlowInstance, error)
 	TaskCheckpoint(context.Context, uuid.UUID, string, uuid.UUID, string, string) error

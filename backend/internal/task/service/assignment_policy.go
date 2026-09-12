@@ -36,6 +36,30 @@ func assignmentPolicy(config *dto.AutoAssignmentConfig, department *uuid.UUID) (
 	}
 	return policy, nil
 }
+func applyTaskDepartment(t *model.Task, dept uuid.UUID) error {
+	if t == nil || dept == uuid.Nil {
+		return nil
+	}
+	t.DepartmentID = &dept
+	if t.AssignmentPolicy == "" || t.AssignmentPolicy == "{}" {
+		return nil
+	}
+	parsed := model.AssignmentPolicy{}
+	if err := json.Unmarshal([]byte(t.AssignmentPolicy), &parsed); err != nil {
+		return err
+	}
+	if parsed.DepartmentID == dept {
+		return nil
+	}
+	parsed.DepartmentID = dept
+	encoded, err := json.Marshal(parsed)
+	if err != nil {
+		return err
+	}
+	t.AssignmentPolicy = string(encoded)
+	return nil
+}
+
 func (s *taskService) autoAssign(ctx context.Context, t *model.Task, config *dto.AutoAssignmentConfig) error {
 	policy, err := assignmentPolicy(config, t.DepartmentID)
 	if err != nil || policy == nil {

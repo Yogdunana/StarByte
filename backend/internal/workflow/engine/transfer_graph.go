@@ -1,12 +1,79 @@
 package engine
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 const TaskTransferBusinessType = "task_transfer"
 
 func IsTaskTransferDefinition(key string) bool {
 	return key == "task_transfer_internal" || key == "task_transfer_department" || key == "task_transfer_center"
 }
+
+func TaskTransferDefinitionKey(kind string) string {
+	switch kind {
+	case "internal":
+		return "task_transfer_internal"
+	case "department":
+		return "task_transfer_department"
+	case "center":
+		return "task_transfer_center"
+	}
+	return ""
+}
+
+func TaskTransferBPMN(kind string) []byte {
+	roles := TaskTransferRoles(kind)
+	if len(roles) == 0 {
+		return []byte(`{"nodes":[],"edges":[]}`)
+	}
+	approval := func(id string, x, y int) map[string]interface{} {
+		return map[string]interface{}{
+			"id": id, "type": "approval", "position": map[string]int{"x": x, "y": y},
+			"data": map[string]interface{}{"label": id, "config": map[string]interface{}{
+				"assigneeStrategy": "business_role", "businessType": TaskTransferBusinessType,
+				"transferStage": "handover", "transferRole": id, "approvalType": "any",
+				"dueDays": 1, "allowReject": true, "allowTransfer": false, "allowRollback": false,
+			}},
+		}
+	}
+	gateway := func(id string, y int) map[string]interface{} {
+		return map[string]interface{}{
+			"id": id, "type": "parallel_gateway", "position": map[string]int{"x": 280, "y": y},
+			"data": map[string]interface{}{"label": id, "config": map[string]interface{}{}},
+		}
+	}
+	nodes := []map[string]interface{}{node("start", "start", "申请转办", 0, nil)}
+	edges := []map[string]string{}
+	if len(roles) == 1 {
+		nodes = append(nodes, approval(roles[0], 280, 160), node("end", "end", "转办完成", 320, nil))
+		edges = append(edges,
+			map[string]string{"id": "start-" + roles[0], "source": "start", "target": roles[0]},
+			map[string]string{"id": roles[0] + "-end", "source": roles[0], "target": "end"},
+		)
+	} else {
+		nodes = append(nodes, gateway("fork", 140))
+		for i, role := range roles {
+			nodes = append(nodes, approval(role, 80+i*200, 280))
+			edges = append(edges,
+				map[string]string{"id": "fork-" + role, "source": "fork", "target": role},
+				map[string]string{"id": role + "-join", "source": role, "target": "join"},
+			)
+		}
+		nodes = append(nodes, gateway("join", 420), node("end", "end", "转办完成", 560, nil))
+		edges = append(edges,
+			map[string]string{"id": "start-fork", "source": "start", "target": "fork"},
+			map[string]string{"id": "join-end", "source": "join", "target": "end"},
+		)
+	}
+	raw, err := json.Marshal(map[string]interface{}{"nodes": nodes, "edges": edges, "viewport": map[string]interface{}{"x": 0, "y": 0, "zoom": 1}})
+	if err != nil {
+		return []byte(`{"nodes":[],"edges":[]}`)
+	}
+	return raw
+}
+
 func TaskTransferRoles(kind string) []string {
 	switch kind {
 	case "internal":

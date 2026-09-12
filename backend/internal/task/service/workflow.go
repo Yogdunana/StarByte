@@ -138,6 +138,13 @@ func (s *taskService) ActWorkflow(ctx context.Context, id, actor uuid.UUID, req 
 		if req.Revision != t.WorkflowRevision {
 			return response.NewError(response.CodeConflict, "任务审批已更新，请刷新后再处理")
 		}
+		if req.Action == "start" || req.Action == "pause" || req.Action == "resume" || req.Action == "submit" {
+			if pending, err := b.pendingTransfer(ctx, id); err != nil {
+				return err
+			} else if pending != nil {
+				return response.NewError(response.CodeConflict, "转办签字未完成，暂不能提交或变更执行进度")
+			}
+		}
 		activeUser, err := b.tasks.GetUser(ctx, actor)
 		if err != nil {
 			return err

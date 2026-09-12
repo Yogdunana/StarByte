@@ -34,6 +34,12 @@ type TaskService interface {
 	SetWorkflowEngine(*engine.FlowEngine)
 	GetWorkflow(context.Context, uuid.UUID, uuid.UUID) (*dto.WorkflowResponse, error)
 	ActWorkflow(context.Context, uuid.UUID, uuid.UUID, *dto.WorkflowActionRequest) (*dto.WorkflowResponse, error)
+	RequestHandover(context.Context, uuid.UUID, uuid.UUID, *dto.HandoverRequest) (*dto.HandoverResponse, error)
+	GetHandover(context.Context, uuid.UUID, uuid.UUID) (*dto.HandoverResponse, error)
+	GetTransfer(context.Context, uuid.UUID, uuid.UUID) (*dto.HandoverResponse, error)
+	DecideHandover(context.Context, uuid.UUID, uuid.UUID, *dto.HandoverDecision) (*dto.HandoverResponse, error)
+	DecideTransfer(context.Context, uuid.UUID, uuid.UUID, *dto.HandoverDecision) (*dto.HandoverResponse, error)
+	EscalateOverdueWorkflows(context.Context) (int, error)
 
 	ProcessAttachmentDeletions(context.Context) (int, error)
 	Candidates(context.Context, string) ([]dto.Person, error)
@@ -95,10 +101,15 @@ func NewTaskService(
 	if len(databases) > 0 {
 		db = databases[0]
 	}
-	return &taskService{transfers: repo.NewTransferRepo(db), assignments: repo.NewAssignmentRepo(db), db: db, cleanup: repo.NewCleanupRepo(db),
+	svc := &taskService{db: db, cleanup: repo.NewCleanupRepo(db),
 		tasks: tasks, logs: logs, comments: comments, files: files,
 		notify: notify, bridge: bridge, store: store,
 	}
+	if db != nil {
+		svc.transfers = repo.NewTransferRepo(db)
+		svc.assignments = repo.NewAssignmentRepo(db)
+	}
+	return svc
 }
 
 func (s *taskService) SetWorkflowEngine(flow *engine.FlowEngine) { s.engine = flow; s.flow = flow }

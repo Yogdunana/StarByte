@@ -126,6 +126,26 @@ func TestClaimTaskAssignmentAdvancesToExecution(t *testing.T) {
 	}
 }
 
+func TestReassignStageMovesPendingExecutionTodo(t *testing.T) {
+	creator, previous, next, operator := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	tasks := newMockTaskRepo()
+	e, _ := taskLifecycleEngine(t, tasks)
+	inst, err := e.Start(context.Background(), TaskDefinitionKey, uuid.New().String(), TaskBusinessType, creator, nil)
+	require.NoError(t, err)
+	addApprovalTask(tasks, inst.ID, "assignment", creator)
+	require.NoError(t, e.CompleteTaskApproval(context.Background(), inst.ID, creator, ActionApprove, "指定执行人"))
+	addApprovalTask(tasks, inst.ID, "execution", previous)
+	require.NoError(t, e.ReassignStage(context.Background(), inst.ID, "execution", previous, next, operator, "超时升级重新分配"))
+	moved := false
+	for _, task := range tasks.tasks {
+		if task.InstanceID == inst.ID && task.NodeID == "execution" && task.Status == 0 && task.AssigneeID != nil && *task.AssigneeID == next {
+			moved = true
+			require.NotNil(t, task.DueDate)
+		}
+	}
+	require.True(t, moved)
+}
+
 func TestTaskLifecycleBPMNMatchesDefinitionKey(t *testing.T) {
 	require.Equal(t, "task_lifecycle", TaskDefinitionKey)
 	graph, err := ParseGraph(TaskLifecycleBPMN())
