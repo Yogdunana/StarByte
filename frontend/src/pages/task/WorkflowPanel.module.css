@@ -1,0 +1,8 @@
+.panel { margin:24px 0; padding-top:20px; border-top:1px solid var(--sb-border); }
+.heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:20px; }
+.heading h3 { margin:0; font-size:18px; }
+.form { margin:20px 0; padding:20px; background:var(--sb-bg); border-radius:10px; }
+.hint, .panel p { color:var(--sb-muted); font-size:13px; line-height:1.8; }
+.panel h4 { margin:24px 0; }
+.placeholder { min-height:120px; }
+@media(max-width:600px) { .form { padding:16px; } }

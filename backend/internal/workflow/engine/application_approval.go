@@ -200,7 +200,7 @@ func (e *FlowEngine) currentApprovalNodeID(ctx context.Context, inst *model.Flow
 			return id, nil
 		}
 	}
-	return "", response.NewError(response.CodeConflict, "当前没有可处理的入会审批环节")
+	return "", response.NewError(response.CodeConflict, "当前没有可处理的审批环节")
 }
 
 func (e *FlowEngine) selectApprovalTask(ctx context.Context, instanceID uuid.UUID, nodeID string, reviewer uuid.UUID) (*model.FlowTask, error) {

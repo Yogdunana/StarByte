@@ -1,12 +1,49 @@
 package engine
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 const TaskBusinessType = "collaboration_task"
 const TaskDefinitionKey = "task_lifecycle"
 
 func IsProtectedBusiness(kind string) bool {
 	return kind == "member_application" || kind == TaskBusinessType || kind == TaskTransferBusinessType
+}
+
+// TaskLifecycleBPMN is the default published graph seeded by 000046 / 000062.
+// 发布 → 认领/分配 → 执行 → 审核 → 验收 → 完成
+func TaskLifecycleBPMN() []byte {
+	stage := func(id, label string, y int) map[string]interface{} {
+		return node(id, "approval", label, y, map[string]interface{}{
+			"assigneeStrategy": "business_role", "businessType": TaskBusinessType,
+			"taskStage": id, "approvalType": "single", "dueDays": 1,
+			"allowReject": true, "allowTransfer": false, "allowRollback": false,
+		})
+	}
+	raw, err := json.Marshal(map[string]interface{}{
+		"nodes": []map[string]interface{}{
+			node("start", "start", "发布任务", 0, nil),
+			stage("assignment", "认领 / 分配", 140),
+			stage("execution", "执行与提交交付", 280),
+			stage("review", "负责人审核", 420),
+			stage("acceptance", "正式验收", 560),
+			node("end", "end", "任务完成", 700, nil),
+		},
+		"edges": []map[string]string{
+			{"id": "start-assignment", "source": "start", "target": "assignment"},
+			{"id": "assignment-execution", "source": "assignment", "target": "execution"},
+			{"id": "execution-review", "source": "execution", "target": "review"},
+			{"id": "review-acceptance", "source": "review", "target": "acceptance"},
+			{"id": "acceptance-end", "source": "acceptance", "target": "end"},
+		},
+		"viewport": map[string]interface{}{"x": 0, "y": 0, "zoom": 1},
+	})
+	if err != nil {
+		return []byte(`{"nodes":[],"edges":[]}`)
+	}
+	return raw
 }
 
 // The lifecycle checkpoints cannot be removed by changing layout or assignees.

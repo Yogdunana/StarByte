@@ -54,7 +54,7 @@ func RegisterRoutes(
 	g := r.Group("/tasks")
 	read := withReadScope(g, cacheService, db, deptRepo)
 	personal := g.Group("", personalTaskViewer(cacheService))
-	for _, p := range []string{"task:update", "task:delete", "task:assign", "task:transfer", "task:comment", "task:create"} {
+	for _, p := range []string{"task:read", "task:update", "task:delete", "task:assign", "task:transfer", "task:comment", "task:create"} {
 		personal.Use(middleware.RequireDataScope(p), middleware.DataScopeMiddleware(db, deptRepo, cacheService), taskCapability(p))
 	}
 	personal.GET("/:id/workflow", h.GetWorkflow)

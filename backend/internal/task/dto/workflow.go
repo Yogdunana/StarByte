@@ -14,7 +14,7 @@ type WorkflowConfig struct {
 }
 type WorkflowActionRequest struct {
 	Revision int64  `json:"revision" binding:"required,min=1"`
-	Action   string `json:"action" binding:"required,oneof=start pause resume submit approve return"`
+	Action   string `json:"action" binding:"required,oneof=start pause resume submit approve return reject claim"`
 	Comment  string `json:"comment" binding:"required,max=5000"`
 }
 type WorkflowResponse struct {
@@ -35,6 +35,8 @@ type WorkflowResponse struct {
 	CanSubmit      bool          `json:"can_submit"`
 	CanApprove     bool          `json:"can_approve"`
 	CanReturn      bool          `json:"can_return"`
+	CanReject      bool          `json:"can_reject"`
+	CanClaim       bool          `json:"can_claim"`
 	UpdatedAt      time.Time     `json:"updated_at"`
 	History        []LogResponse `json:"history"`
 }

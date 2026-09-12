@@ -8,8 +8,10 @@ import (
 
 	"github.com/google/uuid"
 
+	rbac "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/task/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/task/model"
+	"github.com/Yogdunana/StarByte/backend/internal/workflow/engine"
 	wfmodel "github.com/Yogdunana/StarByte/backend/internal/workflow/model"
 )
 
@@ -41,10 +43,37 @@ func (w *workflowStub) TaskCheckpoint(_ context.Context, _ uuid.UUID, stage stri
 	w.calls = append(w.calls, checkpointCall{stage, action, actor})
 	if action == "return" {
 		w.stage = "execution"
+	} else if action == "reject" {
+		w.terminated = true
+		w.stage = "rejected"
 	} else {
 		w.stage = map[string]string{"assignment": "execution", "execution": "review", "review": "acceptance", "acceptance": "completed"}[stage]
 	}
 	return nil
+}
+func (w *workflowStub) CompleteTaskApproval(_ context.Context, _ uuid.UUID, actor uuid.UUID, action engine.TaskAction, comment string) error {
+	if w.fail != nil {
+		return w.fail
+	}
+	w.calls = append(w.calls, checkpointCall{w.stage, string(action), actor})
+	if action == engine.ActionReject {
+		w.terminated = true
+		w.stage = "rejected"
+	} else {
+		w.stage = map[string]string{"assignment": "execution", "execution": "review", "review": "acceptance", "acceptance": "completed"}[w.stage]
+	}
+	return nil
+}
+func (w *workflowStub) ClaimTaskAssignment(_ context.Context, _ uuid.UUID, actor uuid.UUID, _ string) error {
+	if w.fail != nil {
+		return w.fail
+	}
+	w.calls = append(w.calls, checkpointCall{"assignment", "claim", actor})
+	w.stage = "execution"
+	return nil
+}
+func (w *workflowStub) InstanceTerminated(context.Context, uuid.UUID) (bool, error) {
+	return w.terminated, w.fail
 }
 func (w *workflowStub) Terminate(context.Context, uuid.UUID, uuid.UUID, string) error {
 	if w.fail != nil {
@@ -199,6 +228,107 @@ func TestWorkflowAssignmentCancellationAndConfigurationGuards(t *testing.T) {
 	svc.flow = nil
 	if _, err := svc.Create(ctx, ids[0], &dto.CreateTaskRequest{Title: "No engine", Workflow: config}); err == nil {
 		t.Fatal("missing workflow engine reported success")
+	}
+}
+
+func TestWorkflowRejectTerminatesTaskAndInstance(t *testing.T) {
+	svc, tasks, stub, ids := workflowFixture(t)
+	ctx := context.Background()
+	row, err := svc.Create(ctx, ids[0], &dto.CreateTaskRequest{Title: "Deliverable", AssigneeID: ids[1].String(), Workflow: &dto.WorkflowConfig{ReviewerID: ids[2].String(), AcceptorID: ids[3].String()}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.MustParse(row.ID)
+	act := func(actor uuid.UUID, action string) *dto.WorkflowResponse {
+		state, err := svc.GetWorkflow(ctx, id, actor)
+		if err != nil {
+			t.Fatal(err)
+		}
+		next, err := svc.ActWorkflow(ctx, id, actor, &dto.WorkflowActionRequest{Action: action, Comment: "拒绝原因", Revision: state.Revision})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return next
+	}
+	if _, err := svc.ActWorkflow(ctx, id, ids[1], &dto.WorkflowActionRequest{Action: "start", Comment: "开始执行", Revision: 1}); err != nil {
+		t.Fatal(err)
+	}
+	act(ids[1], "submit")
+	if _, err := svc.ActWorkflow(ctx, id, ids[1], &dto.WorkflowActionRequest{Action: "reject", Comment: "执行人不能拒绝", Revision: 2}); err == nil {
+		t.Fatal("executor rejected review")
+	}
+	state := act(ids[2], "reject")
+	if state.Stage != "rejected" || !stub.terminated || tasks.items[id].Status != model.StatusCancelled {
+		t.Fatalf("reject did not terminate: %+v status=%d terminated=%v", state, tasks.items[id].Status, stub.terminated)
+	}
+	if _, err := svc.ActWorkflow(ctx, id, ids[3], &dto.WorkflowActionRequest{Action: "approve", Comment: "不能救活", Revision: state.Revision}); err == nil {
+		t.Fatal("acceptor revived rejected task")
+	}
+}
+
+func TestWorkflowClaimAdvancesAssignment(t *testing.T) {
+	svc, tasks, stub, ids := workflowFixture(t)
+	ctx := context.Background()
+	row, err := svc.Create(ctx, ids[0], &dto.CreateTaskRequest{Title: "Open task", Workflow: &dto.WorkflowConfig{ReviewerID: ids[2].String(), AcceptorID: ids[3].String()}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.MustParse(row.ID)
+	if row.WorkflowStage != "assignment" {
+		t.Fatal("expected assignment stage")
+	}
+	claimer := model.WithViewer(ctx, model.Viewer{ID: ids[1], Scope: &rbac.DataScopeCondition{}})
+	if _, err := svc.ActWorkflow(claimer, id, ids[2], &dto.WorkflowActionRequest{Action: "claim", Comment: "审核人不能认领自己的交付", Revision: 1}); err == nil {
+		t.Fatal("reviewer claimed own review")
+	}
+	state, err := svc.ActWorkflow(claimer, id, ids[1], &dto.WorkflowActionRequest{Action: "claim", Comment: "我来认领", Revision: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Stage != "execution" || tasks.items[id].AssigneeID == nil || *tasks.items[id].AssigneeID != ids[1] || len(stub.calls) == 0 {
+		t.Fatalf("claim did not advance: %+v assignee=%v calls=%v", state, tasks.items[id].AssigneeID, stub.calls)
+	}
+}
+
+func TestWorkflowClaimHonorsTaskReadScopeOnPersonalViewer(t *testing.T) {
+	svc, tasks, stub, ids := workflowFixture(t)
+	dept, other, peer, stranger := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	tasks.users[peer] = &model.NamedUser{ID: peer, Username: "peer"}
+	tasks.users[stranger] = &model.NamedUser{ID: stranger, Username: "stranger"}
+	ctx := context.Background()
+	row, err := svc.Create(ctx, ids[0], &dto.CreateTaskRequest{Title: "Dept task", DepartmentID: dept.String(), Workflow: &dto.WorkflowConfig{ReviewerID: ids[2].String(), AcceptorID: ids[3].String()}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.MustParse(row.ID)
+	personal := func(id uuid.UUID, read *rbac.DataScopeCondition) context.Context {
+		return model.WithViewer(ctx, model.Viewer{
+			ID:     id,
+			Scope:  &rbac.DataScopeCondition{Query: "1 = 0", IsSelf: true},
+			Scopes: map[string]*rbac.DataScopeCondition{"task:read": read},
+		})
+	}
+	deptRead := &rbac.DataScopeCondition{Query: "department_id = ?", Args: []interface{}{dept}}
+	selfRead := &rbac.DataScopeCondition{Query: "1 = 0", IsSelf: true}
+	otherRead := &rbac.DataScopeCondition{Query: "department_id = ?", Args: []interface{}{other}}
+	if _, err := svc.GetWorkflow(personal(stranger, selfRead), id, stranger); err == nil {
+		t.Fatal("self-scope outsider opened workflow")
+	}
+	if _, err := svc.ActWorkflow(personal(stranger, selfRead), id, stranger, &dto.WorkflowActionRequest{Action: "claim", Comment: "我来认领", Revision: 1}); err == nil {
+		t.Fatal("self-scope outsider claimed")
+	}
+	if _, err := svc.GetWorkflow(personal(stranger, otherRead), id, stranger); err == nil {
+		t.Fatal("other-department viewer opened workflow")
+	}
+	if _, err := svc.GetWorkflow(personal(peer, deptRead), id, peer); err != nil {
+		t.Fatal(err)
+	}
+	state, err := svc.ActWorkflow(personal(peer, deptRead), id, peer, &dto.WorkflowActionRequest{Action: "claim", Comment: "我来认领", Revision: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Stage != "execution" || tasks.items[id].AssigneeID == nil || *tasks.items[id].AssigneeID != peer || len(stub.calls) == 0 {
+		t.Fatalf("department peer could not claim: %+v assignee=%v calls=%v", state, tasks.items[id].AssigneeID, stub.calls)
 	}
 }
 

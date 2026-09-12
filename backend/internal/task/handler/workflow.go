@@ -33,7 +33,7 @@ func (h *TaskHandler) GetWorkflow(c *gin.Context) {
 }
 
 // ActWorkflow godoc
-// @Summary 提交交付、签字审核或退回返工
+// @Summary 提交交付、签字审核、拒绝或认领
 // @Tags tasks
 // @Accept json
 // @Produce json

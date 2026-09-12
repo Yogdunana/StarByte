@@ -14,7 +14,7 @@ export default function FormModal({ open, editing, onCancel, onSubmit }: Props) 
   useEffect(() => {
     if (!open) return;
     form.resetFields();
-    form.setFieldsValue(editing ? { title: editing.title, description: editing.description, priority: editing.priority, tags: editing.tags, due_date: editing.due_date ? dayjs(editing.due_date) : undefined } : { priority: 1 });
+    form.setFieldsValue(editing ? { title: editing.title, description: editing.description, priority: editing.priority, tags: editing.tags, due_date: editing.due_date ? dayjs(editing.due_date) : undefined } : { priority: 1, use_workflow: true });
   }, [open, editing, form]);
   return <Modal title={editing ? '编辑任务' : '安排一项任务'} open={open} onCancel={() => { if (!busy) onCancel(); }} onOk={() => form.submit()} confirmLoading={busy} okText={editing ? '保存修改' : '创建任务'} cancelText="暂不保存">
     <Form form={form} layout="vertical" onFinish={async values => {

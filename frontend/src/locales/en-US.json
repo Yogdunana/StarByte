@@ -466,5 +466,41 @@
       "supplementHint": "More materials were requested. Wait for the applicant to resubmit.",
       "viewFlow": "Open workflow instance"
     }
+  },
+  "task": {
+    "engine": {
+      "title": "Task review progress",
+      "hint": "New tasks use publish → claim/assign → execute → review → accept. Edit the task_lifecycle definition in the designer to publish a new version. Timeout escalation and extra auto-assign strategies are follow-ups.",
+      "viewFlow": "Open workflow instance",
+      "refresh": "Refresh progress",
+      "comment": "Delivery note or review comment",
+      "commentRequired": "Please enter 1–5000 characters",
+      "updated": "Task workflow updated",
+      "approve": "Sign off",
+      "reject": "Reject and stop",
+      "return": "Return for rework",
+      "claim": "Claim task",
+      "submit": "Submit delivery",
+      "start": "Start work",
+      "pause": "Hold",
+      "resume": "Resume",
+      "approved": "Workflow advanced",
+      "rejected": "Rejected; the workflow stopped",
+      "claimed": "Task claimed",
+      "closed": "This task workflow has ended. History is kept.",
+      "loadFailed": "Failed to load the task workflow. Refresh and try again.",
+      "waitingAssignee": "Waiting for an assignee",
+      "assignmentMode": "Assignment",
+      "assignmentManual": "Manual / claim",
+      "submission": "Delivery note",
+      "submissionEmpty": "The assignee has not submitted a delivery note",
+      "steps": {
+        "assignment": "Claim / assign",
+        "execution": "Execute",
+        "review": "Review",
+        "acceptance": "Accept",
+        "completed": "Done"
+      }
+    }
   }
 }

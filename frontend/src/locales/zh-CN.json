@@ -466,5 +466,41 @@
       "supplementHint": "已要求补充材料，请等待申请人重新提交。",
       "viewFlow": "查看流程实例"
     }
+  },
+  "task": {
+    "engine": {
+      "title": "任务审批进度",
+      "hint": "新任务走默认发布 → 认领/分配 → 执行 → 审核 → 验收链。可在流程设计器编辑 task_lifecycle 后发布新版本。超时升级与轮询分配属后续迭代。",
+      "viewFlow": "查看流程实例",
+      "refresh": "刷新进度",
+      "comment": "交付说明或审批意见",
+      "commentRequired": "请填写 1 至 5000 字说明",
+      "updated": "任务流程已更新",
+      "approve": "签字通过",
+      "reject": "拒绝并终止",
+      "return": "退回返工",
+      "claim": "认领任务",
+      "submit": "提交交付",
+      "start": "开始处理",
+      "pause": "暂时挂起",
+      "resume": "恢复处理",
+      "approved": "已推进流程",
+      "rejected": "已拒绝并终止流程",
+      "claimed": "已认领任务",
+      "closed": "该任务流程已结束，历史记录仍保留。",
+      "loadFailed": "任务流程加载失败，请刷新后重试。",
+      "waitingAssignee": "等待指定执行人",
+      "assignmentMode": "分配方式",
+      "assignmentManual": "手动指定 / 认领",
+      "submission": "交付说明",
+      "submissionEmpty": "执行人尚未提交交付说明",
+      "steps": {
+        "assignment": "认领 / 分配",
+        "execution": "执行",
+        "review": "审核",
+        "acceptance": "验收",
+        "completed": "完成"
+      }
+    }
   }
 }
