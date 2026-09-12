@@ -20,7 +20,7 @@ export const AnnouncementCategories: { value: AnnouncementCategory; labelKey: st
 const ALLOWED_TAGS = new Set([
   'P', 'BR', 'STRONG', 'EM', 'B', 'I', 'U', 'UL', 'OL', 'LI',
   'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'CODE', 'PRE',
-  'A', 'SPAN', 'DIV',
+  'A', 'SPAN', 'DIV', 'IMG',
 ]);
 
 const DROP_WITH_CHILDREN = new Set([
@@ -30,6 +30,7 @@ const DROP_WITH_CHILDREN = new Set([
 
 const ALLOWED_ATTRS: Record<string, Set<string>> = {
   A: new Set(['href', 'title']),
+  IMG: new Set(['src', 'alt', 'title']),
 };
 
 function isSafeUrl(raw: string): boolean {

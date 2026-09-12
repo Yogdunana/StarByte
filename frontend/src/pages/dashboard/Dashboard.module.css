@@ -44,6 +44,12 @@
 .shortcuts a > :first-child { color: var(--sb-brand); font-size: 17px; }
 .shortcuts a > :last-child { margin-left: auto; font-size: 12px; color: var(--sb-muted); }
 .shortcuts a:hover { color: var(--sb-brand); }
+.feed { margin-bottom: 18px; padding: 24px; background: var(--sb-glass); border: 1px solid var(--sb-glass-border); border-radius: var(--sb-radius); box-shadow: var(--sb-shadow); }
+.feed p { margin: 14px 0 18px; font-size: 12px; color: var(--sb-muted); line-height: 1.9; }
+.feed a { font-size: 12px; }
+.feedRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; color: var(--sb-text); border-bottom: 1px solid var(--sb-border); font-size: 13px; }
+.feedRow:hover { color: var(--sb-brand); }
+.feedRow span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .application { margin-top: 18px; padding: 24px; background: var(--sb-glass); border: 1px solid var(--sb-glass-border); border-radius: var(--sb-radius); box-shadow: var(--sb-shadow); }
 .application .eyebrow { color: var(--sb-brand); }
 .application p { margin: 14px 0 18px; font-size: 12px; color: var(--sb-muted); line-height: 1.9; }

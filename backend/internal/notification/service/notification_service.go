@@ -76,11 +76,21 @@ func (s *notificationService) Send(ctx context.Context, req *dto.SendNotificatio
 		}
 	}
 
+	emails := map[uuid.UUID]string{}
+	if wantsEmail(channels) {
+		if looked, err := s.notificationRepo.EmailsByUserIDs(ctx, req.UserIDs); err == nil {
+			emails = looked
+		} else {
+			logger.Warn("lookup notification recipient emails failed", zap.Error(err))
+		}
+	}
+
 	// 4. 为每个用户发送通知（收集所有错误，不因单个用户失败而中断）
 	var sendErrs []error
 	for _, userID := range req.UserIDs {
 		msg := &NotificationMessage{
 			UserID:   userID,
+			Email:    emails[userID],
 			Title:    rendered.Title,
 			Content:  rendered.Content,
 			Category: category,
@@ -95,6 +105,15 @@ func (s *notificationService) Send(ctx context.Context, req *dto.SendNotificatio
 			len(sendErrs), len(req.UserIDs), sendErrs[0])
 	}
 	return nil
+}
+
+func wantsEmail(channels []string) bool {
+	for _, ch := range channels {
+		if ch == "email" {
+			return true
+		}
+	}
+	return false
 }
 
 // BatchSend 批量发送通知

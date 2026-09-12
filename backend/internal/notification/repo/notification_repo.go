@@ -26,6 +26,8 @@ type NotificationRepo interface {
 	Delete(ctx context.Context, userID uuid.UUID, id uuid.UUID) error
 	// GetUnreadCount 获取用户未读通知数
 	GetUnreadCount(ctx context.Context, userID uuid.UUID) (int64, error)
+	// EmailsByUserIDs 批量取用户邮箱（邮件渠道补全）
+	EmailsByUserIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error)
 }
 
 type notificationRepo struct {
@@ -125,6 +127,30 @@ func (r *notificationRepo) GetUnreadCount(ctx context.Context, userID uuid.UUID)
 		Where("user_id = ? AND is_read = false", userID).
 		Count(&count).Error
 	return count, err
+}
+
+func (r *notificationRepo) EmailsByUserIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error) {
+	out := map[uuid.UUID]string{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	var rows []struct {
+		ID    uuid.UUID
+		Email string
+	}
+	err := r.db.WithContext(ctx).Table("users").
+		Select("id, COALESCE(email, '') AS email").
+		Where("id IN ? AND deleted_at IS NULL", ids).
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		if row.Email != "" {
+			out[row.ID] = row.Email
+		}
+	}
+	return out, nil
 }
 
 // ========== Template Repo ==========

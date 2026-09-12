@@ -18,7 +18,16 @@ const (
 	ContentHTML     = "html"
 )
 
+const (
+	AudienceAll        = "all"
+	AudienceRole       = "role"
+	AudienceDepartment = "department"
+	AudienceUsers      = "users"
+)
+
 const MaxContentLen = 50000
+const MaxAttachments = 10
+const MaxAudienceIDs = 200
 
 func ValidCategory(v string) bool {
 	switch v {
@@ -35,4 +44,20 @@ func ValidContentType(v string) bool {
 
 func ValidStatus(v int16) bool {
 	return v == StatusDraft || v == StatusPublished || v == StatusArchived
+}
+
+func ValidAudience(v string) bool {
+	switch v {
+	case "", AudienceAll, AudienceRole, AudienceDepartment, AudienceUsers:
+		return true
+	default:
+		return false
+	}
+}
+
+func NormalizeAudience(v string) string {
+	if v == "" {
+		return AudienceAll
+	}
+	return v
 }

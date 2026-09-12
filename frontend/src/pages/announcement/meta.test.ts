@@ -19,6 +19,13 @@ describe('sanitizeAnnouncementHTML', () => {
     expect(clean.toLowerCase()).not.toContain('onload');
   });
 
+  it('keeps http images and drops javascript src', () => {
+    const dirty = '<img src="https://cdn.example/a.png" alt="ok" /><img src="javascript:alert(1)" />';
+    const clean = sanitizeAnnouncementHTML(dirty);
+    expect(clean).toContain('https://cdn.example/a.png');
+    expect(clean.toLowerCase()).not.toContain('javascript:');
+  });
+
   it('strips javascript: URLs', () => {
     const dirty = '<a href="javascript:alert(1)">click</a><a href="https://example.com">ok</a>';
     const clean = sanitizeAnnouncementHTML(dirty);

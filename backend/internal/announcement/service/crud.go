@@ -36,25 +36,45 @@ func (s *announcementService) Create(ctx context.Context, viewer Viewer, req *dt
 	if err := validateSchedule(req.ScheduledAt, viewer.CanPublish, s.clock()); err != nil {
 		return nil, err
 	}
+	if err := validateExpire(req.ExpiresAt, req.ScheduledAt, s.clock()); err != nil {
+		return nil, err
+	}
+	audienceType, audienceIDs, err := parseAudience(req.AudienceType, req.AudienceIDs)
+	if err != nil {
+		return nil, err
+	}
+	atts, err := parseAttachments(req.Attachments)
+	if err != nil {
+		return nil, err
+	}
 
 	now := s.clock()
 	pinned := false
+	sortOrder := 0
 	if viewer.CanManage {
 		pinned = req.Pinned
+		if req.SortOrder != nil {
+			sortOrder = *req.SortOrder
+		}
 	}
 	a := &model.Announcement{
-		ID:          uuid.New(),
-		Title:       title,
-		Content:     req.Content,
-		ContentType: contentType,
-		Category:    req.Category,
-		Pinned:      pinned,
-		Required:    req.Required,
-		Status:      model.StatusDraft,
-		ScheduledAt: req.ScheduledAt,
-		AuthorID:    viewer.UserID,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:           uuid.New(),
+		Title:        title,
+		Content:      req.Content,
+		ContentType:  contentType,
+		Category:     req.Category,
+		Pinned:       pinned,
+		Required:     req.Required,
+		SortOrder:    sortOrder,
+		Status:       model.StatusDraft,
+		ScheduledAt:  req.ScheduledAt,
+		ExpiresAt:    req.ExpiresAt,
+		AudienceType: audienceType,
+		AudienceIDs:  audienceIDs,
+		Attachments:  atts,
+		AuthorID:     viewer.UserID,
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 	if err := s.rows.Create(ctx, a); err != nil {
 		return nil, fmt.Errorf("create announcement: %w", err)
@@ -76,7 +96,7 @@ func (s *announcementService) Update(ctx context.Context, viewer Viewer, id uuid
 	if !canEdit(viewer, a) {
 		return nil, noAccess("无权修改该公告")
 	}
-	if err := applyUpdate(a, req, viewer.CanPublish, s.clock()); err != nil {
+	if err := applyUpdate(a, req, viewer, s.clock()); err != nil {
 		return nil, err
 	}
 	a.UpdatedAt = s.clock()
@@ -86,7 +106,8 @@ func (s *announcementService) Update(ctx context.Context, viewer Viewer, id uuid
 	return s.getResponse(ctx, a.ID, viewer.UserID)
 }
 
-func applyUpdate(a *model.Announcement, req *dto.UpdateAnnouncementRequest, canPublish bool, now time.Time) error {
+func applyUpdate(a *model.Announcement, req *dto.UpdateAnnouncementRequest, viewer Viewer, now time.Time) error {
+	canPublish := viewer.CanPublish
 	if req.Title != nil {
 		title := strings.TrimSpace(*req.Title)
 		if title == "" {
@@ -118,6 +139,40 @@ func applyUpdate(a *model.Announcement, req *dto.UpdateAnnouncementRequest, canP
 	if req.Required != nil {
 		a.Required = *req.Required
 	}
+	if req.SortOrder != nil && viewer.CanManage {
+		a.SortOrder = *req.SortOrder
+	}
+	if req.AudienceType != nil || req.AudienceIDs != nil {
+		typ := a.AudienceType
+		ids := []string(a.AudienceIDs)
+		if req.AudienceType != nil {
+			typ = *req.AudienceType
+		}
+		if req.AudienceIDs != nil {
+			ids = req.AudienceIDs
+		}
+		parsedType, parsedIDs, err := parseAudience(typ, ids)
+		if err != nil {
+			return err
+		}
+		a.AudienceType = parsedType
+		a.AudienceIDs = parsedIDs
+	}
+	if req.Attachments != nil {
+		atts, err := parseAttachments(req.Attachments)
+		if err != nil {
+			return err
+		}
+		a.Attachments = atts
+	}
+	if req.ClearExpires {
+		a.ExpiresAt = nil
+	} else if req.ExpiresAt != nil {
+		if err := validateExpire(req.ExpiresAt, a.ScheduledAt, now); err != nil {
+			return err
+		}
+		a.ExpiresAt = req.ExpiresAt
+	}
 	if req.ClearSched || (req.ScheduledAt != nil && a.Status != model.StatusDraft) {
 		if !canPublish {
 			return nil
@@ -147,6 +202,19 @@ func validateSchedule(at *time.Time, canPublish bool, now time.Time) error {
 	return nil
 }
 
+func validateExpire(at, scheduled *time.Time, now time.Time) error {
+	if at == nil {
+		return nil
+	}
+	if !at.After(now) {
+		return response.NewError(response.CodeBadRequest, "下架时间必须晚于当前时间")
+	}
+	if scheduled != nil && !at.After(*scheduled) {
+		return response.NewError(response.CodeBadRequest, "下架时间必须晚于定时发布时间")
+	}
+	return nil
+}
+
 func (s *announcementService) Delete(ctx context.Context, viewer Viewer, id uuid.UUID) error {
 	a, err := s.load(ctx, id)
 	if err != nil {
@@ -168,6 +236,15 @@ func (s *announcementService) Get(ctx context.Context, viewer Viewer, id uuid.UU
 	}
 	if !canView(viewer, &row.Announcement) {
 		return nil, noAccess("无权查看该公告")
+	}
+	if row.Status == model.StatusPublished || row.Status == model.StatusArchived {
+		ok, err := s.canViewPublished(ctx, viewer, &row.Announcement)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, noAccess("无权查看该公告")
+		}
 	}
 	return toResponse(row), nil
 }

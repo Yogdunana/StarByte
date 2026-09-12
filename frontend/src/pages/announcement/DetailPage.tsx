@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Badge, Button, Card, Descriptions, Space, Table, Tag, Typography, message } from 'antd';
+import { Badge, Button, Card, Descriptions, Space, Table, Tabs, Tag, Typography, message } from 'antd';
+import { PaperClipOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import StatusTag from '@/components/StatusTag/StatusTag';
 import { usePermission } from '@/hooks/usePermission';
@@ -16,7 +17,7 @@ import {
 } from '@/api/announcement';
 import type { Announcement, AnnouncementReadStatus } from '@/api/announcement';
 import { formatDateTime } from '@/utils/format';
-import { announcementStatusMap } from './meta';
+import { announcementStatusMap, sanitizeAnnouncementHTML } from './meta';
 import './announcement.css';
 
 const DetailPage: React.FC = () => {
@@ -29,6 +30,7 @@ const DetailPage: React.FC = () => {
   const { refresh } = useAnnouncementUnread(0);
   const [item, setItem] = useState<Announcement | null>(null);
   const [reads, setReads] = useState<AnnouncementReadStatus | null>(null);
+  const openedAt = useRef(Date.now());
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -56,7 +58,18 @@ const DetailPage: React.FC = () => {
 
   useEffect(() => { void load(); }, [load]);
 
+  useEffect(() => {
+    openedAt.current = Date.now();
+    return () => {
+      if (!id) return;
+      const seconds = Math.round((Date.now() - openedAt.current) / 1000);
+      if (seconds > 0) void markAnnouncementRead(id, seconds);
+    };
+  }, [id]);
+
   if (!item) return <Card loading />;
+
+  const content = item.content || t('announcement.emptyContent');
 
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
@@ -106,21 +119,78 @@ const DetailPage: React.FC = () => {
           <Descriptions.Item label={t('announcement.publishedAt')}>
             {item.published_at ? formatDateTime(item.published_at, 'YYYY-MM-DD HH:mm') : '-'}
           </Descriptions.Item>
+          <Descriptions.Item label={t('announcement.expiresAt')}>
+            {item.expires_at ? formatDateTime(item.expires_at, 'YYYY-MM-DD HH:mm') : '-'}
+          </Descriptions.Item>
+          <Descriptions.Item label={t('announcement.audience')}>
+            {t(`announcement.audienceType.${item.audience_type || 'all'}`, { defaultValue: item.audience_type || 'all' })}
+          </Descriptions.Item>
         </Descriptions>
-        <Typography.Paragraph className="announcement-content">
-          {item.content || t('announcement.emptyContent')}
-        </Typography.Paragraph>
+        {item.content_type === 'html' ? (
+          <div
+            className="announcement-html"
+            // HTML 仅走白名单消毒后渲染
+            dangerouslySetInnerHTML={{ __html: sanitizeAnnouncementHTML(item.content) }}
+          />
+        ) : (
+          <Typography.Paragraph className="announcement-content">{content}</Typography.Paragraph>
+        )}
+        {item.attachments?.length > 0 && (
+          <div className="announcement-attachments">
+            <Typography.Text type="secondary">{t('announcement.attachments')}</Typography.Text>
+            <ul>
+              {item.attachments.map((file) => (
+                <li key={file.file_id}>
+                  <PaperClipOutlined />
+                  <a href={`/api/v1/files/${file.file_id}/download`} target="_blank" rel="noreferrer">
+                    {file.name}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </Card>
       {reads && (
-        <Card title={t('announcement.readStatus', { read: reads.read_count, unread: reads.unread_count })}>
-          <Table
-            rowKey={(r) => r.user.id}
-            size="small"
-            pagination={false}
-            dataSource={reads.readers}
-            columns={[
-              { title: t('announcement.reader'), dataIndex: ['user', 'name'] },
-              { title: t('announcement.readAt'), dataIndex: 'read_at', render: (v: string) => formatDateTime(v, 'YYYY-MM-DD HH:mm') },
+        <Card
+          title={t('announcement.readStatus', { read: reads.read_count, unread: reads.unread_count })}
+          extra={t('announcement.readStats', {
+            rate: Math.round((reads.read_rate || 0) * 100),
+            avg: Math.round(reads.avg_duration_seconds || 0),
+          })}
+        >
+          <Tabs
+            items={[
+              {
+                key: 'read',
+                label: t('announcement.readersTab'),
+                children: (
+                  <Table
+                    rowKey={(r) => r.user.id}
+                    size="small"
+                    pagination={false}
+                    dataSource={reads.readers}
+                    columns={[
+                      { title: t('announcement.reader'), dataIndex: ['user', 'name'] },
+                      { title: t('announcement.readAt'), dataIndex: 'read_at', render: (v: string) => formatDateTime(v, 'YYYY-MM-DD HH:mm') },
+                      { title: t('announcement.duration'), dataIndex: 'duration_seconds', render: (v: number) => `${v || 0}s` },
+                    ]}
+                  />
+                ),
+              },
+              {
+                key: 'unread',
+                label: t('announcement.unreadTab'),
+                children: (
+                  <Table
+                    rowKey="id"
+                    size="small"
+                    pagination={false}
+                    dataSource={reads.unread_users || []}
+                    columns={[{ title: t('announcement.reader'), dataIndex: 'name' }]}
+                  />
+                ),
+              },
             ]}
           />
         </Card>

@@ -41,7 +41,7 @@ func (s *announcementService) publishLocked(ctx context.Context, a *model.Announ
 	return nil
 }
 
-func (s *announcementService) Pin(ctx context.Context, viewer Viewer, id uuid.UUID, pinned *bool) (*dto.AnnouncementResponse, error) {
+func (s *announcementService) Pin(ctx context.Context, viewer Viewer, id uuid.UUID, pinned *bool, sortOrder *int) (*dto.AnnouncementResponse, error) {
 	if !viewer.CanManage {
 		return nil, noAccess("无权置顶公告")
 	}
@@ -53,6 +53,9 @@ func (s *announcementService) Pin(ctx context.Context, viewer Viewer, id uuid.UU
 		a.Pinned = !a.Pinned
 	} else {
 		a.Pinned = *pinned
+	}
+	if sortOrder != nil {
+		a.SortOrder = *sortOrder
 	}
 	a.UpdatedAt = s.clock()
 	if err := s.rows.Update(ctx, a); err != nil {
@@ -98,5 +101,31 @@ func (s *announcementService) DispatchDuePublishes(ctx context.Context, _ string
 		published++
 	}
 	logf(fmt.Sprintf("published %d scheduled announcements", published))
+	return nil
+}
+
+func (s *announcementService) DispatchExpired(ctx context.Context, _ string, logf func(string)) error {
+	if logf == nil {
+		logf = func(string) {}
+	}
+	rows, err := s.rows.ListExpiredPublished(ctx, s.clock(), 50)
+	if err != nil {
+		return fmt.Errorf("list expired announcements: %w", err)
+	}
+	n := 0
+	for i := range rows {
+		a := &rows[i]
+		if a.Status != model.StatusPublished {
+			continue
+		}
+		a.Status = model.StatusArchived
+		a.UpdatedAt = s.clock()
+		if err := s.rows.Update(ctx, a); err != nil {
+			logger.Warn("auto-unpublish announcement failed", zap.Error(err), zap.String("id", a.ID.String()))
+			continue
+		}
+		n++
+	}
+	logf(fmt.Sprintf("unpublished %d expired announcements", n))
 	return nil
 }

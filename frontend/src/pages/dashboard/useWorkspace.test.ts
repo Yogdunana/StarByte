@@ -6,12 +6,14 @@ import { getMyApplications } from '@/api/member';
 import { getStatsOverview } from '@/api/stats';
 import { useWorkspace } from './useWorkspace';
 import { listWorkflowTasks } from '@/api/workflowRuntime';
+import { getAnnouncementList } from '@/api/announcement';
 
 vi.mock('@/api/task', () => ({ getMyTodo: vi.fn() }));
 vi.mock('@/api/interview', () => ({ getMyInterviews: vi.fn() }));
 vi.mock('@/api/member', () => ({ getMyApplications: vi.fn() }));
 vi.mock('@/api/stats', () => ({ getStatsOverview: vi.fn() }));
 vi.mock('@/api/workflowRuntime', () => ({ listWorkflowTasks: vi.fn() }));
+vi.mock('@/api/announcement', () => ({ getAnnouncementList: vi.fn() }));
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -19,6 +21,7 @@ beforeEach(() => {
   vi.mocked(getMyInterviews).mockResolvedValue([]);
   vi.mocked(listWorkflowTasks).mockResolvedValue({ list: [], total: 0, page: 1, page_size: 20 });
   vi.mocked(getMyApplications).mockResolvedValue([]);
+  vi.mocked(getAnnouncementList).mockResolvedValue({ list: [], total: 0, page: 1, page_size: 5 });
 });
 
 describe('workspace data', () => {
@@ -47,6 +50,16 @@ describe('workspace data', () => {
     await act(async () => { await result.current.reload(); });
     expect(result.current.approvalTotal).toBe(0);
     expect(result.current.failed).toEqual([]);
+  });
+  it('loads homepage announcement feed without blocking workspace', async () => {
+    vi.mocked(getAnnouncementList).mockResolvedValueOnce({
+      list: [{ id: 'a1', title: '周报', pinned: true } as never],
+      total: 1, page: 1, page_size: 5,
+    });
+    const { result } = renderHook(() => useWorkspace(false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.announcements).toHaveLength(1);
+    expect(getAnnouncementList).toHaveBeenCalled();
   });
   it('does not replace a refreshed result with an older late response', async () => {
     let finish!: (value: Awaited<ReturnType<typeof getMyTodo>>) => void;
