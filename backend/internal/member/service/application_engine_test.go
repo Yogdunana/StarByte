@@ -142,6 +142,10 @@ func TestCanViewEngineProgress(t *testing.T) {
 	require.Error(t, s.canViewEngineProgress(ctx, stubAdmissionView{actor: &model.AdmissionActor{ID: unrelated, DepartmentID: &otherDept, Roles: []string{"minister"}}}, app, unrelated, nil))
 	minister := uuid.New()
 	require.NoError(t, s.canViewEngineProgress(ctx, stubAdmissionView{actor: &model.AdmissionActor{ID: minister, DepartmentID: &dept, Roles: []string{"minister"}}}, app, minister, nil))
+	member := uuid.New()
+	require.Error(t, s.canViewEngineProgress(ctx, stubAdmissionView{actor: &model.AdmissionActor{ID: member, Roles: []string{"member"}}}, app, member, nil))
+	hr := uuid.New()
+	require.Error(t, s.canViewEngineProgress(ctx, stubAdmissionView{actor: &model.AdmissionActor{ID: hr, Roles: []string{"hr"}}}, app, hr, nil))
 	require.NoError(t, s.canViewEngineProgress(ctx, stubAdmissionView{}, app, uuid.New(), &rbacModel.DataScopeCondition{}))
 }
 

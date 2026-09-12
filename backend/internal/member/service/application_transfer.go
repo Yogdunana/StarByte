@@ -11,6 +11,7 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/member/model"
 	"github.com/Yogdunana/StarByte/backend/internal/member/repo"
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
+	"github.com/Yogdunana/StarByte/backend/internal/workflow/engine"
 	wfmodel "github.com/Yogdunana/StarByte/backend/internal/workflow/model"
 	wfrepo "github.com/Yogdunana/StarByte/backend/internal/workflow/repo"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
@@ -195,13 +196,32 @@ func (s *admissionService) canViewEngineProgress(ctx context.Context, store repo
 			return err
 		}
 	}
-	roles := append([]string{"officer", "minister", "president"}, actor.Roles...)
-	for _, role := range roles {
+	for _, role := range progressReviewRoles(ctx, s.flow, app) {
 		if allowed, _ := admissionAuthority(actor, app, parent, role); allowed {
 			return nil
 		}
 	}
 	return admissionDenied("无权查看该申请审批进度")
+}
+
+func progressReviewRoles(ctx context.Context, flow *engine.FlowEngine, app *model.MemberApplication) []string {
+	roles := []string{"officer", "minister", "president"}
+	if flow == nil || app == nil || app.FlowInstanceID == nil {
+		return roles
+	}
+	extra, err := flow.ApplicationApprovalRoles(ctx, *app.FlowInstanceID)
+	if err != nil {
+		return roles
+	}
+	seen := map[string]bool{"officer": true, "minister": true, "president": true}
+	for _, role := range extra {
+		if role == "" || seen[role] {
+			continue
+		}
+		seen[role] = true
+		roles = append(roles, role)
+	}
+	return roles
 }
 
 func mapTransferCandidate(row wfmodel.ApproverOption) dto.TransferCandidate {

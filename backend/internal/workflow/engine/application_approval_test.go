@@ -303,6 +303,9 @@ func TestApprovalRoleCodeFromGraph(t *testing.T) {
 	require.Equal(t, "president", role)
 	require.Equal(t, "hr", ResolveApprovalRole("custom", "hr"))
 	require.Empty(t, ResolveApprovalRole("custom", ""))
+	roles, err := e.ApplicationApprovalRoles(context.Background(), inst.ID)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{"officer", "minister", "president"}, roles)
 }
 
 func TestApplicationProgressCompleted(t *testing.T) {

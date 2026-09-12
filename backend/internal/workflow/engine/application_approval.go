@@ -330,6 +330,42 @@ func (e *FlowEngine) ApprovalRoleCode(ctx context.Context, instanceID uuid.UUID,
 	return ResolveApprovalRole(nodeID, approvalRoleCode(graph.GetNode(nodeID))), nil
 }
 
+// ApplicationApprovalRoles lists roleCode values on the instance graph.
+func (e *FlowEngine) ApplicationApprovalRoles(ctx context.Context, instanceID uuid.UUID) ([]string, error) {
+	inst, err := e.instRepo.GetByID(ctx, instanceID)
+	if err != nil {
+		return nil, err
+	}
+	if inst == nil {
+		return nil, response.NewError(response.CodeWorkflowInstNotFound, "流程实例不存在")
+	}
+	version, err := e.defRepo.GetVersionByID(ctx, inst.DefinitionVersionID)
+	if err != nil {
+		return nil, err
+	}
+	if version == nil {
+		return nil, response.NewError(response.CodeWorkflowVerNotFound, "审批流程版本不存在")
+	}
+	graph, err := ParseGraph(version.BpmnData)
+	if err != nil {
+		return nil, err
+	}
+	seen := map[string]bool{}
+	out := make([]string, 0, 4)
+	for _, node := range graph.Nodes {
+		if node == nil || node.Type != "approval" {
+			continue
+		}
+		role := ResolveApprovalRole(node.ID, approvalRoleCode(node))
+		if role == "" || seen[role] {
+			continue
+		}
+		seen[role] = true
+		out = append(out, role)
+	}
+	return out, nil
+}
+
 func ResolveApprovalRole(nodeID, roleCode string) string {
 	if code := strings.TrimSpace(roleCode); code != "" {
 		return code
