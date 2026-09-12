@@ -227,6 +227,7 @@ func TestRestore_GetRecordMissMarksRestoreFailed(t *testing.T) {
 	created, err := svc.Create(context.Background(), uuid.New(), nil)
 	require.NoError(t, err)
 	id := uuid.MustParse(created.ID)
+	rows.getCalls = 0
 	rows.getFailAfter = 1
 	_, err = svc.Restore(context.Background(), uuid.New(), id, &dto.RestoreRequest{Confirm: true, Confirmation: "RESTORE"})
 	require.NoError(t, err)
