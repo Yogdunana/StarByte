@@ -170,6 +170,29 @@ func TestCollectAPIStats(t *testing.T) {
 	assert.False(t, empty.Available)
 }
 
+func TestLiveHostAndNilDeps(t *testing.T) {
+	svc := New(nil, nil)
+	ctx := context.Background()
+
+	server, err := svc.Server(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "/", server.DiskPath)
+	assert.Greater(t, server.MemTotal, uint64(0))
+	assert.Greater(t, server.DiskTotal, uint64(0))
+	assert.GreaterOrEqual(t, server.CPUPercent, 0.0)
+
+	app, err := svc.App(ctx)
+	require.NoError(t, err)
+	assert.Greater(t, app.Goroutines, 0)
+
+	_, err = svc.Database(ctx)
+	require.Error(t, err)
+
+	redisOut, err := svc.Redis(ctx)
+	require.NoError(t, err)
+	assert.False(t, redisOut.Available)
+}
+
 func TestServiceAppAndAPIStats(t *testing.T) {
 	svc := &monitorService{
 		host:     fakeHost{cpu: 1, memTotal: 1, diskTotal: 1},
