@@ -121,6 +121,9 @@
     "/workflow/designer": "流程设计",
     "/workflow/instances": "流程实例",
     "/workflow/todo": "我的待办",
+    "/leave": "请假管理",
+    "/leave/my": "我的请假",
+    "/leave/list": "请假审批",
     "/internship": "实习管理",
     "/internship/list": "实习记录",
     "/internship/my": "我的实习",
@@ -315,6 +318,38 @@
       "0": "草稿",
       "1": "已发布",
       "2": "已归档"
+    }
+  },
+  "leave": {
+    "myTitle": "我的请假",
+    "myHint": "提交请假后立即预扣额度；驳回后自动返还。时长按工作日计算。",
+    "listTitle": "请假审批",
+    "listHint": "共 {{total}} 条，待审批 {{pending}} 条",
+    "apply": "申请请假",
+    "submitted": "已提交请假申请",
+    "typeLabel": "请假类型",
+    "range": "请假时间",
+    "days": "天数",
+    "reason": "事由",
+    "statusLabel": "状态",
+    "applicant": "申请人",
+    "approve": "批准",
+    "reject": "驳回",
+    "approved": "已批准",
+    "rejected": "已驳回",
+    "remark": "审批备注",
+    "deductible": "扣余额",
+    "balanceHint": "已用 {{used}} / 总额 {{total}}",
+    "status": {
+      "pending": "待审批",
+      "approved": "已批准",
+      "rejected": "已驳回"
+    },
+    "type": {
+      "annual": "年假",
+      "compensatory": "调休",
+      "personal": "事假",
+      "sick": "病假"
     }
   }
 }

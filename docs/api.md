@@ -23,6 +23,9 @@
 | 25000-25999 | 合同 |
 | 26000-26999 | 值班（预留） |
 | 27000-27999 | 活动 |
+| 28000-28999 | 公告 |
+| 29000-29999 | 日程 |
+| 30000-30999 | 请假 |
 
 ## 请求 / 响应示例
 
@@ -132,6 +135,7 @@ POST /api/v1/contracts
 - 会议：`/meetings`、attendees、agendas、votes
 - 任务：`/tasks`、指派/转交/评论/附件、`/tasks/my/*`
 - 实习：`/internships`、complete/report、stats
+- 请假：`GET|POST /leave`、`GET /leave/my`、`GET /leave/types`、`GET /leave/balance`、`GET /leave/stats`、`PUT /leave/:id/approve|reject`
 
 ### 流程 / 表单 / 文件 / 通知 / 统计
 

@@ -34,6 +34,7 @@ package response
 //	27000-27999 Activity (#52)
 //	28000-28999 Announcement (#77; issue listed 10000-10499, taken by internship)
 //	29000-29999 Schedule / calendar (#78; issue listed 10500-10999, taken by internship)
+//	30000-30999 Leave (#56)
 //
 //	Note: issue #71 asked for 9000-9499, but that range is already owned by
 //	the task module (9000-9999). Export therefore uses 17000-17999 (after
@@ -308,6 +309,16 @@ const (
 	CodeScheduleImportInvalid     = 29012 // 导入文件或格式不合法
 	CodeScheduleImportEmpty       = 29013 // 导入结果为空
 	CodeScheduleGoogleNotReady    = 29014 // Google 日历未配置或未授权
+
+	// ===== Leave (#56, 30000-30999) =====
+	CodeLeaveNotFound       = 30001 // 请假申请不存在
+	CodeLeaveInvalidState   = 30002 // 请假状态不允许该操作
+	CodeLeaveNoAccess       = 30003 // 无权操作该请假
+	CodeLeaveInsufficient   = 30004 // 假期余额不足
+	CodeLeaveInvalidTime    = 30005 // 开始/结束时间不合法
+	CodeLeaveTypeNotFound   = 30006 // 请假类型不存在
+	CodeLeaveOverlap        = 30007 // 请假时间重叠
+	CodeLeaveBalanceMissing = 30008 // 未找到假期余额
 )
 
 // ModuleRanges maps each module name to its error-code range [min, max].
@@ -342,4 +353,5 @@ var ModuleRanges = map[string][2]int{
 	"activity":     {27000, 27999},
 	"announcement": {28000, 28999},
 	"schedule":     {29000, 29999},
+	"leave":        {30000, 30999},
 }
