@@ -44,8 +44,13 @@ func RegisterRoutes(
 	member.POST("/applications", h.Submit)
 	member.GET("/applications/my", h.MyApplications)
 	member.POST("/applications/:id/resubmit", h.Resubmit)
-	member.GET("/applications/:id/progress", h.ApplicationProgress)
 	member.GET("/departments", h.ListDepartments)
+	// 进度：登录即可（申请人看自己的）。同时挂 member 数据范围，
+	// 让有 member:read 的人能看范围内申请；不 RequirePermission，以免卡住申请人。
+	progress := member.Group("")
+	progress.Use(middleware.RequireDataScope("member"))
+	progress.Use(middleware.DataScopeMiddleware(db, deptRepo, cacheService))
+	progress.GET("/applications/:id/progress", h.ApplicationProgress)
 	if h.admission != nil {
 		member.GET("/applications/:id/admission", h.Admission)
 		withPermission(member, "member:approve", cacheService).POST("/applications/:id/admission/sign", h.SignAdmission)

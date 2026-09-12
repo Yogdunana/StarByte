@@ -220,6 +220,27 @@ func TestApplicationProgress_OK(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 }
 
+func TestApplicationProgress_ForwardsDataScope(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := &mockMemberService{}
+	h := NewMemberHandler(svc)
+	uid := uuid.New()
+	id := uuid.New()
+	scope := &rbacModel.DataScopeCondition{}
+	r := gin.New()
+	r.GET("/member/applications/:id/progress", withUser(uid), func(c *gin.Context) {
+		c.Set("data_scope_condition", scope)
+		c.Next()
+	}, h.ApplicationProgress)
+	svc.On("ApplicationProgress", mock.Anything, uid, id, scope).Return(&dto.ApplicationProgressResponse{ApplicationID: id.String()}, nil)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/member/applications/"+id.String()+"/progress", nil)
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+	svc.AssertExpectations(t)
+}
+
 func TestApprove_OK(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := &mockMemberService{}

@@ -179,6 +179,7 @@ func (s *admissionService) canViewEngineProgress(ctx context.Context, store repo
 	if app.UserID == viewer {
 		return nil
 	}
+	// scope 来自进度路由上的可选 member 数据范围中间件（不强制 member:read）。
 	if canAccessRecord(scope, app.UserID, app.DepartmentID, viewer) {
 		return nil
 	}
