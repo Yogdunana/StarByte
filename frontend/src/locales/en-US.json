@@ -446,5 +446,25 @@
       "manual": "Manual",
       "scheduled": "Scheduled"
     }
+  },
+  "member": {
+    "engine": {
+      "title": "Membership approval",
+      "steps": {
+        "apply": "Application submitted",
+        "minister": "Minister review",
+        "president": "President review",
+        "end": "Completed"
+      },
+      "approve": "Approve",
+      "reject": "Reject",
+      "comment": "Comment",
+      "commentRequired": "A reason is required to reject",
+      "approved": "Approved; the workflow advanced",
+      "rejected": "Application rejected",
+      "hint": "New applications use the default minister → president chain. Edit the member_application definition in the designer to publish a new version later.",
+      "supplementHint": "More materials were requested. Wait for the applicant to resubmit.",
+      "viewFlow": "Open workflow instance"
+    }
   }
 }

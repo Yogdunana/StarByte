@@ -13,6 +13,7 @@ type ApproverRepo interface {
 	Search(context.Context, string, uuid.UUID) ([]model.ApproverOption, error)
 	ActiveUsers(context.Context, []uuid.UUID) ([]uuid.UUID, error)
 	ByRole(context.Context, uuid.UUID) ([]uuid.UUID, error)
+	ByRoleCode(context.Context, string, *uuid.UUID) ([]uuid.UUID, error)
 	DepartmentLeaders(context.Context, uuid.UUID) ([]uuid.UUID, error)
 }
 type approverRepo struct{ db *gorm.DB }
@@ -29,6 +30,15 @@ func (r *approverRepo) roleUsers(ctx context.Context) *gorm.DB {
 func (r *approverRepo) ByRole(ctx context.Context, role uuid.UUID) ([]uuid.UUID, error) {
 	var result []uuid.UUID
 	err := r.roleUsers(ctx).Where("r.id=?", role).Distinct().Order("u.id").Pluck("u.id", &result).Error
+	return result, err
+}
+func (r *approverRepo) ByRoleCode(ctx context.Context, code string, departmentID *uuid.UUID) ([]uuid.UUID, error) {
+	query := r.roleUsers(ctx).Where("r.code=?", code)
+	if departmentID != nil {
+		query = query.Where("u.department_id=?", *departmentID)
+	}
+	var result []uuid.UUID
+	err := query.Distinct().Order("u.id").Pluck("u.id", &result).Error
 	return result, err
 }
 func (r *approverRepo) DepartmentLeaders(ctx context.Context, initiator uuid.UUID) ([]uuid.UUID, error) {

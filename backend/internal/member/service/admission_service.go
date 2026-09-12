@@ -177,6 +177,13 @@ func (s *admissionService) Sign(ctx context.Context, viewer, id uuid.UUID, req *
 		if app.HistoricalReviewRequired || app.AdmissionVersion < 2 {
 			return response.NewError(response.CodeMemberAppInvalid, "历史申请须先核验，不能自动补签")
 		}
+		engineChain, err := s.isEngineChain(ctx, store, app)
+		if err != nil {
+			return err
+		}
+		if engineChain {
+			return response.NewError(response.CodeMemberAppInvalid, "该申请已接入流程引擎，请使用入会审批，不能走章程签字")
+		}
 		if req.Stage != app.AdmissionStage || req.Revision != app.AdmissionRevision {
 			return response.NewError(response.CodeConflict, "申请进度已变化，请刷新后操作")
 		}
@@ -291,6 +298,10 @@ func (s *admissionService) Sign(ctx context.Context, viewer, id uuid.UUID, req *
 	return out, err
 }
 func (s *admissionService) ReviewMaterials(ctx context.Context, viewer, id uuid.UUID, action, comment string) error {
+	handled, err := s.tryEngineReview(ctx, viewer, id, action, comment, nil)
+	if handled || err != nil {
+		return err
+	}
 	snapshot, err := s.Snapshot(ctx, viewer, id)
 	if err != nil {
 		return err
@@ -303,6 +314,10 @@ func (s *admissionService) ReviewMaterials(ctx context.Context, viewer, id uuid.
 }
 
 func (s *admissionService) RequestSupplement(ctx context.Context, viewer, id uuid.UUID, req *dto.SupplementRequest) error {
+	handled, err := s.tryEngineReview(ctx, viewer, id, actionSupplement, req.Comment, req.RequiredFields)
+	if handled || err != nil {
+		return err
+	}
 	snapshot, err := s.Snapshot(ctx, viewer, id)
 	if err != nil {
 		return err

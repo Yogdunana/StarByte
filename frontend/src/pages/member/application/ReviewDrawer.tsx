@@ -7,6 +7,7 @@ import {
 import type { MemberApplication, MemberApplicationHistory } from '@/types/api';
 import StatusTag from '@/components/StatusTag/StatusTag';
 import AdmissionPanel from './AdmissionPanel';
+import EngineChainPanel from './EngineChainPanel';
 import dayjs from 'dayjs';
 import { Link } from 'react-router-dom';
 import { ApplicationStatusMap } from '../meta';
@@ -80,9 +81,14 @@ const ReviewDrawer: React.FC<ReviewDrawerProps> = ({ open, record, mode, onClose
               <Descriptions.Item label="审核意见">{record.review_comment}</Descriptions.Item>
             )}
           </Descriptions>
-          {record.flow_instance_id && <p><Link to={`/workflow/instances?instance_id=${encodeURIComponent(record.flow_instance_id)}`}>查看关联审批流程</Link></p>}
-
-          <AdmissionPanel key={record.id} id={record.id} officer={record.applicant_type === 2} editable={mode === 'review'} onChanged={onDone} />
+          {record.workflow_key === 'member_application' ? (
+            <EngineChainPanel record={record} editable={mode === 'review'} onChanged={onDone} />
+          ) : (
+            <>
+              {record.flow_instance_id && <p><Link to={`/workflow/instances?instance_id=${encodeURIComponent(record.flow_instance_id)}`}>查看关联审批流程</Link></p>}
+              <AdmissionPanel key={record.id} id={record.id} officer={record.applicant_type === 2} editable={mode === 'review'} onChanged={onDone} />
+            </>
+          )}
 
           {mode === 'resubmit' && (
             <Form form={form} layout="vertical" style={{ marginTop: 16 }} initialValues={record}>

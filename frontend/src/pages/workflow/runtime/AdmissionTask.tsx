@@ -4,6 +4,7 @@ import { getApplicationDetail } from '@/api/member';
 import type { MemberApplication } from '@/types/api';
 import { usePermission } from '@/hooks/usePermission';
 import AdmissionPanel from '@/pages/member/application/AdmissionPanel';
+import EngineChainPanel from '@/pages/member/application/EngineChainPanel';
 
 interface Props { applicationId: string; instanceId: string; onChanged: () => void }
 export default function AdmissionTask({ applicationId, instanceId, onChanged }: Props) {
@@ -32,6 +33,8 @@ export default function AdmissionTask({ applicationId, instanceId, onChanged }: 
       { key: 'skills', label: '技能', children: application.skills.join('、') || '—' },
       { key: 'experience', label: '经历', children: application.experience || '—' },
     ]} />
-    <AdmissionPanel id={applicationId} officer={application.applicant_type === 2} editable={canApprove && application.flow_instance_id === instanceId} onChanged={onChanged} />
+    {application.workflow_key === 'member_application'
+      ? <EngineChainPanel record={application} editable={canApprove && application.flow_instance_id === instanceId} onChanged={onChanged} />
+      : <AdmissionPanel id={applicationId} officer={application.applicant_type === 2} editable={canApprove && application.flow_instance_id === instanceId} onChanged={onChanged} />}
   </>;
 }

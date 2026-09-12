@@ -446,5 +446,25 @@
       "manual": "手动",
       "scheduled": "定时"
     }
+  },
+  "member": {
+    "engine": {
+      "title": "入会审批进度",
+      "steps": {
+        "apply": "干事申请",
+        "minister": "部长审批",
+        "president": "社长审批",
+        "end": "结束"
+      },
+      "approve": "同意",
+      "reject": "拒绝",
+      "comment": "审批意见",
+      "commentRequired": "拒绝须填写原因",
+      "approved": "已同意并推进流程",
+      "rejected": "已拒绝该申请",
+      "hint": "新申请走默认部长 → 社长链。更复杂的分支可在流程设计器编辑 member_application 定义后发布新版本。",
+      "supplementHint": "已要求补充材料，请等待申请人重新提交。",
+      "viewFlow": "查看流程实例"
+    }
   }
 }

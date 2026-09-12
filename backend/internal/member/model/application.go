@@ -79,4 +79,5 @@ type ApplicationWithNames struct {
 	Username       string `gorm:"column:username"`
 	DepartmentName string `gorm:"column:department_name"`
 	ReviewerName   string `gorm:"column:reviewer_name"`
+	WorkflowKey    string `gorm:"column:workflow_key"`
 }
