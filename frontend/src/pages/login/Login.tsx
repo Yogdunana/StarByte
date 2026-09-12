@@ -12,6 +12,7 @@ import { motion } from 'motion/react';
 import styles from './Login.module.css';
 import { fadeUp, staggerEnter } from '@/motion/tokens';
 import { useTranslation } from 'react-i18next';
+import { PUBLIC_CMS_KEYS } from '@/api/feature';
 import { resolveRedirect } from '@/utils/nextPath';
 import { FeatureProvider, useFeature } from '@/hooks/useFeature';
 
@@ -324,7 +325,7 @@ const Login: React.FC = () => {
             </Form>
           )}
         </Card>
-        <FeatureProvider keys={['cms.public']}>
+        <FeatureProvider keys={PUBLIC_CMS_KEYS}>
           <LoginPublicFooter />
         </FeatureProvider>
       </motion.div>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { PUBLIC_CMS_KEYS } from '@/api/feature';
 import FeatureEnabled from '@/components/FeatureEnabled/FeatureEnabled';
 import { FeatureProvider, useFeature } from '@/hooks/useFeature';
 import { getToken } from '@/utils/storage';
@@ -37,7 +38,7 @@ const PublicLayout: React.FC = () => {
   const { t } = useTranslation();
 
   return (
-    <FeatureProvider keys={['cms.public']}>
+    <FeatureProvider keys={PUBLIC_CMS_KEYS}>
       <div className={styles.shell}>
         <PublicNav />
         <main className={styles.main}>

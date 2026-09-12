@@ -110,3 +110,4 @@ export function getMembershipPortal(): Promise<MembershipPortal> {
 }
 
 export const DEFAULT_FEATURE_KEYS = ['cms.public', 'announcement.feed', 'membership.portal'] as const;
+export const PUBLIC_CMS_KEYS = ['cms.public'] as const;

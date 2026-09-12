@@ -33,19 +33,22 @@ export function mapEvaluate(input?: Record<string, FeatureEvaluate> | null): {
 
 export function FeatureProvider({
   children,
-  keys = [...DEFAULT_FEATURE_KEYS],
+  keys = DEFAULT_FEATURE_KEYS,
 }: {
   children: React.ReactNode;
-  keys?: string[];
+  keys?: readonly string[];
 }) {
   const [flags, setFlags] = useState<Record<string, boolean>>({});
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  // Depend on contents, not array identity — default/inline `keys={['cms.public']}`
+  // must not recreate refresh every render (that loops setLoading(true) and blanks gates).
+  const keySig = keys.join(',');
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const mapped = mapEvaluate(await evaluateMyFeatures(keys));
+      const mapped = mapEvaluate(await evaluateMyFeatures(keySig ? keySig.split(',') : undefined));
       setFlags(mapped.flags);
       setReasons(mapped.reasons);
     } catch {
@@ -54,7 +57,7 @@ export function FeatureProvider({
     } finally {
       setLoading(false);
     }
-  }, [keys]);
+  }, [keySig]);
 
   useEffect(() => { void refresh(); }, [refresh]);
 
