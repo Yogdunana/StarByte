@@ -42,15 +42,11 @@ func (s *flagService) applySchedules(ctx context.Context) int {
 	systemActor := uuid.Nil
 	for i := range flags {
 		flag := flags[i]
-		switch {
-		case feature.ShouldScheduleOn(&flag, now):
-			if s.persistSchedule(ctx, &flag, true, model.ActionScheduleOn, systemActor) {
-				changed++
-			}
-		case feature.ShouldScheduleOff(&flag, now):
-			if s.persistSchedule(ctx, &flag, false, model.ActionScheduleOff, systemActor) {
-				changed++
-			}
+		if !feature.ShouldScheduleOn(&flag, now) && !feature.ShouldScheduleOff(&flag, now) {
+			continue
+		}
+		if s.persistSchedule(ctx, flag.ID, systemActor) {
+			changed++
 		}
 	}
 	if changed > 0 {
@@ -59,10 +55,21 @@ func (s *flagService) applySchedules(ctx context.Context) int {
 	return changed
 }
 
-func (s *flagService) persistSchedule(ctx context.Context, flag *model.Flag, enabled bool, action string, actor uuid.UUID) bool {
-	latest, err := s.rows.GetByID(ctx, flag.ID)
+func (s *flagService) persistSchedule(ctx context.Context, id uuid.UUID, actor uuid.UUID) bool {
+	latest, err := s.rows.GetByID(ctx, id)
 	if err != nil || latest == nil {
 		logCacheErr("schedule-get", err)
+		return false
+	}
+	now := s.clock()
+	var enabled bool
+	var action string
+	switch {
+	case feature.ShouldScheduleOn(latest, now):
+		enabled, action = true, model.ActionScheduleOn
+	case feature.ShouldScheduleOff(latest, now):
+		enabled, action = false, model.ActionScheduleOff
+	default:
 		return false
 	}
 	if latest.Enabled == enabled {
@@ -70,7 +77,7 @@ func (s *flagService) persistSchedule(ctx context.Context, flag *model.Flag, ena
 	}
 	before := *latest
 	latest.Enabled = enabled
-	latest.UpdatedAt = s.clock()
+	latest.UpdatedAt = now
 	if err := s.rows.Update(ctx, latest); err != nil {
 		logCacheErr("schedule-update", err)
 		return false

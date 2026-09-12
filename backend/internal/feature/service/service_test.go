@@ -401,6 +401,59 @@ func TestABEnvScheduleRollbackAnalytics(t *testing.T) {
 	_ = rows
 }
 
+func TestApplySchedulesReevaluatesAfterList(t *testing.T) {
+	inner := newMemRepo()
+	rows := &afterListRepo{memRepo: inner}
+	svc := New(rows, NewMemorySnapshot(), NewMemoryBus(), stubRoles{}, stubUsers{}, stubPerms{}).(*flagService)
+	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
+	future := now.Add(time.Hour)
+	svc.now = func() time.Time { return now }
+	ctx := context.Background()
+	created, err := svc.Create(ctx, uuid.New(), &dto.CreateFlagRequest{
+		FlagKey: "race.window", Name: "Race", FlagType: model.TypeBoolean, Enabled: false,
+		Rules: model.Rules{StartsAt: &future},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.MustParse(created.ID)
+	svc.now = func() time.Time { return future.Add(time.Second) }
+	later := future.Add(2 * time.Hour)
+	rows.afterList = func() {
+		row, err := inner.GetByID(ctx, id)
+		if err != nil || row == nil {
+			t.Errorf("concurrent get: %v", err)
+			return
+		}
+		row.Rules.StartsAt = &later
+		row.UpdatedAt = svc.clock()
+		if err := inner.Update(ctx, row); err != nil {
+			t.Errorf("concurrent update: %v", err)
+		}
+	}
+	if n := svc.applySchedules(ctx); n != 0 {
+		t.Fatalf("stale schedule-on must not persist after window edit, n=%d", n)
+	}
+	got, err := svc.Get(ctx, id)
+	if err != nil || got.Enabled {
+		t.Fatalf("window edit must keep off: %+v %v", got, err)
+	}
+}
+
+type afterListRepo struct {
+	*memRepo
+	afterList func()
+}
+
+func (r *afterListRepo) ListAll(ctx context.Context) ([]model.Flag, error) {
+	flags, err := r.memRepo.ListAll(ctx)
+	if fn := r.afterList; fn != nil {
+		r.afterList = nil
+		fn()
+	}
+	return flags, err
+}
+
 func TestScheduleLoopAndNilClock(t *testing.T) {
 	svc, _, _ := newTestSvc(nil, nil, stubPerms{})
 	fs := svc.(*flagService)

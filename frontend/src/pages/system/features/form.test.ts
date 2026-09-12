@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import dayjs from 'dayjs';
-import { flagToForm, splitLines, toRules } from './form';
+import { analyticsRowKey, flagToForm, splitLines, toRules } from './form';
 import type { FeatureFlag } from '@/api/feature';
 
 describe('feature form helpers', () => {
@@ -65,5 +65,11 @@ describe('feature form helpers', () => {
     expect(form.starts_at?.toISOString()).toBe(dayjs('2026-09-15T00:00:00Z').toISOString());
     expect(flagToForm().flag_type).toBe('boolean');
     expect(flagToForm().variants?.length).toBe(2);
+  });
+
+  it('keeps boolean analytics buckets unique when variant is empty', () => {
+    expect(analyticsRowKey({ variant: '', enabled: true })).toBe('default:on');
+    expect(analyticsRowKey({ variant: '', enabled: false })).toBe('default:off');
+    expect(analyticsRowKey({ variant: 'treatment', enabled: true })).toBe('treatment:on');
   });
 });

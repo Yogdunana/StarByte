@@ -13,7 +13,7 @@ import {
 } from '@/api/feature';
 import { usePermissions } from '@/hooks/usePermission';
 import { formatDateTime } from '@/utils/format';
-import { FEATURE_ENVS, FEATURE_TYPES, flagToForm, toRules, type FlagForm } from './form';
+import { FEATURE_ENVS, FEATURE_TYPES, analyticsRowKey, flagToForm, toRules, type FlagForm } from './form';
 import './feature.css';
 
 const FeaturePage: React.FC = () => {
@@ -313,7 +313,7 @@ const FeaturePage: React.FC = () => {
             <div>{stats.flag_key}</div>
             <div>{t('feature.exposureTotal')}: {stats.total} / {stats.days}d</div>
             <Table
-              rowKey={(r) => r.variant || 'default'}
+              rowKey={analyticsRowKey}
               pagination={false}
               size="small"
               dataSource={stats.variants || []}

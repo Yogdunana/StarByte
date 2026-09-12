@@ -96,3 +96,7 @@ export function defaultVariants(): FeatureVariant[] {
     { key: 'treatment', weight: 50, enabled: true },
   ];
 }
+
+export function analyticsRowKey(row: { variant?: string; enabled?: boolean }): string {
+  return `${row.variant || 'default'}:${row.enabled ? 'on' : 'off'}`;
+}
