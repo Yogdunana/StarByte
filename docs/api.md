@@ -168,17 +168,21 @@ POST /api/v1/contracts
 
 进程列表 / 网卡流量深挖本切片不做。
 
-### 数据备份（#88 phase-1，运维角色）
+### 数据备份（#88，运维角色）
 
 - `GET /system/backups` 备份列表（`backup:read`）
 - `POST /system/backups` 手动触发全量 `pg_dump --format=custom` + gzip（`.dump.gz`），异步落 MinIO（`backup:create`）
 - `GET /system/backups/:id` 备份详情（校验和 / 大小 / 状态）
 - `DELETE /system/backups/:id` 删除对象与记录（`backup:delete`）
-- `POST /system/backups/:id/restore` 恢复；请求体须 `confirm=true` 且 `confirmation=RESTORE`（`backup:restore`）。成功/已恢复/恢复失败（2/5/6）可发起。底层为 `pg_restore --single-transaction --clean --if-exists`：中途失败应整事务回滚。若仍失败，状态为 `6`（恢复失败），同一产物可立即重试；不要在半失败库上继续业务写入。
+- `POST /system/backups/:id/restore` 恢复到**当前应用库**；请求体须 `confirm=true` 且 `confirmation=RESTORE`（`backup:restore`）。成功/已恢复/恢复失败（2/5/6）可发起。底层为 `pg_restore --single-transaction --clean --if-exists`。
+- `POST /system/backups/:id/restore-drill` 恢复演练到**独立 Postgres**（`confirmation=DRILL` + `target_dbname` 和/或 `target_dsn`）。不改生产库记录状态，拒绝指向当前应用库。**不是 PITR**。
+- `GET /system/backups/:id/preview` 完整性检查（SHA-256 / 解密 / gzip / TOC），不执行恢复。
 - `GET|PUT /system/backups/policies` 保留天数 + 6 字段 cron（`backup:read` / `backup:manage`）；调度同步失败时接口报错，不假装成功。
-- `GET /system/backups/storage` 成功 / 已恢复 / 恢复失败备份条数与体积（产物仍在）
+- `GET /system/backups/storage` 成功 / 已恢复 / 恢复失败备份条数与体积；`encryption_enabled` / `incremental_enabled=false` / `pitr_enabled=false`
 
-SSH 应急仍用 `starbyte backup`（主机 `pg_dump` → `/var/backups/starbyte`），应用内是托管路径。WAL / PITR / AES-256 不在本切片。
+CLI：`starbyte backup create|preview|restore|drill` 调用容器内 `starbyte-server backup …`，与 HTTP 同一套 gzip / AES-256 / 告警。`starbyte backup emergency` 才是主机明文 `pg_dump`。
+
+WAL 增量 / 指定时间点恢复（PITR）需要主机级 `pg_basebackup` + WAL 归档，本模块是逻辑 `pg_dump -Fc`，不假装支持。
 
 ### 知识库 / CMS（#58）
 

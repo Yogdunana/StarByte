@@ -37,6 +37,7 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, cache rbacService.Permission
 
 	restore := withPermission(g, "backup:restore", cache)
 	restore.POST("/:id/restore", h.Restore)
+	restore.POST("/:id/restore-drill", h.DrillRestore)
 
 	manage := withPermission(g, "backup:manage", cache)
 	manage.PUT("/policies", h.PutPolicy)

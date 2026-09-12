@@ -12,6 +12,7 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/backup/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/backup/model"
 	"github.com/Yogdunana/StarByte/backend/internal/backup/repo"
+	"github.com/Yogdunana/StarByte/backend/pkg/config"
 	"github.com/google/uuid"
 )
 
@@ -260,6 +261,7 @@ type fakeEngine struct {
 	restored   []byte
 	payload    []byte
 	toc        string
+	target     config.DatabaseConfig
 }
 
 func (e *fakeEngine) Dump(_ context.Context, dest io.Writer) error {
@@ -273,7 +275,12 @@ func (e *fakeEngine) Dump(_ context.Context, dest io.Writer) error {
 	return err
 }
 
-func (e *fakeEngine) Restore(_ context.Context, src io.Reader) error {
+func (e *fakeEngine) Restore(ctx context.Context, src io.Reader) error {
+	return e.RestoreTo(ctx, src, config.DatabaseConfig{})
+}
+
+func (e *fakeEngine) RestoreTo(_ context.Context, src io.Reader, target config.DatabaseConfig) error {
+	e.target = target
 	if e.restoreErr != nil {
 		return e.restoreErr
 	}

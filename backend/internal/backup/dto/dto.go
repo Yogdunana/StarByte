@@ -38,6 +38,33 @@ type RestoreRequest struct {
 	Confirmation string `json:"confirmation"`
 }
 
+// DrillRequest is POST /system/backups/:id/restore-drill.
+// confirmation must be the literal DRILL. Target is an independent Postgres
+// (DSN and/or dbname). This is not PITR.
+type DrillRequest struct {
+	Confirm        bool   `json:"confirm"`
+	Confirmation   string `json:"confirmation"`
+	TargetDSN      string `json:"target_dsn"`
+	TargetHost     string `json:"target_host"`
+	TargetPort     int    `json:"target_port"`
+	TargetUser     string `json:"target_user"`
+	TargetPassword string `json:"target_password"`
+	TargetDBName   string `json:"target_dbname"`
+	TargetSSLMode  string `json:"target_sslmode"`
+}
+
+// DrillResult is a restore drill outcome. Passwords are never returned.
+type DrillResult struct {
+	ID           string `json:"id"`
+	Filename     string `json:"filename"`
+	Ready        bool   `json:"ready"`
+	Restored     bool   `json:"restored"`
+	TargetHost   string `json:"target_host"`
+	TargetPort   int    `json:"target_port"`
+	TargetDBName string `json:"target_dbname"`
+	Error        string `json:"error,omitempty"`
+}
+
 // Policy is GET/PUT /system/backups/policies.
 type Policy struct {
 	Enabled       bool   `json:"enabled"`

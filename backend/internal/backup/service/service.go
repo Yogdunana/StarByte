@@ -29,6 +29,8 @@ type Service interface {
 	Create(ctx context.Context, userID uuid.UUID, req *dto.CreateRequest) (*dto.Record, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	Restore(ctx context.Context, userID uuid.UUID, id uuid.UUID, req *dto.RestoreRequest) (*dto.Record, error)
+	DrillRestore(ctx context.Context, userID uuid.UUID, id uuid.UUID, req *dto.DrillRequest) (*dto.DrillResult, error)
+	Wait(ctx context.Context, id uuid.UUID) (*dto.Record, error)
 	GetPolicy(ctx context.Context) (*dto.Policy, error)
 	UpdatePolicy(ctx context.Context, userID uuid.UUID, req *dto.UpdatePolicyRequest) (*dto.Policy, error)
 	Storage(ctx context.Context) (*dto.StorageStats, error)
@@ -42,6 +44,7 @@ type backupService struct {
 	rows   repo.Repository
 	store  ArtifactStore
 	engine Engine
+	live   config.DatabaseConfig
 	cfg    config.BackupConfig
 	alert  Alerter
 	now    func() time.Time
@@ -60,6 +63,7 @@ func New(rows repo.Repository, objectStore storage.ObjectStorage, db config.Data
 		rows:   rows,
 		store:  newArtifactStore(objectStore, cfg.LocalPath),
 		engine: newPGEngine(db, cfg.PgDumpBin, cfg.PgRestoreBin),
+		live:   db,
 		cfg:    cfg,
 		alert:  alert,
 		now:    time.Now,
@@ -389,6 +393,74 @@ func (s *backupService) executeRestore(ctx context.Context, id uuid.UUID) {
 	logger.Info("backup restore finished", zap.String("id", rec.ID.String()))
 }
 
+func (s *backupService) DrillRestore(ctx context.Context, userID uuid.UUID, id uuid.UUID, req *dto.DrillRequest) (*dto.DrillResult, error) {
+	if err := validateDrillConfirm(req); err != nil {
+		return nil, err
+	}
+	target, err := ResolveDrillTarget(s.liveDB(), req)
+	if err != nil {
+		return nil, err
+	}
+	rec, err := s.rows.GetRecord(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if rec == nil {
+		return nil, errNotFound()
+	}
+	out := &dto.DrillResult{
+		ID:           rec.ID.String(),
+		Filename:     rec.Filename,
+		TargetHost:   target.Host,
+		TargetPort:   normPort(target.Port),
+		TargetDBName: target.DBName,
+	}
+	if rec.Status != model.StatusSuccess && rec.Status != model.StatusRestored && rec.Status != model.StatusRestoreFailed {
+		return nil, errNotReady("只能从成功或可重试的备份演练恢复")
+	}
+	if rec.ObjectKey == "" || rec.ChecksumSHA256 == "" {
+		return nil, errNotReady("备份产物不完整")
+	}
+	busy, err := s.rows.CountBusy(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if busy > 0 || !s.tryBegin() {
+		return nil, errBusy()
+	}
+	defer s.end()
+
+	dump, _, err := s.downloadUnwrapped(ctx, rec)
+	if err != nil {
+		out.Error = err.Error()
+		s.alert.Failed(ctx, ptrUUID(userID), rec.Filename, "演练: "+err.Error())
+		return out, nil
+	}
+	defer func() { _ = dump.Close() }()
+	out.Ready = true
+	if err := s.engine.RestoreTo(ctx, dump, target); err != nil {
+		out.Error = err.Error()
+		s.alert.Failed(ctx, ptrUUID(userID), rec.Filename, "演练: "+err.Error())
+		return out, nil
+	}
+	out.Restored = true
+	logger.Info("backup drill restore finished",
+		zap.String("id", rec.ID.String()),
+		zap.String("target_db", target.DBName),
+		zap.String("target_host", target.Host),
+	)
+	return out, nil
+}
+
+func (s *backupService) Wait(ctx context.Context, id uuid.UUID) (*dto.Record, error) {
+	s.waitUntilSettled(ctx, id.String())
+	return s.Get(ctx, id)
+}
+
+func (s *backupService) liveDB() config.DatabaseConfig {
+	return s.live
+}
+
 func (s *backupService) GetPolicy(ctx context.Context) (*dto.Policy, error) {
 	p, err := s.ensurePolicy(ctx)
 	if err != nil {
@@ -632,7 +704,8 @@ func (s *backupService) waitUntilSettled(ctx context.Context, id string) {
 		if err != nil || rec == nil {
 			return
 		}
-		if rec.Status == model.StatusSuccess || rec.Status == model.StatusFailed {
+		if rec.Status == model.StatusSuccess || rec.Status == model.StatusFailed ||
+			rec.Status == model.StatusRestored || rec.Status == model.StatusRestoreFailed {
 			return
 		}
 	}

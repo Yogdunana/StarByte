@@ -7,7 +7,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { CloudServerOutlined, DeleteOutlined, ReloadOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import {
-  createBackup, deleteBackup, getBackupPolicy, getBackups, getBackupStorage,
+  createBackup, deleteBackup, drillRestoreBackup, getBackupPolicy, getBackups, getBackupStorage,
   previewBackup, restoreBackup, updateBackupPolicy,
   type BackupPolicy, type BackupPreview, type BackupRecord, type BackupStorageStats,
 } from '@/api/backup';
@@ -45,6 +45,11 @@ const BackupPage: React.FC = () => {
   const [preview, setPreview] = useState<BackupPreview | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const previewSession = useRef(createPreviewSession()).current;
+  const [drillRow, setDrillRow] = useState<BackupRecord | null>(null);
+  const [drillText, setDrillText] = useState('');
+  const [drillDB, setDrillDB] = useState('starbyte_drill');
+  const [drillDSN, setDrillDSN] = useState('');
+  const [drilling, setDrilling] = useState(false);
 
   const load = useCallback(async (p = page) => {
     setLoading(true);
@@ -136,6 +141,29 @@ const BackupPage: React.FC = () => {
     setRestoreRow(null);
     setRestoreText('');
     void load();
+  };
+
+  const onDrill = async () => {
+    if (!drillRow) return;
+    if (drillText.trim() !== t('backup.drillToken')) return;
+    if (!drillDB.trim()) return;
+    setDrilling(true);
+    try {
+      const out = await drillRestoreBackup(drillRow.id, {
+        target_dbname: drillDB.trim(),
+        target_dsn: drillDSN.trim() || undefined,
+        confirmation: t('backup.drillToken'),
+      });
+      if (out.restored) {
+        message.success(t('backup.drillOk', { db: out.target_dbname }));
+        setDrillRow(null);
+        setDrillText('');
+      } else {
+        message.error(out.error || t('backup.drillFail'));
+      }
+    } finally {
+      setDrilling(false);
+    }
   };
 
   const flag = (ok: boolean) => (ok ? <Tag color="success">OK</Tag> : <Tag color="error">FAIL</Tag>);
@@ -311,8 +339,50 @@ const BackupPage: React.FC = () => {
             <p>{t('backup.previewTOC')}: {flag(preview.toc_valid)}</p>
             {preview.error ? <Alert type="error" showIcon message={preview.error} /> : null}
             {preview.toc ? <pre className="backup-toc">{preview.toc}</pre> : null}
+            {canRestore && canContinueRestore(previewRow, preview) && (
+              <Button
+                style={{ marginTop: 12 }}
+                onClick={() => {
+                  if (!previewRow) return;
+                  setDrillDB('starbyte_drill');
+                  setDrillDSN('');
+                  setDrillText('');
+                  setDrillRow(previewRow);
+                  closePreview();
+                }}
+              >
+                {t('backup.drill')}
+              </Button>
+            )}
           </div>
         )}
+      </Modal>
+
+      <Modal
+        open={!!drillRow}
+        title={t('backup.drillTitle')}
+        confirmLoading={drilling}
+        okText={t('backup.drillRun')}
+        okButtonProps={{ disabled: drillText.trim() !== t('backup.drillToken') || !drillDB.trim() }}
+        onCancel={() => { setDrillRow(null); setDrillText(''); }}
+        onOk={() => void onDrill()}
+      >
+        <Alert type="info" showIcon style={{ marginBottom: 16 }} message={t('backup.drillWarn')} />
+        <p>{t('backup.drillDBLabel')}</p>
+        <Input value={drillDB} onChange={(e) => setDrillDB(e.target.value)} style={{ marginBottom: 12 }} />
+        <p>{t('backup.drillDSNLabel')}</p>
+        <Input
+          value={drillDSN}
+          onChange={(e) => setDrillDSN(e.target.value)}
+          placeholder="postgres://user@host:5432/starbyte_drill"
+          style={{ marginBottom: 12 }}
+        />
+        <p>{t('backup.drillConfirmLabel')}</p>
+        <Input
+          value={drillText}
+          onChange={(e) => setDrillText(e.target.value)}
+          placeholder={t('backup.drillToken')}
+        />
       </Modal>
 
       <Modal

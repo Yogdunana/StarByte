@@ -29,6 +29,7 @@ func newTestSvc() (*backupService, *memRepo, *memStore, *fakeEngine, *recAlerter
 		rows:   rows,
 		store:  store,
 		engine: eng,
+		live:   config.DatabaseConfig{Host: "postgres", Port: 5432, User: "starbyte", DBName: "starbyte"},
 		cfg:    withBackupDefaults(config.BackupConfig{Prefix: "backups", TimeoutSec: 30, Bucket: "starbyte"}),
 		alert:  alert,
 		now:    testNow,
@@ -118,6 +119,55 @@ func TestRestore_RequiresTypedConfirmation(t *testing.T) {
 	_, err = svc.Restore(context.Background(), uuid.New(), id, &dto.RestoreRequest{Confirm: true, Confirmation: "YES"})
 	require.Error(t, err)
 	assert.Equal(t, response.CodeBackupConfirmRequired, err.(*response.AppError).Code)
+}
+
+func TestDrillRestore_IndependentDB(t *testing.T) {
+	svc, _, _, eng, alert := newTestSvc()
+	created, err := svc.Create(context.Background(), uuid.New(), nil)
+	require.NoError(t, err)
+	id := uuid.MustParse(created.ID)
+
+	_, err = svc.DrillRestore(context.Background(), uuid.New(), id, &dto.DrillRequest{
+		Confirm: true, Confirmation: "RESTORE", TargetDBName: "starbyte_drill",
+	})
+	require.Error(t, err)
+
+	_, err = svc.DrillRestore(context.Background(), uuid.New(), id, &dto.DrillRequest{
+		Confirm: true, Confirmation: model.DrillConfirmToken, TargetDBName: "starbyte",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "不能是当前应用库")
+
+	out, err := svc.DrillRestore(context.Background(), uuid.New(), id, &dto.DrillRequest{
+		Confirm: true, Confirmation: model.DrillConfirmToken, TargetDBName: "starbyte_drill",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, out)
+	assert.True(t, out.Restored)
+	assert.Equal(t, "starbyte_drill", out.TargetDBName)
+	assert.Equal(t, "starbyte_drill", eng.target.DBName)
+	assert.Equal(t, "postgres", eng.target.Host)
+	got, err := svc.Get(context.Background(), id)
+	require.NoError(t, err)
+	assert.Equal(t, model.StatusSuccess, got.Status)
+	assert.Equal(t, 0, alert.n)
+}
+
+func TestDrillRestore_FailureAlertsWithoutFlippingRecord(t *testing.T) {
+	svc, _, _, eng, alert := newTestSvc()
+	created, err := svc.Create(context.Background(), uuid.New(), nil)
+	require.NoError(t, err)
+	eng.restoreErr = errors.New("pg_restore boom")
+	out, err := svc.DrillRestore(context.Background(), uuid.New(), uuid.MustParse(created.ID), &dto.DrillRequest{
+		Confirm: true, Confirmation: "DRILL", TargetDBName: "starbyte_drill",
+	})
+	require.NoError(t, err)
+	assert.False(t, out.Restored)
+	assert.Contains(t, out.Error, "pg_restore")
+	assert.Equal(t, 1, alert.n)
+	got, err := svc.Get(context.Background(), uuid.MustParse(created.ID))
+	require.NoError(t, err)
+	assert.Equal(t, model.StatusSuccess, got.Status)
 }
 
 func TestRestore_Success(t *testing.T) {

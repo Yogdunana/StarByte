@@ -142,7 +142,8 @@ echo "STARBYTE_HOME=$(pwd)" | sudo tee /etc/starbyte.conf
 | `starbyte restart [服务\|all]` | 重启容器（不重建镜像） |
 | `starbyte rebuild [backend\|frontend\|all]` | `build` + `up --no-deps --force-recreate`，避免顺带强拉 MinIO/Postgres |
 | `starbyte env-check` | 只检查 `deploy/.env` **键名**是否存在且非空，不打印值 |
-| `starbyte backup` | Postgres dump 到 `/var/backups/starbyte/`（不可写则 `./backups/`），并提示 volume / MinIO 路径 |
+| `starbyte backup create\|list\|preview\|restore\|drill` | 经 backend 容器走托管备份（gzip / AES / 预览 / 失败告警） |
+| `starbyte backup emergency` | 主机明文 `pg_dump` → `/var/backups/starbyte/`（backend 不可用时的兜底） |
 | `starbyte doctor` | 校园部署常见问题：镜像站 403、`SKIP_BUCKET_CREATE`、CAS 回调 / authserver 内网解析、80 端口 |
 
 `rebuild` 对应生产上已验证的绕过方式：镜像站 403 时不要对 MinIO 做 `compose up` 全量拉取。
@@ -210,14 +211,19 @@ server {
 ## 数据库备份与恢复
 
 ```bash
-# 推荐：应急 CLI（自动选目录并写说明）
-starbyte backup
+# 推荐：与应用同一套 custom dump + gzip + 可选 AES
+starbyte backup create
+starbyte backup preview <id>
+# 演练到独立库（先 createdb starbyte_drill；不是 PITR）
+starbyte backup drill <id> --dbname starbyte_drill --confirm DRILL
 
-# 或手动
-docker exec starbyte-postgres pg_dump -U starbyte starbyte > starbyte-$(date +%F).sql
+# backend 挂了才用明文应急
+starbyte backup emergency
 
-# 恢复
-cat starbyte-2026-09-07.sql | docker exec -i starbyte-postgres psql -U starbyte starbyte
+# 覆盖当前应用库（危险）
+starbyte backup restore <id> --confirm RESTORE
 ```
+
+WAL / PITR 不在应用内：需要数据库主机配置 `wal_level`、归档命令和 `pg_basebackup`。
 
 MinIO 桶与 Postgres 一起备份。Named volumes 典型路径可用 `docker volume inspect` 查看（compose 项目名多为 `deploy`，卷名类似 `deploy_postgres-data`）。恢复后确认迁移版本；`SKIP_BUCKET_CREATE=true` 时桶需已存在。

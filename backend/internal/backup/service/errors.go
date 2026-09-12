@@ -30,6 +30,10 @@ func errConfirm() error {
 	return response.NewError(response.CodeBackupConfirmRequired, "恢复需 confirm=true 且 confirmation 输入 RESTORE")
 }
 
+func errDrillConfirm() error {
+	return response.NewError(response.CodeBackupConfirmRequired, "演练需 confirm=true 且 confirmation 输入 DRILL")
+}
+
 func errPolicy(msg string) error {
 	return response.NewError(response.CodeBackupPolicyInvalid, msg)
 }

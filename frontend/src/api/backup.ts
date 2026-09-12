@@ -97,3 +97,26 @@ export function getBackupStorage(): Promise<BackupStorageStats> {
 export function previewBackup(id: string, signal?: AbortSignal): Promise<BackupPreview> {
   return request.get(`/system/backups/${id}/preview`, { timeout: 180000, signal });
 }
+
+export interface BackupDrillResult {
+  id: string;
+  filename: string;
+  ready: boolean;
+  restored: boolean;
+  target_host: string;
+  target_port: number;
+  target_dbname: string;
+  error?: string;
+}
+
+export function drillRestoreBackup(
+  id: string,
+  data: { target_dbname: string; target_dsn?: string; confirmation?: string },
+): Promise<BackupDrillResult> {
+  return request.post(`/system/backups/${id}/restore-drill`, {
+    confirm: true,
+    confirmation: data.confirmation || 'DRILL',
+    target_dbname: data.target_dbname,
+    target_dsn: data.target_dsn,
+  }, { timeout: 180000 });
+}

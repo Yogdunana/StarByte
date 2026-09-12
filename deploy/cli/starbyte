@@ -3,7 +3,7 @@
 # 依赖：bash + docker compose。不打印 .env 密钥值。
 set -euo pipefail
 
-VERSION="1.0.2"
+VERSION="1.0.3"
 CONF_FILE="/etc/starbyte.conf"
 
 usage() {
@@ -20,7 +20,9 @@ StarByte 应急运维 CLI（类似宝塔 bt）
   restart [服务|all]             重启容器，不重建镜像
   rebuild [backend|frontend|all] 构建并 --no-deps 重建应用（不强拉 MinIO/Postgres）
   env-check                      检查 deploy/.env 关键键名（不打印值）
-  backup                         Postgres dump + volume/MinIO 路径说明
+  backup [create|list|preview|restore|drill|emergency]
+                                 托管备份（与应用同一套 gzip/AES/预览/告警）
+                                 emergency 才走主机明文 pg_dump
   doctor                         校园网部署常见问题排查
   install                        安装到 /usr/local/bin/starbyte，并创建 sb 软链
   help                           显示本帮助
@@ -356,6 +358,33 @@ secure_create() {
 }
 
 cmd_backup() {
+  local sub="${1:-create}"
+  shift || true
+  case "$sub" in
+    help|-h|--help)
+      cat <<'EOF'
+starbyte backup create
+starbyte backup list
+starbyte backup preview <id>
+starbyte backup restore <id> --confirm RESTORE
+starbyte backup drill <id> --dbname <独立库> [--dsn DSN] --confirm DRILL
+starbyte backup emergency          # 主机明文 pg_dump（不加密、无预览）
+EOF
+      return 0
+      ;;
+    emergency)
+      cmd_backup_emergency
+      return
+      ;;
+  esac
+  need_docker
+  if ! docker exec starbyte-backend /app/starbyte-server backup "$sub" "$@"; then
+    err "托管备份失败。backend 未运行时可用: starbyte backup emergency"
+    exit 1
+  fi
+}
+
+cmd_backup_emergency() {
   need_docker
   local dest stamp dump notes old_umask
   old_umask="$(umask)"

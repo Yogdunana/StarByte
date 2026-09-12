@@ -40,6 +40,10 @@ func (s *stubSvc) Delete(context.Context, uuid.UUID) error { return s.err }
 func (s *stubSvc) Restore(context.Context, uuid.UUID, uuid.UUID, *dto.RestoreRequest) (*dto.Record, error) {
 	return s.rec, s.err
 }
+func (s *stubSvc) DrillRestore(context.Context, uuid.UUID, uuid.UUID, *dto.DrillRequest) (*dto.DrillResult, error) {
+	return &dto.DrillResult{Restored: true, TargetDBName: "starbyte_drill"}, s.err
+}
+func (s *stubSvc) Wait(context.Context, uuid.UUID) (*dto.Record, error) { return s.rec, s.err }
 func (s *stubSvc) GetPolicy(context.Context) (*dto.Policy, error) { return s.policy, s.err }
 func (s *stubSvc) UpdatePolicy(context.Context, uuid.UUID, *dto.UpdatePolicyRequest) (*dto.Policy, error) {
 	return s.policy, s.err
@@ -72,6 +76,22 @@ func withUser(h gin.HandlerFunc, method, path string, body []byte) *httptest.Res
 func TestHandlerListOK(t *testing.T) {
 	h := New(&stubSvc{list: []dto.Record{{ID: uuid.New().String()}}, total: 1})
 	w := withUser(h.List, http.MethodGet, "/api/v1/system/backups?page=1", nil)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestHandlerDrillRestoreOK(t *testing.T) {
+	id := uuid.New()
+	h := New(&stubSvc{})
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/system/backups/"+id.String()+"/restore-drill", bytes.NewReader([]byte(
+		`{"confirm":true,"confirmation":"DRILL","target_dbname":"starbyte_drill"}`,
+	)))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Set("request_id", "rid")
+	c.Set(auth.ContextKeyUserID, uuid.New().String())
+	c.Params = gin.Params{{Key: "id", Value: id.String()}}
+	h.DrillRestore(c)
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
