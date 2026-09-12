@@ -110,7 +110,7 @@ func (s *configService) TestSMTP(ctx context.Context, req *dto.TestSMTPRequest) 
 	if err != nil {
 		return nil, err
 	}
-	if cfg.Password == "" {
+	if cfg.Password == "" || cfg.PasswordSource == "" {
 		return nil, response.NewError(response.CodeNotificationEmailFail, "未配置 SMTP 密码")
 	}
 	if s.tester == nil {
@@ -151,7 +151,7 @@ func smtpResponse(cfg config.EmailConfig) *dto.SMTPSettingsResponse {
 			FromName: cfg.FromName,
 			Username: cfg.EffectiveUsername(),
 		},
-		PasswordConfigured: cfg.Password != "",
+		PasswordConfigured: cfg.Password != "" && cfg.PasswordSource != "",
 		PasswordSource:     cfg.PasswordSource,
 	}
 }

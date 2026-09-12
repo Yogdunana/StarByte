@@ -83,7 +83,8 @@ func TestSendMIMERefusesMissingPassword(t *testing.T) {
 
 func TestEmailChannelUsesWebSecretAndRejectsWrongKey(t *testing.T) {
 	t.Setenv("STARBYTE_CONFIG_ENCRYPTION_KEY", "a2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2s=")
-	t.Setenv("STARBYTE_SMTP_PASSWORD", "old-env")
+	t.Setenv("STARBYTE_SMTP_PASSWORD", "")
+	t.Setenv("SMTP_PASSWORD", "")
 	encrypted, err := config.EncryptSMTPPassword("web-secret")
 	require.NoError(t, err)
 	runtime := config.SMTPRuntime{PasswordCiphertext: encrypted}
@@ -95,6 +96,7 @@ func TestEmailChannelUsesWebSecretAndRejectsWrongKey(t *testing.T) {
 	cfg, err := ch.resolve(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, "web-secret", cfg.Password)
+	require.True(t, ch.IsAvailable(), "encrypted web password works without an environment SMTP password")
 	t.Setenv("STARBYTE_CONFIG_ENCRYPTION_KEY", "")
 	require.False(t, ch.IsAvailable())
 	err = ch.SendTest(context.Background(), "to@example.test")
