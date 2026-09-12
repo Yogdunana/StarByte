@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/Yogdunana/StarByte/backend/internal/leave/service"
+	"github.com/Yogdunana/StarByte/backend/pkg/middleware"
 	"github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/gin-gonic/gin"
@@ -61,5 +62,6 @@ func viewerOf(c *gin.Context) (service.Viewer, error) {
 		UserID:     uid,
 		CanRead:    hasPerm(c, "leave:read"),
 		CanApprove: hasPerm(c, "leave:approve"),
+		Scope:      middleware.GetDataScopeFromContext(c),
 	}, nil
 }

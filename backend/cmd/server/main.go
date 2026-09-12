@@ -471,7 +471,7 @@ func main() {
 		announcementHandler.RegisterRoutes(protected, annH, cacheService)
 
 		// 请假管理（/leave，#56）
-		leaveHandler.RegisterRoutes(protected, leaveH, cacheService)
+		leaveHandler.RegisterRoutes(protected, leaveH, cacheService, database.DB(), deptRepo)
 
 		// 任务流转（/tasks，不与 /workflow/tasks 冲突）
 		taskHandler.RegisterRoutes(protected, tkH, cacheService, database.DB(), deptRepo)

@@ -7,6 +7,7 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/leave/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/leave/model"
 	"github.com/Yogdunana/StarByte/backend/internal/leave/repo"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/google/uuid"
 )
 
@@ -14,6 +15,7 @@ type Viewer struct {
 	UserID     uuid.UUID
 	CanRead    bool
 	CanApprove bool
+	Scope      *rbacModel.DataScopeCondition
 }
 
 type Service interface {
@@ -77,7 +79,10 @@ func (s *leaveService) Get(ctx context.Context, viewer Viewer, id uuid.UUID) (*d
 	if row == nil {
 		return nil, notFound()
 	}
-	if row.ApplicantID != viewer.UserID && !viewer.CanRead {
+	if row.ApplicantID == viewer.UserID {
+		return mapApplication(row), nil
+	}
+	if !viewer.CanRead || !canAccessApplicant(viewer.Scope, row.ApplicantID, row.ApplicantDepartmentID, viewer.UserID) {
 		return nil, noAccess("无权查看该请假申请")
 	}
 	return mapApplication(row), nil
@@ -85,7 +90,7 @@ func (s *leaveService) Get(ctx context.Context, viewer Viewer, id uuid.UUID) (*d
 
 func (s *leaveService) ListMine(ctx context.Context, viewer Viewer, req *dto.ListLeaveRequest) ([]*dto.LeaveApplicationResponse, int64, error) {
 	page, size := defaultPage(req.Page, req.PageSize)
-	rows, total, err := s.rows.GetLeaveApplicationsByUser(ctx, viewer.UserID, req.Status, page, size)
+	rows, total, err := s.rows.GetLeaveApplicationsByUser(ctx, viewer.UserID, req.Status, page, size, nil)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -96,19 +101,30 @@ func (s *leaveService) ListAll(ctx context.Context, viewer Viewer, req *dto.List
 	if !viewer.CanRead {
 		return nil, 0, noAccess("无权查看全部请假记录")
 	}
+	if viewer.Scope == nil {
+		return nil, 0, noAccess("无权查看全部请假记录")
+	}
 	page, size := defaultPage(req.Page, req.PageSize)
+	sqlScope := rewriteApplicantScope(viewer.Scope, viewer.UserID)
 	if req.UserID != "" {
 		uid, err := uuid.Parse(req.UserID)
 		if err != nil {
 			return nil, 0, invalidTime("用户ID格式错误")
 		}
-		rows, total, err := s.rows.GetLeaveApplicationsByUser(ctx, uid, req.Status, page, size)
+		dept, err := s.rows.GetUserDepartmentID(ctx, uid)
+		if err != nil {
+			return nil, 0, err
+		}
+		if !canAccessApplicant(viewer.Scope, uid, dept, viewer.UserID) {
+			return nil, 0, noAccess("无权查看该用户的请假记录")
+		}
+		rows, total, err := s.rows.GetLeaveApplicationsByUser(ctx, uid, req.Status, page, size, sqlScope)
 		if err != nil {
 			return nil, 0, err
 		}
 		return mapApps(rows), total, nil
 	}
-	rows, total, err := s.rows.GetLeaveApplicationsByStatus(ctx, req.Status, page, size)
+	rows, total, err := s.rows.GetLeaveApplicationsByStatus(ctx, req.Status, page, size, sqlScope)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -119,7 +135,10 @@ func (s *leaveService) Stats(ctx context.Context, viewer Viewer) (*dto.LeaveStat
 	if !viewer.CanRead {
 		return nil, noAccess("无权查看请假统计")
 	}
-	total, byStatus, byType, err := s.rows.CountStats(ctx)
+	if viewer.Scope == nil {
+		return nil, noAccess("无权查看请假统计")
+	}
+	total, byStatus, byType, err := s.rows.CountStats(ctx, rewriteApplicantScope(viewer.Scope, viewer.UserID))
 	if err != nil {
 		return nil, err
 	}

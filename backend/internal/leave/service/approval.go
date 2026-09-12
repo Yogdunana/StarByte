@@ -20,6 +20,9 @@ func (s *leaveService) loadPending(ctx context.Context, tx repo.Repository, view
 	if app.ApplicantID == viewer.UserID {
 		return nil, noAccess("不能审批自己的请假申请")
 	}
+	if !canAccessApplicant(viewer.Scope, app.ApplicantID, app.ApplicantDepartmentID, viewer.UserID) {
+		return nil, noAccess("无权审批该请假申请")
+	}
 	if app.Status != model.ApprovalStatusPending {
 		return nil, invalidState("该请假申请已审批，不可重复审批")
 	}

@@ -7,6 +7,7 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/leave/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/leave/model"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -43,7 +44,16 @@ func applicantViewer(id uuid.UUID) Viewer {
 }
 
 func approverViewer(id uuid.UUID) Viewer {
-	return Viewer{UserID: id, CanRead: true, CanApprove: true}
+	return Viewer{UserID: id, CanRead: true, CanApprove: true, Scope: &rbacModel.DataScopeCondition{}}
+}
+
+func deptViewer(id, dept uuid.UUID, approve bool) Viewer {
+	return Viewer{
+		UserID:     id,
+		CanRead:    true,
+		CanApprove: approve,
+		Scope:      &rbacModel.DataScopeCondition{Query: "department_id = ?", Args: []interface{}{dept}},
+	}
 }
 
 func submitReq(typeID uuid.UUID, start, end time.Time) *dto.SubmitLeaveRequest {
@@ -272,6 +282,51 @@ func TestSelfApproveAndIDOR(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), total)
 	assert.Len(t, all, 1)
+}
+
+func TestDepartmentScopeBlocksCrossDept(t *testing.T) {
+	svc, mem, applicant, approver, annualID := fixture()
+	ctx := context.Background()
+	deptA, deptB := uuid.New(), uuid.New()
+	mem.addUserDept(applicant, deptA)
+	outsider := uuid.New()
+	mem.addUser(outsider, "外部门申请人")
+	mem.addUserDept(outsider, deptB)
+
+	start := monday()
+	mine, err := svc.Submit(ctx, applicantViewer(applicant), submitReq(annualID, start, start.Add(8*time.Hour)))
+	require.NoError(t, err)
+	theirs, err := svc.Submit(ctx, applicantViewer(outsider), submitReq(annualID, start.Add(24*time.Hour), start.Add(32*time.Hour)))
+	require.NoError(t, err)
+
+	viewer := deptViewer(approver, deptA, true)
+	got, err := svc.Get(ctx, viewer, uuid.MustParse(mine.ID))
+	require.NoError(t, err)
+	assert.Equal(t, mine.ID, got.ID)
+
+	_, err = svc.Get(ctx, viewer, uuid.MustParse(theirs.ID))
+	require.Error(t, err)
+	assert.Equal(t, response.CodeLeaveNoAccess, err.(*response.AppError).Code)
+
+	list, total, err := svc.ListAll(ctx, viewer, &dto.ListLeaveRequest{})
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), total)
+	require.Len(t, list, 1)
+	assert.Equal(t, mine.ID, list[0].ID)
+
+	_, _, err = svc.ListAll(ctx, viewer, &dto.ListLeaveRequest{UserID: outsider.String()})
+	require.Error(t, err)
+	assert.Equal(t, response.CodeLeaveNoAccess, err.(*response.AppError).Code)
+
+	_, err = svc.Balances(ctx, viewer, outsider.String(), 2026)
+	require.Error(t, err)
+	assert.Equal(t, response.CodeLeaveNoAccess, err.(*response.AppError).Code)
+
+	err = svc.Approve(ctx, viewer, uuid.MustParse(theirs.ID), "no")
+	require.Error(t, err)
+	assert.Equal(t, response.CodeLeaveNoAccess, err.(*response.AppError).Code)
+
+	require.NoError(t, svc.Approve(ctx, viewer, uuid.MustParse(mine.ID), "ok"))
 }
 
 func TestBalanceIDORAndStats(t *testing.T) {

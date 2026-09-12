@@ -15,8 +15,17 @@ func (s *leaveService) Balances(ctx context.Context, viewer Viewer, userID strin
 		if err != nil {
 			return nil, invalidTime("用户ID格式错误")
 		}
-		if parsed != viewer.UserID && !viewer.CanRead {
-			return nil, noAccess("无权查看他人假期余额")
+		if parsed != viewer.UserID {
+			if !viewer.CanRead {
+				return nil, noAccess("无权查看他人假期余额")
+			}
+			dept, err := s.rows.GetUserDepartmentID(ctx, parsed)
+			if err != nil {
+				return nil, err
+			}
+			if !canAccessApplicant(viewer.Scope, parsed, dept, viewer.UserID) {
+				return nil, noAccess("无权查看他人假期余额")
+			}
 		}
 		target = parsed
 	}

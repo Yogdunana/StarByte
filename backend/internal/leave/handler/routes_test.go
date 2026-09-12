@@ -81,7 +81,7 @@ func setupLeaveRouter(t *testing.T, svc *fakeSvc, perms []string) (*gin.Engine, 
 		c.Next()
 	})
 	api := r.Group("/api/v1")
-	RegisterRoutes(api, New(svc), stubCache{perms: perms})
+	RegisterRoutes(api, New(svc), stubCache{perms: perms}, nil, nil)
 	return r, uid
 }
 

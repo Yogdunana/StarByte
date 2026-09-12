@@ -4,7 +4,10 @@ import (
 	"context"
 	"time"
 
+	"strings"
+
 	"github.com/Yogdunana/StarByte/backend/internal/leave/model"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -26,11 +29,12 @@ type Repository interface {
 	GetLeaveApplicationByID(ctx context.Context, id uuid.UUID) (*model.ApplicationNamed, error)
 	GetLeaveApplicationByIDForUpdate(ctx context.Context, id uuid.UUID) (*model.ApplicationNamed, error)
 	LockApplicant(ctx context.Context, userID uuid.UUID) error
-	GetLeaveApplicationsByUser(ctx context.Context, userID uuid.UUID, status string, page, pageSize int) ([]model.ApplicationNamed, int64, error)
-	GetLeaveApplicationsByStatus(ctx context.Context, status string, page, pageSize int) ([]model.ApplicationNamed, int64, error)
+	GetLeaveApplicationsByUser(ctx context.Context, userID uuid.UUID, status string, page, pageSize int, scope *rbacModel.DataScopeCondition) ([]model.ApplicationNamed, int64, error)
+	GetLeaveApplicationsByStatus(ctx context.Context, status string, page, pageSize int, scope *rbacModel.DataScopeCondition) ([]model.ApplicationNamed, int64, error)
 	UpdateApprovalStatus(ctx context.Context, id uuid.UUID, approverID uuid.UUID, status, remark string, at time.Time) error
 	GetLeaveApplicationsByUserAndTimeRange(ctx context.Context, userID uuid.UUID, startTime, endTime time.Time) ([]model.LeaveApplication, error)
-	CountStats(ctx context.Context) (total int64, byStatus map[string]int64, byType []TypeCount, err error)
+	CountStats(ctx context.Context, scope *rbacModel.DataScopeCondition) (total int64, byStatus map[string]int64, byType []TypeCount, err error)
+	GetUserDepartmentID(ctx context.Context, userID uuid.UUID) (*uuid.UUID, error)
 }
 
 type TypeCount struct {
@@ -124,7 +128,22 @@ func (r *leaveRepo) CreateLeaveApplication(ctx context.Context, application *mod
 func namedSelect() string {
 	return `leave_applications.*,
 		COALESCE(applicant.real_name, applicant.username, '') AS applicant_name,
-		COALESCE(approver.real_name, approver.username, '') AS approver_name`
+		COALESCE(approver.real_name, approver.username, '') AS approver_name,
+		applicant.department_id AS applicant_department_id`
+}
+
+func applyApplicantScope(q *gorm.DB, scope *rbacModel.DataScopeCondition) *gorm.DB {
+	if scope == nil || strings.TrimSpace(scope.Query) == "" {
+		return q
+	}
+	return q.Where(scope.Query, scope.Args...)
+}
+
+func (r *leaveRepo) joinApplicant(q *gorm.DB, scope *rbacModel.DataScopeCondition) *gorm.DB {
+	if scope != nil && strings.Contains(scope.Query, "applicant.") {
+		q = q.Joins("JOIN users applicant ON applicant.id = leave_applications.applicant_id")
+	}
+	return applyApplicantScope(q, scope)
 }
 
 func (r *leaveRepo) namedQuery(ctx context.Context) *gorm.DB {
@@ -183,21 +202,21 @@ func paginateNamed(countDB, listDB *gorm.DB, page, pageSize int) ([]model.Applic
 	return rows, total, err
 }
 
-func (r *leaveRepo) GetLeaveApplicationsByUser(ctx context.Context, userID uuid.UUID, status string, page, pageSize int) ([]model.ApplicationNamed, int64, error) {
-	countQ := r.db.WithContext(ctx).Model(&model.LeaveApplication{}).Where("applicant_id = ?", userID)
-	listQ := r.namedQuery(ctx).Where("leave_applications.applicant_id = ?", userID)
+func (r *leaveRepo) GetLeaveApplicationsByUser(ctx context.Context, userID uuid.UUID, status string, page, pageSize int, scope *rbacModel.DataScopeCondition) ([]model.ApplicationNamed, int64, error) {
+	countQ := r.joinApplicant(r.db.WithContext(ctx).Model(&model.LeaveApplication{}).Where("leave_applications.applicant_id = ?", userID), scope)
+	listQ := applyApplicantScope(r.namedQuery(ctx).Where("leave_applications.applicant_id = ?", userID), scope)
 	if status != "" {
-		countQ = countQ.Where("status = ?", status)
+		countQ = countQ.Where("leave_applications.status = ?", status)
 		listQ = listQ.Where("leave_applications.status = ?", status)
 	}
 	return paginateNamed(countQ, listQ, page, pageSize)
 }
 
-func (r *leaveRepo) GetLeaveApplicationsByStatus(ctx context.Context, status string, page, pageSize int) ([]model.ApplicationNamed, int64, error) {
-	countQ := r.db.WithContext(ctx).Model(&model.LeaveApplication{})
-	listQ := r.namedQuery(ctx)
+func (r *leaveRepo) GetLeaveApplicationsByStatus(ctx context.Context, status string, page, pageSize int, scope *rbacModel.DataScopeCondition) ([]model.ApplicationNamed, int64, error) {
+	countQ := r.joinApplicant(r.db.WithContext(ctx).Model(&model.LeaveApplication{}), scope)
+	listQ := applyApplicantScope(r.namedQuery(ctx), scope)
 	if status != "" {
-		countQ = countQ.Where("status = ?", status)
+		countQ = countQ.Where("leave_applications.status = ?", status)
 		listQ = listQ.Where("leave_applications.status = ?", status)
 	}
 	return paginateNamed(countQ, listQ, page, pageSize)
@@ -232,9 +251,20 @@ func (r *leaveRepo) GetLeaveApplicationsByUserAndTimeRange(ctx context.Context, 
 	return rows, err
 }
 
-func (r *leaveRepo) CountStats(ctx context.Context) (int64, map[string]int64, []TypeCount, error) {
+func (r *leaveRepo) GetUserDepartmentID(ctx context.Context, userID uuid.UUID) (*uuid.UUID, error) {
+	var row struct {
+		DepartmentID *uuid.UUID
+	}
+	err := r.db.WithContext(ctx).Raw(`SELECT department_id FROM users WHERE id = ? AND deleted_at IS NULL`, userID).Scan(&row).Error
+	if err != nil {
+		return nil, err
+	}
+	return row.DepartmentID, nil
+}
+
+func (r *leaveRepo) CountStats(ctx context.Context, scope *rbacModel.DataScopeCondition) (int64, map[string]int64, []TypeCount, error) {
 	var total int64
-	if err := r.db.WithContext(ctx).Model(&model.LeaveApplication{}).Count(&total).Error; err != nil {
+	if err := r.joinApplicant(r.db.WithContext(ctx).Model(&model.LeaveApplication{}), scope).Count(&total).Error; err != nil {
 		return 0, nil, nil, err
 	}
 	type statusRow struct {
@@ -242,9 +272,9 @@ func (r *leaveRepo) CountStats(ctx context.Context) (int64, map[string]int64, []
 		Count  int64
 	}
 	var statusRows []statusRow
-	if err := r.db.WithContext(ctx).Model(&model.LeaveApplication{}).
-		Select("status, count(*) as count").
-		Group("status").
+	if err := r.joinApplicant(r.db.WithContext(ctx).Model(&model.LeaveApplication{}), scope).
+		Select("leave_applications.status, count(*) as count").
+		Group("leave_applications.status").
 		Scan(&statusRows).Error; err != nil {
 		return 0, nil, nil, err
 	}
@@ -257,11 +287,22 @@ func (r *leaveRepo) CountStats(ctx context.Context) (int64, map[string]int64, []
 		byStatus[row.Status] = row.Count
 	}
 	var typeRows []TypeCount
-	err := r.db.WithContext(ctx).
+	typeQ := r.db.WithContext(ctx).
 		Table("leave_applications AS a").
 		Select("a.leave_type_id, t.code, t.name, count(*) AS count, coalesce(sum(a.duration_days),0) AS days").
 		Joins("JOIN leave_types t ON t.id = a.leave_type_id").
-		Where("a.deleted_at IS NULL").
+		Where("a.deleted_at IS NULL")
+	if scope != nil && strings.Contains(scope.Query, "applicant.") {
+		typeQ = typeQ.Joins("JOIN users applicant ON applicant.id = a.applicant_id")
+	}
+	if scope != nil && strings.Contains(scope.Query, "leave_applications.applicant_id") {
+		scope = &rbacModel.DataScopeCondition{
+			Query:  strings.ReplaceAll(scope.Query, "leave_applications.applicant_id", "a.applicant_id"),
+			Args:   scope.Args,
+			IsSelf: scope.IsSelf,
+		}
+	}
+	err := applyApplicantScope(typeQ, scope).
 		Group("a.leave_type_id, t.code, t.name").
 		Order("t.code").
 		Scan(&typeRows).Error

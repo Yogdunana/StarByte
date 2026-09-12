@@ -64,6 +64,7 @@ func (LeaveApplication) TableName() string { return "leave_applications" }
 // ApplicationNamed 列表/详情附带申请人与审批人姓名。
 type ApplicationNamed struct {
 	LeaveApplication
-	ApplicantName string `gorm:"column:applicant_name" json:"applicant_name"`
-	ApproverName  string `gorm:"column:approver_name" json:"approver_name"`
+	ApplicantName         string     `gorm:"column:applicant_name" json:"applicant_name"`
+	ApproverName          string     `gorm:"column:approver_name" json:"approver_name"`
+	ApplicantDepartmentID *uuid.UUID `gorm:"column:applicant_department_id" json:"-"`
 }

@@ -5,8 +5,11 @@ import (
 	"sync"
 	"time"
 
+	"strings"
+
 	"github.com/Yogdunana/StarByte/backend/internal/leave/model"
 	"github.com/Yogdunana/StarByte/backend/internal/leave/repo"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/google/uuid"
 )
 
@@ -16,6 +19,7 @@ type memRepo struct {
 	bals    map[string]model.LeaveBalance
 	apps    map[uuid.UUID]model.ApplicationNamed
 	names   map[uuid.UUID]string
+	depts   map[uuid.UUID]uuid.UUID
 	failGet bool
 }
 
@@ -25,6 +29,7 @@ func newMemRepo() *memRepo {
 		bals:  map[string]model.LeaveBalance{},
 		apps:  map[uuid.UUID]model.ApplicationNamed{},
 		names: map[uuid.UUID]string{},
+		depts: map[uuid.UUID]uuid.UUID{},
 	}
 }
 
@@ -61,6 +66,47 @@ func (m *memRepo) addUser(id uuid.UUID, name string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.names[id] = name
+}
+
+func (m *memRepo) addUserDept(id, dept uuid.UUID) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.depts[id] = dept
+}
+
+func (m *memRepo) inScope(row model.ApplicationNamed, scope *rbacModel.DataScopeCondition) bool {
+	if scope == nil || strings.TrimSpace(scope.Query) == "" {
+		return true
+	}
+	if scope.Query == "1 = 0" {
+		return false
+	}
+	if scope.IsSelf || scope.Query == "leave_applications.applicant_id = ?" {
+		if len(scope.Args) == 1 {
+			id, ok := scope.Args[0].(uuid.UUID)
+			return ok && row.ApplicantID == id
+		}
+		return false
+	}
+	if row.ApplicantDepartmentID == nil {
+		return false
+	}
+	dept := *row.ApplicantDepartmentID
+	for _, arg := range scope.Args {
+		switch v := arg.(type) {
+		case uuid.UUID:
+			if v == dept {
+				return true
+			}
+		case []uuid.UUID:
+			for _, id := range v {
+				if id == dept {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 func (m *memRepo) WithTx(_ context.Context, fn func(repo.Repository) error) error {
@@ -151,6 +197,10 @@ func (m *memRepo) CreateLeaveApplication(_ context.Context, application *model.L
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	named := model.ApplicationNamed{LeaveApplication: *application, ApplicantName: m.names[application.ApplicantID]}
+	if dept, ok := m.depts[application.ApplicantID]; ok {
+		d := dept
+		named.ApplicantDepartmentID = &d
+	}
 	if t, ok := m.types[application.LeaveTypeID]; ok {
 		named.LeaveType = t
 	}
@@ -177,6 +227,10 @@ func (m *memRepo) GetLeaveApplicationByID(_ context.Context, id uuid.UUID) (*mod
 	if t, ok := m.types[row.LeaveTypeID]; ok {
 		row.LeaveType = t
 	}
+	if dept, ok := m.depts[row.ApplicantID]; ok {
+		d := dept
+		row.ApplicantDepartmentID = &d
+	}
 	if row.ApproverID != nil {
 		row.ApproverName = m.names[*row.ApproverID]
 	}
@@ -184,7 +238,7 @@ func (m *memRepo) GetLeaveApplicationByID(_ context.Context, id uuid.UUID) (*mod
 	return &cp, nil
 }
 
-func (m *memRepo) GetLeaveApplicationsByUser(_ context.Context, userID uuid.UUID, status string, page, pageSize int) ([]model.ApplicationNamed, int64, error) {
+func (m *memRepo) GetLeaveApplicationsByUser(_ context.Context, userID uuid.UUID, status string, page, pageSize int, scope *rbacModel.DataScopeCondition) ([]model.ApplicationNamed, int64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var all []model.ApplicationNamed
@@ -195,17 +249,23 @@ func (m *memRepo) GetLeaveApplicationsByUser(_ context.Context, userID uuid.UUID
 		if status != "" && row.Status != status {
 			continue
 		}
+		if !m.inScope(row, scope) {
+			continue
+		}
 		all = append(all, row)
 	}
 	return pageSlice(all, page, pageSize), int64(len(all)), nil
 }
 
-func (m *memRepo) GetLeaveApplicationsByStatus(_ context.Context, status string, page, pageSize int) ([]model.ApplicationNamed, int64, error) {
+func (m *memRepo) GetLeaveApplicationsByStatus(_ context.Context, status string, page, pageSize int, scope *rbacModel.DataScopeCondition) ([]model.ApplicationNamed, int64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var all []model.ApplicationNamed
 	for _, row := range m.apps {
 		if status != "" && row.Status != status {
+			continue
+		}
+		if !m.inScope(row, scope) {
 			continue
 		}
 		all = append(all, row)
@@ -262,7 +322,17 @@ func (m *memRepo) GetLeaveApplicationsByUserAndTimeRange(_ context.Context, user
 	return out, nil
 }
 
-func (m *memRepo) CountStats(_ context.Context) (int64, map[string]int64, []repo.TypeCount, error) {
+func (m *memRepo) GetUserDepartmentID(_ context.Context, userID uuid.UUID) (*uuid.UUID, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if dept, ok := m.depts[userID]; ok {
+		d := dept
+		return &d, nil
+	}
+	return nil, nil
+}
+
+func (m *memRepo) CountStats(_ context.Context, scope *rbacModel.DataScopeCondition) (int64, map[string]int64, []repo.TypeCount, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	byStatus := map[string]int64{
@@ -271,7 +341,12 @@ func (m *memRepo) CountStats(_ context.Context) (int64, map[string]int64, []repo
 		model.ApprovalStatusRejected: 0,
 	}
 	typeAgg := map[uuid.UUID]repo.TypeCount{}
+	n := 0
 	for _, row := range m.apps {
+		if !m.inScope(row, scope) {
+			continue
+		}
+		n++
 		byStatus[row.Status]++
 		agg := typeAgg[row.LeaveTypeID]
 		agg.LeaveTypeID = row.LeaveTypeID
@@ -285,7 +360,7 @@ func (m *memRepo) CountStats(_ context.Context) (int64, map[string]int64, []repo
 	for _, v := range typeAgg {
 		types = append(types, v)
 	}
-	return int64(len(m.apps)), byStatus, types, nil
+	return int64(n), byStatus, types, nil
 }
 
 var errMem = errString("mem failure")
