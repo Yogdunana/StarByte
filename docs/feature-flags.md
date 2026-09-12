@@ -23,7 +23,7 @@
 | `user_allowlist` | `user_ids`（UUID）。匿名 fail closed |
 | `role_dept` | `role_codes` 或 `department_ids`，任一命中即开 |
 | `percentage` | `fnv64a(flag_key + salt + user_id) % 100 < percent`。匿名 fail closed |
-| `ab_test` | 多个变体按权重稳定分桶；`control` / `off` 默认不当作门闸开启 |
+| `ab_test` | 多个变体按权重稳定分桶；`control` / `off` 默认不当作门闸开启。匿名 fail closed（不取 `variants[0]`） |
 
 ### 给 10% 用户
 

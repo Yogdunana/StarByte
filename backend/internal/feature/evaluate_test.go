@@ -146,8 +146,17 @@ func TestEvaluate_ABVariants(t *testing.T) {
 		},
 	}
 	anon := Evaluate(flag, Subject{})
-	if anon.Variant != "control" || anon.Enabled || anon.Reason != ReasonAnonymous {
+	if anon.Enabled || anon.Reason != ReasonAnonymous || anon.Variant != "" {
 		t.Fatalf("anon ab: %+v", anon)
+	}
+	treatmentFirst := *flag
+	treatmentFirst.Rules.Variants = []model.Variant{
+		{Key: "treatment", Weight: 50, Enabled: &on},
+		{Key: "control", Weight: 50, Enabled: &off},
+	}
+	open := Evaluate(&treatmentFirst, Subject{})
+	if open.Enabled || open.Reason != ReasonAnonymous {
+		t.Fatalf("anon ab must fail closed even when variants[0] is a gate-on bucket: %+v", open)
 	}
 	a := Evaluate(flag, Subject{UserID: uid})
 	b := Evaluate(flag, Subject{UserID: uid})

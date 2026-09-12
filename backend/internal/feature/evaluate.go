@@ -141,8 +141,7 @@ func evalAB(flag *model.Flag, sub Subject) Result {
 		return Result{Enabled: false, Reason: ReasonInvalidRule}
 	}
 	if sub.UserID == uuid.Nil {
-		v := variants[0]
-		return Result{Enabled: variantGateOn(v), Reason: ReasonAnonymous, Variant: strings.TrimSpace(v.Key)}
+		return Result{Enabled: false, Reason: ReasonAnonymous}
 	}
 	picked, ok := pickVariant(flag.FlagKey, flag.Rules.Salt, sub.UserID.String(), variants)
 	if !ok {
