@@ -1,7 +1,7 @@
 -- ============================================================
--- 000066_report_read_permission.up.sql
+-- 000069_report_read_permission.up.sql
 -- Issue #57 phase-1：工作汇报列表读取权限
--- 000064 知识库、000065 备份 phase-2 已占用
+-- 000067 请假流程、000068 请假余额扣减已占用
 -- ============================================================
 
 INSERT INTO permissions (id, name, code, resource, action, description, type, is_system, status)

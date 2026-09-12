@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	upMigrationName   = "000066_report_read_permission.up.sql"
-	downMigrationName = "000066_report_read_permission.down.sql"
+	upMigrationName   = "000069_report_read_permission.up.sql"
+	downMigrationName = "000069_report_read_permission.down.sql"
 )
 
 func TestReportReadPermissionMigrationContract(t *testing.T) {
