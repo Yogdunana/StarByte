@@ -576,7 +576,7 @@ func main() {
 
 	// WebSocket 路由（独立于 API 组，JWT 认证在 handler 内部完成）
 	notifHandler.RegisterWSRoute(r, wsHandler)
-	monitorHandler.RegisterWSRoute(r, monitorHandler.NewWSHandler(monitorSvc, &cfg.JWT, cacheService, cfg.CORS.AllowedOrigins))
+	monitorHandler.RegisterWSRoute(r, monitorHandler.NewWSHandler(monitorSvc, &cfg.JWT, cacheService, cfg.CORS.AllowedOrigins).WithRedis(redis.Client()))
 
 	// 11. 404 处理
 	r.NoRoute(func(c *gin.Context) {

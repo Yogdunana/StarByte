@@ -13,9 +13,12 @@ import (
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
 	"github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
+	"github.com/alicebob/miniredis/v2"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -65,6 +68,52 @@ func TestMonitorWSAuthFailures(t *testing.T) {
 	var env response.Response
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &env))
 	assert.Equal(t, response.CodeMonitorWSForbidden, env.Code)
+}
+
+func TestMonitorWSRejectsRefreshAndBlacklistedTokens(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	uid := uuid.NewString()
+	cfg := testJWT()
+
+	refreshClaims := &auth.Claims{
+		UserID:    uid,
+		Username:  "u",
+		TokenType: auth.RefreshTokenType,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        uuid.NewString(),
+			Issuer:    cfg.Issuer,
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+		},
+	}
+	refresh, err := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims).SignedString([]byte(cfg.Secret))
+	require.NoError(t, err)
+
+	h := NewWSHandler(&stubSvc{}, cfg, stubCache{perms: []string{"monitor:read"}}, nil)
+	r := gin.New()
+	RegisterWSRoute(r, h)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/ws/monitor?token="+refresh, nil))
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+
+	access, _, err := auth.GenerateAccessToken(uid, "u", nil, nil, cfg)
+	require.NoError(t, err)
+	claims, err := auth.ParseToken(access, cfg)
+	require.NoError(t, err)
+
+	mr := miniredis.RunT(t)
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = rdb.Close() })
+	require.NoError(t, rdb.Set(context.Background(), "auth:blacklist:"+claims.ID, "1", 0).Err())
+
+	blocked := NewWSHandler(&stubSvc{}, cfg, stubCache{perms: []string{"monitor:read"}}, nil).WithRedis(rdb)
+	rb := gin.New()
+	RegisterWSRoute(rb, blocked)
+	w = httptest.NewRecorder()
+	rb.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/ws/monitor?token="+access, nil))
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	var env response.Response
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &env))
+	assert.Equal(t, response.CodeMonitorWSAuthFail, env.Code)
 }
 
 func TestMonitorWSPushAndPing(t *testing.T) {

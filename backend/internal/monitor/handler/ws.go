@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"fmt"
+
 	"github.com/Yogdunana/StarByte/backend/internal/monitor/service"
 	rbacService "github.com/Yogdunana/StarByte/backend/internal/rbac/service"
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
@@ -18,6 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
 
@@ -43,6 +46,7 @@ type WSHandler struct {
 	svc      service.Service
 	jwt      *config.JWTConfig
 	cache    rbacService.PermissionCacheService
+	rdb      *redis.Client
 	upgrader websocket.Upgrader
 	interval time.Duration
 }
@@ -66,6 +70,14 @@ func NewWSHandler(svc service.Service, jwt *config.JWTConfig, cache rbacService.
 		},
 		interval: defaultPushInterval,
 	}
+}
+
+// WithRedis enables logout-blacklist checks (same key as JWTAuth).
+func (h *WSHandler) WithRedis(rdb *redis.Client) *WSHandler {
+	if h != nil {
+		h.rdb = rdb
+	}
+	return h
 }
 
 // RegisterWSRoute mounts GET /ws/monitor on the engine (auth is inside the handler).
@@ -124,6 +136,23 @@ func wsAuthFail(msg string) *response.AppError {
 	}
 }
 
+func (h *WSHandler) validateAccessToken(ctx context.Context, token string) (*authmiddleware.Claims, error) {
+	claims, err := authmiddleware.ParseToken(token, h.jwt)
+	if err != nil || claims == nil {
+		return nil, wsAuthFail("WebSocket 认证失败：Token 无效或已过期")
+	}
+	if claims.TokenType != authmiddleware.AccessTokenType {
+		return nil, wsAuthFail("WebSocket 认证失败：Token 类型无效")
+	}
+	if h.rdb != nil && claims.ID != "" {
+		n, berr := h.rdb.Exists(ctx, fmt.Sprintf("auth:blacklist:%s", claims.ID)).Result()
+		if berr == nil && n > 0 {
+			return nil, wsAuthFail("WebSocket 认证失败：Token 已失效")
+		}
+	}
+	return claims, nil
+}
+
 func (h *WSHandler) allowMonitorRead(ctx context.Context, userID uuid.UUID) error {
 	if h.cache == nil {
 		return &response.AppError{
@@ -162,9 +191,9 @@ func (h *WSHandler) HandleConnection(c *gin.Context) {
 		response.Error(c, wsAuthFail("WebSocket 认证失败：未配置签发密钥"))
 		return
 	}
-	claims, err := authmiddleware.ParseToken(token, h.jwt)
-	if err != nil || claims == nil {
-		response.Error(c, wsAuthFail("WebSocket 认证失败：Token 无效或已过期"))
+	claims, err := h.validateAccessToken(c.Request.Context(), token)
+	if err != nil {
+		response.Error(c, err)
 		return
 	}
 	userID, err := uuid.Parse(claims.UserID)
