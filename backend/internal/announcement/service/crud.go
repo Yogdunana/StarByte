@@ -110,12 +110,9 @@ func applyUpdate(a *model.Announcement, req *dto.UpdateAnnouncementRequest) erro
 	if req.Required != nil {
 		a.Required = *req.Required
 	}
-	if req.ClearSched {
+	if req.ClearSched || (req.ScheduledAt != nil && a.Status != model.StatusDraft) {
 		a.ScheduledAt = nil
 	} else if req.ScheduledAt != nil {
-		if a.Status != model.StatusDraft {
-			return invalidState("仅草稿可设置定时发布时间")
-		}
 		a.ScheduledAt = req.ScheduledAt
 	}
 	return nil

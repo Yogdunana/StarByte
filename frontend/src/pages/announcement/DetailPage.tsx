@@ -16,7 +16,7 @@ import {
 } from '@/api/announcement';
 import type { Announcement, AnnouncementReadStatus } from '@/api/announcement';
 import { formatDateTime } from '@/utils/format';
-import { announcementStatusMap, sanitizeAnnouncementHTML } from './meta';
+import { announcementStatusMap } from './meta';
 import './announcement.css';
 
 const DetailPage: React.FC = () => {
@@ -37,6 +37,7 @@ const DetailPage: React.FC = () => {
     if (a.status === 1 || a.status === 2) {
       if (!a.is_read) {
         await markAnnouncementRead(id);
+        setItem({ ...a, is_read: true });
         await refresh();
       }
       try {
@@ -102,11 +103,9 @@ const DetailPage: React.FC = () => {
             {item.published_at ? formatDateTime(item.published_at, 'YYYY-MM-DD HH:mm') : '-'}
           </Descriptions.Item>
         </Descriptions>
-        {item.content_type === 'html' ? (
-          <div className="announcement-html" dangerouslySetInnerHTML={{ __html: sanitizeAnnouncementHTML(item.content || '') }} />
-        ) : (
-          <Typography.Paragraph className="announcement-content">{item.content || t('announcement.emptyContent')}</Typography.Paragraph>
-        )}
+        <Typography.Paragraph className="announcement-content">
+          {item.content || t('announcement.emptyContent')}
+        </Typography.Paragraph>
       </Card>
       {reads && (
         <Card title={t('announcement.readStatus', { read: reads.read_count, unread: reads.unread_count })}>

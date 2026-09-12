@@ -325,6 +325,44 @@ func TestDispatchDuePublishes(t *testing.T) {
 	if len(n.calls) != 1 {
 		t.Fatalf("notify calls = %d", len(n.calls))
 	}
+	if got.ScheduledAt != "" {
+		t.Fatalf("scheduled_at should clear on publish, got %q", got.ScheduledAt)
+	}
+}
+
+func TestPublish_ClearsScheduledAtAndAllowsEdit(t *testing.T) {
+	svc, _, _ := newTestSvc()
+	author := uuid.New()
+	staff := Viewer{UserID: author, Staff: true}
+	when := time.Date(2026, 9, 12, 9, 0, 0, 0, time.UTC)
+	resp, err := svc.Create(context.Background(), author, &dto.CreateAnnouncementRequest{
+		Title: "定时稿", Category: model.CategorySystem, ScheduledAt: &when,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := parseID(t, resp.ID)
+	pub, err := svc.Publish(context.Background(), staff, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pub.ScheduledAt != "" {
+		t.Fatalf("publish should clear scheduled_at, got %q", pub.ScheduledAt)
+	}
+	title := "发布后可改"
+	updated, err := svc.Update(context.Background(), staff, id, &dto.UpdateAnnouncementRequest{
+		Title:       &title,
+		ScheduledAt: &when,
+	})
+	if err != nil {
+		t.Fatalf("published update should succeed: %v", err)
+	}
+	if updated.Title != title {
+		t.Fatalf("title = %q", updated.Title)
+	}
+	if updated.ScheduledAt != "" {
+		t.Fatalf("update must not restore scheduled_at on published, got %q", updated.ScheduledAt)
+	}
 }
 
 func TestErrorCodesInAnnouncementRange(t *testing.T) {

@@ -278,7 +278,7 @@
     "back": "Back to list",
     "title": "Title",
     "content": "Content",
-    "contentHint": "Phase-1 supports Markdown or HTML body; attachment upload comes later",
+    "contentHint": "Phase-1 shows Markdown/plain text (React-escaped, HTML is not executed). Attachment upload comes later.",
     "contentType": "Content format",
     "markdown": "Markdown",
     "html": "HTML",

@@ -32,6 +32,7 @@ func (s *announcementService) publishLocked(ctx context.Context, a *model.Announ
 	now := s.clock()
 	a.Status = model.StatusPublished
 	a.PublishedAt = &now
+	a.ScheduledAt = nil
 	a.UpdatedAt = now
 	if err := s.rows.Update(ctx, a); err != nil {
 		return fmt.Errorf("publish announcement: %w", err)

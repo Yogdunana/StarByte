@@ -23,13 +23,12 @@ const FormModal: React.FC<Props> = ({ open, editing, onCancel, onSubmit }) => {
         title: editing.title,
         category: editing.category,
         content: editing.content,
-        content_type: editing.content_type || 'markdown',
         required: editing.required,
         scheduled_at: editing.scheduled_at ? dayjs(editing.scheduled_at) : undefined,
       });
     } else {
       form.resetFields();
-      form.setFieldsValue({ content_type: 'markdown', required: false });
+      form.setFieldsValue({ required: false });
     }
   }, [open, editing, form]);
 
@@ -47,16 +46,20 @@ const FormModal: React.FC<Props> = ({ open, editing, onCancel, onSubmit }) => {
         form={form}
         layout="vertical"
         onFinish={async (values) => {
+          const isDraft = !editing || editing.status === 0;
+          const scheduled = values.scheduled_at
+            ? (values.scheduled_at as dayjs.Dayjs).toISOString()
+            : undefined;
           await onSubmit({
             title: values.title,
             category: values.category,
             content: values.content,
-            content_type: values.content_type,
+            content_type: 'markdown',
             required: values.required,
-            scheduled_at: values.scheduled_at
-              ? (values.scheduled_at as dayjs.Dayjs).toISOString()
-              : undefined,
-            clear_scheduled_at: Boolean(editing && !values.scheduled_at && editing.scheduled_at),
+            scheduled_at: isDraft ? scheduled : undefined,
+            clear_scheduled_at: Boolean(
+              editing && (editing.status !== 0 || (!scheduled && editing.scheduled_at)),
+            ),
           });
         }}
       >
@@ -71,20 +74,14 @@ const FormModal: React.FC<Props> = ({ open, editing, onCancel, onSubmit }) => {
             }))}
           />
         </Form.Item>
-        <Form.Item name="content_type" label={t('announcement.contentType')}>
-          <Select
-            options={[
-              { value: 'markdown', label: t('announcement.markdown') },
-              { value: 'html', label: t('announcement.html') },
-            ]}
-          />
-        </Form.Item>
         <Form.Item name="content" label={t('announcement.content')}>
           <Input.TextArea rows={10} maxLength={50000} showCount placeholder={t('announcement.contentHint')} />
         </Form.Item>
-        <Form.Item name="scheduled_at" label={t('announcement.scheduledAt')}>
-          <DatePicker showTime style={{ width: '100%' }} />
-        </Form.Item>
+        {(!editing || editing.status === 0) && (
+          <Form.Item name="scheduled_at" label={t('announcement.scheduledAt')}>
+            <DatePicker showTime style={{ width: '100%' }} />
+          </Form.Item>
+        )}
         <Form.Item name="required" label={t('announcement.required')} valuePropName="checked">
           <Switch />
         </Form.Item>

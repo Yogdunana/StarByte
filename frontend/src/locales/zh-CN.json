@@ -278,7 +278,7 @@
     "back": "返回列表",
     "title": "标题",
     "content": "正文",
-    "contentHint": "phase-1 支持 Markdown 或 HTML 正文；附件/图片上传后续接入",
+    "contentHint": "phase-1 以 Markdown/纯文本展示（React 转义，不执行 HTML）；附件/图片上传后续接入",
     "contentType": "正文格式",
     "markdown": "Markdown",
     "html": "HTML",
