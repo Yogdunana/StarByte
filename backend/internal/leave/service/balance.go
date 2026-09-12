@@ -21,7 +21,7 @@ func (s *leaveService) Balances(ctx context.Context, viewer Viewer, userID strin
 		target = parsed
 	}
 	if year == 0 {
-		year = s.clock().Year()
+		year = bizYear(s.clock())
 	}
 	if err := s.ensureYearBalances(ctx, target, year); err != nil {
 		return nil, err

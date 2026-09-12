@@ -14,8 +14,8 @@ import (
 )
 
 func monday() time.Time {
-	// 2026-09-14 is a Monday.
-	return time.Date(2026, 9, 14, 9, 0, 0, 0, time.UTC)
+	// 2026-09-14 is a Monday. 业务日历按 Asia/Shanghai，不用 UTC。
+	return time.Date(2026, 9, 14, 9, 0, 0, 0, bizLocation())
 }
 
 func fixture() (*leaveService, *memRepo, uuid.UUID, uuid.UUID, uuid.UUID) {
@@ -56,24 +56,45 @@ func submitReq(typeID uuid.UUID, start, end time.Time) *dto.SubmitLeaveRequest {
 }
 
 func TestCalculateDurationDays_SameDay(t *testing.T) {
-	start := time.Date(2026, 9, 14, 9, 0, 0, 0, time.UTC)
-	end := time.Date(2026, 9, 14, 18, 0, 0, 0, time.UTC)
+	loc := bizLocation()
+	start := time.Date(2026, 9, 14, 9, 0, 0, 0, loc)
+	end := time.Date(2026, 9, 14, 18, 0, 0, 0, loc)
 	assert.Equal(t, 1.0, CalculateDurationDays(start, end))
 }
 
 func TestCalculateDurationDays_WeekdaysAndWeekend(t *testing.T) {
-	start := time.Date(2026, 9, 14, 9, 0, 0, 0, time.UTC) // Mon
-	end := time.Date(2026, 9, 18, 18, 0, 0, 0, time.UTC)  // Fri
+	loc := bizLocation()
+	start := time.Date(2026, 9, 14, 9, 0, 0, 0, loc) // Mon
+	end := time.Date(2026, 9, 18, 18, 0, 0, 0, loc)  // Fri
 	assert.Equal(t, 5.0, CalculateDurationDays(start, end))
 
-	endSat := time.Date(2026, 9, 19, 18, 0, 0, 0, time.UTC)
+	endSat := time.Date(2026, 9, 19, 18, 0, 0, 0, loc)
 	assert.Equal(t, 5.0, CalculateDurationDays(start, endSat))
 }
 
 func TestCalculateDurationDays_HalfDay(t *testing.T) {
-	start := time.Date(2026, 9, 14, 9, 0, 0, 0, time.UTC)
-	end := time.Date(2026, 9, 15, 8, 0, 0, 0, time.UTC)
+	loc := bizLocation()
+	start := time.Date(2026, 9, 14, 9, 0, 0, 0, loc)
+	end := time.Date(2026, 9, 15, 10, 0, 0, 0, loc) // 上海 10:00，未满 12 小时
 	assert.Equal(t, 1.5, CalculateDurationDays(start, end))
+}
+
+func TestCalendarDateUsesShanghai(t *testing.T) {
+	// UTC 9 月 13 日 16:00 = 上海 9 月 14 日 00:00
+	instant := time.Date(2026, 9, 13, 16, 0, 0, 0, time.UTC)
+	got := calendarDate(instant)
+	assert.True(t, got.Equal(time.Date(2026, 9, 14, 0, 0, 0, 0, bizLocation())))
+	assert.Equal(t, 2026, bizYear(instant))
+}
+
+func TestSubmitShanghaiMidnightTodayAllowed(t *testing.T) {
+	svc, _, applicant, _, annualID := fixture()
+	loc := bizLocation()
+	start := time.Date(2026, 9, 14, 0, 0, 0, 0, loc)
+	end := time.Date(2026, 9, 14, 8, 0, 0, 0, loc)
+	got, err := svc.Submit(context.Background(), applicantViewer(applicant), submitReq(annualID, start, end))
+	require.NoError(t, err)
+	assert.Equal(t, 1.0, got.DurationDays)
 }
 
 func TestSubmitDeductsDeductibleBalance(t *testing.T) {
@@ -180,6 +201,14 @@ func TestApproveDoesNotChangeBalanceAndRejectRestores(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, svc2.Reject(ctx, approverViewer(approver2), uuid.MustParse(app2.ID), "no"))
 	bals2, err := svc2.Balances(ctx, applicantViewer(applicant2), "", 2026)
+	require.NoError(t, err)
+	assert.Equal(t, 5.0, findAnnual(bals2, annual2).RemainingDays)
+	assert.Equal(t, 0.0, findAnnual(bals2, annual2).UsedDays)
+
+	err = svc2.Reject(ctx, approverViewer(approver2), uuid.MustParse(app2.ID), "again")
+	require.Error(t, err)
+	assert.Equal(t, response.CodeLeaveInvalidState, err.(*response.AppError).Code)
+	bals2, err = svc2.Balances(ctx, applicantViewer(applicant2), "", 2026)
 	require.NoError(t, err)
 	assert.Equal(t, 5.0, findAnnual(bals2, annual2).RemainingDays)
 	assert.Equal(t, 0.0, findAnnual(bals2, annual2).UsedDays)

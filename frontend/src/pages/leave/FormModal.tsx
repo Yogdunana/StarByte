@@ -35,13 +35,14 @@ const FormModal: React.FC<Props> = ({ open, types, onClose, onSubmit }) => {
       onCancel={onClose}
       confirmLoading={loading}
       onOk={async () => {
-        const values = await form.validateFields();
+        if (loading) return;
         setLoading(true);
         try {
+          const values = await form.validateFields();
           await onSubmit({
             leave_type_id: values.leave_type_id,
-            start_time: values.range[0].toISOString(),
-            end_time: values.range[1].toISOString(),
+            start_time: values.range[0].format('YYYY-MM-DDTHH:mm:ssZ'),
+            end_time: values.range[1].format('YYYY-MM-DDTHH:mm:ssZ'),
             reason: values.reason,
           });
           onClose();

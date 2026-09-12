@@ -158,6 +158,12 @@ func (m *memRepo) CreateLeaveApplication(_ context.Context, application *model.L
 	return nil
 }
 
+func (m *memRepo) LockApplicant(context.Context, uuid.UUID) error { return nil }
+
+func (m *memRepo) GetLeaveApplicationByIDForUpdate(ctx context.Context, id uuid.UUID) (*model.ApplicationNamed, error) {
+	return m.GetLeaveApplicationByID(ctx, id)
+}
+
 func (m *memRepo) GetLeaveApplicationByID(_ context.Context, id uuid.UUID) (*model.ApplicationNamed, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -229,8 +235,8 @@ func (m *memRepo) UpdateApprovalStatus(_ context.Context, id uuid.UUID, approver
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	row, ok := m.apps[id]
-	if !ok {
-		return nil
+	if !ok || row.Status != model.ApprovalStatusPending {
+		return repo.ErrNotPending
 	}
 	row.Status = status
 	row.ApproverID = &approverID

@@ -28,6 +28,9 @@ func (s *leaveService) Submit(ctx context.Context, viewer Viewer, req *dto.Submi
 }
 
 func (s *leaveService) submitInTx(ctx context.Context, tx repo.Repository, applicantID, typeID uuid.UUID, req *dto.SubmitLeaveRequest) (uuid.UUID, error) {
+	if err := tx.LockApplicant(ctx, applicantID); err != nil {
+		return uuid.Nil, err
+	}
 	leaveType, err := tx.GetLeaveTypeByID(ctx, typeID)
 	if err != nil {
 		return uuid.Nil, err
@@ -38,7 +41,7 @@ func (s *leaveService) submitInTx(ctx context.Context, tx repo.Repository, appli
 	if req.StartTime.After(req.EndTime) {
 		return uuid.Nil, invalidTime("开始时间不能晚于结束时间")
 	}
-	if req.StartTime.Before(s.clock().Truncate(24 * time.Hour)) {
+	if calendarDate(req.StartTime).Before(calendarDate(s.clock())) {
 		return uuid.Nil, invalidTime("开始时间不能早于今天")
 	}
 
@@ -55,7 +58,7 @@ func (s *leaveService) submitInTx(ctx context.Context, tx repo.Repository, appli
 		return uuid.Nil, overlap()
 	}
 
-	year := req.StartTime.Year()
+	year := bizYear(req.StartTime)
 	if leaveType.Deductible {
 		if err := s.ensureAndDeduct(ctx, tx, applicantID, year, leaveType, durationDays); err != nil {
 			return uuid.Nil, err
@@ -115,6 +118,5 @@ func (s *leaveService) createBalance(ctx context.Context, tx repo.Repository, us
 		RemainingDays: leaveType.DefaultDays,
 		CreatedAt:     now,
 		UpdatedAt:     now,
-		LeaveType:     *leaveType,
 	})
 }

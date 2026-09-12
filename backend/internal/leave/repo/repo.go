@@ -24,6 +24,8 @@ type Repository interface {
 
 	CreateLeaveApplication(ctx context.Context, application *model.LeaveApplication) error
 	GetLeaveApplicationByID(ctx context.Context, id uuid.UUID) (*model.ApplicationNamed, error)
+	GetLeaveApplicationByIDForUpdate(ctx context.Context, id uuid.UUID) (*model.ApplicationNamed, error)
+	LockApplicant(ctx context.Context, userID uuid.UUID) error
 	GetLeaveApplicationsByUser(ctx context.Context, userID uuid.UUID, status string, page, pageSize int) ([]model.ApplicationNamed, int64, error)
 	GetLeaveApplicationsByStatus(ctx context.Context, status string, page, pageSize int) ([]model.ApplicationNamed, int64, error)
 	UpdateApprovalStatus(ctx context.Context, id uuid.UUID, approverID uuid.UUID, status, remark string, at time.Time) error
@@ -102,7 +104,7 @@ func (r *leaveRepo) GetLeaveBalancesByUser(ctx context.Context, userID uuid.UUID
 }
 
 func (r *leaveRepo) CreateLeaveBalance(ctx context.Context, balance *model.LeaveBalance) error {
-	return r.db.WithContext(ctx).Create(balance).Error
+	return r.db.WithContext(ctx).Omit("LeaveType").Create(balance).Error
 }
 
 func (r *leaveRepo) DeductLeaveBalance(ctx context.Context, userID uuid.UUID, year int, leaveTypeID uuid.UUID, usedDays float64) error {
@@ -145,6 +147,23 @@ func (r *leaveRepo) GetLeaveApplicationByID(ctx context.Context, id uuid.UUID) (
 	return &row, nil
 }
 
+func (r *leaveRepo) GetLeaveApplicationByIDForUpdate(ctx context.Context, id uuid.UUID) (*model.ApplicationNamed, error) {
+	var lock model.LeaveApplication
+	err := r.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).
+		First(&lock, "id = ?", id).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return r.GetLeaveApplicationByID(ctx, id)
+}
+
+func (r *leaveRepo) LockApplicant(ctx context.Context, userID uuid.UUID) error {
+	return r.db.WithContext(ctx).Exec(`SELECT pg_advisory_xact_lock(hashtext(?))`, "leave-applicant:"+userID.String()).Error
+}
+
 func paginateNamed(countDB, listDB *gorm.DB, page, pageSize int) ([]model.ApplicationNamed, int64, error) {
 	var total int64
 	if err := countDB.Count(&total).Error; err != nil {
@@ -185,20 +204,28 @@ func (r *leaveRepo) GetLeaveApplicationsByStatus(ctx context.Context, status str
 }
 
 func (r *leaveRepo) UpdateApprovalStatus(ctx context.Context, id uuid.UUID, approverID uuid.UUID, status, remark string, at time.Time) error {
-	return r.db.WithContext(ctx).Model(&model.LeaveApplication{}).
-		Where("id = ?", id).
+	res := r.db.WithContext(ctx).Model(&model.LeaveApplication{}).
+		Where("id = ? AND status = ?", id, model.ApprovalStatusPending).
 		Updates(map[string]interface{}{
 			"status":         status,
 			"approver_id":    approverID,
 			"approve_remark": remark,
 			"approved_at":    at,
 			"updated_at":     at,
-		}).Error
+		})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrNotPending
+	}
+	return nil
 }
 
 func (r *leaveRepo) GetLeaveApplicationsByUserAndTimeRange(ctx context.Context, userID uuid.UUID, startTime, endTime time.Time) ([]model.LeaveApplication, error) {
 	var rows []model.LeaveApplication
 	err := r.db.WithContext(ctx).
+		Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("applicant_id = ? AND status <> ? AND start_time < ? AND end_time > ?",
 			userID, model.ApprovalStatusRejected, endTime, startTime).
 		Find(&rows).Error
