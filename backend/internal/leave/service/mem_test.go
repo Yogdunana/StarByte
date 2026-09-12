@@ -15,22 +15,24 @@ import (
 )
 
 type memRepo struct {
-	mu      sync.Mutex
-	types   map[uuid.UUID]model.LeaveType
-	bals    map[string]model.LeaveBalance
-	apps    map[uuid.UUID]model.ApplicationNamed
-	names   map[uuid.UUID]string
-	depts   map[uuid.UUID]uuid.UUID
-	failGet bool
+	mu        sync.Mutex
+	types     map[uuid.UUID]model.LeaveType
+	bals      map[string]model.LeaveBalance
+	apps      map[uuid.UUID]model.ApplicationNamed
+	names     map[uuid.UUID]string
+	depts     map[uuid.UUID]uuid.UUID
+	assignees map[uuid.UUID][]uuid.UUID
+	failGet   bool
 }
 
 func newMemRepo() *memRepo {
 	return &memRepo{
-		types: map[uuid.UUID]model.LeaveType{},
-		bals:  map[string]model.LeaveBalance{},
-		apps:  map[uuid.UUID]model.ApplicationNamed{},
-		names: map[uuid.UUID]string{},
-		depts: map[uuid.UUID]uuid.UUID{},
+		types:     map[uuid.UUID]model.LeaveType{},
+		bals:      map[string]model.LeaveBalance{},
+		apps:      map[uuid.UUID]model.ApplicationNamed{},
+		names:     map[uuid.UUID]string{},
+		depts:     map[uuid.UUID]uuid.UUID{},
+		assignees: map[uuid.UUID][]uuid.UUID{},
 	}
 }
 
@@ -316,6 +318,37 @@ func (m *memRepo) GetLeaveApplicationsByStatus(_ context.Context, status string,
 		}
 		if !m.inScope(row, scope) {
 			continue
+		}
+		all = append(all, row)
+	}
+	return pageSlice(all, page, pageSize), int64(len(all)), nil
+}
+
+func (m *memRepo) assignTodo(appID, reviewer uuid.UUID) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.assignees[appID] = append(m.assignees[appID], reviewer)
+}
+
+func (m *memRepo) ListAssignedPending(_ context.Context, reviewer uuid.UUID, page, pageSize int, scope *rbacModel.DataScopeCondition) ([]model.ApplicationNamed, int64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var all []model.ApplicationNamed
+	for _, row := range m.apps {
+		if row.Status != model.ApprovalStatusPending || !m.inScope(row, scope) {
+			continue
+		}
+		if row.WorkflowInstanceID != nil {
+			ok := false
+			for _, id := range m.assignees[row.ID] {
+				if id == reviewer {
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				continue
+			}
 		}
 		all = append(all, row)
 	}

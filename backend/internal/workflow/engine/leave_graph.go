@@ -16,13 +16,13 @@ func LeaveApprovalBPMN() []byte {
 		"nodes": []map[string]interface{}{
 			node("start", "start", "提交请假", 20, nil),
 			node("minister", "approval", "部长审批", 160, map[string]interface{}{
-				"assigneeStrategy": "role", "roleCode": "minister", "approvalType": "any",
-				"departmentScope": true, "leaveStage": "department",
+				"assigneeStrategy": "business_role", "businessType": LeaveBusinessType,
+				"leaveStage": "department", "approvalType": "any",
 				"allowReject": true, "allowTransfer": false, "allowRollback": false,
 			}),
 			node("president", "approval", "社长审批", 300, map[string]interface{}{
-				"assigneeStrategy": "role", "roleCode": "president", "approvalType": "any",
-				"leaveStage":  "org",
+				"assigneeStrategy": "business_role", "businessType": LeaveBusinessType,
+				"leaveStage": "org", "approvalType": "any",
 				"allowReject": true, "allowTransfer": false, "allowRollback": false,
 			}),
 			node("end", "end", "结束", 440, nil),
@@ -48,11 +48,18 @@ func validateLeaveApprovalGraph(g *FlowGraph) error {
 		switch item.Type {
 		case "start", "end":
 		case "approval":
-			code, _ := item.Config["roleCode"].(string)
-			if item.Config["assigneeStrategy"] != "role" || (code != "minister" && code != "president") || item.Config["approvalType"] != "any" {
-				return fmt.Errorf("请假审批节点须按角色指派部长或社长")
+			stage, _ := item.Config["leaveStage"].(string)
+			if item.Config["assigneeStrategy"] != "business_role" || item.Config["businessType"] != LeaveBusinessType || item.Config["approvalType"] != "any" {
+				return fmt.Errorf("请假审批须由业务解析器指派，并排除申请人")
 			}
-			name = code
+			switch stage {
+			case "department":
+				name = "minister"
+			case "org":
+				name = "president"
+			default:
+				return fmt.Errorf("请假审批节点须为部长或社长环节")
+			}
 		default:
 			return fmt.Errorf("默认请假链不支持额外节点类型")
 		}

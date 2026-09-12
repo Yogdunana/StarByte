@@ -35,6 +35,7 @@ type Repository interface {
 	LockApplicant(ctx context.Context, userID uuid.UUID) error
 	GetLeaveApplicationsByUser(ctx context.Context, userID uuid.UUID, status string, page, pageSize int, scope *rbacModel.DataScopeCondition) ([]model.ApplicationNamed, int64, error)
 	GetLeaveApplicationsByStatus(ctx context.Context, status string, page, pageSize int, scope *rbacModel.DataScopeCondition) ([]model.ApplicationNamed, int64, error)
+	ListAssignedPending(ctx context.Context, reviewer uuid.UUID, page, pageSize int, scope *rbacModel.DataScopeCondition) ([]model.ApplicationNamed, int64, error)
 	UpdateApprovalStatus(ctx context.Context, id uuid.UUID, approverID uuid.UUID, status, remark string, at time.Time, balanceDeducted bool) error
 	SaveApplication(ctx context.Context, app *model.LeaveApplication) error
 	GetLeaveApplicationsByUserAndTimeRange(ctx context.Context, userID uuid.UUID, startTime, endTime time.Time) ([]model.LeaveApplication, error)
@@ -270,6 +271,28 @@ func (r *leaveRepo) GetLeaveApplicationsByStatus(ctx context.Context, status str
 		countQ = countQ.Where("leave_applications.status = ?", status)
 		listQ = listQ.Where("leave_applications.status = ?", status)
 	}
+	return paginateNamed(countQ, listQ, page, pageSize)
+}
+
+func assignedPendingClause(reviewer uuid.UUID) (string, []interface{}) {
+	return `(leave_applications.workflow_instance_id IS NULL
+		OR EXISTS (
+			SELECT 1 FROM flow_tasks ft
+			WHERE ft.instance_id = leave_applications.workflow_instance_id
+			  AND ft.status = 0
+			  AND ft.assignee_id = ?
+			  AND (leave_applications.workflow_stage = '' OR ft.node_id = leave_applications.workflow_stage)
+		))`, []interface{}{reviewer}
+}
+
+func (r *leaveRepo) ListAssignedPending(ctx context.Context, reviewer uuid.UUID, page, pageSize int, scope *rbacModel.DataScopeCondition) ([]model.ApplicationNamed, int64, error) {
+	clause, args := assignedPendingClause(reviewer)
+	countQ := r.joinApplicant(r.db.WithContext(ctx).Model(&model.LeaveApplication{}), scope).
+		Where("leave_applications.status = ?", model.ApprovalStatusPending).
+		Where(clause, args...)
+	listQ := applyApplicantScope(r.namedQuery(ctx), scope).
+		Where("leave_applications.status = ?", model.ApprovalStatusPending).
+		Where(clause, args...)
 	return paginateNamed(countQ, listQ, page, pageSize)
 }
 

@@ -517,6 +517,35 @@ func TestCalendarAndTodosAndAttachments(t *testing.T) {
 	require.Len(t, todos, 1)
 }
 
+func TestListTodosOnlyAssignedWorkflowStage(t *testing.T) {
+	svc, mem, flow, applicant, minister, annualID := workflowFixture(t)
+	president := uuid.New()
+	mem.addUser(president, "社长")
+	ctx := context.Background()
+	app, err := svc.Submit(ctx, applicantViewer(applicant), submitReq(annualID, monday(), monday().Add(8*time.Hour)))
+	require.NoError(t, err)
+	id := uuid.MustParse(app.ID)
+	mem.assignTodo(id, minister)
+
+	mine, total, err := svc.ListTodos(ctx, approverViewer(minister), &dto.ListLeaveRequest{})
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), total)
+	require.Len(t, mine, 1)
+
+	theirs, total, err := svc.ListTodos(ctx, approverViewer(president), &dto.ListLeaveRequest{})
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), total)
+	assert.Empty(t, theirs)
+
+	require.NoError(t, svc.Approve(ctx, approverViewer(minister), id, "dept ok"))
+	assert.Equal(t, 1, flow.idx)
+	mem.assignees[id] = []uuid.UUID{president}
+	next, total, err := svc.ListTodos(ctx, approverViewer(president), &dto.ListLeaveRequest{})
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), total)
+	require.Len(t, next, 1)
+}
+
 func findAnnual(bals []*dto.LeaveBalanceResponse, id uuid.UUID) *dto.LeaveBalanceResponse {
 	for _, b := range bals {
 		if b.LeaveType.ID == id.String() {

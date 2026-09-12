@@ -37,8 +37,8 @@ DECLARE
   graph jsonb := $json${
     "nodes": [
       {"id": "start", "type": "start", "position": {"x": 280, "y": 20}, "data": {"label": "提交请假", "config": {}}},
-      {"id": "minister", "type": "approval", "position": {"x": 280, "y": 160}, "data": {"label": "部长审批", "config": {"assigneeStrategy": "role", "roleCode": "minister", "approvalType": "any", "departmentScope": true, "leaveStage": "department", "allowReject": true, "allowTransfer": false, "allowRollback": false}}},
-      {"id": "president", "type": "approval", "position": {"x": 280, "y": 300}, "data": {"label": "社长审批", "config": {"assigneeStrategy": "role", "roleCode": "president", "approvalType": "any", "leaveStage": "org", "allowReject": true, "allowTransfer": false, "allowRollback": false}}},
+      {"id": "minister", "type": "approval", "position": {"x": 280, "y": 160}, "data": {"label": "部长审批", "config": {"assigneeStrategy": "business_role", "businessType": "leave_application", "leaveStage": "department", "approvalType": "any", "allowReject": true, "allowTransfer": false, "allowRollback": false}}},
+      {"id": "president", "type": "approval", "position": {"x": 280, "y": 300}, "data": {"label": "社长审批", "config": {"assigneeStrategy": "business_role", "businessType": "leave_application", "leaveStage": "org", "approvalType": "any", "allowReject": true, "allowTransfer": false, "allowRollback": false}}},
       {"id": "end", "type": "end", "position": {"x": 280, "y": 440}, "data": {"label": "结束", "config": {}}}
     ],
     "edges": [

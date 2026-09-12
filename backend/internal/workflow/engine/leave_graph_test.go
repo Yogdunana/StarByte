@@ -23,9 +23,9 @@ func TestLeaveApprovalGraphRejectsBypass(t *testing.T) {
 	require.Error(t, ValidateBusinessDefinition(LeaveDefinitionKey, graph))
 }
 
-func TestLeaveApprovalGraphRequiresRoleAssignees(t *testing.T) {
+func TestLeaveApprovalGraphRequiresBusinessRole(t *testing.T) {
 	graph, err := ParseGraph(LeaveApprovalBPMN())
 	require.NoError(t, err)
-	graph.Nodes["minister"].Config["assigneeStrategy"] = "business_role"
+	graph.Nodes["minister"].Config["assigneeStrategy"] = "role"
 	require.Error(t, ValidateBusinessDefinition(LeaveDefinitionKey, graph))
 }

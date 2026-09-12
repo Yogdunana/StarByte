@@ -140,11 +140,19 @@ func (s *leaveService) ListTodos(ctx context.Context, viewer Viewer, req *dto.Li
 	if !viewer.CanApprove {
 		return nil, 0, noAccess("无权查看请假待办")
 	}
-	if req == nil {
-		req = &dto.ListLeaveRequest{}
+	if viewer.Scope == nil {
+		return nil, 0, noAccess("无权查看请假待办")
 	}
-	req.Status = model.ApprovalStatusPending
-	return s.ListAll(ctx, viewer, req)
+	page, size := defaultPage(0, 0)
+	if req != nil {
+		page, size = defaultPage(req.Page, req.PageSize)
+	}
+	sqlScope := rewriteApplicantScope(viewer.Scope, viewer.UserID)
+	rows, total, err := s.rows.ListAssignedPending(ctx, viewer.UserID, page, size, sqlScope)
+	if err != nil {
+		return nil, 0, err
+	}
+	return mapApps(rows), total, nil
 }
 
 func (s *leaveService) Calendar(ctx context.Context, viewer Viewer, req *dto.ListLeaveRequest) ([]*dto.LeaveApplicationResponse, error) {

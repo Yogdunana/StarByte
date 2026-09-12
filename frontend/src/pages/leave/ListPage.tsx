@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Button, Card, Input, Modal, Select, Space, Table, Tag, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useTranslation } from 'react-i18next';
-import { approveLeave, getLeaveList, getLeaveStats, rejectLeave } from '@/api/leave';
+import { approveLeave, getLeaveList, getLeaveStats, getLeaveTodos, rejectLeave } from '@/api/leave';
 import type { LeaveApplication, LeaveStats, LeaveStatus } from '@/api/leave';
 import { usePermission } from '@/hooks/usePermission';
 import { formatDateTime } from '@/utils/format';
@@ -23,8 +23,11 @@ const ListPage: React.FC = () => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      const inbox = canApprove && (status === 'pending' || status === '');
       const [res, stat] = await Promise.all([
-        getLeaveList({ page, page_size: 10, status: status || undefined }),
+        inbox
+          ? getLeaveTodos({ page, page_size: 10 })
+          : getLeaveList({ page, page_size: 10, status: status || undefined }),
         getLeaveStats(),
       ]);
       setList(res.list || []);
@@ -33,7 +36,7 @@ const ListPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, status]);
+  }, [canApprove, page, status]);
 
   useEffect(() => { void load(); }, [load]);
 
