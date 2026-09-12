@@ -23,6 +23,14 @@ func TestApplicationVariables(t *testing.T) {
 	require.Equal(t, app.Type, vars["apply_type"])
 	require.Equal(t, dept.String(), vars["department_id"])
 	require.Equal(t, dept.String(), vars["department"])
+	require.Nil(t, vars[engine.SkipMinisterVariable])
+
+	member := applicationVariables(&model.MemberApplication{
+		ID: uuid.New(), UserID: uuid.New(), Type: model.ApplicantMember, RealName: "会员", StudentNo: "2024002",
+	})
+	require.Equal(t, true, member[engine.SkipMinisterVariable])
+	_, hasDept := member["department_id"]
+	require.False(t, hasDept)
 }
 
 func TestApplyEngineOutcome(t *testing.T) {

@@ -32,6 +32,8 @@ func applicationVariables(app *model.MemberApplication) map[string]interface{} {
 	if app.DepartmentID != nil {
 		vars["department_id"] = app.DepartmentID.String()
 		vars["department"] = app.DepartmentID.String()
+	} else {
+		vars[engine.SkipMinisterVariable] = true
 	}
 	return vars
 }

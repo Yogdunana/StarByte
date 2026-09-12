@@ -34,13 +34,27 @@ func (m *storingInstRepo) List(context.Context, int, int, *int, *uuid.UUID, *uui
 	return nil, 0, nil
 }
 
+type recordingApproval struct {
+	waitingTestNode
+	enteredIDs []string
+}
+
+func (n *recordingApproval) OnEnter(ctx context.Context, inst *model.FlowInstance, node *FlowNode, vars map[string]interface{}) error {
+	n.enteredIDs = append(n.enteredIDs, node.ID)
+	return n.waitingTestNode.OnEnter(ctx, inst, node, vars)
+}
+
 func memberApplicationEngine(t *testing.T, tasks *mockTaskRepo) (*FlowEngine, *storingInstRepo) {
+	t.Helper()
+	return memberApplicationEngineWith(t, tasks, &waitingTestNode{})
+}
+
+func memberApplicationEngineWith(t *testing.T, tasks *mockTaskRepo, approval NodeHandler) (*FlowEngine, *storingInstRepo) {
 	t.Helper()
 	defID, verID := uuid.New(), uuid.New()
 	def := &model.FlowDefinition{ID: defID, Key: MemberApplicationDefinitionKey, Status: 1}
 	ver := &model.FlowDefinitionVersion{ID: verID, DefinitionID: defID, BpmnData: MemberApplicationBPMN(), Status: 1}
 	insts := &storingInstRepo{insts: map[uuid.UUID]*model.FlowInstance{}}
-	approval := &waitingTestNode{}
 	e := NewFlowEngine(&mockDefRepo{def: def, version: ver}, insts, tasks, newMockVarRepo(), nil, &mockRegistryForTest{handlers: map[string]NodeHandler{
 		"start": stubStartHandler{}, "end": stubEndHandler{}, "approval": approval,
 	}}, NewExpressionEngine(), events.NewEventBus(), nil)
@@ -131,24 +145,28 @@ func TestMemberApplicationRejectTerminatesOtherPendingTasks(t *testing.T) {
 	require.Error(t, e.CompleteApplicationApproval(context.Background(), inst.ID, second, ActionApprove, "不能救活"))
 }
 
-func TestSkipMinisterAdvancesToPresident(t *testing.T) {
+func TestStartSkipMinisterDoesNotEnterMinister(t *testing.T) {
 	applicant := uuid.New()
 	tasks := newMockTaskRepo()
-	e, _ := memberApplicationEngine(t, tasks)
+	approval := &recordingApproval{}
+	e, _ := memberApplicationEngineWith(t, tasks, approval)
 
 	inst, err := e.Start(context.Background(), MemberApplicationDefinitionKey, uuid.New().String(), "member_application", applicant, map[string]interface{}{
-		"applicant": applicant.String(), "apply_type": int16(1),
+		"applicant": applicant.String(), "apply_type": int16(1), SkipMinisterVariable: true,
 	})
 	require.NoError(t, err)
-	addApprovalTask(tasks, inst.ID, "minister", uuid.New())
-	require.NoError(t, e.SkipApplicationApproval(context.Background(), inst.ID, "minister", applicant, "会员申请无意向部门，跳过部长审批"))
+	require.NotContains(t, approval.enteredIDs, "minister")
+	require.Equal(t, []string{"president"}, approval.enteredIDs)
 	nodeID, done, err := e.RunningApprovalNode(context.Background(), inst.ID)
 	require.NoError(t, err)
 	require.False(t, done)
 	require.Equal(t, "president", nodeID)
-	for _, task := range tasks.tasks {
-		if task.InstanceID == inst.ID && task.NodeID == "minister" {
-			require.NotEqual(t, 0, task.Status)
-		}
-	}
+	require.Empty(t, tasks.tasks)
+}
+
+func TestSkipMinisterApprovalFlag(t *testing.T) {
+	require.False(t, skipMinisterApproval(&FlowNode{ID: "minister"}, nil))
+	require.False(t, skipMinisterApproval(&FlowNode{ID: "president"}, map[string]interface{}{SkipMinisterVariable: true}))
+	require.True(t, skipMinisterApproval(&FlowNode{ID: "minister"}, map[string]interface{}{SkipMinisterVariable: true}))
+	require.False(t, skipMinisterApproval(&FlowNode{ID: "minister"}, map[string]interface{}{}))
 }

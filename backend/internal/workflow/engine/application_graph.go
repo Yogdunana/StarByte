@@ -9,6 +9,24 @@ import (
 // MemberApplicationDefinitionKey is the default membership approval template (#64).
 const MemberApplicationDefinitionKey = "member_application"
 
+// SkipMinisterVariable tells Start to pass through the minister node
+// without creating assignees when a member application has no department.
+const SkipMinisterVariable = "skip_minister"
+
+func skipMinisterApproval(node *FlowNode, vars map[string]interface{}) bool {
+	if node == nil || node.ID != "minister" || vars == nil {
+		return false
+	}
+	switch v := vars[SkipMinisterVariable].(type) {
+	case bool:
+		return v
+	case string:
+		return v == "true" || v == "1"
+	default:
+		return false
+	}
+}
+
 // MemberApplicationBPMN is the React Flow graph seeded by 000061.
 func MemberApplicationBPMN() []byte {
 	raw, err := json.Marshal(map[string]interface{}{

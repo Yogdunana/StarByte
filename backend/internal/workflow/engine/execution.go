@@ -58,6 +58,20 @@ func (e *FlowEngine) executeFromNodes(ctx context.Context, inst *model.FlowInsta
 			return err
 		}
 		e.eventBus.Publish(ctx, events.NodeEnteredEvent{InstanceID: inst.ID, NodeID: node.ID, NodeType: node.Type})
+		if skipMinisterApproval(node, vars) {
+			next, err := handler.Execute(ctx, inst, node, graph, vars)
+			if err != nil {
+				return err
+			}
+			if err = handler.OnLeave(ctx, inst, node, vars); err != nil {
+				return err
+			}
+			e.eventBus.Publish(ctx, events.NodeLeftEvent{InstanceID: inst.ID, NodeID: node.ID, NodeType: node.Type})
+			for _, nextID := range next {
+				queue = append(queue, arrival{nextID, id})
+			}
+			continue
+		}
 		if err = handler.OnEnter(ctx, inst, node, vars); err != nil {
 			return err
 		}
