@@ -12,7 +12,13 @@ import {
 } from '@/api/monitor';
 import { gaugeOption, sparkOption } from './charts';
 import { formatBytes, formatDuration, formatPercent, pushSample } from './format';
-import { SNAPSHOT_KEYS, mergeSettledSnapshot, type Snapshot, type SnapshotKey } from './load';
+import {
+  SNAPSHOT_KEYS,
+  applySettledIfCurrent,
+  createPollSession,
+  type Snapshot,
+  type SnapshotKey,
+} from './load';
 import './monitor.css';
 
 const POLL_MS = 8000;
@@ -28,6 +34,7 @@ const MonitorPage: React.FC = () => {
   const [cpuHist, setCpuHist] = useState<number[]>([]);
   const [labels, setLabels] = useState<string[]>([]);
   const dataRef = useRef<Snapshot>({});
+  const pollRef = useRef(createPollSession());
   dataRef.current = data;
 
   const sectionTitle = useCallback((key: SnapshotKey) => {
@@ -42,15 +49,23 @@ const MonitorPage: React.FC = () => {
   }, [t]);
 
   const load = useCallback(async () => {
+    const ticket = pollRef.current.begin();
     setLoading(true);
     const results = await Promise.allSettled([
-      getMonitorServer(),
-      getMonitorApp(),
-      getMonitorDatabase(),
-      getMonitorRedis(),
-      getMonitorAPIStats(),
+      getMonitorServer(ticket.signal),
+      getMonitorApp(ticket.signal),
+      getMonitorDatabase(ticket.signal),
+      getMonitorRedis(ticket.signal),
+      getMonitorAPIStats(ticket.signal),
     ]);
-    const merged = mergeSettledSnapshot(dataRef.current, results, SNAPSHOT_KEYS);
+    const merged = applySettledIfCurrent(
+      pollRef.current,
+      ticket.gen,
+      dataRef.current,
+      results,
+      SNAPSHOT_KEYS,
+    );
+    if (!merged) return;
     setData(merged.next);
     setFailed(merged.failed);
     if (merged.succeeded.includes('server') && merged.next.server) {
@@ -66,7 +81,9 @@ const MonitorPage: React.FC = () => {
   }, [t]);
 
   useEffect(() => {
+    const session = pollRef.current;
     void load();
+    return () => { session.invalidate(); };
   }, [load]);
 
   useEffect(() => {

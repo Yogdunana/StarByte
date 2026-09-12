@@ -76,22 +76,22 @@ export interface MonitorAPIStats {
   collected_at: string;
 }
 
-export function getMonitorServer(): Promise<MonitorServer> {
-  return request.get('/monitor/server');
+export function getMonitorServer(signal?: AbortSignal): Promise<MonitorServer> {
+  return request.get('/monitor/server', { signal });
 }
 
-export function getMonitorApp(): Promise<MonitorApp> {
-  return request.get('/monitor/app');
+export function getMonitorApp(signal?: AbortSignal): Promise<MonitorApp> {
+  return request.get('/monitor/app', { signal });
 }
 
-export function getMonitorDatabase(): Promise<MonitorDatabase> {
-  return request.get('/monitor/database');
+export function getMonitorDatabase(signal?: AbortSignal): Promise<MonitorDatabase> {
+  return request.get('/monitor/database', { signal });
 }
 
-export function getMonitorRedis(): Promise<MonitorRedis> {
-  return request.get('/monitor/redis');
+export function getMonitorRedis(signal?: AbortSignal): Promise<MonitorRedis> {
+  return request.get('/monitor/redis', { signal });
 }
 
-export function getMonitorAPIStats(): Promise<MonitorAPIStats> {
-  return request.get('/monitor/api-stats');
+export function getMonitorAPIStats(signal?: AbortSignal): Promise<MonitorAPIStats> {
+  return request.get('/monitor/api-stats', { signal });
 }
