@@ -1,3 +1,4 @@
+import { notificationActionURL } from './actionURL';
 import React from 'react';
 import { Drawer, Tag, Badge, Typography, Button } from 'antd';
 import type { Notification, NotificationCategory } from '@/types/api';
@@ -56,7 +57,7 @@ const NotificationDetailDrawer: React.FC<NotificationDetailDrawerProps> = ({
           {notification.content}
         </Paragraph>
 
-        {notification.action_url && (
+        {notificationActionURL(notification) && (
           <Button type="primary" onClick={() => onAction(notification)}>
             查看详情
           </Button>

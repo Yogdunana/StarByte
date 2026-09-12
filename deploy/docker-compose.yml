@@ -77,9 +77,15 @@ services:
       dockerfile: Dockerfile
       target: production
     container_name: starbyte-backend
+    networks:
+      default:
+      web-proxy:
+        ipv4_address: ${STARBYTE_BACKEND_PROXY_IP:-172.30.77.3}
     environment:
       CONFIG_PATH: configs/config.yaml
       APP_ENV: prod
+      # Only the frontend reverse proxy may supply client forwarding headers.
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-172.30.77.2/32}
       # 数据库（与 config.Load 的环境变量名对齐）
       DB_HOST: postgres
       DB_PORT: "5432"
@@ -145,6 +151,9 @@ services:
       dockerfile: Dockerfile
       target: production
     container_name: starbyte-frontend
+    networks:
+      web-proxy:
+        ipv4_address: ${STARBYTE_FRONTEND_PROXY_IP:-172.30.77.2}
     environment:
       TZ: Asia/Shanghai
     ports:
@@ -164,3 +173,10 @@ volumes:
   postgres-data:
   redis-data:
   minio-data:
+
+# Dedicated proxy link keeps the trusted hop stable across container recreation.
+networks:
+  web-proxy:
+    ipam:
+      config:
+        - subnet: ${STARBYTE_PROXY_SUBNET:-172.30.77.0/29}

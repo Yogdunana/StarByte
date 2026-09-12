@@ -91,7 +91,7 @@ func (e *FlowEngine) transferPendingTask(ctx context.Context, task *model.FlowTa
 	if err := e.taskRepo.CreateHistory(ctx, nil, &model.FlowHistory{ID: uuid.New(), InstanceID: inst.ID, TaskID: &task.ID, NodeID: task.NodeID, NodeName: task.NodeName, NodeType: task.TaskType, OperatorID: &from, Action: "transfer", Comment: comment, CreatedAt: now}); err != nil {
 		return err
 	}
-	return errors.Join(e.eventBus.Publish(ctx, events.TaskCreatedEvent{InstanceID: inst.ID, TaskID: next.ID, AssigneeID: to, NodeID: task.NodeID, NodeName: task.NodeName, TaskType: task.TaskType})...)
+	return errors.Join(e.eventBus.Publish(ctx, events.TaskCreatedEvent{BusinessType: inst.BusinessType, BusinessKey: inst.BusinessKey, InstanceID: inst.ID, TaskID: next.ID, AssigneeID: to, NodeID: task.NodeID, NodeName: task.NodeName, TaskType: task.TaskType})...)
 }
 
 func (e *FlowEngine) RollbackTask(ctx context.Context, taskID, user uuid.UUID, target, comment string) error {
