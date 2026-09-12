@@ -37,8 +37,8 @@ func (s *leaveService) submitInTx(ctx context.Context, tx repo.Repository, appli
 	if leaveType == nil {
 		return uuid.Nil, typeNotFound()
 	}
-	if req.StartTime.After(req.EndTime) {
-		return uuid.Nil, invalidTime("开始时间不能晚于结束时间")
+	if !req.StartTime.Before(req.EndTime) {
+		return uuid.Nil, invalidTime("开始时间必须早于结束时间")
 	}
 	if calendarDate(req.StartTime).Before(calendarDate(s.clock())) {
 		return uuid.Nil, invalidTime("开始时间不能早于今天")

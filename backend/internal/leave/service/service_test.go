@@ -70,6 +70,18 @@ func TestCalculateDurationDays_WeekdaysAndWeekend(t *testing.T) {
 
 	endSat := time.Date(2026, 9, 19, 18, 0, 0, 0, loc)
 	assert.Equal(t, 5.0, CalculateDurationDays(start, endSat))
+
+	// RangePicker 默认结束到周六 00:00 时，不应把周五扣成半天。
+	endSatMidnight := time.Date(2026, 9, 19, 0, 0, 0, 0, loc)
+	assert.Equal(t, 5.0, CalculateDurationDays(start, endSatMidnight))
+	assert.Equal(t, 0.0, CalculateDurationDays(
+		time.Date(2026, 9, 19, 9, 0, 0, 0, loc),
+		time.Date(2026, 9, 19, 18, 0, 0, 0, loc),
+	))
+	assert.Equal(t, 0.0, CalculateDurationDays(
+		time.Date(2026, 9, 19, 9, 0, 0, 0, loc),
+		time.Date(2026, 9, 20, 18, 0, 0, 0, loc),
+	))
 }
 
 func TestCalculateDurationDays_HalfDay(t *testing.T) {
@@ -171,6 +183,10 @@ func TestSubmitOverlapAndInvalidTime(t *testing.T) {
 	assert.Equal(t, response.CodeLeaveOverlap, err.(*response.AppError).Code)
 
 	_, err = svc.Submit(ctx, applicantViewer(applicant), submitReq(annualID, end, start))
+	require.Error(t, err)
+	assert.Equal(t, response.CodeLeaveInvalidTime, err.(*response.AppError).Code)
+
+	_, err = svc.Submit(ctx, applicantViewer(applicant), submitReq(annualID, start.Add(24*time.Hour), start.Add(24*time.Hour)))
 	require.Error(t, err)
 	assert.Equal(t, response.CodeLeaveInvalidTime, err.(*response.AppError).Code)
 
