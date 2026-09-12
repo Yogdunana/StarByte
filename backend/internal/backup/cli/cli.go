@@ -28,7 +28,7 @@ drill 把 custom dump 恢复到独立 Postgres，不改生产库状态，也不�
 // Execute runs a backup CLI subcommand against the shared Service.
 func Execute(ctx context.Context, svc service.Service, args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
-		fmt.Fprint(stdout, Usage)
+		write(stdout, Usage)
 		return 0
 	}
 	switch args[0] {
@@ -38,7 +38,7 @@ func Execute(ctx context.Context, svc service.Service, args []string, stdout, st
 		return runList(ctx, svc, stdout, stderr)
 	case "preview":
 		if len(args) < 2 {
-			fmt.Fprintln(stderr, "preview 需要备份 id")
+			writeln(stderr, "preview 需要备份 id")
 			return 2
 		}
 		return runPreview(ctx, svc, args[1], stdout, stderr)
@@ -47,8 +47,8 @@ func Execute(ctx context.Context, svc service.Service, args []string, stdout, st
 	case "drill":
 		return runDrill(ctx, svc, args[1:], stdout, stderr)
 	default:
-		fmt.Fprintf(stderr, "未知子命令: %s\n", args[0])
-		fmt.Fprint(stderr, Usage)
+		writef(stderr, "未知子命令: %s\n", args[0])
+		write(stderr, Usage)
 		return 2
 	}
 }
@@ -56,13 +56,13 @@ func Execute(ctx context.Context, svc service.Service, args []string, stdout, st
 func runCreate(ctx context.Context, svc service.Service, stdout, stderr io.Writer) int {
 	rec, err := svc.Create(ctx, uuid.Nil, &dto.CreateRequest{})
 	if err != nil {
-		fmt.Fprintln(stderr, err.Error())
+		writeln(stderr, err.Error())
 		return 1
 	}
-	fmt.Fprintf(stdout, "queued %s\n", rec.ID)
+	writef(stdout, "queued %s\n", rec.ID)
 	got, err := svc.Wait(ctx, mustID(rec.ID))
 	if err != nil {
-		fmt.Fprintln(stderr, err.Error())
+		writeln(stderr, err.Error())
 		return 1
 	}
 	printRecord(stdout, got)
@@ -75,10 +75,10 @@ func runCreate(ctx context.Context, svc service.Service, stdout, stderr io.Write
 func runList(ctx context.Context, svc service.Service, stdout, stderr io.Writer) int {
 	rows, total, err := svc.List(ctx, &dto.ListRequest{Page: 1, PageSize: 20})
 	if err != nil {
-		fmt.Fprintln(stderr, err.Error())
+		writeln(stderr, err.Error())
 		return 1
 	}
-	fmt.Fprintf(stdout, "total %d\n", total)
+	writef(stdout, "total %d\n", total)
 	for _, rec := range rows {
 		printRecord(stdout, &rec)
 	}
@@ -88,18 +88,18 @@ func runList(ctx context.Context, svc service.Service, stdout, stderr io.Writer)
 func runPreview(ctx context.Context, svc service.Service, id string, stdout, stderr io.Writer) int {
 	uid, err := uuid.Parse(strings.TrimSpace(id))
 	if err != nil {
-		fmt.Fprintln(stderr, "无效备份 id")
+		writeln(stderr, "无效备份 id")
 		return 2
 	}
 	out, err := svc.Preview(ctx, uid)
 	if err != nil {
-		fmt.Fprintln(stderr, err.Error())
+		writeln(stderr, err.Error())
 		return 1
 	}
-	fmt.Fprintf(stdout, "id=%s ready=%v checksum=%v decrypt=%v gzip=%v toc=%v\n",
+	writef(stdout, "id=%s ready=%v checksum=%v decrypt=%v gzip=%v toc=%v\n",
 		out.ID, out.Ready, out.ChecksumOK, out.DecryptOK, out.GzipOK, out.TOCValid)
 	if out.Error != "" {
-		fmt.Fprintln(stderr, out.Error)
+		writeln(stderr, out.Error)
 	}
 	if !out.Ready {
 		return 1
@@ -113,7 +113,7 @@ func runRestore(ctx context.Context, svc service.Service, args []string, stdout,
 	confirm := fs.String("confirm", "", "须为 RESTORE")
 	id, flagArgs := shiftID(args)
 	if id == "" {
-		fmt.Fprintln(stderr, "restore 需要备份 id")
+		writeln(stderr, "restore 需要备份 id")
 		return 2
 	}
 	if err := fs.Parse(flagArgs); err != nil {
@@ -121,20 +121,20 @@ func runRestore(ctx context.Context, svc service.Service, args []string, stdout,
 	}
 	uid, err := uuid.Parse(id)
 	if err != nil {
-		fmt.Fprintln(stderr, "无效备份 id")
+		writeln(stderr, "无效备份 id")
 		return 2
 	}
 	rec, err := svc.Restore(ctx, uuid.Nil, uid, &dto.RestoreRequest{
 		Confirm: true, Confirmation: strings.TrimSpace(*confirm),
 	})
 	if err != nil {
-		fmt.Fprintln(stderr, err.Error())
+		writeln(stderr, err.Error())
 		return 1
 	}
-	fmt.Fprintf(stdout, "restore queued %s\n", rec.ID)
+	writef(stdout, "restore queued %s\n", rec.ID)
 	got, err := svc.Wait(ctx, uid)
 	if err != nil {
-		fmt.Fprintln(stderr, err.Error())
+		writeln(stderr, err.Error())
 		return 1
 	}
 	printRecord(stdout, got)
@@ -156,7 +156,7 @@ func runDrill(ctx context.Context, svc service.Service, args []string, stdout, s
 	password := fs.String("password", "", "跨主机时的目标密码（同集群换库名可省略）")
 	id, flagArgs := shiftID(args)
 	if id == "" {
-		fmt.Fprintln(stderr, "drill 需要备份 id")
+		writeln(stderr, "drill 需要备份 id")
 		return 2
 	}
 	if err := fs.Parse(flagArgs); err != nil {
@@ -164,7 +164,7 @@ func runDrill(ctx context.Context, svc service.Service, args []string, stdout, s
 	}
 	uid, err := uuid.Parse(id)
 	if err != nil {
-		fmt.Fprintln(stderr, "无效备份 id")
+		writeln(stderr, "无效备份 id")
 		return 2
 	}
 	out, err := svc.DrillRestore(ctx, uuid.Nil, uid, &dto.DrillRequest{
@@ -178,24 +178,24 @@ func runDrill(ctx context.Context, svc service.Service, args []string, stdout, s
 		TargetDBName:   strings.TrimSpace(*dbname),
 	})
 	if err != nil {
-		fmt.Fprintln(stderr, err.Error())
+		writeln(stderr, err.Error())
 		return 1
 	}
 	if drillPending(out) {
-		fmt.Fprintf(stdout, "drill queued %s target=%s/%s\n", out.ID, out.TargetHost, out.TargetDBName)
+		writef(stdout, "drill queued %s target=%s/%s\n", out.ID, out.TargetHost, out.TargetDBName)
 		out, err = svc.WaitDrill(ctx, uid)
 		if err != nil {
-			fmt.Fprintln(stderr, err.Error())
+			writeln(stderr, err.Error())
 			if out != nil && drillPending(out) {
 				return 2
 			}
 			return 1
 		}
 	}
-	fmt.Fprintf(stdout, "drill id=%s restored=%v target=%s/%s\n",
+	writef(stdout, "drill id=%s restored=%v target=%s/%s\n",
 		out.ID, out.Restored, out.TargetHost, out.TargetDBName)
 	if out.Error != "" {
-		fmt.Fprintln(stderr, out.Error)
+		writeln(stderr, out.Error)
 	}
 	if !out.Restored {
 		return 1
@@ -217,8 +217,20 @@ func printRecord(w io.Writer, rec *dto.Record) {
 	if rec == nil {
 		return
 	}
-	fmt.Fprintf(w, "%s status=%d file=%s encrypted=%v size=%d\n",
+	writef(w, "%s status=%d file=%s encrypted=%v size=%d\n",
 		rec.ID, rec.Status, rec.Filename, rec.Encrypted, rec.SizeBytes)
+}
+
+func write(w io.Writer, a ...any) {
+	_, _ = fmt.Fprint(w, a...)
+}
+
+func writeln(w io.Writer, a ...any) {
+	_, _ = fmt.Fprintln(w, a...)
+}
+
+func writef(w io.Writer, format string, a ...any) {
+	_, _ = fmt.Fprintf(w, format, a...)
 }
 
 func shiftID(args []string) (string, []string) {

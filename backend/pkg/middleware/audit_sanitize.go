@@ -20,6 +20,9 @@ func sanitizeRequestBody(path, body string) string {
 	if strings.HasPrefix(path, "/api/v1/votes/") && strings.HasSuffix(path, "/cast") {
 		return "[redacted: ballot choice]"
 	}
+	if strings.HasPrefix(path, "/api/v1/system/backups/") && strings.HasSuffix(path, "/restore-drill") {
+		return "[redacted: restore drill credentials]"
+	}
 	if sensitivePaths[path] {
 		return "[redacted: sensitive endpoint]"
 	}

@@ -11,13 +11,16 @@ import (
 const redacted = "***"
 
 var hideCompletely = map[string]struct{}{
-	"password":      {},
-	"old_password":  {},
-	"new_password":  {},
-	"token":         {},
-	"secret":        {},
-	"access_token":  {},
-	"refresh_token": {},
+	"password":        {},
+	"old_password":    {},
+	"new_password":    {},
+	"target_password": {},
+	"token":           {},
+	"secret":          {},
+	"access_token":    {},
+	"refresh_token":   {},
+	"dsn":             {},
+	"target_dsn":      {},
 }
 
 var compiledPatterns struct {
@@ -30,8 +33,11 @@ var compiledPatterns struct {
 
 func initPatterns() {
 	hideKeys := []string{
-		"password", "old_password", "new_password",
-		"token", "secret", "access_token", "refresh_token",
+		`[^"]*password[^"]*`,
+		`[^"]*token`,
+		`[^"]*secret`,
+		`[^"]*_dsn`,
+		`dsn`,
 	}
 	compiledPatterns.hide = regexp.MustCompile(
 		`(?i)"(` + strings.Join(hideKeys, "|") + `)"\s*:\s*"[^"]*"`,
@@ -67,7 +73,7 @@ func walk(v any) {
 	case map[string]any:
 		for k, child := range node {
 			key := strings.ToLower(k)
-			if _, ok := hideCompletely[key]; ok {
+			if shouldHideKey(key) {
 				node[k] = redacted
 				continue
 			}
@@ -91,6 +97,16 @@ func walk(v any) {
 			walk(child)
 		}
 	}
+}
+
+func shouldHideKey(key string) bool {
+	if _, ok := hideCompletely[key]; ok {
+		return true
+	}
+	if strings.Contains(key, "password") || strings.Contains(key, "token") || strings.Contains(key, "secret") {
+		return true
+	}
+	return key == "dsn" || strings.HasSuffix(key, "_dsn")
 }
 
 func desensitizeByRegex(body string) string {

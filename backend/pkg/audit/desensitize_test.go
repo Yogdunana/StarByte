@@ -60,3 +60,22 @@ func TestDesensitizeJSON_Nested(t *testing.T) {
 	assert.Contains(t, result, "a***@x.com")
 	assert.Contains(t, result, "139****1111")
 }
+
+func TestDesensitizeJSON_RestoreDrillCredentials(t *testing.T) {
+	input := `{"confirmation":"DRILL","target_dbname":"starbyte_drill","target_password":"cross-host-secret","target_dsn":"postgres://u:p@db:5432/starbyte_drill"}`
+	result := DesensitizeJSON(input)
+	assert.Contains(t, result, `"target_password":"***"`)
+	assert.Contains(t, result, `"target_dsn":"***"`)
+	assert.Contains(t, result, "starbyte_drill")
+	assert.Contains(t, result, "DRILL")
+	assert.NotContains(t, result, "cross-host-secret")
+	assert.NotContains(t, result, "postgres://u:p@")
+}
+
+func TestDesensitizeJSON_MalformedDrillStillMasks(t *testing.T) {
+	input := `{"target_password":"cross-host-secret","target_dsn":"postgres://u:p@db/x"`
+	result := DesensitizeJSON(input)
+	assert.Contains(t, result, "***")
+	assert.NotContains(t, result, "cross-host-secret")
+	assert.NotContains(t, result, "postgres://u:p@")
+}
