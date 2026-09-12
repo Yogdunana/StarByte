@@ -83,8 +83,8 @@ cors:
     - "X-Request-Id"
   allow_credentials: false
 
-# 数据备份（#88 phase-1）。密码沿用 database / minio 环境变量，此处不放密钥。
-# STARBYTE_BACKUP_ENCRYPTION_KEY 预留 AES，phase-1 未启用。
+# 数据备份（#88）。密码与 AES 密钥只走环境变量，此处不放密钥。
+# STARBYTE_BACKUP_ENCRYPTION_KEY 启用 AES-256（CTR + HMAC-SHA256）加密产物。
 backup:
   bucket: ""
   prefix: backups

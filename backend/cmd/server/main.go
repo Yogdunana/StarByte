@@ -374,12 +374,13 @@ func main() {
 	if cfg.Backup.Bucket == "" {
 		cfg.Backup.Bucket = cfg.MinIO.Bucket
 	}
+	backupRows := backupRepo.New(database.DB())
 	backupSvc := backupService.New(
-		backupRepo.New(database.DB()),
+		backupRows,
 		backupStore,
 		cfg.Database,
 		cfg.Backup,
-		backupService.NewNotifier(notifSvc),
+		backupService.NewNotifier(notifSvc, backupRows),
 	)
 	backupH := backupHandler.New(backupSvc)
 	schedService.RegisterHandler("backup_scheduled_full", "按策略执行 PostgreSQL 全量备份", backupSvc.RunScheduled)

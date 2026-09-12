@@ -17,6 +17,8 @@ import (
 type Engine interface {
 	Dump(ctx context.Context, dest io.Writer) error
 	Restore(ctx context.Context, src io.Reader) error
+	// List returns the custom-format TOC (pg_restore --list). No DB connection.
+	List(ctx context.Context, src io.Reader) (string, error)
 }
 
 type pgEngine struct {
@@ -73,6 +75,30 @@ func (e *pgEngine) Restore(ctx context.Context, src io.Reader) error {
 		return errRestore(fmt.Sprintf("pg_restore: %s (%s)", err, strings.TrimSpace(stderr.String())))
 	}
 	return nil
+}
+
+func (e *pgEngine) List(ctx context.Context, src io.Reader) (string, error) {
+	tmp, err := os.CreateTemp("", "starbyte-preview-*.dump")
+	if err != nil {
+		return "", err
+	}
+	name := tmp.Name()
+	defer func() { _ = os.Remove(name) }()
+	if _, err := io.Copy(tmp, src); err != nil {
+		_ = tmp.Close()
+		return "", err
+	}
+	if err := tmp.Close(); err != nil {
+		return "", err
+	}
+	cmd := exec.CommandContext(ctx, e.restoreBin, "--list", name)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("pg_restore --list: %w (%s)", err, strings.TrimSpace(stderr.String()))
+	}
+	return stdout.String(), nil
 }
 
 func (e *pgEngine) connArgs() []string {

@@ -162,3 +162,21 @@ func (h *Handler) Storage(c *gin.Context) {
 	out, err := h.svc.Storage(c.Request.Context())
 	write(c, out, err)
 }
+
+// Preview 恢复预览 / 完整性检查（不执行恢复）
+// @Summary 备份完整性检查
+// @Tags 备份
+// @Produce json
+// @Param id path string true "备份 ID"
+// @Success 200 {object} response.Response
+// @Router /system/backups/{id}/preview [get]
+// @Security BearerAuth
+func (h *Handler) Preview(c *gin.Context) {
+	id, err := parseID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	out, err := h.svc.Preview(c.Request.Context(), id)
+	write(c, out, err)
+}

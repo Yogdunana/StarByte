@@ -22,7 +22,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// Service is the backup vertical cut (#88 phase-1).
+// Service is the backup vertical cut (#88 phase-2: AES, preview, alerts).
 type Service interface {
 	List(ctx context.Context, req *dto.ListRequest) ([]dto.Record, int64, error)
 	Get(ctx context.Context, id uuid.UUID) (*dto.Record, error)
@@ -32,6 +32,7 @@ type Service interface {
 	GetPolicy(ctx context.Context) (*dto.Policy, error)
 	UpdatePolicy(ctx context.Context, userID uuid.UUID, req *dto.UpdatePolicyRequest) (*dto.Policy, error)
 	Storage(ctx context.Context) (*dto.StorageStats, error)
+	Preview(ctx context.Context, id uuid.UUID) (*dto.Preview, error)
 	RunScheduled(ctx context.Context, payload string, logf func(string)) error
 	CleanupExpired(ctx context.Context, payload string, logf func(string)) error
 	SyncSchedule(ctx context.Context) error
@@ -180,21 +181,24 @@ func (s *backupService) executeDump(ctx context.Context, id uuid.UUID) {
 		return
 	}
 
+	encKey := parseEncryptionKey(s.cfg.EncryptionKey)
 	filename := fmt.Sprintf("starbyte-%s-%s.dump.gz", now.UTC().Format("20060102-150405"), rec.ID.String()[:8])
+	if len(encKey) > 0 {
+		filename += ".enc"
+	}
 	key := objectKey(s.cfg.Prefix, rec.ID.String(), filename)
-	tmp, err := os.CreateTemp("", "starbyte-backup-*.dump.gz")
+	plain, err := os.CreateTemp("", "starbyte-backup-*.dump.gz")
 	if err != nil {
 		s.fail(ctx, rec, "创建临时文件失败: "+err.Error())
 		return
 	}
-	tmpName := tmp.Name()
+	plainName := plain.Name()
 	defer func() {
-		_ = tmp.Close()
-		_ = os.Remove(tmpName)
+		_ = plain.Close()
+		_ = os.Remove(plainName)
 	}()
 
-	hash := sha256.New()
-	gz := gzip.NewWriter(io.MultiWriter(tmp, hash))
+	gz := gzip.NewWriter(plain)
 	if err := s.engine.Dump(ctx, gz); err != nil {
 		_ = gz.Close()
 		s.fail(ctx, rec, "pg_dump 失败: "+err.Error())
@@ -204,16 +208,44 @@ func (s *backupService) executeDump(ctx context.Context, id uuid.UUID) {
 		s.fail(ctx, rec, "gzip 失败: "+err.Error())
 		return
 	}
-	info, err := tmp.Stat()
+	if _, err := plain.Seek(0, io.SeekStart); err != nil {
+		s.fail(ctx, rec, err.Error())
+		return
+	}
+
+	out, err := os.CreateTemp("", "starbyte-backup-*.store")
+	if err != nil {
+		s.fail(ctx, rec, "创建存储临时文件失败: "+err.Error())
+		return
+	}
+	outName := out.Name()
+	defer func() {
+		_ = out.Close()
+		_ = os.Remove(outName)
+	}()
+	hash := sha256.New()
+	dest := io.MultiWriter(out, hash)
+	encrypted := false
+	if len(encKey) > 0 {
+		if err := encryptStream(dest, plain, encKey); err != nil {
+			s.fail(ctx, rec, "加密失败: "+err.Error())
+			return
+		}
+		encrypted = true
+	} else if _, err := io.Copy(dest, plain); err != nil {
+		s.fail(ctx, rec, "写入备份失败: "+err.Error())
+		return
+	}
+	info, err := out.Stat()
 	if err != nil {
 		s.fail(ctx, rec, "读取备份大小失败: "+err.Error())
 		return
 	}
-	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
+	if _, err := out.Seek(0, io.SeekStart); err != nil {
 		s.fail(ctx, rec, err.Error())
 		return
 	}
-	kind, err := s.store.Put(ctx, key, tmp, info.Size())
+	kind, err := s.store.Put(ctx, key, out, info.Size())
 	if err != nil {
 		s.fail(ctx, rec, errStore("存储备份失败: "+err.Error()).Error())
 		return
@@ -224,6 +256,7 @@ func (s *backupService) executeDump(ctx context.Context, id uuid.UUID) {
 	rec.Filename = filename
 	rec.ChecksumSHA256 = hex.EncodeToString(hash.Sum(nil))
 	rec.SizeBytes = info.Size()
+	rec.Encrypted = encrypted
 	if err := applyTransition(rec, model.StatusSuccess, s.now(), ""); err != nil {
 		s.fail(ctx, rec, err.Error())
 		return
@@ -336,43 +369,13 @@ func (s *backupService) executeRestore(ctx context.Context, id uuid.UUID) {
 		s.failByID(ctx, id, model.StatusRestoreFailed, "读取备份记录失败")
 		return
 	}
-	src, err := s.store.Get(ctx, rec.Storage, rec.ObjectKey)
-	if err != nil {
-		s.fail(ctx, rec, errStore("下载备份失败: "+err.Error()).Error())
-		return
-	}
-	defer func() { _ = src.Close() }()
-
-	tmp, err := os.CreateTemp("", "starbyte-restore-*.dump.gz")
+	dump, _, err := s.downloadUnwrapped(ctx, rec)
 	if err != nil {
 		s.fail(ctx, rec, err.Error())
 		return
 	}
-	tmpName := tmp.Name()
-	defer func() {
-		_ = tmp.Close()
-		_ = os.Remove(tmpName)
-	}()
-	hash := sha256.New()
-	if _, err := io.Copy(io.MultiWriter(tmp, hash), src); err != nil {
-		s.fail(ctx, rec, "读取备份失败: "+err.Error())
-		return
-	}
-	if hex.EncodeToString(hash.Sum(nil)) != rec.ChecksumSHA256 {
-		s.fail(ctx, rec, errChecksum().Error())
-		return
-	}
-	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
-		s.fail(ctx, rec, err.Error())
-		return
-	}
-	gz, err := gzip.NewReader(tmp)
-	if err != nil {
-		s.fail(ctx, rec, "解压失败: "+err.Error())
-		return
-	}
-	defer func() { _ = gz.Close() }()
-	if err := s.engine.Restore(ctx, gz); err != nil {
+	defer func() { _ = dump.Close() }()
+	if err := s.engine.Restore(ctx, dump); err != nil {
 		s.fail(ctx, rec, err.Error())
 		return
 	}
@@ -422,12 +425,87 @@ func (s *backupService) Storage(ctx context.Context) (*dto.StorageStats, error) 
 		return nil, err
 	}
 	return &dto.StorageStats{
-		Count:     count,
-		SizeBytes: size,
-		Prefix:    s.cfg.Prefix,
-		Bucket:    s.cfg.Bucket,
-		LocalPath: s.cfg.LocalPath,
+		Count:              count,
+		SizeBytes:          size,
+		Prefix:             s.cfg.Prefix,
+		Bucket:             s.cfg.Bucket,
+		LocalPath:          s.cfg.LocalPath,
+		Compression:        CompressionName,
+		EncryptionEnabled:  len(parseEncryptionKey(s.cfg.EncryptionKey)) > 0,
+		IncrementalEnabled: IncrementalSupported,
+		PITREnabled:        PITRSupported,
 	}, nil
+}
+
+func (s *backupService) Preview(ctx context.Context, id uuid.UUID) (*dto.Preview, error) {
+	rec, err := s.rows.GetRecord(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if rec == nil {
+		return nil, errNotFound()
+	}
+	out := &dto.Preview{
+		ID:                   rec.ID.String(),
+		Filename:             rec.Filename,
+		SizeBytes:            rec.SizeBytes,
+		Encrypted:            rec.Encrypted,
+		Compression:          CompressionName,
+		EncryptionConfigured: len(parseEncryptionKey(s.cfg.EncryptionKey)) > 0,
+	}
+	if rec.ObjectKey == "" || rec.ChecksumSHA256 == "" {
+		out.Error = "备份产物不完整"
+		return out, nil
+	}
+	dump, info, err := s.downloadUnwrapped(ctx, rec)
+	out.ChecksumOK = info.ChecksumOK
+	out.Encrypted = info.Encrypted || rec.Encrypted
+	out.DecryptOK = info.DecryptOK
+	out.GzipOK = info.GzipOK
+	if info.SizeBytes > 0 {
+		out.SizeBytes = info.SizeBytes
+	}
+	if err != nil {
+		out.Error = err.Error()
+		return out, nil
+	}
+	defer func() { _ = dump.Close() }()
+	toc, listErr := s.engine.List(ctx, dump)
+	if listErr != nil {
+		out.Error = listErr.Error()
+		return out, nil
+	}
+	out.TOCValid = strings.TrimSpace(toc) != ""
+	out.TOC = toc
+	out.Ready = out.ChecksumOK && out.DecryptOK && out.GzipOK && out.TOCValid
+	return out, nil
+}
+
+func (s *backupService) downloadUnwrapped(ctx context.Context, rec *model.Record) (io.ReadCloser, unwrapInfo, error) {
+	var info unwrapInfo
+	src, err := s.store.Get(ctx, rec.Storage, rec.ObjectKey)
+	if err != nil {
+		return nil, info, errStore("下载备份失败: " + err.Error())
+	}
+	defer func() { _ = src.Close() }()
+
+	tmp, err := os.CreateTemp("", "starbyte-artifact-*.bin")
+	if err != nil {
+		return nil, info, err
+	}
+	tmpName := tmp.Name()
+	if _, err := io.Copy(tmp, src); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
+		return nil, info, errStore("读取备份失败: " + err.Error())
+	}
+	dump, info, err := unwrapStored(tmp, rec.ChecksumSHA256, parseEncryptionKey(s.cfg.EncryptionKey))
+	if err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
+		return nil, info, err
+	}
+	return dump, info, nil
 }
 
 func (s *backupService) RunScheduled(ctx context.Context, _ string, logf func(string)) error {

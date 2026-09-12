@@ -26,6 +26,7 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, cache rbacService.Permission
 	read.GET("", h.List)
 	read.GET("/policies", h.GetPolicy)
 	read.GET("/storage", h.Storage)
+	read.GET("/:id/preview", h.Preview)
 	read.GET("/:id", h.Get)
 
 	create := withPermission(g, "backup:create", cache)

@@ -40,6 +40,7 @@ type Record struct {
 	Filename       string     `gorm:"type:varchar(255);not null;default:''"`
 	ChecksumSHA256 string     `gorm:"column:checksum_sha256;type:varchar(64);not null;default:''"`
 	SizeBytes      int64      `gorm:"not null;default:0"`
+	Encrypted      bool       `gorm:"not null;default:false"`
 	StartedAt      *time.Time `gorm:"type:timestamptz"`
 	FinishedAt     *time.Time `gorm:"type:timestamptz"`
 	ErrorMessage   string     `gorm:"type:text;not null;default:''"`

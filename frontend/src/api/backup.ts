@@ -10,6 +10,7 @@ export interface BackupRecord {
   filename: string;
   checksum_sha256: string;
   size_bytes: number;
+  encrypted: boolean;
   started_at?: string | null;
   finished_at?: string | null;
   error_message: string;
@@ -32,6 +33,26 @@ export interface BackupStorageStats {
   prefix: string;
   bucket: string;
   local_path?: string;
+  compression?: string;
+  encryption_enabled?: boolean;
+  incremental_enabled?: boolean;
+  pitr_enabled?: boolean;
+}
+
+export interface BackupPreview {
+  id: string;
+  filename: string;
+  size_bytes: number;
+  checksum_ok: boolean;
+  encrypted: boolean;
+  decrypt_ok: boolean;
+  gzip_ok: boolean;
+  toc_valid: boolean;
+  toc?: string;
+  ready: boolean;
+  compression: string;
+  encryption_configured: boolean;
+  error?: string;
 }
 
 export function getBackups(params: {
@@ -71,4 +92,8 @@ export function updateBackupPolicy(data: Partial<BackupPolicy>): Promise<BackupP
 
 export function getBackupStorage(): Promise<BackupStorageStats> {
   return request.get('/system/backups/storage');
+}
+
+export function previewBackup(id: string): Promise<BackupPreview> {
+  return request.get(`/system/backups/${id}/preview`, { timeout: 180000 });
 }

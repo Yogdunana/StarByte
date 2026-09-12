@@ -26,6 +26,7 @@ type memRepo struct {
 	getFailAfter int
 	updateCalls  int
 	updateFailN  int
+	opsIDs       []uuid.UUID
 }
 
 func newMemRepo() *memRepo {
@@ -209,6 +210,14 @@ func (m *memRepo) SyncScheduledTask(_ context.Context, spec repo.ScheduledTaskSp
 	return nil
 }
 
+func (m *memRepo) ListOpsUserIDs(context.Context) ([]uuid.UUID, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]uuid.UUID, len(m.opsIDs))
+	copy(out, m.opsIDs)
+	return out, nil
+}
+
 type memStore struct {
 	mu   sync.Mutex
 	data map[string][]byte
@@ -247,8 +256,10 @@ func (s *memStore) Delete(_ context.Context, _, key string) error {
 type fakeEngine struct {
 	dumpErr    error
 	restoreErr error
+	listErr    error
 	restored   []byte
 	payload    []byte
+	toc        string
 }
 
 func (e *fakeEngine) Dump(_ context.Context, dest io.Writer) error {
@@ -272,6 +283,19 @@ func (e *fakeEngine) Restore(_ context.Context, src io.Reader) error {
 	}
 	e.restored = b
 	return nil
+}
+
+func (e *fakeEngine) List(_ context.Context, src io.Reader) (string, error) {
+	if e.listErr != nil {
+		return "", e.listErr
+	}
+	if _, err := io.Copy(io.Discard, src); err != nil {
+		return "", err
+	}
+	if e.toc != "" {
+		return e.toc, nil
+	}
+	return ";\n; Archive created at 2026-09-12\n;     dbname: starbyte\n;\n", nil
 }
 
 type recAlerter struct{ n int }

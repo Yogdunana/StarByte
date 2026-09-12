@@ -109,14 +109,15 @@ type GoogleCalendarConfig struct {
 }
 
 // BackupConfig is non-secret ops settings for #88. DB / MinIO passwords stay in Database / MinIO / env.
-// AES-256 is deferred; STARBYTE_BACKUP_ENCRYPTION_KEY is reserved and unused in phase-1.
+// EncryptionKey is env-only (STARBYTE_BACKUP_ENCRYPTION_KEY); never load it from YAML.
 type BackupConfig struct {
-	Bucket       string `yaml:"bucket"`         // empty = reuse minio.bucket
-	Prefix       string `yaml:"prefix"`         // object key prefix, default backups
-	LocalPath    string `yaml:"local_path"`     // optional filesystem fallback
-	PgDumpBin    string `yaml:"pg_dump_bin"`    // default pg_dump
-	PgRestoreBin string `yaml:"pg_restore_bin"` // default pg_restore (custom format + gzip)
-	TimeoutSec   int    `yaml:"timeout_sec"`    // dump / restore timeout
+	Bucket        string `yaml:"bucket"`         // empty = reuse minio.bucket
+	Prefix        string `yaml:"prefix"`         // object key prefix, default backups
+	LocalPath     string `yaml:"local_path"`     // optional filesystem fallback
+	PgDumpBin     string `yaml:"pg_dump_bin"`    // default pg_dump
+	PgRestoreBin  string `yaml:"pg_restore_bin"` // default pg_restore (custom format + gzip)
+	TimeoutSec    int    `yaml:"timeout_sec"`    // dump / restore timeout
+	EncryptionKey string `yaml:"-"`              // AES-256; env-only, never serialized
 }
 
 type CORSConfig struct {

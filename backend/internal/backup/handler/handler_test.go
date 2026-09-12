@@ -25,6 +25,7 @@ type stubSvc struct {
 	rec     *dto.Record
 	policy  *dto.Policy
 	storage *dto.StorageStats
+	preview *dto.Preview
 	err     error
 }
 
@@ -44,6 +45,9 @@ func (s *stubSvc) UpdatePolicy(context.Context, uuid.UUID, *dto.UpdatePolicyRequ
 	return s.policy, s.err
 }
 func (s *stubSvc) Storage(context.Context) (*dto.StorageStats, error) { return s.storage, s.err }
+func (s *stubSvc) Preview(context.Context, uuid.UUID) (*dto.Preview, error) {
+	return s.preview, s.err
+}
 func (s *stubSvc) RunScheduled(context.Context, string, func(string)) error {
 	return s.err
 }
@@ -84,4 +88,17 @@ func TestHandlerCreateError(t *testing.T) {
 	h := New(&stubSvc{err: response.NewError(response.CodeBackupBusy, "忙")})
 	w := withUser(h.Create, http.MethodPost, "/api/v1/system/backups", []byte(`{}`))
 	assert.Equal(t, http.StatusConflict, w.Code)
+}
+
+func TestHandlerPreviewOK(t *testing.T) {
+	h := New(&stubSvc{preview: &dto.Preview{Ready: true, ChecksumOK: true, GzipOK: true}})
+	id := uuid.New()
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/system/backups/"+id.String()+"/preview", nil)
+	c.Set("request_id", "rid")
+	c.Set(auth.ContextKeyUserID, uuid.New().String())
+	c.Params = gin.Params{{Key: "id", Value: id.String()}}
+	h.Preview(c)
+	assert.Equal(t, http.StatusOK, w.Code)
 }
