@@ -2,7 +2,9 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"sort"
+	"strings"
 
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/events"
@@ -58,7 +60,19 @@ func (e *FlowEngine) executeFromNodes(ctx context.Context, inst *model.FlowInsta
 			return err
 		}
 		e.eventBus.Publish(ctx, events.NodeEnteredEvent{InstanceID: inst.ID, NodeID: node.ID, NodeType: node.Type})
-		if skipMinisterApproval(node, vars) {
+		skipEmpty := func(err error) bool {
+			return skipIfEmptyNode(node) && isEmptyAssigneeError(err)
+		}
+		passThrough := skipApplicationApproval(node, vars)
+		if !passThrough {
+			if err = handler.OnEnter(ctx, inst, node, vars); err != nil {
+				if !skipEmpty(err) {
+					return err
+				}
+				passThrough = true
+			}
+		}
+		if passThrough {
 			next, err := handler.Execute(ctx, inst, node, graph, vars)
 			if err != nil {
 				return err
@@ -71,9 +85,6 @@ func (e *FlowEngine) executeFromNodes(ctx context.Context, inst *model.FlowInsta
 				queue = append(queue, arrival{nextID, id})
 			}
 			continue
-		}
-		if err = handler.OnEnter(ctx, inst, node, vars); err != nil {
-			return err
 		}
 		if waiting, ok := handler.(WaitingNode); ok && waiting.WaitForCompletion() {
 			active[id] = true
@@ -109,6 +120,14 @@ func (e *FlowEngine) executeFromNodes(ctx context.Context, inst *model.FlowInsta
 		return e.completeInstance(ctx, inst)
 	}
 	return nil
+}
+
+func isEmptyAssigneeError(err error) bool {
+	var app *response.AppError
+	if !errors.As(err, &app) || app == nil {
+		return false
+	}
+	return app.Code == response.CodeWorkflowInvalidNode && strings.Contains(app.Message, "没有处理人")
 }
 
 // executeNode runs a single node and returns the next node IDs.

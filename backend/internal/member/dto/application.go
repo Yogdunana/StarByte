@@ -102,3 +102,39 @@ type DepartmentOption struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 }
+
+// TransferApplicationRequest 转交当前审批环节。
+type TransferApplicationRequest struct {
+	TargetUserID string `json:"target_user_id" binding:"required,uuid"`
+	Comment      string `json:"comment" binding:"max=1000"`
+}
+
+// TransferCandidate 可转交的处理人。
+type TransferCandidate struct {
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	DepartmentName string `json:"department_name,omitempty"`
+}
+
+// ApplicationProgressStep 入会流程可视化步骤。
+type ApplicationProgressStep struct {
+	ID            string `json:"id"`
+	Label         string `json:"label"`
+	Type          string `json:"type"`
+	Role          string `json:"role,omitempty"`
+	State         string `json:"state"`
+	ApprovalType  string `json:"approval_type,omitempty"`
+	AllowTransfer bool   `json:"allow_transfer,omitempty"`
+}
+
+// ApplicationProgressResponse 入会流程进度。
+type ApplicationProgressResponse struct {
+	ApplicationID  string                    `json:"application_id"`
+	InstanceID     string                    `json:"instance_id"`
+	Status         int                       `json:"status"`
+	CurrentNodeIDs []string                  `json:"current_node_ids"`
+	Completed      bool                      `json:"completed"`
+	Terminated     bool                      `json:"terminated"`
+	Editable       bool                      `json:"editable"`
+	Steps          []ApplicationProgressStep `json:"steps"`
+}

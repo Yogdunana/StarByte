@@ -41,13 +41,14 @@ func (s *admissionService) startAdmissionWorkflow(ctx context.Context, tx *gorm.
 	app.FlowInstanceID = &inst.ID
 	app.AdmissionStage = model.AdmissionEngine
 	app.StageEnteredAt = s.now()
-	// skip_minister 在 Start 时已让引擎穿过部长节点，不会创建全员部长待办。
-	if skipMinisterNode(app) {
-		app.Status = model.AppReviewing
-		app.CurrentStage = engineStagePresident
+	nodeID, completed, err := flow.RunningApprovalNode(ctx, inst.ID)
+	if err != nil {
+		return nil, err
+	}
+	if completed {
+		applyEngineOutcome(app, actionApprove, nodeID, true, s.now())
 	} else {
-		app.Status = model.AppPending
-		app.CurrentStage = engineStageMinister
+		applyEngineOutcome(app, actionApprove, nodeID, false, s.now())
 	}
 	if err := store.SaveApplication(ctx, app); err != nil {
 		return nil, err

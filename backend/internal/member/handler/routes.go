@@ -44,6 +44,7 @@ func RegisterRoutes(
 	member.POST("/applications", h.Submit)
 	member.GET("/applications/my", h.MyApplications)
 	member.POST("/applications/:id/resubmit", h.Resubmit)
+	member.GET("/applications/:id/progress", h.ApplicationProgress)
 	member.GET("/departments", h.ListDepartments)
 	if h.admission != nil {
 		member.GET("/applications/:id/admission", h.Admission)
@@ -70,6 +71,8 @@ func RegisterRoutes(
 	approve.POST("/applications/:id/approve", h.Approve)
 	approve.POST("/applications/:id/reject", h.Reject)
 	approve.POST("/applications/:id/supplement", h.Supplement)
+	approve.POST("/applications/:id/transfer", h.Transfer)
+	approve.GET("/applications/:id/transfer-candidates", h.TransferCandidates)
 
 	update := withReadScope(member, cacheService, db, deptRepo)
 	update.Use(middleware.RequirePermission("member:update"))

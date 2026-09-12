@@ -1,10 +1,22 @@
-import { useState } from 'react';
-import { Button, Form, Input, Space, Steps, message } from 'antd';
+import { useEffect, useState } from 'react';
+import { Button, Form, Input, Select, Space, Steps, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { approveApplication, rejectApplication } from '@/api/member';
-import type { MemberApplication } from '@/types/api';
-import { engineReviewClosed } from './engineChain';
+import {
+  approveApplication,
+  getApplicationProgress,
+  getApplicationTransferCandidates,
+  rejectApplication,
+  transferApplication,
+} from '@/api/member';
+import type { ApplicationProgress, MemberApplication, TransferCandidate } from '@/types/api';
+import {
+  currentAllowsTransfer,
+  currentStepIndex,
+  engineReviewClosed,
+  fallbackSteps,
+  stepStatus,
+} from './engineChain';
 import styles from './AdmissionPanel.module.css';
 
 interface Props {
@@ -13,17 +25,45 @@ interface Props {
   onChanged: () => void;
 }
 
-function currentStep(record: MemberApplication): number {
-  if (record.status === 3) return 3;
-  if (record.status === 1) return 2;
-  return 1;
-}
-
 export default function EngineChainPanel({ record, editable, onChanged }: Props) {
   const { t } = useTranslation();
-  const [form] = Form.useForm<{ comment?: string }>();
+  const [form] = Form.useForm<{ comment?: string; target?: string }>();
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<ApplicationProgress | null>(null);
+  const [candidates, setCandidates] = useState<TransferCandidate[]>([]);
   const closed = engineReviewClosed(record.status);
+  const steps = progress?.steps?.length ? progress.steps : fallbackSteps(record);
+  const rejected = record.status === 4 || Boolean(progress?.terminated);
+
+  useEffect(() => {
+    let active = true;
+    getApplicationProgress(record.id)
+      .then((row) => {
+        if (active) setProgress(row);
+      })
+      .catch(() => {
+        if (active) setProgress(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [record.id, record.status, record.current_stage, record.updated_at]);
+
+  useEffect(() => {
+    if (!editable || closed) return;
+    let active = true;
+    getApplicationTransferCandidates(record.id)
+      .then((rows) => {
+        if (active) setCandidates(rows);
+      })
+      .catch(() => {
+        if (active) setCandidates([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [editable, closed, record.id, record.updated_at]);
+
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);
     try {
@@ -43,20 +83,28 @@ export default function EngineChainPanel({ record, editable, onChanged }: Props)
       <Steps
         direction="vertical"
         size="small"
-        current={currentStep(record)}
-        status={record.status === 4 ? 'error' : record.status === 3 ? 'finish' : 'process'}
-        items={[
-          { title: t('member.engine.steps.apply') },
-          { title: t('member.engine.steps.minister') },
-          { title: t('member.engine.steps.president') },
-          { title: t('member.engine.steps.end') },
-        ]}
+        current={currentStepIndex(steps)}
+        status={rejected ? 'error' : record.status === 3 || progress?.completed ? 'finish' : 'process'}
+        items={steps.map((step) => ({
+          title: step.label,
+          description:
+            step.state === 'skipped'
+              ? t('member.engine.skipped')
+              : step.approval_type === 'all'
+                ? t('member.engine.countersign')
+                : step.approval_type === 'any'
+                  ? t('member.engine.orsign')
+                  : undefined,
+          status: stepStatus(step, rejected),
+        }))}
       />
       {record.flow_instance_id && (
         <p>
           <Link to={`/workflow/instances?instance_id=${encodeURIComponent(record.flow_instance_id)}`}>
             {t('member.engine.viewFlow')}
           </Link>
+          {' · '}
+          <Link to="/workflow/designer">{t('member.engine.editTemplate')}</Link>
         </p>
       )}
       <p className={styles.hint}>{t('member.engine.hint')}</p>
@@ -66,6 +114,20 @@ export default function EngineChainPanel({ record, editable, onChanged }: Props)
           <Form.Item name="comment" label={t('member.engine.comment')} rules={[{ max: 1000 }]}>
             <Input.TextArea rows={3} maxLength={1000} />
           </Form.Item>
+          {currentAllowsTransfer(progress) && (
+            <Form.Item name="target" label={t('member.engine.transferTo')}>
+              <Select
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                placeholder={t('member.engine.transferPlaceholder')}
+                options={candidates.map((item) => ({
+                  value: item.id,
+                  label: item.department_name ? `${item.name}（${item.department_name}）` : item.name,
+                }))}
+              />
+            </Form.Item>
+          )}
           <Space wrap>
             <Button
               type="primary"
@@ -96,6 +158,27 @@ export default function EngineChainPanel({ record, editable, onChanged }: Props)
             >
               {t('member.engine.reject')}
             </Button>
+            {currentAllowsTransfer(progress) && (
+              <Button
+                loading={busy}
+                onClick={() => {
+                  void (async () => {
+                    const values = await form.validateFields();
+                    const target = (values.target || '').trim();
+                    if (!target) {
+                      form.setFields([{ name: 'target', errors: [t('member.engine.transferRequired')] }]);
+                      return;
+                    }
+                    await run(
+                      () => transferApplication(record.id, target, values.comment || ''),
+                      t('member.engine.transferred'),
+                    );
+                  })();
+                }}
+              >
+                {t('member.engine.transfer')}
+              </Button>
+            )}
           </Space>
         </Form>
       )}

@@ -28,10 +28,13 @@ func admissionAuthority(actor *model.AdmissionActor, app *model.MemberApplicatio
 	}
 	president := hasAdmissionRole(actor, "president")
 	minister := hasAdmissionRole(actor, "minister") && sameDepartment(actor.DepartmentID, app.DepartmentID)
+	officer := hasAdmissionRole(actor, "officer") && sameDepartment(actor.DepartmentID, app.DepartmentID)
 	center := (hasAdmissionRole(actor, "vice_president") || hasAdmissionRole(actor, "center_director")) && sameDepartment(actor.DepartmentID, parent)
 	switch role {
 	case "materials":
 		return president || minister || center, false
+	case "officer":
+		return officer || minister || center || president, !officer
 	case "minister":
 		return minister || center || president, !minister
 	case "center":

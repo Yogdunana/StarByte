@@ -15,6 +15,7 @@ import (
 )
 
 const (
+	engineStageOfficer   = "干事审批"
 	engineStageMinister  = "部长审批"
 	engineStagePresident = "社长审批"
 )
@@ -29,6 +30,9 @@ func applicationVariables(app *model.MemberApplication) map[string]interface{} {
 		"student_no":     app.StudentNo,
 		"revision":       app.AdmissionRevision,
 	}
+	if app.Type != model.ApplicantOfficer {
+		vars[engine.SkipOfficerVariable] = true
+	}
 	if app.DepartmentID != nil {
 		vars["department_id"] = app.DepartmentID.String()
 		vars["department"] = app.DepartmentID.String()
@@ -36,6 +40,21 @@ func applicationVariables(app *model.MemberApplication) map[string]interface{} {
 		vars[engine.SkipMinisterVariable] = true
 	}
 	return vars
+}
+
+func engineStageLabel(nodeID string) string {
+	switch nodeID {
+	case "officer":
+		return engineStageOfficer
+	case "president":
+		return engineStagePresident
+	case "minister":
+		return engineStageMinister
+	case "":
+		return ""
+	default:
+		return nodeID
+	}
 }
 
 func applyEngineOutcome(app *model.MemberApplication, action, nodeID string, completed bool, now time.Time) {
@@ -60,13 +79,18 @@ func applyEngineOutcome(app *model.MemberApplication, action, nodeID string, com
 		return
 	}
 	app.AdmissionStage = model.AdmissionEngine
+	app.CurrentStage = engineStageLabel(nodeID)
 	if nodeID == "president" {
 		app.Status = model.AppReviewing
-		app.CurrentStage = engineStagePresident
+		if app.CurrentStage == "" {
+			app.CurrentStage = engineStagePresident
+		}
 		return
 	}
 	app.Status = model.AppPending
-	app.CurrentStage = engineStageMinister
+	if app.CurrentStage == "" {
+		app.CurrentStage = engineStageMinister
+	}
 }
 
 func skipMinisterNode(app *model.MemberApplication) bool {
@@ -91,6 +115,8 @@ func engineReviewPermission(actor *model.AdmissionActor, app *model.MemberApplic
 
 func engineNodeRole(nodeID string) string {
 	switch nodeID {
+	case "officer":
+		return "officer"
 	case "minister":
 		return "minister"
 	case "president":
@@ -213,6 +239,9 @@ func membershipRole(app *model.MemberApplication) string {
 }
 
 func (s *admissionService) admitFromEngine(ctx context.Context, tx *gorm.DB, app *model.MemberApplication) error {
+	if err := ensureActiveApplicant(ctx, tx, app.UserID); err != nil {
+		return err
+	}
 	members := &memberService{apps: repo.NewApplicationRepo(tx), profs: repo.NewProfileRepo(tx)}
 	if err := members.ensureProfile(ctx, app); err != nil {
 		return err
@@ -221,4 +250,19 @@ func (s *admissionService) admitFromEngine(ctx context.Context, tx *gorm.DB, app
 		return err
 	}
 	return repo.NewAdmissionJobsRepo(tx).QueuePermissionRefresh(ctx, app.UserID)
+}
+
+func ensureActiveApplicant(ctx context.Context, tx *gorm.DB, user uuid.UUID) error {
+	var status int
+	err := tx.WithContext(ctx).Table("users").Where("id = ? AND deleted_at IS NULL", user).Select("status").Take(&status).Error
+	if err == gorm.ErrRecordNotFound {
+		return response.NewError(response.CodeMemberAppNotFound, "申请人账号不存在，无法完成录用")
+	}
+	if err != nil {
+		return err
+	}
+	if status != 0 {
+		return admissionDenied("申请人账号已停用，不能自动开通成员身份")
+	}
+	return nil
 }

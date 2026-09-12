@@ -22,8 +22,12 @@ export interface ApprovalConfig {
   assigneeStrategy: AssigneeStrategy;
   assignees?: string[];
   roleId?: string;
+  roleCode?: string;
   approvalType?: ApprovalType;
   passRatio?: number;
+  allowTransfer?: boolean;
+  departmentScope?: boolean;
+  skipWhen?: string;
 }
 
 export interface ConditionBranch {

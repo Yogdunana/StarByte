@@ -57,6 +57,52 @@ func (e *FlowEngine) CompleteApplicationApproval(ctx context.Context, instanceID
 	return nil
 }
 
+// TransferApplicationApproval reassigns the current membership approval task
+// inside an already-authorized business transaction.
+func (e *FlowEngine) TransferApplicationApproval(ctx context.Context, instanceID, from, to uuid.UUID, comment string) error {
+	if !e.businessTransaction {
+		return response.NewError(response.CodeForbidden, "入会转交需要业务事务")
+	}
+	if to == uuid.Nil || to == from {
+		return response.NewError(response.CodeBadRequest, "请选择其他有效处理人")
+	}
+	if e.db != nil {
+		if err := repo.NewRuntimeRepo(e.db).LockInstance(ctx, instanceID); err != nil {
+			return err
+		}
+	}
+	inst, err := e.instRepo.GetByID(ctx, instanceID)
+	if err != nil {
+		return err
+	}
+	if inst == nil || inst.BusinessType != "member_application" || inst.Status != 0 {
+		return response.NewError(response.CodeConflict, "关联入会流程不可转交")
+	}
+	nodeID, err := e.currentApprovalNodeID(ctx, inst)
+	if err != nil {
+		return err
+	}
+	version, err := e.defRepo.GetVersionByID(ctx, inst.DefinitionVersionID)
+	if err != nil {
+		return err
+	}
+	if version == nil {
+		return response.NewError(response.CodeWorkflowVerNotFound, "审批流程版本不存在")
+	}
+	graph, err := ParseGraph(version.BpmnData)
+	if err != nil {
+		return err
+	}
+	if !nodeAllowsTransfer(graph.GetNode(nodeID)) {
+		return response.NewError(response.CodeForbidden, "当前环节不允许转交")
+	}
+	selected, err := e.selectApprovalTask(ctx, instanceID, nodeID, from)
+	if err != nil {
+		return err
+	}
+	return e.transferPendingTask(ctx, selected, inst, from, to, comment)
+}
+
 // SkipApplicationApproval 跳过当前审批节点并进入下一环节。
 // 会员申请无意向部门时没有对口部长，部长节点不能指派，因此直达社长。
 func (e *FlowEngine) SkipApplicationApproval(ctx context.Context, instanceID uuid.UUID, nodeID string, operator uuid.UUID, reason string) error {

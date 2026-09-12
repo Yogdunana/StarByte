@@ -10,6 +10,7 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/events"
+	"github.com/Yogdunana/StarByte/backend/pkg/response"
 )
 
 type storingInstRepo struct {
@@ -71,8 +72,8 @@ func addApprovalTask(tasks *mockTaskRepo, instanceID uuid.UUID, nodeID string, a
 	}
 }
 
-func TestMemberApplicationStartMinisterPresidentComplete(t *testing.T) {
-	minister, president, applicant := uuid.New(), uuid.New(), uuid.New()
+func TestMemberApplicationStartOfficerMinisterPresidentComplete(t *testing.T) {
+	officer, minister, president, applicant := uuid.New(), uuid.New(), uuid.New(), uuid.New()
 	tasks := newMockTaskRepo()
 	e, insts := memberApplicationEngine(t, tasks)
 
@@ -82,6 +83,13 @@ func TestMemberApplicationStartMinisterPresidentComplete(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 0, inst.Status)
 	nodeID, done, err := e.RunningApprovalNode(context.Background(), inst.ID)
+	require.NoError(t, err)
+	require.False(t, done)
+	require.Equal(t, "officer", nodeID)
+
+	addApprovalTask(tasks, inst.ID, "officer", officer)
+	require.NoError(t, e.CompleteApplicationApproval(context.Background(), inst.ID, officer, ActionApprove, "干事同意"))
+	nodeID, done, err = e.RunningApprovalNode(context.Background(), inst.ID)
 	require.NoError(t, err)
 	require.False(t, done)
 	require.Equal(t, "minister", nodeID)
@@ -108,7 +116,9 @@ func TestMemberApplicationRejectStopsChain(t *testing.T) {
 
 	inst, err := e.Start(context.Background(), MemberApplicationDefinitionKey, uuid.New().String(), "member_application", applicant, nil)
 	require.NoError(t, err)
-	addApprovalTask(tasks, inst.ID, "minister", minister)
+	nodeID, _, err := e.RunningApprovalNode(context.Background(), inst.ID)
+	require.NoError(t, err)
+	addApprovalTask(tasks, inst.ID, nodeID, minister)
 	require.NoError(t, e.CompleteApplicationApproval(context.Background(), inst.ID, minister, ActionReject, "材料不符"))
 	require.Equal(t, 2, insts.insts[inst.ID].Status)
 }
@@ -120,8 +130,10 @@ func TestMemberApplicationRejectTerminatesOtherPendingTasks(t *testing.T) {
 
 	inst, err := e.Start(context.Background(), MemberApplicationDefinitionKey, uuid.New().String(), "member_application", applicant, nil)
 	require.NoError(t, err)
-	addApprovalTask(tasks, inst.ID, "minister", first)
-	addApprovalTask(tasks, inst.ID, "minister", second)
+	nodeID, _, err := e.RunningApprovalNode(context.Background(), inst.ID)
+	require.NoError(t, err)
+	addApprovalTask(tasks, inst.ID, nodeID, first)
+	addApprovalTask(tasks, inst.ID, nodeID, second)
 	require.NoError(t, e.CompleteApplicationApproval(context.Background(), inst.ID, first, ActionReject, "材料不符"))
 	require.Equal(t, 2, insts.insts[inst.ID].Status)
 
@@ -152,9 +164,10 @@ func TestStartSkipMinisterDoesNotEnterMinister(t *testing.T) {
 	e, _ := memberApplicationEngineWith(t, tasks, approval)
 
 	inst, err := e.Start(context.Background(), MemberApplicationDefinitionKey, uuid.New().String(), "member_application", applicant, map[string]interface{}{
-		"applicant": applicant.String(), "apply_type": int16(1), SkipMinisterVariable: true,
+		"applicant": applicant.String(), "apply_type": int16(1), SkipOfficerVariable: true, SkipMinisterVariable: true,
 	})
 	require.NoError(t, err)
+	require.NotContains(t, approval.enteredIDs, "officer")
 	require.NotContains(t, approval.enteredIDs, "minister")
 	require.Equal(t, []string{"president"}, approval.enteredIDs)
 	nodeID, done, err := e.RunningApprovalNode(context.Background(), inst.ID)
@@ -169,4 +182,113 @@ func TestSkipMinisterApprovalFlag(t *testing.T) {
 	require.False(t, skipMinisterApproval(&FlowNode{ID: "president"}, map[string]interface{}{SkipMinisterVariable: true}))
 	require.True(t, skipMinisterApproval(&FlowNode{ID: "minister"}, map[string]interface{}{SkipMinisterVariable: true}))
 	require.False(t, skipMinisterApproval(&FlowNode{ID: "minister"}, map[string]interface{}{}))
+}
+
+func TestSkipApplicationApprovalUsesSkipWhen(t *testing.T) {
+	node := &FlowNode{ID: "extra", Type: "approval", Config: map[string]interface{}{"skipWhen": "skip_extra"}}
+	require.False(t, skipApplicationApproval(node, nil))
+	require.True(t, skipApplicationApproval(node, map[string]interface{}{"skip_extra": true}))
+	require.True(t, skipApplicationApproval(&FlowNode{ID: "officer", Type: "approval"}, map[string]interface{}{SkipOfficerVariable: true}))
+}
+
+func TestStartSkipOfficerDoesNotEnterOfficer(t *testing.T) {
+	applicant := uuid.New()
+	tasks := newMockTaskRepo()
+	approval := &recordingApproval{}
+	e, _ := memberApplicationEngineWith(t, tasks, approval)
+
+	inst, err := e.Start(context.Background(), MemberApplicationDefinitionKey, uuid.New().String(), "member_application", applicant, map[string]interface{}{
+		"applicant": applicant.String(), "apply_type": int16(1), SkipOfficerVariable: true,
+	})
+	require.NoError(t, err)
+	require.NotContains(t, approval.enteredIDs, "officer")
+	require.Equal(t, []string{"minister"}, approval.enteredIDs)
+	nodeID, done, err := e.RunningApprovalNode(context.Background(), inst.ID)
+	require.NoError(t, err)
+	require.False(t, done)
+	require.Equal(t, "minister", nodeID)
+}
+
+func TestApplicationProgressMarksCurrentAndSkipped(t *testing.T) {
+	applicant := uuid.New()
+	tasks := newMockTaskRepo()
+	e, _ := memberApplicationEngine(t, tasks)
+	inst, err := e.Start(context.Background(), MemberApplicationDefinitionKey, uuid.New().String(), "member_application", applicant, map[string]interface{}{
+		SkipOfficerVariable: true,
+	})
+	require.NoError(t, err)
+	progress, err := e.ApplicationProgress(context.Background(), inst.ID)
+	require.NoError(t, err)
+	require.False(t, progress.Completed)
+	require.Equal(t, []string{"minister"}, progress.CurrentNodeIDs)
+	states := map[string]string{}
+	for _, step := range progress.Steps {
+		states[step.ID] = step.State
+	}
+	require.Equal(t, "done", states["start"])
+	require.Equal(t, "skipped", states["officer"])
+	require.Equal(t, "current", states["minister"])
+	require.Equal(t, "pending", states["president"])
+}
+
+func TestIsEmptyAssigneeError(t *testing.T) {
+	require.False(t, isEmptyAssigneeError(nil))
+	require.True(t, isEmptyAssigneeError(response.NewAppError(response.CodeWorkflowInvalidNode, "审批节点没有处理人")))
+	require.False(t, isEmptyAssigneeError(response.NewAppError(response.CodeWorkflowInvalidNode, "其它错误")))
+}
+
+func TestNodeAllowsTransferAndSkipIfEmpty(t *testing.T) {
+	require.True(t, nodeAllowsTransfer(nil))
+	require.True(t, nodeAllowsTransfer(&FlowNode{Config: map[string]interface{}{}}))
+	require.False(t, nodeAllowsTransfer(&FlowNode{Config: map[string]interface{}{"allowTransfer": false}}))
+	require.True(t, skipIfEmptyNode(&FlowNode{Config: map[string]interface{}{"skipIfEmpty": true}}))
+	require.False(t, skipIfEmptyNode(&FlowNode{Config: map[string]interface{}{}}))
+}
+
+func TestTransferApplicationApprovalGuards(t *testing.T) {
+	e, _ := memberApplicationEngine(t, newMockTaskRepo())
+	err := e.TransferApplicationApproval(context.Background(), uuid.New(), uuid.New(), uuid.New(), "")
+	require.Error(t, err)
+	e.businessTransaction = false
+	err = e.TransferApplicationApproval(context.Background(), uuid.New(), uuid.New(), uuid.New(), "")
+	require.Error(t, err)
+	e.businessTransaction = true
+	from := uuid.New()
+	require.Error(t, e.TransferApplicationApproval(context.Background(), uuid.New(), from, from, ""))
+}
+
+func TestApplicationProgressCompleted(t *testing.T) {
+	applicant := uuid.New()
+	tasks := newMockTaskRepo()
+	e, insts := memberApplicationEngine(t, tasks)
+	inst, err := e.Start(context.Background(), MemberApplicationDefinitionKey, uuid.New().String(), "member_application", applicant, map[string]interface{}{
+		SkipOfficerVariable: true, SkipMinisterVariable: true,
+	})
+	require.NoError(t, err)
+	addApprovalTask(tasks, inst.ID, "president", applicant)
+	require.NoError(t, e.CompleteApplicationApproval(context.Background(), inst.ID, applicant, ActionApprove, "终审"))
+	require.Equal(t, 1, insts.insts[inst.ID].Status)
+	progress, err := e.ApplicationProgress(context.Background(), inst.ID)
+	require.NoError(t, err)
+	require.True(t, progress.Completed)
+	for _, step := range progress.Steps {
+		if step.ID == "officer" || step.ID == "minister" {
+			require.Equal(t, "skipped", step.State)
+		}
+	}
+}
+
+func TestValidateMemberApplicationRejectsUnknownType(t *testing.T) {
+	graph, err := ParseGraph(MemberApplicationBPMN())
+	require.NoError(t, err)
+	graph.Nodes["timer"] = &FlowNode{ID: "timer", Type: "timer"}
+	require.Error(t, validateMemberApplicationGraph(graph))
+	require.Error(t, validateMemberApplicationGraph(nil))
+}
+
+func TestMemberApplicationReachesEnd(t *testing.T) {
+	graph, err := ParseGraph(MemberApplicationBPMN())
+	require.NoError(t, err)
+	require.True(t, memberApplicationReachesEnd(graph, "start"))
+	require.False(t, memberApplicationReachesEnd(graph, "missing"))
 }

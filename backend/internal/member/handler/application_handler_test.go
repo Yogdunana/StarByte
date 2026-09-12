@@ -75,6 +75,27 @@ func (m *mockMemberService) Supplement(ctx context.Context, reviewer, id uuid.UU
 	}
 	return args.Get(0).(*dto.ApplicationResponse), args.Error(1)
 }
+func (m *mockMemberService) Transfer(ctx context.Context, reviewer, id, target uuid.UUID, comment string) (*dto.ApplicationResponse, error) {
+	args := m.Called(ctx, reviewer, id, target, comment)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.ApplicationResponse), args.Error(1)
+}
+func (m *mockMemberService) ApplicationProgress(ctx context.Context, viewer, id uuid.UUID, scope *rbacModel.DataScopeCondition) (*dto.ApplicationProgressResponse, error) {
+	args := m.Called(ctx, viewer, id, scope)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*dto.ApplicationProgressResponse), args.Error(1)
+}
+func (m *mockMemberService) TransferCandidates(ctx context.Context, viewer, id uuid.UUID, keyword string) ([]dto.TransferCandidate, error) {
+	args := m.Called(ctx, viewer, id, keyword)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]dto.TransferCandidate), args.Error(1)
+}
 func (m *mockMemberService) ListDepartments(ctx context.Context) ([]dto.DepartmentOption, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]dto.DepartmentOption), args.Error(1)
@@ -162,6 +183,41 @@ func TestGetApplication_InvalidID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/member/applications/not-uuid", nil)
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestTransfer_OK(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := &mockMemberService{}
+	h := NewMemberHandler(svc)
+	uid := uuid.New()
+	id := uuid.New()
+	target := uuid.New()
+	r := gin.New()
+	r.POST("/member/applications/:id/transfer", withUser(uid), h.Transfer)
+	svc.On("Transfer", mock.Anything, uid, id, target, "转交").Return(&dto.ApplicationResponse{ID: id.String()}, nil)
+
+	body, _ := json.Marshal(dto.TransferApplicationRequest{TargetUserID: target.String(), Comment: "转交"})
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/member/applications/"+id.String()+"/transfer", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestApplicationProgress_OK(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := &mockMemberService{}
+	h := NewMemberHandler(svc)
+	uid := uuid.New()
+	id := uuid.New()
+	r := gin.New()
+	r.GET("/member/applications/:id/progress", withUser(uid), h.ApplicationProgress)
+	svc.On("ApplicationProgress", mock.Anything, uid, id, mock.Anything).Return(&dto.ApplicationProgressResponse{ApplicationID: id.String(), Steps: []dto.ApplicationProgressStep{{ID: "minister", State: "current"}}}, nil)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/member/applications/"+id.String()+"/progress", nil)
+	r.ServeHTTP(w, req)
+	require.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestApprove_OK(t *testing.T) {

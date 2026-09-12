@@ -11,6 +11,8 @@ import type {
   MemberStatsResponse,
   MemberDepartmentOption,
   PageResponse,
+  ApplicationProgress,
+  TransferCandidate,
 } from '@/types/api';
 
 export function submitApplication(data: CreateMemberApplicationParams): Promise<MemberApplication> {
@@ -48,6 +50,18 @@ export function approveApplication(id: string, comment: string): Promise<MemberA
 
 export function rejectApplication(id: string, comment: string): Promise<MemberApplication> {
   return request.post(`/member/applications/${id}/reject`, { comment });
+}
+
+export function transferApplication(id: string, targetUserId: string, comment: string): Promise<MemberApplication> {
+  return request.post(`/member/applications/${id}/transfer`, { target_user_id: targetUserId, comment });
+}
+
+export function getApplicationProgress(id: string): Promise<ApplicationProgress> {
+  return request.get(`/member/applications/${id}/progress`);
+}
+
+export function getApplicationTransferCandidates(id: string, keyword?: string): Promise<TransferCandidate[]> {
+  return request.get(`/member/applications/${id}/transfer-candidates`, { params: { keyword } });
 }
 
 export function supplementApplication(

@@ -9,6 +9,7 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/member/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/member/model"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 )
 
@@ -30,6 +31,30 @@ func (s *memberService) Reject(ctx context.Context, reviewer, id uuid.UUID, comm
 		return s.applicationResponse(ctx, id)
 	}
 	return s.transit(ctx, reviewer, id, actionReject, comment, nil)
+}
+
+func (s *memberService) Transfer(ctx context.Context, reviewer, id, target uuid.UUID, comment string) (*dto.ApplicationResponse, error) {
+	if s.admission == nil {
+		return nil, response.NewError(response.CodeBadRequest, "入会流程引擎未配置")
+	}
+	if err := s.admission.TransferReview(ctx, reviewer, id, target, comment); err != nil {
+		return nil, err
+	}
+	return s.applicationResponse(ctx, id)
+}
+
+func (s *memberService) ApplicationProgress(ctx context.Context, viewer, id uuid.UUID, _ *rbacModel.DataScopeCondition) (*dto.ApplicationProgressResponse, error) {
+	if s.admission == nil {
+		return nil, response.NewError(response.CodeMemberAppInvalid, "当前申请没有流程引擎进度")
+	}
+	return s.admission.ApplicationProgress(ctx, viewer, id)
+}
+
+func (s *memberService) TransferCandidates(ctx context.Context, viewer, id uuid.UUID, keyword string) ([]dto.TransferCandidate, error) {
+	if s.admission == nil {
+		return nil, response.NewError(response.CodeBadRequest, "入会流程引擎未配置")
+	}
+	return s.admission.TransferCandidates(ctx, viewer, id, keyword)
 }
 
 func (s *memberService) Supplement(ctx context.Context, reviewer, id uuid.UUID, req *dto.SupplementRequest) (*dto.ApplicationResponse, error) {

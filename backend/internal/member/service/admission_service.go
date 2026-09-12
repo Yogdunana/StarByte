@@ -25,6 +25,9 @@ type AdmissionService interface {
 	Sign(context.Context, uuid.UUID, uuid.UUID, *dto.SignAdmissionRequest) (*dto.AdmissionResponse, error)
 	ReviewMaterials(context.Context, uuid.UUID, uuid.UUID, string, string) error
 	RequestSupplement(context.Context, uuid.UUID, uuid.UUID, *dto.SupplementRequest) error
+	TransferReview(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string) error
+	ApplicationProgress(context.Context, uuid.UUID, uuid.UUID) (*dto.ApplicationProgressResponse, error)
+	TransferCandidates(context.Context, uuid.UUID, uuid.UUID, string) ([]dto.TransferCandidate, error)
 }
 type AdmissionPermissionCache interface {
 	InvalidateUserPermissions(context.Context, uuid.UUID) error

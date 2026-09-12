@@ -732,19 +732,29 @@
       "title": "Membership approval",
       "steps": {
         "apply": "Application submitted",
+        "officer": "Officer review",
         "minister": "Minister review",
         "president": "President review",
         "end": "Completed"
       },
       "approve": "Approve",
       "reject": "Reject",
+      "transfer": "Transfer",
+      "transferTo": "Transfer to",
+      "transferPlaceholder": "Search for a recipient",
+      "transferRequired": "Choose a recipient to transfer",
+      "transferred": "Approval transferred",
       "comment": "Comment",
       "commentRequired": "A reason is required to reject",
       "approved": "Approved; the workflow advanced",
       "rejected": "Application rejected",
-      "hint": "New applications use the default minister → president chain. Edit the member_application definition in the designer to publish a new version later.",
+      "hint": "Default template is officer → minister → president. Edit member_application in the designer to add nodes, countersign/or-sign, or conditions, then publish.",
       "supplementHint": "More materials were requested. Wait for the applicant to resubmit.",
-      "viewFlow": "Open workflow instance"
+      "viewFlow": "Open workflow instance",
+      "editTemplate": "Edit workflow template",
+      "skipped": "Skipped by condition",
+      "countersign": "Countersign",
+      "orsign": "Or-sign"
     }
   },
   "task": {
