@@ -131,6 +131,9 @@ func (e *FlowEngine) BusinessStage(ctx context.Context, id uuid.UUID) (string, b
 		if inst.BusinessType == TaskTransferBusinessType {
 			stageKey = "transferStage"
 		}
+		if inst.BusinessType == LeaveBusinessType {
+			stageKey = "leaveStage"
+		}
 		next, _ := node.Config[stageKey].(string)
 		// A parallel join can wait alongside the other signature branch.
 		if node.Type == "parallel_gateway" {

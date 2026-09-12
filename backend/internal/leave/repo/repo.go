@@ -15,9 +15,13 @@ import (
 
 type Repository interface {
 	WithTx(ctx context.Context, fn func(Repository) error) error
+	DB() *gorm.DB
 
 	GetAllLeaveTypes(ctx context.Context) ([]model.LeaveType, error)
 	GetLeaveTypeByID(ctx context.Context, id uuid.UUID) (*model.LeaveType, error)
+	GetLeaveTypeByCode(ctx context.Context, code string) (*model.LeaveType, error)
+	CreateLeaveType(ctx context.Context, row *model.LeaveType) error
+	UpdateLeaveType(ctx context.Context, row *model.LeaveType) error
 
 	GetLeaveBalance(ctx context.Context, userID uuid.UUID, year int, leaveTypeID uuid.UUID) (*model.LeaveBalance, error)
 	GetLeaveBalanceForUpdate(ctx context.Context, userID uuid.UUID, year int, leaveTypeID uuid.UUID) (*model.LeaveBalance, error)
@@ -32,8 +36,13 @@ type Repository interface {
 	GetLeaveApplicationsByUser(ctx context.Context, userID uuid.UUID, status string, page, pageSize int, scope *rbacModel.DataScopeCondition) ([]model.ApplicationNamed, int64, error)
 	GetLeaveApplicationsByStatus(ctx context.Context, status string, page, pageSize int, scope *rbacModel.DataScopeCondition) ([]model.ApplicationNamed, int64, error)
 	UpdateApprovalStatus(ctx context.Context, id uuid.UUID, approverID uuid.UUID, status, remark string, at time.Time) error
+	SaveApplication(ctx context.Context, app *model.LeaveApplication) error
 	GetLeaveApplicationsByUserAndTimeRange(ctx context.Context, userID uuid.UUID, startTime, endTime time.Time) ([]model.LeaveApplication, error)
+	ListCalendar(ctx context.Context, from, to time.Time, userID *uuid.UUID, scope *rbacModel.DataScopeCondition) ([]model.ApplicationNamed, error)
 	CountStats(ctx context.Context, scope *rbacModel.DataScopeCondition) (total int64, byStatus map[string]int64, byType []TypeCount, err error)
+	CountPersonalStats(ctx context.Context, userID uuid.UUID) (total int64, days float64, byType []TypeCount, err error)
+	CountDepartmentStats(ctx context.Context, scope *rbacModel.DataScopeCondition) ([]DeptCount, error)
+	CountMonthlyStats(ctx context.Context, year int, scope *rbacModel.DataScopeCondition) ([]MonthCount, error)
 	GetUserDepartmentID(ctx context.Context, userID uuid.UUID) (*uuid.UUID, error)
 }
 
@@ -45,9 +54,24 @@ type TypeCount struct {
 	Days        float64
 }
 
+type DeptCount struct {
+	DepartmentID   *uuid.UUID
+	DepartmentName string
+	Count          int64
+	Days           float64
+}
+
+type MonthCount struct {
+	Month string
+	Count int64
+	Days  float64
+}
+
 type leaveRepo struct{ db *gorm.DB }
 
 func New(db *gorm.DB) Repository { return &leaveRepo{db: db} }
+
+func (r *leaveRepo) DB() *gorm.DB { return r.db }
 
 func (r *leaveRepo) WithTx(ctx context.Context, fn func(Repository) error) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -57,8 +81,28 @@ func (r *leaveRepo) WithTx(ctx context.Context, fn func(Repository) error) error
 
 func (r *leaveRepo) GetAllLeaveTypes(ctx context.Context) ([]model.LeaveType, error) {
 	var rows []model.LeaveType
-	err := r.db.WithContext(ctx).Order("code").Find(&rows).Error
+	err := r.db.WithContext(ctx).Order("sort_order, code").Find(&rows).Error
 	return rows, err
+}
+
+func (r *leaveRepo) GetLeaveTypeByCode(ctx context.Context, code string) (*model.LeaveType, error) {
+	var row model.LeaveType
+	err := r.db.WithContext(ctx).First(&row, "code = ?", code).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &row, nil
+}
+
+func (r *leaveRepo) CreateLeaveType(ctx context.Context, row *model.LeaveType) error {
+	return r.db.WithContext(ctx).Create(row).Error
+}
+
+func (r *leaveRepo) UpdateLeaveType(ctx context.Context, row *model.LeaveType) error {
+	return r.db.WithContext(ctx).Omit("CreatedAt").Save(row).Error
 }
 
 func (r *leaveRepo) GetLeaveTypeByID(ctx context.Context, id uuid.UUID) (*model.LeaveType, error) {
@@ -241,6 +285,10 @@ func (r *leaveRepo) UpdateApprovalStatus(ctx context.Context, id uuid.UUID, appr
 	return nil
 }
 
+func (r *leaveRepo) SaveApplication(ctx context.Context, app *model.LeaveApplication) error {
+	return r.db.WithContext(ctx).Omit("LeaveType").Save(app).Error
+}
+
 func (r *leaveRepo) GetLeaveApplicationsByUserAndTimeRange(ctx context.Context, userID uuid.UUID, startTime, endTime time.Time) ([]model.LeaveApplication, error) {
 	var rows []model.LeaveApplication
 	err := r.db.WithContext(ctx).
@@ -307,4 +355,88 @@ func (r *leaveRepo) CountStats(ctx context.Context, scope *rbacModel.DataScopeCo
 		Order("t.code").
 		Scan(&typeRows).Error
 	return total, byStatus, typeRows, err
+}
+
+func (r *leaveRepo) ListCalendar(ctx context.Context, from, to time.Time, userID *uuid.UUID, scope *rbacModel.DataScopeCondition) ([]model.ApplicationNamed, error) {
+	q := applyApplicantScope(r.namedQuery(ctx), scope).
+		Where("leave_applications.start_time < ? AND leave_applications.end_time > ?", to, from).
+		Where("leave_applications.status <> ?", model.ApprovalStatusRejected)
+	if userID != nil {
+		q = q.Where("leave_applications.applicant_id = ?", *userID)
+	}
+	var rows []model.ApplicationNamed
+	err := q.Order("leave_applications.start_time").Limit(500).Find(&rows).Error
+	return rows, err
+}
+
+func (r *leaveRepo) CountPersonalStats(ctx context.Context, userID uuid.UUID) (int64, float64, []TypeCount, error) {
+	var total int64
+	if err := r.db.WithContext(ctx).Model(&model.LeaveApplication{}).
+		Where("applicant_id = ?", userID).Count(&total).Error; err != nil {
+		return 0, 0, nil, err
+	}
+	var days float64
+	if err := r.db.WithContext(ctx).Model(&model.LeaveApplication{}).
+		Where("applicant_id = ? AND status <> ?", userID, model.ApprovalStatusRejected).
+		Select("coalesce(sum(duration_days),0)").Scan(&days).Error; err != nil {
+		return 0, 0, nil, err
+	}
+	var typeRows []TypeCount
+	err := r.db.WithContext(ctx).
+		Table("leave_applications AS a").
+		Select("a.leave_type_id, t.code, t.name, count(*) AS count, coalesce(sum(a.duration_days),0) AS days").
+		Joins("JOIN leave_types t ON t.id = a.leave_type_id").
+		Where("a.deleted_at IS NULL AND a.applicant_id = ?", userID).
+		Group("a.leave_type_id, t.code, t.name").
+		Order("t.code").
+		Scan(&typeRows).Error
+	return total, days, typeRows, err
+}
+
+func (r *leaveRepo) CountDepartmentStats(ctx context.Context, scope *rbacModel.DataScopeCondition) ([]DeptCount, error) {
+	q := r.db.WithContext(ctx).
+		Table("leave_applications AS a").
+		Select("applicant.department_id, coalesce(d.name,'') AS department_name, count(*) AS count, coalesce(sum(a.duration_days),0) AS days").
+		Joins("JOIN users applicant ON applicant.id = a.applicant_id").
+		Joins("LEFT JOIN departments d ON d.id = applicant.department_id").
+		Where("a.deleted_at IS NULL AND a.status <> ?", model.ApprovalStatusRejected)
+	if scope != nil && strings.Contains(scope.Query, "leave_applications.applicant_id") {
+		scope = &rbacModel.DataScopeCondition{
+			Query:  strings.ReplaceAll(scope.Query, "leave_applications.applicant_id", "a.applicant_id"),
+			Args:   scope.Args,
+			IsSelf: scope.IsSelf,
+		}
+	}
+	var rows []DeptCount
+	err := applyApplicantScope(q, scope).
+		Group("applicant.department_id, d.name").
+		Order("count DESC").
+		Scan(&rows).Error
+	return rows, err
+}
+
+func (r *leaveRepo) CountMonthlyStats(ctx context.Context, year int, scope *rbacModel.DataScopeCondition) ([]MonthCount, error) {
+	q := r.db.WithContext(ctx).
+		Table("leave_applications AS a").
+		Select("to_char(timezone('Asia/Shanghai', a.start_time), 'YYYY-MM') AS month, count(*) AS count, coalesce(sum(a.duration_days),0) AS days").
+		Where("a.deleted_at IS NULL")
+	if year > 0 {
+		q = q.Where("extract(year from timezone('Asia/Shanghai', a.start_time)) = ?", year)
+	}
+	if scope != nil && strings.Contains(scope.Query, "applicant.") {
+		q = q.Joins("JOIN users applicant ON applicant.id = a.applicant_id")
+	}
+	if scope != nil && strings.Contains(scope.Query, "leave_applications.applicant_id") {
+		scope = &rbacModel.DataScopeCondition{
+			Query:  strings.ReplaceAll(scope.Query, "leave_applications.applicant_id", "a.applicant_id"),
+			Args:   scope.Args,
+			IsSelf: scope.IsSelf,
+		}
+	}
+	var rows []MonthCount
+	err := applyApplicantScope(q, scope).
+		Group("month").
+		Order("month").
+		Scan(&rows).Error
+	return rows, err
 }

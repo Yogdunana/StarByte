@@ -145,6 +145,12 @@ func (n *ApprovalNode) Validate(node *engine.FlowNode) error {
 			default:
 				return response.NewAppError(response.CodeWorkflowInvalidNode, "无效的任务审批环节")
 			}
+		case engine.LeaveBusinessType:
+			switch config["leaveStage"] {
+			case "department", "org":
+			default:
+				return response.NewAppError(response.CodeWorkflowInvalidNode, "无效的请假审批环节")
+			}
 		default:
 			return response.NewAppError(response.CodeWorkflowInvalidNode, "不支持的业务审批类型")
 		}

@@ -139,7 +139,7 @@ POST /api/v1/contracts
 - 会议：`/meetings`、attendees、agendas、votes
 - 任务：`/tasks`、指派/转交/评论/附件、`/tasks/my/*`；开启审核验收的新任务走 `task_lifecycle` 流程实例（`GET|POST /tasks/:id/workflow`，拒绝终止实例）
 - 实习：`/internships`、complete/report、stats
-- 请假：`GET|POST /leave`、`GET /leave/my`、`GET /leave/types`、`GET /leave/balance`、`GET /leave/stats`、`PUT /leave/:id/approve|reject`
+- 请假：`GET|POST /leave`、`GET /leave/my`、`GET /leave/types`、`POST /leave/types`、`PUT /leave/types/:id`、`GET /leave/balance`、`GET /leave/stats`、`GET /leave/calendar`、`GET /leave/todos`、`PUT /leave/:id/approve|reject`；新申请走 `leave_approval` 流程实例（部长→社长），历史记录无实例时单级回退
 
 ### 流程 / 表单 / 文件 / 通知 / 统计
 

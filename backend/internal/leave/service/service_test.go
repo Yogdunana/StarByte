@@ -23,11 +23,11 @@ func fixture() (*leaveService, *memRepo, uuid.UUID, uuid.UUID, uuid.UUID) {
 	mem := newMemRepo()
 	annual := model.LeaveType{
 		ID: uuid.New(), Name: "年假", Code: model.TypeAnnual,
-		Deductible: true, DefaultDays: 5,
+		Deductible: true, DefaultDays: 5, Enabled: true, SortOrder: 10,
 	}
 	personal := model.LeaveType{
 		ID: uuid.New(), Name: "事假", Code: model.TypePersonal,
-		Deductible: false, DefaultDays: 0,
+		Deductible: false, DefaultDays: 0, Enabled: true, SortOrder: 30,
 	}
 	mem.addType(annual)
 	mem.addType(personal)
@@ -344,12 +344,14 @@ func TestBalanceIDORAndStats(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, bals)
 
-	_, err = svc.Stats(ctx, applicantViewer(applicant))
+	_, err = svc.Stats(ctx, applicantViewer(applicant), 2026)
 	require.Error(t, err)
-	stats, err := svc.Stats(ctx, approverViewer(approver))
+	stats, err := svc.Stats(ctx, approverViewer(approver), 2026)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), stats.Total)
 	assert.Equal(t, int64(1), stats.ByStatus[model.ApprovalStatusPending])
+	assert.Equal(t, int64(0), stats.Personal.Total)
+	assert.NotEmpty(t, stats.ByMonth)
 }
 
 func TestGetMissingAndUnknownType(t *testing.T) {
@@ -375,6 +377,52 @@ func TestDefaultPage(t *testing.T) {
 func mustTypes(mem *memRepo) []model.LeaveType {
 	rows, _ := mem.GetAllLeaveTypes(context.Background())
 	return rows
+}
+
+func TestCreateAndUpdateType(t *testing.T) {
+	svc, _, applicant, approver, _ := fixture()
+	ctx := context.Background()
+	_, err := svc.CreateType(ctx, applicantViewer(applicant), &dto.UpsertLeaveTypeRequest{Name: "婚假", Code: "marriage", DefaultDays: 3})
+	require.Error(t, err)
+	enabled := true
+	got, err := svc.CreateType(ctx, approverViewer(approver), &dto.UpsertLeaveTypeRequest{
+		Name: "婚假", Code: "Marriage", Deductible: false, DefaultDays: 3, Enabled: &enabled, SortOrder: 50,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "marriage", got.Code)
+	assert.True(t, got.Enabled)
+
+	disabled := false
+	got, err = svc.UpdateType(ctx, approverViewer(approver), uuid.MustParse(got.ID), &dto.UpsertLeaveTypeRequest{
+		Name: "婚假", Code: "marriage", Enabled: &disabled,
+	})
+	require.NoError(t, err)
+	assert.False(t, got.Enabled)
+	_, err = svc.Submit(ctx, applicantViewer(applicant), submitReq(uuid.MustParse(got.ID), monday(), monday().Add(time.Hour)))
+	require.Error(t, err)
+	assert.Equal(t, response.CodeLeaveTypeDisabled, err.(*response.AppError).Code)
+}
+
+func TestCalendarAndTodosAndAttachments(t *testing.T) {
+	svc, _, applicant, approver, annualID := fixture()
+	ctx := context.Background()
+	start := monday()
+	req := submitReq(annualID, start, start.Add(8*time.Hour))
+	req.Attachments = []dto.Attachment{{FileID: uuid.New().String(), Name: "note.pdf", Size: 12}}
+	app, err := svc.Submit(ctx, applicantViewer(applicant), req)
+	require.NoError(t, err)
+	require.Len(t, app.Attachments, 1)
+
+	cal, err := svc.Calendar(ctx, applicantViewer(applicant), &dto.ListLeaveRequest{From: "2026-09-01", To: "2026-09-30"})
+	require.NoError(t, err)
+	require.Len(t, cal, 1)
+
+	_, _, err = svc.ListTodos(ctx, applicantViewer(applicant), &dto.ListLeaveRequest{})
+	require.Error(t, err)
+	todos, total, err := svc.ListTodos(ctx, approverViewer(approver), &dto.ListLeaveRequest{})
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), total)
+	require.Len(t, todos, 1)
 }
 
 func findAnnual(bals []*dto.LeaveBalanceResponse, id uuid.UUID) *dto.LeaveBalanceResponse {

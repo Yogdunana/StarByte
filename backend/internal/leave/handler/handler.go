@@ -151,7 +151,94 @@ func (h *Handler) Stats(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	result, err := h.svc.Stats(c.Request.Context(), v)
+	var req dto.ListLeaveRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+	result, err := h.svc.Stats(c.Request.Context(), v, req.Year)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.OK(c, result)
+}
+
+func (h *Handler) Todos(c *gin.Context) {
+	v, err := viewerOf(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	var req dto.ListLeaveRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+	req.Page, req.PageSize = defaultPage(req.Page, req.PageSize)
+	list, total, err := h.svc.ListTodos(c.Request.Context(), v, &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Page(c, list, total, req.Page, req.PageSize)
+}
+
+func (h *Handler) Calendar(c *gin.Context) {
+	v, err := viewerOf(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	var req dto.ListLeaveRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+	result, err := h.svc.Calendar(c.Request.Context(), v, &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.OK(c, result)
+}
+
+func (h *Handler) CreateType(c *gin.Context) {
+	v, err := viewerOf(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	var req dto.UpsertLeaveTypeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+	result, err := h.svc.CreateType(c.Request.Context(), v, &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.OK(c, result)
+}
+
+func (h *Handler) UpdateType(c *gin.Context) {
+	id, err := parseID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	v, err := viewerOf(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	var req dto.UpsertLeaveTypeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+	result, err := h.svc.UpdateType(c.Request.Context(), v, id, &req)
 	if err != nil {
 		response.Error(c, err)
 		return

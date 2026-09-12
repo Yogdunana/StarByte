@@ -26,7 +26,19 @@ func mapType(t model.LeaveType) dto.LeaveTypeResponse {
 	return dto.LeaveTypeResponse{
 		ID: t.ID.String(), Name: t.Name, Code: t.Code,
 		Deductible: t.Deductible, DefaultDays: t.DefaultDays, Description: t.Description,
+		Enabled: t.Enabled, SortOrder: t.SortOrder,
 	}
+}
+
+func mapAttachments(items model.AttachmentList) []dto.Attachment {
+	if len(items) == 0 {
+		return nil
+	}
+	out := make([]dto.Attachment, 0, len(items))
+	for _, item := range items {
+		out = append(out, dto.Attachment{FileID: item.FileID, Name: item.Name, Size: item.Size})
+	}
+	return out
 }
 
 func mapBalance(b model.LeaveBalance) *dto.LeaveBalanceResponse {
@@ -47,10 +59,15 @@ func mapApplication(row *model.ApplicationNamed) *dto.LeaveApplicationResponse {
 		DurationDays:  row.DurationDays,
 		Reason:        row.Reason,
 		Status:        row.Status,
+		WorkflowStage: row.WorkflowStage,
+		Attachments:   mapAttachments(row.Attachments),
 		ApproveRemark: row.ApproveRemark,
 		ApprovedAt:    formatTimePtr(row.ApprovedAt),
 		CreatedAt:     formatTime(row.CreatedAt),
 		UpdatedAt:     formatTime(row.UpdatedAt),
+	}
+	if row.WorkflowInstanceID != nil && *row.WorkflowInstanceID != uuid.Nil {
+		out.WorkflowInstanceID = row.WorkflowInstanceID.String()
 	}
 	if row.ApproverID != nil && *row.ApproverID != uuid.Nil {
 		out.Approver = &dto.Person{ID: row.ApproverID.String(), Name: row.ApproverName}

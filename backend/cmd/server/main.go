@@ -378,8 +378,12 @@ func main() {
 	schedService.RegisterHandler("announcement_scheduled_publish", "扫描并发布到期定时公告", annSvc.DispatchDuePublishes)
 	schedService.RegisterHandler("announcement_auto_unpublish", "扫描并归档到期公告", annSvc.DispatchExpired)
 
-	// 请假管理（/leave，#56 phase-1，领域规则来自 #162）
-	leaveH := leaveHandler.New(leaveService.New(leaveRepo.New(database.DB())))
+	// 请假管理（/leave，#56，审批走 leave_approval 流程实例）
+	leaveSvc := leaveService.New(leaveRepo.New(database.DB()), leaveService.AdaptEngine(wfHandlers.Engine))
+	if err := wfHandlers.RegisterBusinessApprover("leave_application", leaveService.NewLeaveApprover(database.DB())); err != nil {
+		logger.Fatal("register leave workflow", zap.Error(err))
+	}
+	leaveH := leaveHandler.New(leaveSvc)
 
 	// 数据备份与恢复（/system/backups，#88 phase-1）
 	backupMinioCfg := cfg.MinIO

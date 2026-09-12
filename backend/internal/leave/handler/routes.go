@@ -64,6 +64,7 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, cache rbacService.Permission
 
 	readScope := withDataScope(g, "leave:read", cache, db, depts)
 	readScope.GET("/balance", h.Balances)
+	readScope.GET("/calendar", h.Calendar)
 
 	read := withPermission(g, "leave:read", cache)
 	read.Use(middleware.RequireDataScope("leave:read"))
@@ -71,12 +72,15 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, cache rbacService.Permission
 	read.GET("", h.List)
 	read.GET("/stats", h.Stats)
 
-	idScope := withDataScope(g, "leave:read", cache, db, depts)
-	idScope.GET("/:id", h.Get)
-
 	approve := withPermission(g, "leave:approve", cache)
 	approve.Use(middleware.RequireDataScope("leave:approve"))
 	approve.Use(middleware.DataScopeMiddleware(db, depts, cache))
+	approve.GET("/todos", h.Todos)
+	approve.POST("/types", h.CreateType)
+	approve.PUT("/types/:id", h.UpdateType)
 	approve.PUT("/:id/approve", h.Approve)
 	approve.PUT("/:id/reject", h.Reject)
+
+	idScope := withDataScope(g, "leave:read", cache, db, depts)
+	idScope.GET("/:id", h.Get)
 }

@@ -61,7 +61,7 @@ func NewFlowEngine(
 
 // Start initiates a new flow instance and begins execution from the start node.
 func (e *FlowEngine) start(ctx context.Context, definitionKey string, businessKey string, businessType string, initiatorID uuid.UUID, variables map[string]interface{}) (*model.FlowInstance, error) {
-	if (IsProtectedBusiness(businessType) || definitionKey == TaskDefinitionKey || IsTaskTransferDefinition(definitionKey) || definitionKey == "officer_interview" || definitionKey == "member_admission" || definitionKey == MemberApplicationDefinitionKey) && !e.businessTransaction {
+	if (IsProtectedBusiness(businessType) || definitionKey == TaskDefinitionKey || IsTaskTransferDefinition(definitionKey) || definitionKey == "officer_interview" || definitionKey == "member_admission" || definitionKey == MemberApplicationDefinitionKey || definitionKey == LeaveDefinitionKey) && !e.businessTransaction {
 		return nil, response.NewAppError(response.CodeForbidden, "业务流程须从对应业务页面发起")
 	}
 	if err := validateInputVariables(variables); err != nil {

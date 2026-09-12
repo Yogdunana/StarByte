@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { leaveStatusMap, leaveTypeLabel, LeaveStatuses } from './meta';
+import { leaveStatusMap, leaveStageLabel, leaveTypeLabel, LeaveStatuses } from './meta';
 
 const t = ((key: string, opts?: { defaultValue?: string }) => {
   const map: Record<string, string> = {
@@ -7,6 +7,7 @@ const t = ((key: string, opts?: { defaultValue?: string }) => {
     'leave.status.approved': '已批准',
     'leave.status.rejected': '已驳回',
     'leave.type.annual': '年假',
+    'leave.stage.minister': '待部长审批',
   };
   return map[key] ?? opts?.defaultValue ?? key;
 }) as import('i18next').TFunction;
@@ -23,5 +24,7 @@ describe('leave meta', () => {
   it('falls back to type name', () => {
     expect(leaveTypeLabel(t, 'annual', '年假')).toBe('年假');
     expect(leaveTypeLabel(t, 'unknown', '其他')).toBe('其他');
+    expect(leaveStageLabel(t, 'minister')).toBe('待部长审批');
+    expect(leaveStageLabel(t, '')).toBe('');
   });
 });

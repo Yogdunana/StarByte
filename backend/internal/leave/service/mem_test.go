@@ -11,6 +11,7 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/leave/repo"
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type memRepo struct {
@@ -110,8 +111,30 @@ func (m *memRepo) inScope(row model.ApplicationNamed, scope *rbacModel.DataScope
 }
 
 func (m *memRepo) WithTx(_ context.Context, fn func(repo.Repository) error) error {
-	return fn(m)
+	m.mu.Lock()
+	types := map[uuid.UUID]model.LeaveType{}
+	for k, v := range m.types {
+		types[k] = v
+	}
+	bals := map[string]model.LeaveBalance{}
+	for k, v := range m.bals {
+		bals[k] = v
+	}
+	apps := map[uuid.UUID]model.ApplicationNamed{}
+	for k, v := range m.apps {
+		apps[k] = v
+	}
+	m.mu.Unlock()
+	err := fn(m)
+	if err != nil {
+		m.mu.Lock()
+		m.types, m.bals, m.apps = types, bals, apps
+		m.mu.Unlock()
+	}
+	return err
 }
+
+func (m *memRepo) DB() *gorm.DB { return nil }
 
 func (m *memRepo) GetAllLeaveTypes(_ context.Context) ([]model.LeaveType, error) {
 	m.mu.Lock()
@@ -121,6 +144,32 @@ func (m *memRepo) GetAllLeaveTypes(_ context.Context) ([]model.LeaveType, error)
 		out = append(out, t)
 	}
 	return out, nil
+}
+
+func (m *memRepo) GetLeaveTypeByCode(_ context.Context, code string) (*model.LeaveType, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, t := range m.types {
+		if t.Code == code {
+			cp := t
+			return &cp, nil
+		}
+	}
+	return nil, nil
+}
+
+func (m *memRepo) CreateLeaveType(_ context.Context, row *model.LeaveType) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.types[row.ID] = *row
+	return nil
+}
+
+func (m *memRepo) UpdateLeaveType(_ context.Context, row *model.LeaveType) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.types[row.ID] = *row
+	return nil
 }
 
 func (m *memRepo) GetLeaveTypeByID(_ context.Context, id uuid.UUID) (*model.LeaveType, error) {
@@ -330,6 +379,134 @@ func (m *memRepo) GetUserDepartmentID(_ context.Context, userID uuid.UUID) (*uui
 		return &d, nil
 	}
 	return nil, nil
+}
+
+func (m *memRepo) SaveApplication(_ context.Context, app *model.LeaveApplication) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	row, ok := m.apps[app.ID]
+	if !ok {
+		row = model.ApplicationNamed{LeaveApplication: *app, ApplicantName: m.names[app.ApplicantID]}
+	} else {
+		row.LeaveApplication = *app
+	}
+	if t, ok := m.types[app.LeaveTypeID]; ok {
+		row.LeaveType = t
+	}
+	if app.ApproverID != nil {
+		row.ApproverName = m.names[*app.ApproverID]
+	}
+	m.apps[app.ID] = row
+	return nil
+}
+
+func (m *memRepo) ListCalendar(_ context.Context, from, to time.Time, userID *uuid.UUID, scope *rbacModel.DataScopeCondition) ([]model.ApplicationNamed, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []model.ApplicationNamed
+	for _, row := range m.apps {
+		if row.Status == model.ApprovalStatusRejected {
+			continue
+		}
+		if !row.StartTime.Before(to) || !row.EndTime.After(from) {
+			continue
+		}
+		if userID != nil && row.ApplicantID != *userID {
+			continue
+		}
+		if !m.inScope(row, scope) {
+			continue
+		}
+		out = append(out, row)
+	}
+	return out, nil
+}
+
+func (m *memRepo) CountPersonalStats(_ context.Context, userID uuid.UUID) (int64, float64, []repo.TypeCount, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	typeAgg := map[uuid.UUID]repo.TypeCount{}
+	var n int64
+	var days float64
+	for _, row := range m.apps {
+		if row.ApplicantID != userID {
+			continue
+		}
+		n++
+		if row.Status != model.ApprovalStatusRejected {
+			days += row.DurationDays
+		}
+		agg := typeAgg[row.LeaveTypeID]
+		agg.LeaveTypeID = row.LeaveTypeID
+		agg.Code = row.LeaveType.Code
+		agg.Name = row.LeaveType.Name
+		agg.Count++
+		agg.Days += row.DurationDays
+		typeAgg[row.LeaveTypeID] = agg
+	}
+	var types []repo.TypeCount
+	for _, v := range typeAgg {
+		types = append(types, v)
+	}
+	return n, days, types, nil
+}
+
+func (m *memRepo) CountDepartmentStats(_ context.Context, scope *rbacModel.DataScopeCondition) ([]repo.DeptCount, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	type key struct {
+		id   uuid.UUID
+		have bool
+	}
+	agg := map[key]repo.DeptCount{}
+	for _, row := range m.apps {
+		if row.Status == model.ApprovalStatusRejected || !m.inScope(row, scope) {
+			continue
+		}
+		k := key{}
+		if row.ApplicantDepartmentID != nil {
+			k.id, k.have = *row.ApplicantDepartmentID, true
+		}
+		item := agg[k]
+		if k.have {
+			id := k.id
+			item.DepartmentID = &id
+		}
+		item.Count++
+		item.Days += row.DurationDays
+		agg[k] = item
+	}
+	var out []repo.DeptCount
+	for _, v := range agg {
+		out = append(out, v)
+	}
+	return out, nil
+}
+
+func (m *memRepo) CountMonthlyStats(_ context.Context, year int, scope *rbacModel.DataScopeCondition) ([]repo.MonthCount, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	agg := map[string]repo.MonthCount{}
+	for _, row := range m.apps {
+		if !m.inScope(row, scope) {
+			continue
+		}
+		local := row.StartTime.In(bizLocation())
+		if year > 0 && local.Year() != year {
+			continue
+		}
+		month := local.Format("2006-01")
+		item := agg[month]
+		item.Month = month
+		item.Count++
+		item.Days += row.DurationDays
+		agg[month] = item
+	}
+	var out []repo.MonthCount
+	for _, v := range agg {
+		out = append(out, v)
+	}
+	return out, nil
 }
 
 func (m *memRepo) CountStats(_ context.Context, scope *rbacModel.DataScopeCondition) (int64, map[string]int64, []repo.TypeCount, error) {

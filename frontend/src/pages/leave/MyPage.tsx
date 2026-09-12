@@ -7,7 +7,7 @@ import { getLeaveBalances, getLeaveTypes, getMyLeaveList, submitLeave } from '@/
 import type { LeaveApplication, LeaveBalance, LeaveStatus, LeaveType } from '@/api/leave';
 import { formatDateTime } from '@/utils/format';
 import FormModal from './FormModal';
-import { LeaveStatuses, leaveStatusMap, leaveTypeLabel } from './meta';
+import { LeaveStatuses, leaveStageLabel, leaveStatusMap, leaveTypeLabel } from './meta';
 import './leave.css';
 
 const MyPage: React.FC = () => {
@@ -53,9 +53,19 @@ const MyPage: React.FC = () => {
     { title: t('leave.days'), dataIndex: 'duration_days' },
     { title: t('leave.reason'), dataIndex: 'reason', ellipsis: true },
     {
+      title: t('leave.attachments'),
+      render: (_, row) => row.attachments?.length ? row.attachments.map((item) => item.name).join('、') : '—',
+      ellipsis: true,
+    },
+    {
       title: t('leave.statusLabel'),
       dataIndex: 'status',
-      render: (v: LeaveStatus) => <Tag color={statusMap[v]?.color}>{statusMap[v]?.text}</Tag>,
+      render: (v: LeaveStatus, row) => (
+        <Space>
+          <Tag color={statusMap[v]?.color}>{statusMap[v]?.text}</Tag>
+          {v === 'pending' && row.workflow_stage ? <Tag>{leaveStageLabel(t, row.workflow_stage)}</Tag> : null}
+        </Space>
+      ),
     },
   ];
 

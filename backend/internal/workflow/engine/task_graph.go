@@ -9,7 +9,7 @@ const TaskBusinessType = "collaboration_task"
 const TaskDefinitionKey = "task_lifecycle"
 
 func IsProtectedBusiness(kind string) bool {
-	return kind == "member_application" || kind == TaskBusinessType || kind == TaskTransferBusinessType
+	return kind == "member_application" || kind == TaskBusinessType || kind == TaskTransferBusinessType || kind == LeaveBusinessType
 }
 
 // TaskLifecycleBPMN is the default published graph seeded by 000046 / 000062.

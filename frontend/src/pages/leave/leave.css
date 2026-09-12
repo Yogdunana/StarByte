@@ -27,3 +27,25 @@
   font-weight: 600;
   line-height: 1.2;
 }
+
+.leave-stat-number {
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+
+.leave-upload-btn {
+  border: 1px dashed #d9d9d9;
+  padding: 4px 15px;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.leave-cal-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}

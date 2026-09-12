@@ -6,7 +6,7 @@ import { approveLeave, getLeaveList, getLeaveStats, rejectLeave } from '@/api/le
 import type { LeaveApplication, LeaveStats, LeaveStatus } from '@/api/leave';
 import { usePermission } from '@/hooks/usePermission';
 import { formatDateTime } from '@/utils/format';
-import { LeaveStatuses, leaveStatusMap, leaveTypeLabel } from './meta';
+import { LeaveStatuses, leaveStageLabel, leaveStatusMap, leaveTypeLabel } from './meta';
 import './leave.css';
 
 const ListPage: React.FC = () => {
@@ -71,6 +71,17 @@ const ListPage: React.FC = () => {
     { title: t('leave.days'), dataIndex: 'duration_days', width: 80 },
     { title: t('leave.reason'), dataIndex: 'reason', ellipsis: true },
     {
+      title: t('leave.attachments'),
+      render: (_, row) => row.attachments?.length || 0,
+      width: 80,
+    },
+    {
+      title: t('leave.stageLabel'),
+      render: (_, row) => row.status === 'pending'
+        ? (row.workflow_stage ? <Tag color="blue">{leaveStageLabel(t, row.workflow_stage)}</Tag> : t('leave.legacySingle'))
+        : '—',
+    },
+    {
       title: t('leave.statusLabel'),
       dataIndex: 'status',
       width: 100,
@@ -95,7 +106,7 @@ const ListPage: React.FC = () => {
     <div>
       <div className="leave-hero">
         <div>
-          <h2>{t('leave.listTitle')}</h2>
+          <h2>{t('leave.todoTitle')}</h2>
           <p>{t('leave.listHint', { total: stats?.total ?? 0, pending: stats?.by_status?.pending ?? 0 })}</p>
         </div>
       </div>
