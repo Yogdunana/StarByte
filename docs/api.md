@@ -220,6 +220,6 @@ WAL 增量 / 指定时间点恢复（PITR）需要主机级 `pg_basebackup` + WA
 
 公开 SDK：
 
-- `GET /features/me?keys=cms.public,announcement.feed`（可选 JWT；名单/百分比/AB 匿名 fail closed）
+- `GET /features/me?keys=cms.public,announcement.feed`（可选 JWT；名单/百分比/AB 匿名 fail closed）。`keys` 去重、非法格式丢弃，最多 32 个；超出截断。
 
 规则字段：`starts_at` / `ends_at`（定时）、`environments`（`dev|test|prod`）、`variants`（`ab_test`）。WASM 客户端不做，浏览器走 HTTP SDK。

@@ -27,6 +27,10 @@ const (
 	KeyCMSPublic        = "cms.public"
 	KeyAnnouncementFeed = "announcement.feed"
 	KeyMembershipPortal = "membership.portal"
+
+	// MaxEvaluateKeys caps GET /features/me so one request cannot fan-out
+	// snapshot reloads or exposure inserts.
+	MaxEvaluateKeys = 32
 )
 
 func ValidType(t string) bool {

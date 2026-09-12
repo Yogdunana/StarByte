@@ -82,7 +82,7 @@
 前端：`useFeature('cms.public')` / `<FeatureEnabled flag="cms.public">`。  
 后端：`feature.Evaluate(flag, subject)` / `RequireFlag`（匿名为零 subject；`Subject.Environment` 来自 `APP_ENV`）。
 
-SDK：`GET /api/v1/features/me?keys=cms.public,announcement.feed`（公开，带 JWT 则按用户评估）。
+SDK：`GET /api/v1/features/me?keys=cms.public,announcement.feed`（公开，带 JWT 则按用户评估）。`keys` 去重、非法格式丢弃，最多 32 个。
 
 ## 明确不做
 

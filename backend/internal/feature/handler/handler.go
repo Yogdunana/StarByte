@@ -245,7 +245,7 @@ func (h *Handler) Rollback(c *gin.Context) {
 // @Summary 当前用户开关快照
 // @Tags 特性开关
 // @Produce json
-// @Param keys query string false "逗号分隔的 key"
+// @Param keys query string false "逗号分隔的 key，去重后最多 32 个"
 // @Success 200 {object} response.Response
 // @Router /features/me [get]
 func (h *Handler) EvaluateMe(c *gin.Context) {

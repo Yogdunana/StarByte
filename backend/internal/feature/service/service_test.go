@@ -686,6 +686,71 @@ func TestInvalidateSkipsPublishWhenSnapshotStuck(t *testing.T) {
 	}
 }
 
+func TestEvaluateMeCapsDedupsAndSkipsUnknownReload(t *testing.T) {
+	rows := newMemRepo()
+	store := &countSnapshot{inner: NewMemorySnapshot()}
+	bus := NewMemoryBus()
+	svc := New(rows, store, bus, stubRoles{}, stubUsers{}, stubPerms{}).(*flagService)
+	ctx := context.Background()
+	created, err := svc.Create(ctx, uuid.New(), &dto.CreateFlagRequest{
+		FlagKey: "bool.gate", Name: "Bool", FlagType: model.TypeBoolean, Enabled: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	uid := uuid.MustParse("33333333-3333-4333-8333-333333333333")
+	getsBefore := store.gets
+	dupes := []string{"bool.gate", "BOOL.GATE", "bool.gate", "Not A Key", "???"}
+	me, err := svc.EvaluateMe(ctx, uid, dupes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(me) != 1 || !me["bool.gate"].Enabled {
+		t.Fatalf("dedup: %+v", me)
+	}
+	if n := len(rows.exposures); n != 1 {
+		t.Fatalf("duplicate keys must record one exposure, got %d", n)
+	}
+	keys := make([]string, 0, 40)
+	for i := 0; i < 40; i++ {
+		keys = append(keys, "unknown.key"+string(rune('a'+i%26))+string(rune('a'+i/26)))
+	}
+	me, err = svc.EvaluateMe(ctx, uid, keys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(me) != model.MaxEvaluateKeys {
+		t.Fatalf("cap=%d got=%d", model.MaxEvaluateKeys, len(me))
+	}
+	if store.gets != getsBefore {
+		t.Fatalf("unknown keys must not reload snapshot, gets %d -> %d", getsBefore, store.gets)
+	}
+	if _, err := svc.EvaluateID(ctx, uuid.MustParse(created.ID), uid); err != nil {
+		t.Fatal(err)
+	}
+	if got := sanitizeEvaluateKeys([]string{"???", "1bad", "x"}); len(got) != 3 {
+		t.Fatalf("invalid keys should fall back to defaults, got %v", got)
+	}
+}
+
+type countSnapshot struct {
+	inner SnapshotStore
+	gets  int
+}
+
+func (s *countSnapshot) Get(ctx context.Context) ([]model.Flag, error) {
+	s.gets++
+	return s.inner.Get(ctx)
+}
+
+func (s *countSnapshot) Set(ctx context.Context, flags []model.Flag) error {
+	return s.inner.Set(ctx, flags)
+}
+
+func (s *countSnapshot) Delete(ctx context.Context) error {
+	return s.inner.Delete(ctx)
+}
+
 func TestInvalidateReloadsFromDBWhenSnapshotStale(t *testing.T) {
 	rows := newMemRepo()
 	store := &staleSnapshot{}

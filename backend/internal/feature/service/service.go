@@ -252,15 +252,9 @@ func (s *flagService) EvaluateMe(ctx context.Context, userID uuid.UUID, keys []s
 		return nil, err
 	}
 	staff := s.announcementStaff(ctx, userID)
-	if len(keys) == 0 {
-		keys = []string{model.KeyCMSPublic, model.KeyAnnouncementFeed, model.KeyMembershipPortal}
-	}
+	keys = sanitizeEvaluateKeys(keys)
 	out := make(map[string]dto.EvaluateResponse, len(keys))
 	for _, key := range keys {
-		key = strings.TrimSpace(key)
-		if key == "" {
-			continue
-		}
 		if key == model.KeyAnnouncementFeed && staff {
 			out[key] = dto.EvaluateResponse{Key: key, Enabled: true, Reason: "staff_bypass", Type: model.TypeBoolean}
 			continue
@@ -275,6 +269,32 @@ func (s *flagService) EvaluateMe(ctx context.Context, userID uuid.UUID, keys []s
 		out[key] = dto.EvaluateResponse{Key: key, Enabled: got.Enabled, Reason: got.Reason}
 	}
 	return out, nil
+}
+
+func sanitizeEvaluateKeys(keys []string) []string {
+	if len(keys) == 0 {
+		return []string{model.KeyCMSPublic, model.KeyAnnouncementFeed, model.KeyMembershipPortal}
+	}
+	seen := make(map[string]struct{}, model.MaxEvaluateKeys)
+	out := make([]string, 0, min(len(keys), model.MaxEvaluateKeys))
+	for _, key := range keys {
+		key = strings.ToLower(strings.TrimSpace(key))
+		if key == "" || !keyPattern.MatchString(key) {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, key)
+		if len(out) >= model.MaxEvaluateKeys {
+			break
+		}
+	}
+	if len(out) == 0 {
+		return []string{model.KeyCMSPublic, model.KeyAnnouncementFeed, model.KeyMembershipPortal}
+	}
+	return out
 }
 
 func (s *flagService) Enabled(ctx context.Context, key string, sub feature.Subject) bool {
