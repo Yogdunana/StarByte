@@ -440,6 +440,66 @@ func TestApplySchedulesReevaluatesAfterList(t *testing.T) {
 	}
 }
 
+type afterGetRepo struct {
+	*memRepo
+	afterGet func()
+}
+
+func (r *afterGetRepo) GetByID(ctx context.Context, id uuid.UUID) (*model.Flag, error) {
+	row, err := r.memRepo.GetByID(ctx, id)
+	if fn := r.afterGet; fn != nil {
+		r.afterGet = nil
+		fn()
+	}
+	return row, err
+}
+
+func TestPersistScheduleSkipsStaleWriteAfterGet(t *testing.T) {
+	inner := newMemRepo()
+	rows := &afterGetRepo{memRepo: inner}
+	svc := New(rows, NewMemorySnapshot(), NewMemoryBus(), stubRoles{}, stubUsers{}, stubPerms{}).(*flagService)
+	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
+	future := now.Add(time.Hour)
+	svc.now = func() time.Time { return now }
+	ctx := context.Background()
+	created, err := svc.Create(ctx, uuid.New(), &dto.CreateFlagRequest{
+		FlagKey: "cas.window", Name: "CAS", FlagType: model.TypeBoolean, Enabled: false,
+		Rules: model.Rules{StartsAt: &future},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.MustParse(created.ID)
+	svc.now = func() time.Time { return future.Add(time.Second) }
+	later := future.Add(2 * time.Hour)
+	auditsBefore := len(inner.audits)
+	rows.afterGet = func() {
+		row, err := inner.GetByID(ctx, id)
+		if err != nil || row == nil {
+			t.Errorf("concurrent get: %v", err)
+			return
+		}
+		row.Rules.StartsAt = &later
+		row.UpdatedAt = svc.clock().Add(time.Millisecond)
+		if err := inner.Update(ctx, row); err != nil {
+			t.Errorf("concurrent update: %v", err)
+		}
+	}
+	if svc.persistSchedule(ctx, id, uuid.Nil) {
+		t.Fatal("CAS must skip after a concurrent write")
+	}
+	got, err := inner.GetByID(ctx, id)
+	if err != nil || got == nil || got.Enabled {
+		t.Fatalf("admin row must stay off: %+v %v", got, err)
+	}
+	if got.Rules.StartsAt == nil || !got.Rules.StartsAt.Equal(later) {
+		t.Fatalf("admin rules must stay: %+v", got.Rules)
+	}
+	if n := len(inner.audits) - auditsBefore; n != 0 {
+		t.Fatalf("conflict must not write schedule audit, extra=%d", n)
+	}
+}
+
 type afterListRepo struct {
 	*memRepo
 	afterList func()

@@ -51,7 +51,7 @@
 
 - **评估时立即生效**：`enabled=true` 且未到 `starts_at` → `schedule_pending`；过了 `ends_at` → `schedule_expired`
 - **后台约 30s 落库**：窗口开始且仍关闭 → 打开并记 `schedule_on`；窗口结束且仍开启 → 关闭并记 `schedule_off`
-- **人工覆盖优先**：`UpdatedAt` 晚于 `starts_at` / `ends_at` 时，ticker 不再改回人工开关；评估层仍按窗口门闸
+- **人工覆盖优先**：`UpdatedAt` 晚于 `starts_at` / `ends_at` 时，ticker 不再改回人工开关；评估层仍按窗口门闸。落库用 `id + updated_at` 条件更新，只写 `enabled`/`updated_at`；读后被别人改过则跳过且不记审计
 - 列表里的「当前生效」= `enabled && 环境命中 && 窗口内`（不含用户定向）
 
 推荐：把开关设为启用，再填未来的 `starts_at` / `ends_at`。评估不会等 ticker。
