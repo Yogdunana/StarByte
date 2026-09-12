@@ -355,7 +355,6 @@ export interface TransferCandidate {
   name: string;
   department_name?: string;
 }
-}
 
 export interface MemberProjectItem {
   name: string;
