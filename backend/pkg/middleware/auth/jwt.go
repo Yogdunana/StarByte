@@ -102,47 +102,71 @@ func ParseToken(tokenString string, cfg *config.JWTConfig) (*Claims, error) {
 // logged-out tokens are immediately invalidated.
 func JWTAuth(cfg *config.JWTConfig, rdb *redis.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			abortUnauthorized(c, "missing Authorization header")
+		if !applyAccessToken(c, cfg, rdb, true) {
 			return
 		}
-
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-			abortUnauthorized(c, "invalid Authorization header")
-			return
-		}
-
-		claims, err := ParseToken(parts[1], cfg)
-		if err != nil {
-			abortUnauthorized(c, "invalid or expired token")
-			return
-		}
-
-		if claims.TokenType != AccessTokenType {
-			abortUnauthorized(c, "invalid token type")
-			return
-		}
-
-		// Check token blacklist (if Redis is available)
-		if rdb != nil && claims.ID != "" {
-			blacklistKey := fmt.Sprintf("auth:blacklist:%s", claims.ID)
-			n, err := rdb.Exists(c.Request.Context(), blacklistKey).Result()
-			if err != nil {
-				// Redis error: fail open (allow request through) but log
-				_ = n
-			} else if n > 0 {
-				abortUnauthorized(c, "token has been revoked")
-				return
-			}
-		}
-
-		c.Set(ContextKeyUserID, claims.UserID)
-		c.Set(ContextKeyUsername, claims.Username)
-		c.Set(ContextKeyTokenID, claims.ID)
 		c.Next()
 	}
+}
+
+// OptionalJWT parses a Bearer access token when present. Missing or invalid
+// tokens are ignored so public routes still work without a JWT.
+func OptionalJWT(cfg *config.JWTConfig, rdb *redis.Client) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		_ = applyAccessToken(c, cfg, rdb, false)
+		c.Next()
+	}
+}
+
+func applyAccessToken(c *gin.Context, cfg *config.JWTConfig, rdb *redis.Client, required bool) bool {
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		if required {
+			abortUnauthorized(c, "missing Authorization header")
+		}
+		return !required
+	}
+
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+		if required {
+			abortUnauthorized(c, "invalid Authorization header")
+		}
+		return !required
+	}
+
+	claims, err := ParseToken(parts[1], cfg)
+	if err != nil {
+		if required {
+			abortUnauthorized(c, "invalid or expired token")
+		}
+		return !required
+	}
+
+	if claims.TokenType != AccessTokenType {
+		if required {
+			abortUnauthorized(c, "invalid token type")
+		}
+		return !required
+	}
+
+	if rdb != nil && claims.ID != "" {
+		blacklistKey := fmt.Sprintf("auth:blacklist:%s", claims.ID)
+		n, err := rdb.Exists(c.Request.Context(), blacklistKey).Result()
+		if err != nil {
+			_ = n
+		} else if n > 0 {
+			if required {
+				abortUnauthorized(c, "token has been revoked")
+			}
+			return !required
+		}
+	}
+
+	c.Set(ContextKeyUserID, claims.UserID)
+	c.Set(ContextKeyUsername, claims.Username)
+	c.Set(ContextKeyTokenID, claims.ID)
+	return true
 }
 
 func abortUnauthorized(c *gin.Context, msg string) {

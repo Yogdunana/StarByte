@@ -68,7 +68,45 @@
     "joinUs": "Join from here",
     "formHintLogin": "Sign in to pick up today’s work.",
     "formHintRegister": "Create an account, then you can apply to join.",
-    "casBindKicker": "Campus account bind"
+    "casBindKicker": "Campus account bind",
+    "footerAbout": "About us",
+    "footerCharter": "Association charter",
+    "footerDocs": "Docs"
+  },
+  "public": {
+    "about": "About us",
+    "docs": "Docs",
+    "docsTitle": "Public documents",
+    "login": "Sign in",
+    "workbench": "Workbench",
+    "footer": "SMBU Computer Association",
+    "search": "Search public docs",
+    "emptyDocs": "No public documents yet",
+    "loadFailed": "Failed to load this document, or sign-in is required"
+  },
+  "knowledge": {
+    "title": "Knowledge base",
+    "search": "Search documents",
+    "create": "New document",
+    "docTitle": "Title",
+    "kind": "Type",
+    "kindPage": "Page",
+    "kindDoc": "Doc",
+    "visibility": "Visibility",
+    "visPublic": "Public",
+    "visAuth": "Members",
+    "visPerm": "Permission",
+    "permCode": "Read permission code",
+    "category": "Category",
+    "summary": "Summary",
+    "save": "Save",
+    "publish": "Publish",
+    "published": "Published",
+    "versions": "Versions",
+    "current": "current",
+    "diff": "Compare",
+    "restore": "Restore",
+    "restored": "Restored this version"
   },
   "topbar": {
     "profile": "Profile",
@@ -281,7 +319,8 @@
     "/system/scheduler": "Scheduler",
     "/system/search": "Search",
     "/monitor": "Ops monitor",
-    "/backup": "Backups"
+    "/backup": "Backups",
+    "/knowledge": "Knowledge"
   },
   "finance": {
     "records": "Finance records",

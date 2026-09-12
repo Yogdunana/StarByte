@@ -179,7 +179,9 @@ export function useMenu(): UseMenuResult {
   const [openKeys, setOpenKeys] = useState<string[]>([]);
 
   const allNodes = useMemo(() => {
-    const layoutRoute = (routes as AppRouteObject[]).find((r) => r.path === '/');
+    const layoutRoute = (routes as AppRouteObject[]).find((r) =>
+      r.children?.some((child) => child.path === 'dashboard'),
+    );
     const labelOf = (path: string, fallback: string) => t(`menu.${path}`, { defaultValue: fallback });
     return layoutRoute?.children
       ? buildMenuNodes(layoutRoute.children, permissions, '', labelOf)
@@ -195,7 +197,7 @@ export function useMenu(): UseMenuResult {
     const sections = [
       { title: '我的工作', keys: ['/dashboard', '/notification'] },
       { title: '成员与招新', keys: ['/member', '/interview', '/discipline'] },
-      { title: '协作与活动', keys: ['/task', '/meeting', '/internship', '/announcement', '/leave'] },
+      { title: '协作与活动', keys: ['/task', '/meeting', '/internship', '/announcement', '/knowledge', '/leave'] },
       { title: '资源与财务', keys: ['/files', '/finance', '/contract', '/stats'] },
       { title: '组织与系统', keys: ['/user', '/workflow', '/forms', '/system', '/monitor', '/backup'] },
     ];

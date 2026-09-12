@@ -28,6 +28,7 @@
 | 30000-30999 | 请假 |
 | 31000-31999 | 运维监控 |
 | 32000-32999 | 数据备份 |
+| 33000-33999 | 知识库 / CMS |
 
 ## 请求 / 响应示例
 
@@ -178,3 +179,24 @@ POST /api/v1/contracts
 - `GET /system/backups/storage` 成功 / 已恢复 / 恢复失败备份条数与体积（产物仍在）
 
 SSH 应急仍用 `starbyte backup`（主机 `pg_dump` → `/var/backups/starbyte`），应用内是托管路径。WAL / PITR / AES-256 不在本切片。
+
+### 知识库 / CMS（#58）
+
+公开（可选 JWT；`visibility=public` 且已发布无需登录）：
+
+- `GET /knowledge/public/pages/:slug` 独立页（如 `about-us`）
+- `GET /knowledge/public/docs` 文档列表
+- `GET /knowledge/public/docs/:slug` 文档正文；成员手册未登录返回 33004
+- `GET /knowledge/public/tree` 可见目录树
+- `GET /knowledge/public/search?q=` 全文搜索（PostgreSQL FTS + ILIKE）
+
+管理（需 `doc:read` / `doc:create` / `doc:update` / `doc:delete` / `doc:publish`）：
+
+- `GET|POST /knowledge/docs`、`GET|PUT|DELETE /knowledge/docs/:id`
+- `POST /knowledge/docs/:id/publish`
+- `GET /knowledge/docs/:id/history`、`GET /knowledge/docs/:id/versions/:version`
+- `POST /knowledge/docs/:id/rollback` 回滚并生成新版本
+- `GET /knowledge/search`、`GET /knowledge/tree`、分类 CRUD
+- `POST /knowledge/docs/:id/attachments` 关联已有 `files` 记录
+
+公告模块（#77）仍是时效通知，不并入知识库。

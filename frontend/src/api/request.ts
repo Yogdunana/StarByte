@@ -2,6 +2,14 @@ import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosError } from 'ax
 import { message } from 'antd';
 import { getToken, getRefreshToken, setToken, setRefreshToken, removeToken } from '@/utils/storage';
 import { handleApiError, isCanceledError } from './error';
+import { loginPath } from '@/utils/nextPath';
+
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    skipAuthRedirect?: boolean;
+    silent?: boolean;
+  }
+}
 
 const baseURL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
@@ -113,8 +121,13 @@ request.interceptors.response.use(
 
     const originalRequest = error.config as InternalAxiosRequestConfig;
 
-    // 处理 401 Token 过期
+    // 处理 401 Token 过期。skipAuthRedirect 只跳过硬跳转；无 refresh 时保留原始 AxiosError，供公开页识别 33004。
     if (error.response?.status === 401) {
+      const skipRedirect = Boolean(originalRequest?.skipAuthRedirect);
+      if (skipRedirect && !getRefreshToken()) {
+        return Promise.reject(error);
+      }
+
       if (!isRefreshing) {
         isRefreshing = true;
 
@@ -140,12 +153,14 @@ request.interceptors.response.use(
           // 重试当前请求
           originalRequest.headers.Authorization = `Bearer ${access_token}`;
           return request(originalRequest);
-        } catch (refreshError) {
-          // 刷新失败，跳转到登录页
+        } catch {
+          // 刷新失败：公开接口不硬跳转，并回传原始 401 给页面（/?next=）
           removeToken();
-          message.error('登录已过期，请重新登录');
-          window.location.href = '/login';
-          return Promise.reject(refreshError);
+          if (!skipRedirect) {
+            message.error('登录已过期，请重新登录');
+            window.location.href = loginPath(window.location.pathname + window.location.search);
+          }
+          return Promise.reject(error);
         } finally {
           isRefreshing = false;
         }
@@ -170,8 +185,10 @@ request.interceptors.response.use(
     }
 
     // 其他错误：统一错误处理
-    const errorMsg = handleApiError(error);
-    message.error(errorMsg);
+    if (!originalRequest?.silent) {
+      const errorMsg = handleApiError(error);
+      message.error(errorMsg);
+    }
     return Promise.reject(error);
   }
 );

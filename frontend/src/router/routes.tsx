@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 // 布局组件
 import MainLayout from '@/layouts/MainLayout/MainLayout';
+import PublicLayout from '@/layouts/PublicLayout';
 
 // 路由守卫
 import AuthRoute from '@/router/guards/AuthRoute';
@@ -70,6 +71,10 @@ const LeaveMyPage = lazy(() => import('@/pages/leave/MyPage'));
 const LeaveListPage = lazy(() => import('@/pages/leave/ListPage'));
 const MonitorPage = lazy(() => import('@/pages/monitor/MonitorPage'));
 const BackupPage = lazy(() => import('@/pages/backup/BackupPage'));
+const AboutUsPage = lazy(() => import('@/pages/public/AboutUsPage'));
+const DocsIndexPage = lazy(() => import('@/pages/public/DocsIndexPage'));
+const PublicDocPage = lazy(() => import('@/pages/public/DocPage'));
+const KnowledgeAdminPage = lazy(() => import('@/pages/knowledge/AdminPage'));
 const Forbidden = lazy(() => import('@/pages/error/Forbidden'));
 const NotFound = lazy(() => import('@/pages/error/NotFound'));
 
@@ -121,6 +126,11 @@ export interface AppRouteObject extends Omit<RouteObject, 'children'> {
 
 const routes: AppRouteObject[] = [
   {
+    path: '/',
+    element: lazyWrap(Login),
+    meta: { title: '登录', public: true, hidden: true },
+  },
+  {
     path: '/login',
     element: lazyWrap(Login),
     meta: { title: '登录', public: true, hidden: true },
@@ -136,6 +146,31 @@ const routes: AppRouteObject[] = [
     meta: { title: '绑定账号', public: true, hidden: true },
   },
   {
+    element: <PublicLayout />,
+    children: [
+      {
+        path: 'about-us',
+        element: lazyWrap(AboutUsPage),
+        meta: { title: '关于我们', public: true, hidden: true },
+      },
+      {
+        path: 'docs',
+        element: lazyWrap(DocsIndexPage),
+        meta: { title: '文档', public: true, hidden: true },
+      },
+      {
+        path: 'docs/:slug',
+        element: lazyWrap(PublicDocPage),
+        meta: { title: '文档', public: true, hidden: true },
+      },
+      {
+        path: ':slug',
+        element: lazyWrap(AboutUsPage),
+        meta: { title: '页面', public: true, hidden: true },
+      },
+    ],
+  },
+  {
     path: '/dashboard/bigscreen',
     element: (
       <AuthRoute>
@@ -145,10 +180,8 @@ const routes: AppRouteObject[] = [
     meta: { title: '数据大屏', hidden: true, permission: 'stats:read' },
   },
   {
-    path: '/',
     element: <AuthRoute><MainLayout /></AuthRoute>,
     children: [
-      { index: true, element: <Navigate to="/dashboard" replace /> },
       {
         path: '403',
         element: lazyWrap(Forbidden),
@@ -296,6 +329,11 @@ const routes: AppRouteObject[] = [
         path: 'schedule',
         element: lazyGuarded(SchedulePage, 'schedule:read'),
         meta: { title: '日程日历', icon: 'CarryOutOutlined', permission: 'schedule:read' },
+      },
+      {
+        path: 'knowledge',
+        element: lazyGuarded(KnowledgeAdminPage, 'doc:read'),
+        meta: { title: '知识库', icon: 'BookOutlined', permission: 'doc:read' },
       },
       {
         path: 'announcement',

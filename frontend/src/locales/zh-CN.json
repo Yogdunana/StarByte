@@ -68,7 +68,45 @@
     "joinUs": "从这里，加入我们",
     "formHintLogin": "登录你的账号，继续今天的协作。",
     "formHintRegister": "创建账号后，即可填写入会申请。",
-    "casBindKicker": "校园账号绑定"
+    "casBindKicker": "校园账号绑定",
+    "footerAbout": "关于我们",
+    "footerCharter": "计算机协会章程",
+    "footerDocs": "文档"
+  },
+  "public": {
+    "about": "关于我们",
+    "docs": "文档",
+    "docsTitle": "公开文档",
+    "login": "登录",
+    "workbench": "工作台",
+    "footer": "深圳北理莫斯科大学计算机协会",
+    "search": "搜索公开文档",
+    "emptyDocs": "暂无公开文档",
+    "loadFailed": "文档加载失败，或需要登录后查看"
+  },
+  "knowledge": {
+    "title": "知识库",
+    "search": "搜索文档",
+    "create": "新建文档",
+    "docTitle": "标题",
+    "kind": "类型",
+    "kindPage": "独立页",
+    "kindDoc": "文档",
+    "visibility": "可见性",
+    "visPublic": "公开",
+    "visAuth": "登录可见",
+    "visPerm": "权限码",
+    "permCode": "阅读权限码",
+    "category": "分类",
+    "summary": "摘要",
+    "save": "保存",
+    "publish": "发布",
+    "published": "已发布",
+    "versions": "版本历史",
+    "current": "当前",
+    "diff": "对比",
+    "restore": "回滚",
+    "restored": "已回滚到该版本"
   },
   "topbar": {
     "profile": "个人中心",
@@ -281,7 +319,8 @@
     "/system/scheduler": "定时任务",
     "/system/search": "统一搜索",
     "/monitor": "运维监控",
-    "/backup": "数据备份"
+    "/backup": "数据备份",
+    "/knowledge": "知识库"
   },
   "finance": {
     "records": "财务记录",

@@ -3,6 +3,7 @@ import { Result, Button } from 'antd';
 import { HomeOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { getToken } from '@/utils/storage';
 
 const NotFound: React.FC = () => {
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ const NotFound: React.FC = () => {
       title="404"
       subTitle={t('error.notFound')}
       extra={
-        <Button type="primary" icon={<HomeOutlined />} onClick={() => navigate('/', { replace: true })}>
+        <Button type="primary" icon={<HomeOutlined />} onClick={() => navigate(getToken() ? '/dashboard' : '/', { replace: true })}>
           {t('error.backHome')}
         </Button>
       }

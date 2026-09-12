@@ -86,6 +86,37 @@ func PermissionRequired(cacheService rbacService.PermissionCacheService) gin.Han
 	}
 }
 
+// AttachPermissions loads the caller's permission list when a user id is
+// present. Missing auth is ignored so public routes can still run.
+func AttachPermissions(cacheService rbacService.PermissionCacheService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userIDStr := auth.GetUserID(c)
+		if userIDStr == "" {
+			c.Next()
+			return
+		}
+		userID, err := uuid.Parse(userIDStr)
+		if err != nil {
+			c.Next()
+			return
+		}
+		perms, isSuper, err := cacheService.GetUserPermissionsAndSuperAdmin(c.Request.Context(), userID)
+		if err != nil {
+			logger.Error("attach user permissions failed", zap.Error(err))
+			c.Next()
+			return
+		}
+		if isSuper {
+			c.Set("is_super_admin", true)
+			c.Set("user_permissions", []string{"*"})
+			c.Next()
+			return
+		}
+		c.Set("user_permissions", perms)
+		c.Next()
+	}
+}
+
 // RequirePermission returns a gin middleware that records the permission code
 // required to access a route. It does not perform any enforcement itself; the
 // actual check is performed by PermissionRequired, which reads the stored code
