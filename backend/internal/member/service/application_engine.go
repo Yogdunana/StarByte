@@ -57,7 +57,7 @@ func engineStageLabel(nodeID string) string {
 	}
 }
 
-func applyEngineOutcome(app *model.MemberApplication, action, nodeID string, completed bool, now time.Time) {
+func applyEngineOutcome(app *model.MemberApplication, action, nodeID string, completed, lastApproval bool, now time.Time) {
 	app.UpdatedAt = now
 	app.ReviewedAt = &now
 	if action == actionReject {
@@ -84,7 +84,7 @@ func applyEngineOutcome(app *model.MemberApplication, action, nodeID string, com
 	}
 	app.AdmissionStage = model.AdmissionEngine
 	app.CurrentStage = next
-	if nodeID == "president" {
+	if lastApproval {
 		app.Status = model.AppReviewing
 		if app.CurrentStage == "" {
 			app.CurrentStage = engineStagePresident
@@ -95,6 +95,13 @@ func applyEngineOutcome(app *model.MemberApplication, action, nodeID string, com
 	if app.CurrentStage == "" {
 		app.CurrentStage = engineStageMinister
 	}
+}
+
+func lastEngineApproval(ctx context.Context, flow *engine.FlowEngine, instanceID uuid.UUID, nodeID string) (bool, error) {
+	if flow == nil || nodeID == "" {
+		return false, nil
+	}
+	return flow.IsLastApplicationApproval(ctx, instanceID, nodeID)
 }
 
 func skipMinisterNode(app *model.MemberApplication) bool {
@@ -109,8 +116,27 @@ func engineReviewPermission(actor *model.AdmissionActor, app *model.MemberApplic
 	if !allowed {
 		return admissionDenied("无权审批该入会申请")
 	}
-	// 部长节点只允许意向部门部长立即处理；社长/中心主任须走既有 24h 代签规则。
-	if delegated && (strings.TrimSpace(comment) == "" || now.Before(app.StageEnteredAt.Add(24*time.Hour))) {
+	return engineDelegationGate(delegated, comment, app.StageEnteredAt, now, true)
+}
+
+// engineTransferPickerPermission is the same authority check as review, but
+// listing candidates has no comment yet. Delegates still wait 24h.
+func engineTransferPickerPermission(actor *model.AdmissionActor, app *model.MemberApplication, parent *uuid.UUID, role string, now time.Time) error {
+	if strings.TrimSpace(role) == "" {
+		return admissionDenied("当前环节不可审批")
+	}
+	allowed, delegated := admissionAuthority(actor, app, parent, role)
+	if !allowed {
+		return admissionDenied("无权审批该入会申请")
+	}
+	return engineDelegationGate(delegated, "", app.StageEnteredAt, now, false)
+}
+
+func engineDelegationGate(delegated bool, comment string, entered, now time.Time, requireComment bool) error {
+	if !delegated {
+		return nil
+	}
+	if now.Before(entered.Add(24 * time.Hour)) || (requireComment && strings.TrimSpace(comment) == "") {
 		return admissionDenied("超时24小时后上级才可代签，并须填写原因")
 	}
 	return nil
@@ -197,7 +223,7 @@ func (s *admissionService) runEngineReview(
 			return nil, err
 		}
 		app.RequiredFields = nonemptyStrings(required)
-		applyEngineOutcome(app, action, nodeID, false, now)
+		applyEngineOutcome(app, action, nodeID, false, false, now)
 	} else {
 		if err := flow.CompleteApplicationApproval(ctx, *app.FlowInstanceID, viewer, engine.TaskAction(action), comment); err != nil {
 			return nil, err
@@ -210,7 +236,11 @@ func (s *admissionService) runEngineReview(
 			completed = false
 			nodeID = ""
 		}
-		applyEngineOutcome(app, action, nodeID, completed, now)
+		last, err := lastEngineApproval(ctx, flow, *app.FlowInstanceID, nodeID)
+		if err != nil {
+			return nil, err
+		}
+		applyEngineOutcome(app, action, nodeID, completed, last, now)
 	}
 	app.ReviewerID = &viewer
 	app.ReviewComment = comment

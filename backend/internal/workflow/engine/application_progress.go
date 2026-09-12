@@ -82,7 +82,7 @@ func (e *FlowEngine) ApplicationProgress(ctx context.Context, instanceID uuid.UU
 			acted[task.NodeID] = "done"
 		}
 	}
-	seenCurrent := false
+	future := reachableNodeIDs(graph, GetCurrentNodeIDs(inst.CurrentNodeIDs))
 	steps := make([]ApplicationStep, 0, len(graph.Nodes))
 	for _, id := range displayNodeOrder(graph) {
 		item := graph.GetNode(id)
@@ -94,28 +94,7 @@ func (e *FlowEngine) ApplicationProgress(ctx context.Context, instanceID uuid.UU
 			Role: approvalRoleCode(item), ApprovalType: approvalTypeOf(item),
 			AllowTransfer: item.Type == "approval" && nodeAllowsTransfer(item),
 		}
-		switch {
-		case inst.Status == 1:
-			step.State = "done"
-			if acted[id] == "skipped" || (item.Type == "approval" && !hasTask[id] && acted[id] != "done") {
-				step.State = "skipped"
-			}
-		case current[id]:
-			step.State = "current"
-			seenCurrent = true
-		case acted[id] != "":
-			step.State = acted[id]
-		case inst.Status != 0 && seenCurrent:
-			step.State = "pending"
-		case inst.Status != 0:
-			step.State = "done"
-		case seenCurrent:
-			step.State = "pending"
-		case item.Type == "approval":
-			step.State = "skipped"
-		default:
-			step.State = "done"
-		}
+		step.State = applicationStepState(inst.Status, item, current[id], acted[id], hasTask[id], future[id])
 		steps = append(steps, step)
 	}
 	return &ApplicationProgress{
@@ -124,28 +103,98 @@ func (e *FlowEngine) ApplicationProgress(ctx context.Context, instanceID uuid.UU
 	}, nil
 }
 
+func applicationStepState(status int, item *FlowNode, isCurrent bool, acted string, hasTask, future bool) string {
+	if item == nil {
+		return "pending"
+	}
+	switch {
+	case status == 1:
+		if acted == "skipped" || (item.Type == "approval" && !hasTask && acted != "done") {
+			return "skipped"
+		}
+		return "done"
+	case isCurrent:
+		return "current"
+	case acted != "":
+		return acted
+	case future:
+		return "pending"
+	case item.Type == "approval":
+		return "skipped"
+	default:
+		return "done"
+	}
+}
+
 func displayNodeOrder(g *FlowGraph) []string {
 	start := g.FindStartNode()
 	if start == nil {
 		return nil
 	}
+	order := []string{}
+	for _, id := range walkNodeIDs(g, []string{start.ID}) {
+		node := g.GetNode(id)
+		if node != nil && visibleProgressNode(node.Type) {
+			order = append(order, id)
+		}
+	}
+	return order
+}
+
+func visibleProgressNode(kind string) bool {
+	switch kind {
+	case "start", "end", "approval", "condition", "exclusive_gateway", "parallel_gateway", "parallel", "merge":
+		return true
+	default:
+		return false
+	}
+}
+
+func reachableNodeIDs(g *FlowGraph, starts []string) map[string]bool {
+	seen := map[string]bool{}
+	for _, id := range walkNodeIDs(g, starts) {
+		seen[id] = true
+	}
+	return seen
+}
+
+func walkNodeIDs(g *FlowGraph, starts []string) []string {
+	if g == nil {
+		return nil
+	}
 	seen := map[string]bool{}
 	order := []string{}
-	queue := []string{start.ID}
+	queue := append([]string{}, starts...)
 	for len(queue) > 0 {
 		id := queue[0]
 		queue = queue[1:]
-		if seen[id] {
+		if id == "" || seen[id] {
 			continue
 		}
 		seen[id] = true
-		node := g.GetNode(id)
-		if node != nil && (node.Type == "start" || node.Type == "end" || node.Type == "approval" || node.Type == "condition") {
-			order = append(order, id)
-		}
+		order = append(order, id)
 		for _, edge := range g.GetNextNodes(id, "") {
 			queue = append(queue, edge.Target)
 		}
 	}
 	return order
+}
+
+// lastApplicationApproval is true when no other approval node is reachable
+// after nodeID (condition / gateway branches included).
+func lastApplicationApproval(g *FlowGraph, nodeID string) bool {
+	if g == nil || nodeID == "" || g.GetNode(nodeID) == nil {
+		return false
+	}
+	starts := []string{}
+	for _, edge := range g.GetNextNodes(nodeID, "") {
+		starts = append(starts, edge.Target)
+	}
+	for _, id := range walkNodeIDs(g, starts) {
+		node := g.GetNode(id)
+		if node != nil && node.Type == "approval" {
+			return false
+		}
+	}
+	return true
 }

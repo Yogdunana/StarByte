@@ -308,6 +308,21 @@ func TestApprovalRoleCodeFromGraph(t *testing.T) {
 	require.ElementsMatch(t, []string{"officer", "minister", "president"}, roles)
 }
 
+func TestIsLastApplicationApprovalDefaultSpine(t *testing.T) {
+	applicant := uuid.New()
+	e, _ := memberApplicationEngine(t, newMockTaskRepo())
+	inst, err := e.Start(context.Background(), MemberApplicationDefinitionKey, uuid.New().String(), "member_application", applicant, map[string]interface{}{
+		"applicant": applicant.String(), "apply_type": int16(2),
+	})
+	require.NoError(t, err)
+	last, err := e.IsLastApplicationApproval(context.Background(), inst.ID, "officer")
+	require.NoError(t, err)
+	require.False(t, last)
+	last, err = e.IsLastApplicationApproval(context.Background(), inst.ID, "president")
+	require.NoError(t, err)
+	require.True(t, last)
+}
+
 func TestApplicationProgressCompleted(t *testing.T) {
 	applicant := uuid.New()
 	tasks := newMockTaskRepo()

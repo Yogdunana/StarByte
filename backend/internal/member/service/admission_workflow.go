@@ -46,12 +46,16 @@ func (s *admissionService) startAdmissionWorkflow(ctx context.Context, tx *gorm.
 		return nil, err
 	}
 	if completed {
-		applyEngineOutcome(app, actionApprove, nodeID, true, s.now())
+		applyEngineOutcome(app, actionApprove, nodeID, true, false, s.now())
 		if err := s.admitFromEngine(ctx, tx, app); err != nil {
 			return nil, err
 		}
 	} else {
-		applyEngineOutcome(app, actionApprove, nodeID, false, s.now())
+		last, err := lastEngineApproval(ctx, flow, inst.ID, nodeID)
+		if err != nil {
+			return nil, err
+		}
+		applyEngineOutcome(app, actionApprove, nodeID, false, last, s.now())
 	}
 	if err := store.SaveApplication(ctx, app); err != nil {
 		return nil, err

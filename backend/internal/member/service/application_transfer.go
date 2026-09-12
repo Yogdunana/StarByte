@@ -161,7 +161,7 @@ func (s *admissionService) TransferCandidates(ctx context.Context, viewer, id uu
 	if err != nil {
 		return nil, err
 	}
-	if err := engineReviewPermission(actor, app, parent, role, "", s.now()); err != nil {
+	if err := engineTransferPickerPermission(actor, app, parent, role, s.now()); err != nil {
 		return nil, err
 	}
 	rows, err := wfrepo.NewApproverRepo(s.db).Search(ctx, keyword, viewer)

@@ -42,40 +42,52 @@ func TestApplyEngineOutcome(t *testing.T) {
 	now := time.Now()
 	t.Run("minister approve waits for president", func(t *testing.T) {
 		app := &model.MemberApplication{Status: model.AppPending, AdmissionStage: model.AdmissionMaterials}
-		applyEngineOutcome(app, actionApprove, "president", false, now)
+		applyEngineOutcome(app, actionApprove, "president", false, true, now)
 		require.Equal(t, model.AppReviewing, app.Status)
 		require.Equal(t, engineStagePresident, app.CurrentStage)
 		require.Equal(t, model.AdmissionEngine, app.AdmissionStage)
 	})
 	t.Run("president approve admits", func(t *testing.T) {
 		app := &model.MemberApplication{Status: model.AppReviewing}
-		applyEngineOutcome(app, actionApprove, "", true, now)
+		applyEngineOutcome(app, actionApprove, "", true, false, now)
 		require.Equal(t, model.AppApproved, app.Status)
 		require.Equal(t, model.AdmissionApproved, app.AdmissionStage)
 		require.Equal(t, stageLabel(model.AppApproved), app.CurrentStage)
 	})
 	t.Run("reject any node", func(t *testing.T) {
 		app := &model.MemberApplication{Status: model.AppReviewing}
-		applyEngineOutcome(app, actionReject, "president", false, now)
+		applyEngineOutcome(app, actionReject, "president", false, false, now)
 		require.Equal(t, model.AppRejected, app.Status)
 		require.Equal(t, model.AdmissionRejected, app.AdmissionStage)
 	})
 	t.Run("supplement terminates chain", func(t *testing.T) {
 		app := &model.MemberApplication{Status: model.AppPending}
-		applyEngineOutcome(app, actionSupplement, "minister", false, now)
+		applyEngineOutcome(app, actionSupplement, "minister", false, false, now)
 		require.Equal(t, model.AppSupplement, app.Status)
 	})
 	t.Run("stage clock resets on new node", func(t *testing.T) {
 		started := now.Add(-25 * time.Hour)
 		app := &model.MemberApplication{Status: model.AppPending, CurrentStage: engineStageOfficer, StageEnteredAt: started}
-		applyEngineOutcome(app, actionApprove, "minister", false, now)
+		applyEngineOutcome(app, actionApprove, "minister", false, false, now)
 		require.Equal(t, engineStageMinister, app.CurrentStage)
 		require.Equal(t, now, app.StageEnteredAt)
+	})
+	t.Run("custom last node is reviewing", func(t *testing.T) {
+		app := &model.MemberApplication{Status: model.AppPending, CurrentStage: engineStageMinister}
+		applyEngineOutcome(app, actionApprove, "center_node", false, true, now)
+		require.Equal(t, model.AppReviewing, app.Status)
+		require.Equal(t, "center_node", app.CurrentStage)
+	})
+	t.Run("custom middle node stays pending", func(t *testing.T) {
+		app := &model.MemberApplication{Status: model.AppPending}
+		applyEngineOutcome(app, actionApprove, "center_node", false, false, now)
+		require.Equal(t, model.AppPending, app.Status)
+		require.Equal(t, "center_node", app.CurrentStage)
 	})
 	t.Run("stage clock stays on same node", func(t *testing.T) {
 		started := now.Add(-2 * time.Hour)
 		app := &model.MemberApplication{Status: model.AppPending, CurrentStage: engineStageMinister, StageEnteredAt: started}
-		applyEngineOutcome(app, actionApprove, "minister", false, now)
+		applyEngineOutcome(app, actionApprove, "minister", false, false, now)
 		require.Equal(t, started, app.StageEnteredAt)
 	})
 }
@@ -100,7 +112,7 @@ func TestEngineStageLabel(t *testing.T) {
 func TestApplyEngineOutcomeOfficerApprove(t *testing.T) {
 	now := time.Now()
 	app := &model.MemberApplication{Status: model.AppPending}
-	applyEngineOutcome(app, actionApprove, "officer", false, now)
+	applyEngineOutcome(app, actionApprove, "officer", false, false, now)
 	require.Equal(t, model.AppPending, app.Status)
 	require.Equal(t, engineStageOfficer, app.CurrentStage)
 	require.Equal(t, model.AdmissionEngine, app.AdmissionStage)
@@ -197,6 +209,11 @@ func TestEngineReviewPermissionKeepsDelegation(t *testing.T) {
 	require.NoError(t, engineReviewPermission(president, app, &center, "minister", "超时代签", later))
 	require.Error(t, engineReviewPermission(president, app, &center, "minister", "", later))
 	require.NoError(t, engineReviewPermission(president, app, &center, "hr", "超时代签", later))
+
+	require.Error(t, engineTransferPickerPermission(president, app, &center, "minister", now))
+	require.NoError(t, engineTransferPickerPermission(president, app, &center, "minister", later))
+	require.NoError(t, engineTransferPickerPermission(minister, app, &center, "minister", now))
+	require.Error(t, engineTransferPickerPermission(other, app, &center, "minister", later))
 }
 
 func TestEngineChainUsesDefaultDefinition(t *testing.T) {

@@ -330,6 +330,30 @@ func (e *FlowEngine) ApprovalRoleCode(ctx context.Context, instanceID uuid.UUID,
 	return ResolveApprovalRole(nodeID, approvalRoleCode(graph.GetNode(nodeID))), nil
 }
 
+// IsLastApplicationApproval reports whether nodeID is the last human
+// approval on the instance graph (no further approval is reachable).
+func (e *FlowEngine) IsLastApplicationApproval(ctx context.Context, instanceID uuid.UUID, nodeID string) (bool, error) {
+	inst, err := e.instRepo.GetByID(ctx, instanceID)
+	if err != nil {
+		return false, err
+	}
+	if inst == nil {
+		return false, response.NewError(response.CodeWorkflowInstNotFound, "流程实例不存在")
+	}
+	version, err := e.defRepo.GetVersionByID(ctx, inst.DefinitionVersionID)
+	if err != nil {
+		return false, err
+	}
+	if version == nil {
+		return false, response.NewError(response.CodeWorkflowVerNotFound, "审批流程版本不存在")
+	}
+	graph, err := ParseGraph(version.BpmnData)
+	if err != nil {
+		return false, err
+	}
+	return lastApplicationApproval(graph, nodeID), nil
+}
+
 // ApplicationApprovalRoles lists roleCode values on the instance graph.
 func (e *FlowEngine) ApplicationApprovalRoles(ctx context.Context, instanceID uuid.UUID) ([]string, error) {
 	inst, err := e.instRepo.GetByID(ctx, instanceID)
