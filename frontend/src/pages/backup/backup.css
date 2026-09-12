@@ -1,0 +1,49 @@
+.backup-page {
+  padding: 0 0 24px;
+}
+
+.backup-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 20px 24px;
+  margin-bottom: 16px;
+  border-radius: 16px;
+  color: #fff;
+  background: linear-gradient(135deg, #1e3a8a 0%, #0f766e 55%, #334155 100%);
+  box-shadow: 0 12px 32px rgba(30, 58, 138, 0.18);
+}
+
+.backup-hero .ant-typography {
+  color: #fff !important;
+}
+
+.backup-meta {
+  color: rgba(255, 255, 255, 0.82);
+  margin: 6px 0 0;
+}
+
+.backup-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 960px) {
+  .backup-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+.backup-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.backup-cli {
+  margin-top: 16px;
+}

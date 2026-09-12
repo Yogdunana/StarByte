@@ -26,6 +26,8 @@
 | 28000-28999 | 公告 |
 | 29000-29999 | 日程 |
 | 30000-30999 | 请假 |
+| 31000-31999 | 运维监控 |
+| 32000-32999 | 数据备份 |
 
 ## 请求 / 响应示例
 
@@ -160,3 +162,15 @@ POST /api/v1/contracts
 - `GET /monitor/database` `sql.DB` 连接池
 - `GET /monitor/redis` INFO（连接数 / 内存 / 命中率，不含主机凭据）
 - `GET /monitor/api-stats` Prometheus 请求计数；P50/P95 持久化见响应 `percentiles_note`
+
+### 数据备份（#88 phase-1，运维角色）
+
+- `GET /system/backups` 备份列表（`backup:read`）
+- `POST /system/backups` 手动触发全量 `pg_dump` + gzip，异步落 MinIO（`backup:create`）
+- `GET /system/backups/:id` 备份详情（校验和 / 大小 / 状态）
+- `DELETE /system/backups/:id` 删除对象与记录（`backup:delete`）
+- `POST /system/backups/:id/restore` 恢复；请求体须 `confirm=true` 且 `confirmation=RESTORE`（`backup:restore`）
+- `GET|PUT /system/backups/policies` 保留天数 + 6 字段 cron（`backup:read` / `backup:manage`）
+- `GET /system/backups/storage` 成功备份条数与体积
+
+SSH 应急仍用 `starbyte backup`（主机 `pg_dump` → `/var/backups/starbyte`），应用内是托管路径。WAL / PITR / AES-256 不在本切片。

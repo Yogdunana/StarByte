@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -25,6 +26,9 @@ import (
 	authHandler "github.com/Yogdunana/StarByte/backend/internal/auth/handler"
 	authRepo "github.com/Yogdunana/StarByte/backend/internal/auth/repo"
 	authService "github.com/Yogdunana/StarByte/backend/internal/auth/service"
+	backupHandler "github.com/Yogdunana/StarByte/backend/internal/backup/handler"
+	backupRepo "github.com/Yogdunana/StarByte/backend/internal/backup/repo"
+	backupService "github.com/Yogdunana/StarByte/backend/internal/backup/service"
 	cacheadminHandler "github.com/Yogdunana/StarByte/backend/internal/cache/handler"
 	cacheadminService "github.com/Yogdunana/StarByte/backend/internal/cache/service"
 	cfgstoreHandler "github.com/Yogdunana/StarByte/backend/internal/configstore/handler"
@@ -345,6 +349,37 @@ func main() {
 	// 请假管理（/leave，#56 phase-1，领域规则来自 #162）
 	leaveH := leaveHandler.New(leaveService.New(leaveRepo.New(database.DB())))
 
+	// 数据备份与恢复（/system/backups，#88 phase-1）
+	backupMinioCfg := cfg.MinIO
+	if bucket := strings.TrimSpace(cfg.Backup.Bucket); bucket != "" {
+		backupMinioCfg.Bucket = bucket
+	}
+	backupStore := objectStore
+	if backupMinioCfg.Bucket != cfg.MinIO.Bucket {
+		dedicated, err := storage.NewMinIO(backupMinioCfg)
+		if err != nil {
+			logger.Error("init backup MinIO client failed", zap.Error(err))
+		} else {
+			backupStore = dedicated
+			if err := dedicated.EnsureBucket(context.Background()); err != nil {
+				logger.Error("ensure backup MinIO bucket failed", zap.Error(err))
+			}
+		}
+	}
+	if cfg.Backup.Bucket == "" {
+		cfg.Backup.Bucket = cfg.MinIO.Bucket
+	}
+	backupSvc := backupService.New(
+		backupRepo.New(database.DB()),
+		backupStore,
+		cfg.Database,
+		cfg.Backup,
+		backupService.NewNotifier(notifSvc),
+	)
+	backupH := backupHandler.New(backupSvc)
+	schedService.RegisterHandler("backup_scheduled_full", "按策略执行 PostgreSQL 全量备份", backupSvc.RunScheduled)
+	schedService.RegisterHandler("backup_retention_cleanup", "按保留天数清理过期备份", backupSvc.CleanupExpired)
+
 	// 运行时业务配置（#47，复用 configs 表，不改 pkg/config YAML）
 	cfgSvc := cfgstoreService.NewConfigService(cfgRows, cfgStore).WithSMTP(cfg.Email, emailCh)
 	cfgH := cfgstoreHandler.NewConfigHandler(cfgSvc)
@@ -502,6 +537,9 @@ func main() {
 		monitorH := monitorHandler.New(monitorService.New(database.DB(), redis.Client()))
 		monitorHandler.RegisterRoutes(protected, monitorH, cacheService)
 
+		// 数据备份与恢复（/system/backups，#88 phase-1）
+		backupHandler.RegisterRoutes(protected, backupH, cacheService)
+
 		// 定时任务调度（/system/scheduler，#73）
 		schedH := schedHandler.NewSchedulerHandler(schedSvc)
 		schedHandler.RegisterRoutes(protected, schedH, cacheService)
@@ -525,6 +563,9 @@ func main() {
 		registerPhase1Ops(protected, database.DB(), cacheService, deptRepo, notifSvc, wfHandlers.DefinitionRepo, wfHandlers.InstanceService)
 
 		// 调度引擎在业务 handler（如 contract_expiry）注册后再启动
+		if err := backupSvc.SyncSchedule(context.Background()); err != nil {
+			logger.Error("sync backup schedule failed", zap.Error(err))
+		}
 		schedEng.Start()
 
 		// 审计日志模块路由（/system/audit-logs，audit:read / audit:export / audit:archive / audit:report）

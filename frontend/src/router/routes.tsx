@@ -69,6 +69,7 @@ const AnnouncementDetailPage = lazy(() => import('@/pages/announcement/DetailPag
 const LeaveMyPage = lazy(() => import('@/pages/leave/MyPage'));
 const LeaveListPage = lazy(() => import('@/pages/leave/ListPage'));
 const MonitorPage = lazy(() => import('@/pages/monitor/MonitorPage'));
+const BackupPage = lazy(() => import('@/pages/backup/BackupPage'));
 const Forbidden = lazy(() => import('@/pages/error/Forbidden'));
 const NotFound = lazy(() => import('@/pages/error/NotFound'));
 
@@ -446,6 +447,11 @@ const routes: AppRouteObject[] = [
         path: 'monitor',
         element: lazyGuarded(MonitorPage, 'monitor:read'),
         meta: { title: '运维监控', icon: 'MonitorOutlined', permission: 'monitor:read' },
+      },
+      {
+        path: 'backup',
+        element: lazyGuarded(BackupPage, 'backup:read'),
+        meta: { title: '数据备份', icon: 'CloudServerOutlined', permission: 'backup:read' },
       },
       {
         path: 'stats',
