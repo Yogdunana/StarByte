@@ -196,9 +196,9 @@ func (h *WSHandler) HandleConnection(c *gin.Context) {
 
 	go func() {
 		defer cancel()
-		h.readLoop(ctx, conn, writer)
+		h.readLoop(ctx, cancel, conn, writer)
 	}()
-	go h.pushLoop(ctx, writer)
+	go h.pushLoop(ctx, cancel, writer)
 
 	<-ctx.Done()
 	if err := conn.Close(); err != nil {
@@ -220,7 +220,7 @@ func (s *safeWS) writeJSON(v any) error {
 	return s.conn.WriteJSON(v)
 }
 
-func (h *WSHandler) readLoop(ctx context.Context, conn *websocket.Conn, writer *safeWS) {
+func (h *WSHandler) readLoop(ctx context.Context, cancel context.CancelFunc, conn *websocket.Conn, writer *safeWS) {
 	_ = conn.SetReadDeadline(time.Now().Add(monitorReadIdle))
 	conn.SetPongHandler(func(string) error {
 		_ = conn.SetReadDeadline(time.Now().Add(monitorReadIdle))
@@ -240,18 +240,24 @@ func (h *WSHandler) readLoop(ctx context.Context, conn *websocket.Conn, writer *
 			}
 			_ = conn.SetReadDeadline(time.Now().Add(monitorReadIdle))
 			if msg.Type == "ping" {
-				_ = writer.writeJSON(WSResponse{Type: "pong"})
+				if err := writer.writeJSON(WSResponse{Type: "pong"}); err != nil {
+					cancel()
+					return
+				}
 			}
 		}
 	}
 }
 
-func (h *WSHandler) pushLoop(ctx context.Context, writer *safeWS) {
+func (h *WSHandler) pushLoop(ctx context.Context, cancel context.CancelFunc, writer *safeWS) {
 	interval := h.interval
 	if interval <= 0 {
 		interval = defaultPushInterval
 	}
-	h.pushSnapshot(ctx, writer)
+	if err := h.pushSnapshot(ctx, writer); err != nil {
+		cancel()
+		return
+	}
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
@@ -259,17 +265,22 @@ func (h *WSHandler) pushLoop(ctx context.Context, writer *safeWS) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			h.pushSnapshot(ctx, writer)
+			if err := h.pushSnapshot(ctx, writer); err != nil {
+				cancel()
+				return
+			}
 		}
 	}
 }
 
-func (h *WSHandler) pushSnapshot(ctx context.Context, writer *safeWS) {
+func (h *WSHandler) pushSnapshot(ctx context.Context, writer *safeWS) error {
 	if h.svc == nil {
-		return
+		return nil
 	}
 	snap := h.svc.Snapshot(ctx)
 	if err := writer.writeJSON(WSResponse{Type: "snapshot", Data: snap}); err != nil {
 		logger.Error("monitor websocket push failed", zap.Error(err))
+		return err
 	}
+	return nil
 }

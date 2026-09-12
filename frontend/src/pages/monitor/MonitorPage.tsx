@@ -143,6 +143,10 @@ const MonitorPage: React.FC = () => {
   }, [auto, loadSlow]);
 
   useEffect(() => {
+    if (!auto) {
+      setLive(false);
+      return undefined;
+    }
     const token = getToken();
     if (!token) return undefined;
     let disposed = false;
@@ -187,7 +191,7 @@ const MonitorPage: React.FC = () => {
       }
       setLive(false);
     };
-  }, [applyLive]);
+  }, [applyLive, auto]);
 
   const server = data.server;
   const gauges = useMemo(() => ([

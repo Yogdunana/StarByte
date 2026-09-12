@@ -356,7 +356,7 @@
   },
   "monitor": {
     "title": "运维监控",
-    "hint": "服务器、应用、数据库与 Redis 快照。优先 WebSocket 推送，断开后回退 8 秒轮询。",
+    "hint": "服务器、应用、数据库与 Redis 快照。自动刷新开启时优先 WebSocket 推送，断开后回退 8 秒轮询；关闭自动刷新会暂停实时更新。",
     "refresh": "刷新",
     "autoRefresh": "自动刷新",
     "updatedAt": "最近更新 {{time}}",

@@ -356,7 +356,7 @@
   },
   "monitor": {
     "title": "Ops monitor",
-    "hint": "Server, app, database, and Redis snapshots. WebSocket push when available; 8s HTTP poll as fallback.",
+    "hint": "Server, app, database, and Redis snapshots. With auto-refresh on, WebSocket push is preferred and HTTP polls every 8s if the socket drops. Turning auto-refresh off pauses live updates.",
     "refresh": "Refresh",
     "autoRefresh": "Auto refresh",
     "updatedAt": "Updated {{time}}",

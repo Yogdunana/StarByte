@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Yogdunana/StarByte/backend/pkg/metrics"
@@ -25,8 +26,12 @@ func Metrics() gin.HandlerFunc {
 				return
 			}
 			status := strconv.Itoa(c.Writer.Status())
-			elapsed := time.Since(start).Seconds()
 			metrics.HTTPRequestsTotal.WithLabelValues(c.Request.Method, path, status).Inc()
+			// WS handlers block until disconnect; session length is not HTTP latency.
+			if strings.HasPrefix(path, "/ws") {
+				return
+			}
+			elapsed := time.Since(start).Seconds()
 			metrics.HTTPRequestDuration.WithLabelValues(c.Request.Method, path).Observe(elapsed)
 			metrics.RecordHTTPLatency(elapsed)
 		}()
