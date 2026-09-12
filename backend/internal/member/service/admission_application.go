@@ -63,6 +63,9 @@ func (s *admissionService) SubmitApplication(ctx context.Context, user uuid.UUID
 	if err == nil && deliver != nil {
 		deliver(ctx)
 	}
+	if err == nil && result != nil && result.Status == model.AppApproved {
+		_ = s.refreshPermissions(ctx)
+	}
 	return result, err
 }
 func (s *admissionService) ResubmitApplication(ctx context.Context, user, id uuid.UUID, req *dto.ResubmitApplicationRequest) (*dto.ApplicationResponse, error) {
@@ -101,6 +104,9 @@ func (s *admissionService) ResubmitApplication(ctx context.Context, user, id uui
 	})
 	if err == nil && deliver != nil {
 		deliver(ctx)
+	}
+	if err == nil && result != nil && result.Status == model.AppApproved {
+		_ = s.refreshPermissions(ctx)
 	}
 	return result, err
 }

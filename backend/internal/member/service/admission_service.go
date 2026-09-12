@@ -12,6 +12,7 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/member/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/member/model"
 	"github.com/Yogdunana/StarByte/backend/internal/member/repo"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/engine"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 )
@@ -25,6 +26,9 @@ type AdmissionService interface {
 	Sign(context.Context, uuid.UUID, uuid.UUID, *dto.SignAdmissionRequest) (*dto.AdmissionResponse, error)
 	ReviewMaterials(context.Context, uuid.UUID, uuid.UUID, string, string) error
 	RequestSupplement(context.Context, uuid.UUID, uuid.UUID, *dto.SupplementRequest) error
+	TransferReview(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, string) error
+	ApplicationProgress(context.Context, uuid.UUID, uuid.UUID, *rbacModel.DataScopeCondition) (*dto.ApplicationProgressResponse, error)
+	TransferCandidates(context.Context, uuid.UUID, uuid.UUID, string) ([]dto.TransferCandidate, error)
 }
 type AdmissionPermissionCache interface {
 	InvalidateUserPermissions(context.Context, uuid.UUID) error

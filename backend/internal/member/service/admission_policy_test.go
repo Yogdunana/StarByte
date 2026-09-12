@@ -24,6 +24,11 @@ func TestAdmissionAuthority(t *testing.T) {
 		{"unrelated minister", "minister", model.AdmissionActor{ID: uuid.New(), DepartmentID: &center, Roles: []string{"minister"}}, false, true},
 		{"center director", "center", model.AdmissionActor{ID: uuid.New(), DepartmentID: &center, Roles: []string{"vice_president"}}, true, false},
 		{"president delegation", "minister", model.AdmissionActor{ID: uuid.New(), Roles: []string{"president"}}, true, true},
+		{"department officer", "officer", model.AdmissionActor{ID: uuid.New(), DepartmentID: &dept, Roles: []string{"officer"}}, true, false},
+		{"unrelated officer", "officer", model.AdmissionActor{ID: uuid.New(), DepartmentID: &center, Roles: []string{"officer"}}, false, true},
+		{"custom role holder", "hr", model.AdmissionActor{ID: uuid.New(), Roles: []string{"hr"}}, true, false},
+		{"custom role outsider", "hr", model.AdmissionActor{ID: uuid.New(), DepartmentID: &dept, Roles: []string{"officer"}}, false, false},
+		{"president delegates custom", "hr", model.AdmissionActor{ID: uuid.New(), Roles: []string{"president"}}, true, true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -34,6 +39,18 @@ func TestAdmissionAuthority(t *testing.T) {
 			}
 		})
 	}
+
+	same := model.AdmissionActor{ID: uuid.New(), DepartmentID: &dept, Roles: []string{"dept_lead"}}
+	other := model.AdmissionActor{ID: uuid.New(), DepartmentID: &center, Roles: []string{"dept_lead"}}
+	allowed, delegated := admissionRoleAuthority(&same, app, &center, "dept_lead", true)
+	require.True(t, allowed)
+	require.False(t, delegated)
+	allowed, delegated = admissionRoleAuthority(&other, app, &center, "dept_lead", true)
+	require.False(t, allowed)
+	require.False(t, delegated)
+	allowed, delegated = admissionRoleAuthority(&other, app, &center, "dept_lead", false)
+	require.True(t, allowed)
+	require.False(t, delegated)
 }
 func TestApplicantSnapshotRedactsObjectionInternals(t *testing.T) {
 	raised, reviewer := uuid.New(), uuid.New()

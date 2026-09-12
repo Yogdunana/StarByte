@@ -15,6 +15,7 @@ import (
 )
 
 const (
+	engineStageOfficer   = "干事审批"
 	engineStageMinister  = "部长审批"
 	engineStagePresident = "社长审批"
 )
@@ -29,6 +30,9 @@ func applicationVariables(app *model.MemberApplication) map[string]interface{} {
 		"student_no":     app.StudentNo,
 		"revision":       app.AdmissionRevision,
 	}
+	if app.Type != model.ApplicantOfficer {
+		vars[engine.SkipOfficerVariable] = true
+	}
 	if app.DepartmentID != nil {
 		vars["department_id"] = app.DepartmentID.String()
 		vars["department"] = app.DepartmentID.String()
@@ -38,7 +42,22 @@ func applicationVariables(app *model.MemberApplication) map[string]interface{} {
 	return vars
 }
 
-func applyEngineOutcome(app *model.MemberApplication, action, nodeID string, completed bool, now time.Time) {
+func engineStageLabel(nodeID string) string {
+	switch nodeID {
+	case "officer":
+		return engineStageOfficer
+	case "president":
+		return engineStagePresident
+	case "minister":
+		return engineStageMinister
+	case "":
+		return ""
+	default:
+		return nodeID
+	}
+}
+
+func applyEngineOutcome(app *model.MemberApplication, action, nodeID string, completed, lastApproval bool, now time.Time) {
 	app.UpdatedAt = now
 	app.ReviewedAt = &now
 	if action == actionReject {
@@ -59,45 +78,73 @@ func applyEngineOutcome(app *model.MemberApplication, action, nodeID string, com
 		app.CurrentStage = stageLabel(model.AppApproved)
 		return
 	}
+	next := engineStageLabel(nodeID)
+	if next != "" && app.CurrentStage != next {
+		app.StageEnteredAt = now
+	}
 	app.AdmissionStage = model.AdmissionEngine
-	if nodeID == "president" {
+	app.CurrentStage = next
+	if lastApproval {
 		app.Status = model.AppReviewing
-		app.CurrentStage = engineStagePresident
+		if app.CurrentStage == "" {
+			app.CurrentStage = engineStagePresident
+		}
 		return
 	}
 	app.Status = model.AppPending
-	app.CurrentStage = engineStageMinister
+	if app.CurrentStage == "" {
+		app.CurrentStage = engineStageMinister
+	}
+}
+
+func lastEngineApproval(ctx context.Context, flow *engine.FlowEngine, instanceID uuid.UUID, nodeID string) (bool, error) {
+	if flow == nil || nodeID == "" {
+		return false, nil
+	}
+	return flow.IsLastApplicationApproval(ctx, instanceID, nodeID)
 }
 
 func skipMinisterNode(app *model.MemberApplication) bool {
 	return app != nil && app.DepartmentID == nil
 }
 
-func engineReviewPermission(actor *model.AdmissionActor, app *model.MemberApplication, parent *uuid.UUID, nodeID, comment string, now time.Time) error {
-	role := engineNodeRole(nodeID)
-	if role == "" {
+func engineReviewPermission(actor *model.AdmissionActor, app *model.MemberApplication, parent *uuid.UUID, role, comment string, now time.Time) error {
+	return engineReviewAccess(actor, app, parent, role, false, comment, now, true)
+}
+
+func engineReviewAccess(actor *model.AdmissionActor, app *model.MemberApplication, parent *uuid.UUID, role string, departmentScope bool, comment string, now time.Time, requireComment bool) error {
+	if strings.TrimSpace(role) == "" {
 		return admissionDenied("当前环节不可审批")
 	}
-	allowed, delegated := admissionAuthority(actor, app, parent, role)
+	allowed, delegated := admissionRoleAuthority(actor, app, parent, role, departmentScope)
 	if !allowed {
 		return admissionDenied("无权审批该入会申请")
 	}
-	// 部长节点只允许意向部门部长立即处理；社长/中心主任须走既有 24h 代签规则。
-	if delegated && (strings.TrimSpace(comment) == "" || now.Before(app.StageEnteredAt.Add(24*time.Hour))) {
+	return engineDelegationGate(delegated, comment, app.StageEnteredAt, now, requireComment)
+}
+
+// engineTransferPickerPermission is the same authority check as review, but
+// listing candidates has no comment yet. Delegates still wait 24h.
+func engineTransferPickerPermission(actor *model.AdmissionActor, app *model.MemberApplication, parent *uuid.UUID, role string, now time.Time) error {
+	return engineReviewAccess(actor, app, parent, role, false, "", now, false)
+}
+
+func engineTransferPickerAccess(actor *model.AdmissionActor, app *model.MemberApplication, parent *uuid.UUID, role string, departmentScope bool, now time.Time) error {
+	return engineReviewAccess(actor, app, parent, role, departmentScope, "", now, false)
+}
+
+func engineDelegationGate(delegated bool, comment string, entered, now time.Time, requireComment bool) error {
+	if !delegated {
+		return nil
+	}
+	if now.Before(entered.Add(24*time.Hour)) || (requireComment && strings.TrimSpace(comment) == "") {
 		return admissionDenied("超时24小时后上级才可代签，并须填写原因")
 	}
 	return nil
 }
 
 func engineNodeRole(nodeID string) string {
-	switch nodeID {
-	case "minister":
-		return "minister"
-	case "president":
-		return "president"
-	default:
-		return ""
-	}
+	return engine.ResolveApprovalRole(nodeID, "")
 }
 
 func (s *admissionService) tryEngineReview(ctx context.Context, viewer, id uuid.UUID, action, comment string, required []string) (bool, error) {
@@ -163,7 +210,11 @@ func (s *admissionService) runEngineReview(
 	if completed {
 		return nil, response.NewError(response.CodeConflict, "入会流程已结束")
 	}
-	if err := engineReviewPermission(actor, app, parent, nodeID, comment, s.now()); err != nil {
+	role, scoped, err := flow.ApprovalPolicy(ctx, *app.FlowInstanceID, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	if err := engineReviewAccess(actor, app, parent, role, scoped, comment, s.now(), true); err != nil {
 		return nil, err
 	}
 	from := app.Status
@@ -173,7 +224,7 @@ func (s *admissionService) runEngineReview(
 			return nil, err
 		}
 		app.RequiredFields = nonemptyStrings(required)
-		applyEngineOutcome(app, action, nodeID, false, now)
+		applyEngineOutcome(app, action, nodeID, false, false, now)
 	} else {
 		if err := flow.CompleteApplicationApproval(ctx, *app.FlowInstanceID, viewer, engine.TaskAction(action), comment); err != nil {
 			return nil, err
@@ -186,7 +237,11 @@ func (s *admissionService) runEngineReview(
 			completed = false
 			nodeID = ""
 		}
-		applyEngineOutcome(app, action, nodeID, completed, now)
+		last, err := lastEngineApproval(ctx, flow, *app.FlowInstanceID, nodeID)
+		if err != nil {
+			return nil, err
+		}
+		applyEngineOutcome(app, action, nodeID, completed, last, now)
 	}
 	app.ReviewerID = &viewer
 	app.ReviewComment = comment
@@ -213,6 +268,9 @@ func membershipRole(app *model.MemberApplication) string {
 }
 
 func (s *admissionService) admitFromEngine(ctx context.Context, tx *gorm.DB, app *model.MemberApplication) error {
+	if err := ensureActiveApplicant(ctx, tx, app.UserID); err != nil {
+		return err
+	}
 	members := &memberService{apps: repo.NewApplicationRepo(tx), profs: repo.NewProfileRepo(tx)}
 	if err := members.ensureProfile(ctx, app); err != nil {
 		return err
@@ -221,4 +279,19 @@ func (s *admissionService) admitFromEngine(ctx context.Context, tx *gorm.DB, app
 		return err
 	}
 	return repo.NewAdmissionJobsRepo(tx).QueuePermissionRefresh(ctx, app.UserID)
+}
+
+func ensureActiveApplicant(ctx context.Context, tx *gorm.DB, user uuid.UUID) error {
+	var status int
+	err := tx.WithContext(ctx).Table("users").Where("id = ? AND deleted_at IS NULL", user).Select("status").Take(&status).Error
+	if err == gorm.ErrRecordNotFound {
+		return response.NewError(response.CodeMemberAppNotFound, "申请人账号不存在，无法完成录用")
+	}
+	if err != nil {
+		return err
+	}
+	if status != 0 {
+		return admissionDenied("申请人账号已停用，不能自动开通成员身份")
+	}
+	return nil
 }

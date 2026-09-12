@@ -3,8 +3,10 @@ import en from '../../../locales/en-US.json';
 import zh from '../../../locales/zh-CN.json';
 
 const keys = [
-  'title', 'approve', 'reject', 'comment', 'commentRequired', 'approved', 'rejected', 'hint', 'supplementHint', 'viewFlow',
-  'steps.apply', 'steps.minister', 'steps.president', 'steps.end',
+  'title', 'approve', 'reject', 'transfer', 'transferTo', 'transferPlaceholder', 'transferRequired', 'transferred',
+  'comment', 'commentRequired', 'approved', 'rejected', 'hint', 'supplementHint', 'viewFlow', 'editTemplate',
+  'skipped', 'countersign', 'orsign',
+  'steps.apply', 'steps.officer', 'steps.minister', 'steps.president', 'steps.end',
 ] as const;
 
 function pick(obj: Record<string, unknown>, path: string): unknown {

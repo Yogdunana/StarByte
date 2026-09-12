@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, AutoComplete, Form, InputNumber, Select } from 'antd';
+import { Alert, AutoComplete, Form, InputNumber, Select, Switch } from 'antd';
 import { getUserList } from '@/api/user';
 import { getWorkflowRoleList } from '@/api/workflow';
 import type { ApprovalConfig, ApprovalType, AssigneeStrategy } from '@/types/workflow';
@@ -7,6 +7,7 @@ import type { ApprovalConfig, ApprovalType, AssigneeStrategy } from '@/types/wor
 interface OptionItem {
   label: string;
   value: string;
+  code?: string;
 }
 
 interface ApprovalConfigFormProps {
@@ -23,7 +24,7 @@ const ApprovalConfigForm: React.FC<ApprovalConfigFormProps> = ({ value, disabled
     if (value.assigneeStrategy === 'business_role') return;
     getWorkflowRoleList()
       .then((res) =>
-        setRoleOptions((res.list ?? []).map((item) => ({ label: item.name, value: item.id }))),
+        setRoleOptions((res.list ?? []).map((item) => ({ label: `${item.name} (${item.code})`, value: item.id, code: item.code }))),
       )
       .catch(() => setRoleOptions([]));
   }, [value.assigneeStrategy]);
@@ -84,13 +85,23 @@ const ApprovalConfigForm: React.FC<ApprovalConfigFormProps> = ({ value, disabled
         <Form.Item label="角色">
           <AutoComplete
             disabled={disabled}
-            value={value.roleId}
+            value={value.roleId || value.roleCode}
             options={roleOptions}
-            onChange={(roleId: string) => patch({ roleId })}
-            placeholder="选择角色"
+            onChange={(roleId: string) => {
+              const selected = roleOptions.find((item) => item.value === roleId);
+              patch({ roleId, roleCode: selected?.code || roleId });
+            }}
+            placeholder="选择角色或填写 roleCode"
           />
         </Form.Item>
       )}
+      <Form.Item label="允许转交">
+        <Switch
+          disabled={disabled}
+          checked={value.allowTransfer !== false}
+          onChange={(allowTransfer) => patch({ allowTransfer })}
+        />
+      </Form.Item>
       <Form.Item label="多人策略">
         <Select
           disabled={disabled}

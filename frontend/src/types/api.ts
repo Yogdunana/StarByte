@@ -329,6 +329,33 @@ export interface MemberApplication {
   updated_at: string;
 }
 
+export interface ApplicationProgressStep {
+  id: string;
+  label: string;
+  type: string;
+  role?: string;
+  state: 'done' | 'current' | 'pending' | 'skipped' | string;
+  approval_type?: string;
+  allow_transfer?: boolean;
+}
+
+export interface ApplicationProgress {
+  application_id: string;
+  instance_id: string;
+  status: number;
+  current_node_ids: string[];
+  completed: boolean;
+  terminated: boolean;
+  editable: boolean;
+  steps: ApplicationProgressStep[];
+}
+
+export interface TransferCandidate {
+  id: string;
+  name: string;
+  department_name?: string;
+}
+
 export interface MemberProjectItem {
   name: string;
   role: string;

@@ -21,6 +21,9 @@ type MemberService interface {
 	Approve(ctx context.Context, reviewer, id uuid.UUID, comment string) (*dto.ApplicationResponse, error)
 	Reject(ctx context.Context, reviewer, id uuid.UUID, comment string) (*dto.ApplicationResponse, error)
 	Supplement(ctx context.Context, reviewer, id uuid.UUID, req *dto.SupplementRequest) (*dto.ApplicationResponse, error)
+	Transfer(ctx context.Context, reviewer, id, target uuid.UUID, comment string) (*dto.ApplicationResponse, error)
+	ApplicationProgress(ctx context.Context, viewer, id uuid.UUID, scope *rbacModel.DataScopeCondition) (*dto.ApplicationProgressResponse, error)
+	TransferCandidates(ctx context.Context, viewer, id uuid.UUID, keyword string) ([]dto.TransferCandidate, error)
 	ListDepartments(ctx context.Context) ([]dto.DepartmentOption, error)
 
 	ListProfiles(ctx context.Context, viewer uuid.UUID, req *dto.ListProfileRequest, scope *rbacModel.DataScopeCondition) ([]*dto.ProfileResponse, int64, error)

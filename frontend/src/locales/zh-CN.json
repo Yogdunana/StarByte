@@ -731,20 +731,30 @@
     "engine": {
       "title": "入会审批进度",
       "steps": {
-        "apply": "干事申请",
+        "apply": "提交申请",
+        "officer": "干事审批",
         "minister": "部长审批",
         "president": "社长审批",
         "end": "结束"
       },
       "approve": "同意",
       "reject": "拒绝",
+      "transfer": "转交",
+      "transferTo": "转交给",
+      "transferPlaceholder": "搜索并选择接收人",
+      "transferRequired": "转交须选择接收人",
+      "transferred": "已转交当前审批",
       "comment": "审批意见",
       "commentRequired": "拒绝须填写原因",
       "approved": "已同意并推进流程",
       "rejected": "已拒绝该申请",
-      "hint": "新申请走默认部长 → 社长链。更复杂的分支可在流程设计器编辑 member_application 定义后发布新版本。",
+      "hint": "默认模板为干事 → 部长 → 社长。可在流程设计器编辑 member_application：增删节点、或签/会签、条件分支后发布新版本。",
       "supplementHint": "已要求补充材料，请等待申请人重新提交。",
-      "viewFlow": "查看流程实例"
+      "viewFlow": "查看流程实例",
+      "editTemplate": "编辑流程模板",
+      "skipped": "已按条件跳过",
+      "countersign": "会签",
+      "orsign": "或签"
     }
   },
   "task": {

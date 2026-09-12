@@ -3,6 +3,7 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -13,11 +14,16 @@ const MemberApplicationDefinitionKey = "member_application"
 // without creating assignees when a member application has no department.
 const SkipMinisterVariable = "skip_minister"
 
-func skipMinisterApproval(node *FlowNode, vars map[string]interface{}) bool {
-	if node == nil || node.ID != "minister" || vars == nil {
+// SkipOfficerVariable skips the officer node for member-type applications.
+const SkipOfficerVariable = "skip_officer"
+
+var roleCodePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{1,32}$`)
+
+func truthyVar(vars map[string]interface{}, key string) bool {
+	if vars == nil || key == "" {
 		return false
 	}
-	switch v := vars[SkipMinisterVariable].(type) {
+	switch v := vars[key].(type) {
 	case bool:
 		return v
 	case string:
@@ -27,23 +33,122 @@ func skipMinisterApproval(node *FlowNode, vars map[string]interface{}) bool {
 	}
 }
 
-// MemberApplicationBPMN is the React Flow graph seeded by 000061.
+func skipWhenKey(node *FlowNode) string {
+	if node == nil || (node.Type != "" && node.Type != "approval") {
+		return ""
+	}
+	if node.Config != nil {
+		if key, _ := node.Config["skipWhen"].(string); key != "" {
+			return key
+		}
+	}
+	switch node.ID {
+	case "officer":
+		return SkipOfficerVariable
+	case "minister":
+		return SkipMinisterVariable
+	default:
+		return ""
+	}
+}
+
+func skipIfEmptyNode(node *FlowNode) bool {
+	if node == nil || node.Config == nil {
+		return false
+	}
+	switch v := node.Config["skipIfEmpty"].(type) {
+	case bool:
+		return v
+	case string:
+		return v == "true" || v == "1"
+	default:
+		return false
+	}
+}
+
+// skipApplicationApproval reports whether an approval node should be passed
+// through without creating tasks (condition variable or legacy skip flags).
+func skipApplicationApproval(node *FlowNode, vars map[string]interface{}) bool {
+	return truthyVar(vars, skipWhenKey(node))
+}
+
+// skipMinisterApproval is the phase-1 helper; kept for existing tests.
+func skipMinisterApproval(node *FlowNode, vars map[string]interface{}) bool {
+	return skipApplicationApproval(node, vars) && node != nil && node.ID == "minister"
+}
+
+func approvalDepartmentScope(node *FlowNode) bool {
+	if node == nil || node.Config == nil {
+		return false
+	}
+	switch v := node.Config["departmentScope"].(type) {
+	case bool:
+		return v
+	case string:
+		return v == "true" || v == "1"
+	default:
+		return false
+	}
+}
+
+func approvalRoleCode(node *FlowNode) string {
+	if node == nil || node.Config == nil {
+		return ""
+	}
+	code, _ := node.Config["roleCode"].(string)
+	return strings.TrimSpace(code)
+}
+
+func approvalTypeOf(node *FlowNode) string {
+	if node == nil || node.Config == nil {
+		return ""
+	}
+	raw, _ := node.Config["approvalType"].(string)
+	if raw == "" {
+		return "any"
+	}
+	return raw
+}
+
+func nodeAllowsTransfer(node *FlowNode) bool {
+	if node == nil || node.Config == nil {
+		return true
+	}
+	switch v := node.Config["allowTransfer"].(type) {
+	case bool:
+		return v
+	case string:
+		return v != "false" && v != "0"
+	default:
+		return true
+	}
+}
+
+// MemberApplicationBPMN is the React Flow graph seeded by 000061 / 000070.
+// Default spine: 干事审批 → 部长审批 → 社长审批. Extra nodes are allowed at publish time.
 func MemberApplicationBPMN() []byte {
 	raw, err := json.Marshal(map[string]interface{}{
 		"nodes": []map[string]interface{}{
-			node("start", "start", "干事申请", 20, nil),
-			node("minister", "approval", "部长审批", 160, map[string]interface{}{
+			node("start", "start", "提交申请", 20, nil),
+			node("officer", "approval", "干事审批", 160, map[string]interface{}{
+				"assigneeStrategy": "role", "roleCode": "officer", "approvalType": "any",
+				"departmentScope": true, "allowReject": true, "allowTransfer": true, "allowRollback": false,
+				"skipWhen": SkipOfficerVariable, "skipIfEmpty": true,
+			}),
+			node("minister", "approval", "部长审批", 300, map[string]interface{}{
 				"assigneeStrategy": "role", "roleCode": "minister", "approvalType": "any",
-				"departmentScope": true, "allowReject": true, "allowTransfer": false, "allowRollback": false,
+				"departmentScope": true, "allowReject": true, "allowTransfer": true, "allowRollback": false,
+				"skipWhen": SkipMinisterVariable, "skipIfEmpty": true,
 			}),
-			node("president", "approval", "社长审批", 300, map[string]interface{}{
+			node("president", "approval", "社长审批", 440, map[string]interface{}{
 				"assigneeStrategy": "role", "roleCode": "president", "approvalType": "any",
-				"allowReject": true, "allowTransfer": false, "allowRollback": false,
+				"allowReject": true, "allowTransfer": true, "allowRollback": false,
 			}),
-			node("end", "end", "结束", 440, nil),
+			node("end", "end", "结束", 580, nil),
 		},
 		"edges": []map[string]string{
-			{"id": "start-minister", "source": "start", "target": "minister"},
+			{"id": "start-officer", "source": "start", "target": "officer"},
+			{"id": "officer-minister", "source": "officer", "target": "minister"},
 			{"id": "minister-president", "source": "minister", "target": "president"},
 			{"id": "president-end", "source": "president", "target": "end"},
 		},
@@ -66,44 +171,65 @@ func node(id, kind, label string, y int, config map[string]interface{}) map[stri
 }
 
 func validateMemberApplicationGraph(g *FlowGraph) error {
-	semantic := map[string]string{}
-	seen := map[string]bool{}
-	for id, item := range g.Nodes {
-		name := item.Type
+	if g == nil || len(g.Nodes) == 0 {
+		return fmt.Errorf("入会申请流程不能为空")
+	}
+	starts, ends, approvals := 0, 0, 0
+	for _, item := range g.Nodes {
 		switch item.Type {
-		case "start", "end":
+		case "start":
+			starts++
+		case "end":
+			ends++
 		case "approval":
-			code, _ := item.Config["roleCode"].(string)
-			if item.Config["assigneeStrategy"] != "role" || (code != "minister" && code != "president") || item.Config["approvalType"] != "any" {
-				return fmt.Errorf("入会申请节点须按角色指派部长或社长")
+			approvals++
+			code := approvalRoleCode(item)
+			if item.Config["assigneeStrategy"] != "role" || !roleCodePattern.MatchString(code) {
+				return fmt.Errorf("入会审批节点须按角色指派（roleCode）")
 			}
-			name = code
+			switch approvalTypeOf(item) {
+			case "any", "all", "single", "ratio":
+			default:
+				return fmt.Errorf("入会审批仅支持或签/会签/单人/比例")
+			}
+		case "condition", "exclusive_gateway", "parallel_gateway", "parallel", "merge", "notify":
 		default:
-			return fmt.Errorf("默认入会链不支持额外节点类型")
+			return fmt.Errorf("入会申请不支持节点类型：%s", item.Type)
 		}
-		if seen[name] {
-			return fmt.Errorf("入会申请环节重复：%s", name)
-		}
-		seen[name] = true
-		semantic[id] = name
 	}
-	actual := map[string]bool{}
-	for _, edge := range g.Edges {
-		actual[semantic[edge.Source]+">"+semantic[edge.Target]] = true
+	if starts != 1 || ends < 1 {
+		return fmt.Errorf("入会申请须有且仅有一个开始节点，以及至少一个结束节点")
 	}
-	pattern := []string{"start>minister", "minister>president", "president>end"}
-	if len(actual) != len(pattern) || len(g.Edges) != len(pattern) || len(g.Nodes) != 4 {
-		return fmt.Errorf("默认入会链必须为：干事申请 → 部长审批 → 社长审批 → 结束")
+	if approvals < 1 {
+		return fmt.Errorf("入会申请至少需要一个审批节点")
 	}
-	for _, edge := range pattern {
-		if !actual[edge] {
-			return fmt.Errorf("默认入会链必须为：干事申请 → 部长审批 → 社长审批 → 结束")
-		}
-		for _, part := range strings.Split(edge, ">") {
-			if !seen[part] {
-				return fmt.Errorf("默认入会链缺少环节：%s", part)
-			}
-		}
+	start := g.FindStartNode()
+	if start == nil {
+		return fmt.Errorf("入会申请缺少开始节点")
+	}
+	if !memberApplicationReachesEnd(g, start.ID) {
+		return fmt.Errorf("入会申请必须能从开始节点到达结束")
 	}
 	return nil
+}
+
+func memberApplicationReachesEnd(g *FlowGraph, startID string) bool {
+	seen := map[string]bool{}
+	queue := []string{startID}
+	for len(queue) > 0 {
+		id := queue[0]
+		queue = queue[1:]
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		node := g.GetNode(id)
+		if node != nil && node.Type == "end" {
+			return true
+		}
+		for _, edge := range g.GetNextNodes(id, "") {
+			queue = append(queue, edge.Target)
+		}
+	}
+	return false
 }

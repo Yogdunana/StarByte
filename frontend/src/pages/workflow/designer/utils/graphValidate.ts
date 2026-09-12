@@ -34,7 +34,7 @@ function validateApproval(graph: FlowGraphData, issues: ValidationIssue[]): void
       if (strategy === 'static' && (!config.assignees || config.assignees.length === 0)) {
         issues.push({ level: 'error', message: `审批节点「${node.data.name}」未选择审批人` });
       }
-      if (strategy === 'role' && !config.roleId) {
+      if (strategy === 'role' && !config.roleId && !config.roleCode) {
         issues.push({ level: 'error', message: `审批节点「${node.data.name}」未选择角色` });
       }
     });

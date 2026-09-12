@@ -134,7 +134,7 @@ POST /api/v1/contracts
 
 ### 会员 / 面试 / 会议 / 任务 / 实习
 
-- 入会：`/member/applications`、审核 approve/reject/supplement（新申请走 `member_application` 流程实例）、`/member/profiles`
+- 入会：`/member/applications`、审核 approve/reject/supplement/transfer（新申请走可配置 `member_application`：干事→部长→社长，`GET .../progress` 看进度）、`/member/profiles`
 - 面试：`/interviews`、sessions、evaluations、stats
 - 会议：`/meetings`、attendees、agendas、votes
 - 任务：`/tasks`、指派/转交/评论/附件、`/tasks/my/*`；开启审核验收的新任务走 `task_lifecycle` 流程实例（`GET|POST /tasks/:id/workflow`，拒绝终止实例）。委托/转办：`POST /tasks/:id/transfer` 或 `POST /tasks/:id/handover`（同部门直接委托，跨部门/中心走 `task_transfer_*` 签字）；`GET /tasks/:id/handover`、`POST /tasks/:id/handover/decisions`（body 须带 `transfer_id`）、`GET|POST /tasks/transfers/:id`。创建时可按部门/角色/轮询自动分配。超时由调度扫描流程待办 `dueDays` 并升级/重新分配。

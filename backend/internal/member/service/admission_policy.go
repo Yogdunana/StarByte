@@ -23,23 +23,41 @@ func sameDepartment(left, right *uuid.UUID) bool {
 	return left != nil && right != nil && *left == *right
 }
 func admissionAuthority(actor *model.AdmissionActor, app *model.MemberApplication, parent *uuid.UUID, role string) (allowed, delegated bool) {
+	return admissionRoleAuthority(actor, app, parent, role, false)
+}
+
+func admissionRoleAuthority(actor *model.AdmissionActor, app *model.MemberApplication, parent *uuid.UUID, role string, departmentScope bool) (allowed, delegated bool) {
 	if actor == nil || actor.ID == app.UserID {
 		return false, false
 	}
 	president := hasAdmissionRole(actor, "president")
 	minister := hasAdmissionRole(actor, "minister") && sameDepartment(actor.DepartmentID, app.DepartmentID)
+	officer := hasAdmissionRole(actor, "officer") && sameDepartment(actor.DepartmentID, app.DepartmentID)
 	center := (hasAdmissionRole(actor, "vice_president") || hasAdmissionRole(actor, "center_director")) && sameDepartment(actor.DepartmentID, parent)
 	switch role {
 	case "materials":
 		return president || minister || center, false
+	case "officer":
+		return officer || minister || center || president, !officer
 	case "minister":
 		return minister || center || president, !minister
 	case "center":
 		return center || president, !center
 	case "president":
 		return president, false
+	default:
+		holds := hasAdmissionRole(actor, role)
+		if holds && (!departmentScope || sameDepartment(actor.DepartmentID, app.DepartmentID)) {
+			return true, false
+		}
+		if president {
+			return true, true
+		}
+		if departmentScope && center {
+			return true, true
+		}
+		return false, false
 	}
-	return false, false
 }
 func requiredAdmissionRoles(stage string) []string {
 	switch stage {
