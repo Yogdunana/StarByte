@@ -64,6 +64,7 @@ export const darkTokens: ThemeConfig['token'] = {
   colorInfo: '#d4d0c8',
   colorText: '#eceae4',
   colorTextSecondary: '#a8a49a',
+  colorTextLightSolid: '#1c1c1a',
   colorBgLayout: '#121211',
   colorBgContainer: '#1c1c1a',
   colorBorder: '#33322e',

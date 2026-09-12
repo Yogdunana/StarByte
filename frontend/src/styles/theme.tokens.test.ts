@@ -6,6 +6,7 @@ describe('antd theme tokens', () => {
     expect(lightTheme.token?.colorPrimary).toBe('#2f3530');
     expect(lightTheme.token?.colorBgLayout).toBe('#f3f2ee');
     expect(darkTokens?.colorPrimary).toBe('#d4d0c8');
+    expect(darkTokens?.colorTextLightSolid).toBe('#1c1c1a');
     expect(darkTokens?.colorBgLayout).toBe('#121211');
     expect(lightTheme.components?.Button).toMatchObject({ primaryShadow: 'none' });
     expect(darkComponents?.Layout).toMatchObject({ siderBg: '#1c1c1a' });

@@ -5,13 +5,17 @@
 .sidebar {
   border-right: 1px solid var(--sb-border) !important;
   background: var(--sb-surface) !important;
-  align-self: stretch;
+  align-self: flex-start;
+  position: sticky !important;
+  top: 0;
+  height: 100dvh;
+  overflow: hidden;
   /* Snap width; labels fade with Motion (transform/opacity only). */
   transition: none !important;
 }
 .shell :global(.ant-layout-sider) { transition: none !important; }
 .sidebar :global(.ant-layout-sider-children) {
-  height: 100dvh;
+  height: 100%;
   display: flex;
   flex-direction: column;
 }
