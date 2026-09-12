@@ -66,11 +66,11 @@ func (s *admissionService) runEngineTransfer(
 	if completed {
 		return nil, response.NewError(response.CodeConflict, "入会流程已结束")
 	}
-	role, err := flow.ApprovalRoleCode(ctx, *app.FlowInstanceID, nodeID)
+	role, scoped, err := flow.ApprovalPolicy(ctx, *app.FlowInstanceID, nodeID)
 	if err != nil {
 		return nil, err
 	}
-	if err := engineReviewPermission(actor, app, parent, role, comment, s.now()); err != nil {
+	if err := engineReviewAccess(actor, app, parent, role, scoped, comment, s.now(), true); err != nil {
 		return nil, err
 	}
 	if err := flow.TransferApplicationApproval(ctx, *app.FlowInstanceID, viewer, target, comment); err != nil {
@@ -157,11 +157,11 @@ func (s *admissionService) TransferCandidates(ctx context.Context, viewer, id uu
 	if completed {
 		return nil, response.NewError(response.CodeConflict, "入会流程已结束")
 	}
-	role, err := s.flow.ApprovalRoleCode(ctx, *app.FlowInstanceID, nodeID)
+	role, scoped, err := s.flow.ApprovalPolicy(ctx, *app.FlowInstanceID, nodeID)
 	if err != nil {
 		return nil, err
 	}
-	if err := engineTransferPickerPermission(actor, app, parent, role, s.now()); err != nil {
+	if err := engineTransferPickerAccess(actor, app, parent, role, scoped, s.now()); err != nil {
 		return nil, err
 	}
 	rows, err := wfrepo.NewApproverRepo(s.db).Search(ctx, keyword, viewer)
@@ -197,32 +197,40 @@ func (s *admissionService) canViewEngineProgress(ctx context.Context, store repo
 			return err
 		}
 	}
-	for _, role := range progressReviewRoles(ctx, s.flow, app) {
-		if allowed, _ := admissionAuthority(actor, app, parent, role); allowed {
+	for _, policy := range progressReviewPolicies(ctx, s.flow, app) {
+		if allowed, _ := admissionRoleAuthority(actor, app, parent, policy.Role, policy.DepartmentScope); allowed {
 			return nil
 		}
 	}
 	return admissionDenied("无权查看该申请审批进度")
 }
 
-func progressReviewRoles(ctx context.Context, flow *engine.FlowEngine, app *model.MemberApplication) []string {
-	roles := []string{"officer", "minister", "president"}
+func progressReviewPolicies(ctx context.Context, flow *engine.FlowEngine, app *model.MemberApplication) []engine.ApplicationRolePolicy {
+	policies := []engine.ApplicationRolePolicy{
+		{Role: "officer"}, {Role: "minister"}, {Role: "president"},
+	}
 	if flow == nil || app == nil || app.FlowInstanceID == nil {
-		return roles
+		return policies
 	}
-	extra, err := flow.ApplicationApprovalRoles(ctx, *app.FlowInstanceID)
+	extra, err := flow.ApplicationApprovalPolicies(ctx, *app.FlowInstanceID)
 	if err != nil {
-		return roles
+		return policies
 	}
-	seen := map[string]bool{"officer": true, "minister": true, "president": true}
-	for _, role := range extra {
-		if role == "" || seen[role] {
+	index := map[string]int{"officer": 0, "minister": 1, "president": 2}
+	for _, policy := range extra {
+		if policy.Role == "" {
 			continue
 		}
-		seen[role] = true
-		roles = append(roles, role)
+		if i, ok := index[policy.Role]; ok {
+			if i >= 3 {
+				policies[i].DepartmentScope = policies[i].DepartmentScope || policy.DepartmentScope
+			}
+			continue
+		}
+		index[policy.Role] = len(policies)
+		policies = append(policies, policy)
 	}
-	return roles
+	return policies
 }
 
 func mapTransferCandidate(row wfmodel.ApproverOption) dto.TransferCandidate {

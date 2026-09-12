@@ -39,6 +39,18 @@ func TestAdmissionAuthority(t *testing.T) {
 			}
 		})
 	}
+
+	same := model.AdmissionActor{ID: uuid.New(), DepartmentID: &dept, Roles: []string{"dept_lead"}}
+	other := model.AdmissionActor{ID: uuid.New(), DepartmentID: &center, Roles: []string{"dept_lead"}}
+	allowed, delegated := admissionRoleAuthority(&same, app, &center, "dept_lead", true)
+	require.True(t, allowed)
+	require.False(t, delegated)
+	allowed, delegated = admissionRoleAuthority(&other, app, &center, "dept_lead", true)
+	require.False(t, allowed)
+	require.False(t, delegated)
+	allowed, delegated = admissionRoleAuthority(&other, app, &center, "dept_lead", false)
+	require.True(t, allowed)
+	require.False(t, delegated)
 }
 func TestApplicantSnapshotRedactsObjectionInternals(t *testing.T) {
 	raised, reviewer := uuid.New(), uuid.New()

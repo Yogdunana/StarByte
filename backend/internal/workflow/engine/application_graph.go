@@ -77,6 +77,20 @@ func skipMinisterApproval(node *FlowNode, vars map[string]interface{}) bool {
 	return skipApplicationApproval(node, vars) && node != nil && node.ID == "minister"
 }
 
+func approvalDepartmentScope(node *FlowNode) bool {
+	if node == nil || node.Config == nil {
+		return false
+	}
+	switch v := node.Config["departmentScope"].(type) {
+	case bool:
+		return v
+	case string:
+		return v == "true" || v == "1"
+	default:
+		return false
+	}
+}
+
 func approvalRoleCode(node *FlowNode) string {
 	if node == nil || node.Config == nil {
 		return ""

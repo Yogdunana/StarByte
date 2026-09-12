@@ -309,25 +309,32 @@ func (e *FlowEngine) findPendingApprovalTasks(ctx context.Context, instanceID uu
 // ApprovalRoleCode returns the published roleCode for an approval node,
 // falling back to the default officer/minister/president node IDs.
 func (e *FlowEngine) ApprovalRoleCode(ctx context.Context, instanceID uuid.UUID, nodeID string) (string, error) {
+	role, _, err := e.ApprovalPolicy(ctx, instanceID, nodeID)
+	return role, err
+}
+
+// ApprovalPolicy returns the published roleCode and departmentScope for a node.
+func (e *FlowEngine) ApprovalPolicy(ctx context.Context, instanceID uuid.UUID, nodeID string) (string, bool, error) {
 	inst, err := e.instRepo.GetByID(ctx, instanceID)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	if inst == nil {
-		return "", response.NewError(response.CodeWorkflowInstNotFound, "流程实例不存在")
+		return "", false, response.NewError(response.CodeWorkflowInstNotFound, "流程实例不存在")
 	}
 	version, err := e.defRepo.GetVersionByID(ctx, inst.DefinitionVersionID)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	if version == nil {
-		return "", response.NewError(response.CodeWorkflowVerNotFound, "审批流程版本不存在")
+		return "", false, response.NewError(response.CodeWorkflowVerNotFound, "审批流程版本不存在")
 	}
 	graph, err := ParseGraph(version.BpmnData)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
-	return ResolveApprovalRole(nodeID, approvalRoleCode(graph.GetNode(nodeID))), nil
+	node := graph.GetNode(nodeID)
+	return ResolveApprovalRole(nodeID, approvalRoleCode(node)), approvalDepartmentScope(node), nil
 }
 
 // IsLastApplicationApproval reports whether nodeID is the last human
@@ -386,6 +393,46 @@ func (e *FlowEngine) ApplicationApprovalRoles(ctx context.Context, instanceID uu
 		}
 		seen[role] = true
 		out = append(out, role)
+	}
+	return out, nil
+}
+
+// ApplicationRolePolicy is one approval node's published role and department fence.
+type ApplicationRolePolicy struct {
+	Role            string
+	DepartmentScope bool
+}
+
+// ApplicationApprovalPolicies lists roleCode + departmentScope for each approval node.
+func (e *FlowEngine) ApplicationApprovalPolicies(ctx context.Context, instanceID uuid.UUID) ([]ApplicationRolePolicy, error) {
+	inst, err := e.instRepo.GetByID(ctx, instanceID)
+	if err != nil {
+		return nil, err
+	}
+	if inst == nil {
+		return nil, response.NewError(response.CodeWorkflowInstNotFound, "流程实例不存在")
+	}
+	version, err := e.defRepo.GetVersionByID(ctx, inst.DefinitionVersionID)
+	if err != nil {
+		return nil, err
+	}
+	if version == nil {
+		return nil, response.NewError(response.CodeWorkflowVerNotFound, "审批流程版本不存在")
+	}
+	graph, err := ParseGraph(version.BpmnData)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ApplicationRolePolicy, 0, 4)
+	for _, node := range graph.Nodes {
+		if node == nil || node.Type != "approval" {
+			continue
+		}
+		role := ResolveApprovalRole(node.ID, approvalRoleCode(node))
+		if role == "" {
+			continue
+		}
+		out = append(out, ApplicationRolePolicy{Role: role, DepartmentScope: approvalDepartmentScope(node)})
 	}
 	return out, nil
 }

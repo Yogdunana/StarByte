@@ -205,6 +205,13 @@ func TestEngineReviewPermissionKeepsDelegation(t *testing.T) {
 	require.Error(t, engineReviewPermission(officer, app, &center, "hr", "", now))
 	require.Error(t, engineReviewPermission(president, app, &center, "hr", "代签", now))
 
+	lead := &model.AdmissionActor{ID: uuid.New(), DepartmentID: &dept, Roles: []string{"dept_lead"}}
+	otherLead := &model.AdmissionActor{ID: uuid.New(), DepartmentID: &center, Roles: []string{"dept_lead"}}
+	require.NoError(t, engineReviewAccess(lead, app, &center, "dept_lead", true, "", now, true))
+	require.Error(t, engineReviewAccess(otherLead, app, &center, "dept_lead", true, "", now, true))
+	require.Error(t, engineTransferPickerAccess(otherLead, app, &center, "dept_lead", true, now))
+	require.NoError(t, engineTransferPickerAccess(lead, app, &center, "dept_lead", true, now))
+
 	later := now.Add(25 * time.Hour)
 	require.NoError(t, engineReviewPermission(president, app, &center, "minister", "超时代签", later))
 	require.Error(t, engineReviewPermission(president, app, &center, "minister", "", later))

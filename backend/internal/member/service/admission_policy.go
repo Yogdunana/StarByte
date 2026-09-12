@@ -23,6 +23,10 @@ func sameDepartment(left, right *uuid.UUID) bool {
 	return left != nil && right != nil && *left == *right
 }
 func admissionAuthority(actor *model.AdmissionActor, app *model.MemberApplication, parent *uuid.UUID, role string) (allowed, delegated bool) {
+	return admissionRoleAuthority(actor, app, parent, role, false)
+}
+
+func admissionRoleAuthority(actor *model.AdmissionActor, app *model.MemberApplication, parent *uuid.UUID, role string, departmentScope bool) (allowed, delegated bool) {
 	if actor == nil || actor.ID == app.UserID {
 		return false, false
 	}
@@ -42,10 +46,14 @@ func admissionAuthority(actor *model.AdmissionActor, app *model.MemberApplicatio
 	case "president":
 		return president, false
 	default:
-		if hasAdmissionRole(actor, role) {
+		holds := hasAdmissionRole(actor, role)
+		if holds && (!departmentScope || sameDepartment(actor.DepartmentID, app.DepartmentID)) {
 			return true, false
 		}
 		if president {
+			return true, true
+		}
+		if departmentScope && center {
 			return true, true
 		}
 		return false, false

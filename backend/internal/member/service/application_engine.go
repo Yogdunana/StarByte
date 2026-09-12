@@ -109,27 +109,28 @@ func skipMinisterNode(app *model.MemberApplication) bool {
 }
 
 func engineReviewPermission(actor *model.AdmissionActor, app *model.MemberApplication, parent *uuid.UUID, role, comment string, now time.Time) error {
+	return engineReviewAccess(actor, app, parent, role, false, comment, now, true)
+}
+
+func engineReviewAccess(actor *model.AdmissionActor, app *model.MemberApplication, parent *uuid.UUID, role string, departmentScope bool, comment string, now time.Time, requireComment bool) error {
 	if strings.TrimSpace(role) == "" {
 		return admissionDenied("当前环节不可审批")
 	}
-	allowed, delegated := admissionAuthority(actor, app, parent, role)
+	allowed, delegated := admissionRoleAuthority(actor, app, parent, role, departmentScope)
 	if !allowed {
 		return admissionDenied("无权审批该入会申请")
 	}
-	return engineDelegationGate(delegated, comment, app.StageEnteredAt, now, true)
+	return engineDelegationGate(delegated, comment, app.StageEnteredAt, now, requireComment)
 }
 
 // engineTransferPickerPermission is the same authority check as review, but
 // listing candidates has no comment yet. Delegates still wait 24h.
 func engineTransferPickerPermission(actor *model.AdmissionActor, app *model.MemberApplication, parent *uuid.UUID, role string, now time.Time) error {
-	if strings.TrimSpace(role) == "" {
-		return admissionDenied("当前环节不可审批")
-	}
-	allowed, delegated := admissionAuthority(actor, app, parent, role)
-	if !allowed {
-		return admissionDenied("无权审批该入会申请")
-	}
-	return engineDelegationGate(delegated, "", app.StageEnteredAt, now, false)
+	return engineReviewAccess(actor, app, parent, role, false, "", now, false)
+}
+
+func engineTransferPickerAccess(actor *model.AdmissionActor, app *model.MemberApplication, parent *uuid.UUID, role string, departmentScope bool, now time.Time) error {
+	return engineReviewAccess(actor, app, parent, role, departmentScope, "", now, false)
 }
 
 func engineDelegationGate(delegated bool, comment string, entered, now time.Time, requireComment bool) error {
@@ -209,11 +210,11 @@ func (s *admissionService) runEngineReview(
 	if completed {
 		return nil, response.NewError(response.CodeConflict, "入会流程已结束")
 	}
-	role, err := flow.ApprovalRoleCode(ctx, *app.FlowInstanceID, nodeID)
+	role, scoped, err := flow.ApprovalPolicy(ctx, *app.FlowInstanceID, nodeID)
 	if err != nil {
 		return nil, err
 	}
-	if err := engineReviewPermission(actor, app, parent, role, comment, s.now()); err != nil {
+	if err := engineReviewAccess(actor, app, parent, role, scoped, comment, s.now(), true); err != nil {
 		return nil, err
 	}
 	from := app.Status

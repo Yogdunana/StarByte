@@ -298,6 +298,14 @@ func TestApprovalRoleCodeFromGraph(t *testing.T) {
 	role, err := e.ApprovalRoleCode(context.Background(), inst.ID, "officer")
 	require.NoError(t, err)
 	require.Equal(t, "officer", role)
+	role, scoped, err := e.ApprovalPolicy(context.Background(), inst.ID, "officer")
+	require.NoError(t, err)
+	require.Equal(t, "officer", role)
+	require.True(t, scoped)
+	role, scoped, err = e.ApprovalPolicy(context.Background(), inst.ID, "president")
+	require.NoError(t, err)
+	require.Equal(t, "president", role)
+	require.False(t, scoped)
 	role, err = e.ApprovalRoleCode(context.Background(), inst.ID, "president")
 	require.NoError(t, err)
 	require.Equal(t, "president", role)
@@ -306,6 +314,15 @@ func TestApprovalRoleCodeFromGraph(t *testing.T) {
 	roles, err := e.ApplicationApprovalRoles(context.Background(), inst.ID)
 	require.NoError(t, err)
 	require.ElementsMatch(t, []string{"officer", "minister", "president"}, roles)
+	policies, err := e.ApplicationApprovalPolicies(context.Background(), inst.ID)
+	require.NoError(t, err)
+	scopedByRole := map[string]bool{}
+	for _, policy := range policies {
+		scopedByRole[policy.Role] = policy.DepartmentScope
+	}
+	require.True(t, scopedByRole["officer"])
+	require.True(t, scopedByRole["minister"])
+	require.False(t, scopedByRole["president"])
 }
 
 func TestIsLastApplicationApprovalDefaultSpine(t *testing.T) {
