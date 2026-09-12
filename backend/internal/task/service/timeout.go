@@ -104,12 +104,10 @@ func (s *taskService) escalateHolder(ctx context.Context, t *model.Task, stage s
 	if err != nil {
 		return err
 	}
-	if next == uuid.Nil && t.CreatorID != *current && validateWorkflowAssignee(t, &t.CreatorID) == nil {
-		if stage != "execution" || validateWorkflowAssignee(t, &t.CreatorID) == nil {
-			next = t.CreatorID
-		}
+	if next == uuid.Nil && t.CreatorID != *current && canTakeEscalatedStage(t, stage, t.CreatorID) {
+		next = t.CreatorID
 	}
-	if next == uuid.Nil || next == *current {
+	if next == uuid.Nil || next == *current || !canTakeEscalatedStage(t, stage, next) {
 		return s.recordEscalate(ctx, t, stage, t.CreatorID, "超时无法重新分配，已通知发布人")
 	}
 	if err := s.flow.ReassignStage(ctx, *t.WorkflowInstanceID, stage, *current, next, t.CreatorID, "超时升级重新分配"); err != nil {
@@ -121,6 +119,20 @@ func (s *taskService) escalateHolder(ctx context.Context, t *model.Task, stage s
 		return err
 	}
 	return s.recordEscalate(ctx, t, stage, next, "超时升级重新分配")
+}
+
+func canTakeEscalatedStage(t *model.Task, stage string, id uuid.UUID) bool {
+	if id == uuid.Nil {
+		return false
+	}
+	switch stage {
+	case "execution":
+		return validateWorkflowAssignee(t, &id) == nil
+	case "review", "acceptance":
+		return t.AssigneeID == nil || *t.AssigneeID != id
+	default:
+		return true
+	}
 }
 
 func (s *taskService) pickEscalationTarget(ctx context.Context, t *model.Task, extra []uuid.UUID) (uuid.UUID, error) {

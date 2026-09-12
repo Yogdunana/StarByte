@@ -104,6 +104,37 @@ func TestEscalateOverdueReviewFallsBackToCreator(t *testing.T) {
 	}
 }
 
+func TestEscalateOverdueReviewDoesNotGiveExecutorCreatorTheGate(t *testing.T) {
+	svc, tasks, stub, ids := workflowFixture(t)
+	svc.transfers = newMemTransfers()
+	svc.assignments = &assignmentStub{}
+	ctx := context.Background()
+	row, err := svc.Create(ctx, ids[0], &dto.CreateTaskRequest{
+		Title: "Self execute", AssigneeID: ids[0].String(),
+		Workflow: &dto.WorkflowConfig{ReviewerID: ids[2].String(), AcceptorID: ids[3].String()},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.MustParse(row.ID)
+	tasks.items[id].WorkflowStage = "review"
+	stub.stage = "review"
+	stub.overdue = []engine.OverdueCollaborationTodo{{
+		InstanceID: *tasks.items[id].WorkflowInstanceID, BusinessKey: id.String(), Stage: "review",
+		AssigneeID: &ids[2], DueDate: time.Now().Add(-time.Hour),
+	}}
+	n, err := svc.EscalateOverdueWorkflows(ctx)
+	if err != nil || n != 1 {
+		t.Fatalf("escalate review: n=%d err=%v", n, err)
+	}
+	if tasks.items[id].ReviewerID == nil || *tasks.items[id].ReviewerID != ids[2] {
+		t.Fatalf("executor-publisher received review gate: %v", tasks.items[id].ReviewerID)
+	}
+	if tasks.items[id].AssigneeID == nil || *tasks.items[id].AssigneeID != ids[0] {
+		t.Fatal("assignee changed during blocked review escalate")
+	}
+}
+
 func TestPickEscalationTargetUsesLiveDepartment(t *testing.T) {
 	svc, _, _, ids := workflowFixture(t)
 	src, dst := uuid.New(), uuid.New()
