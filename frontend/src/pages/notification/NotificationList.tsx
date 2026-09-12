@@ -1,3 +1,4 @@
+import { notificationActionURL } from './actionURL';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Table, Button, Select, Space, Typography, message, Switch } from 'antd';
 import { CheckOutlined, ReloadOutlined } from '@ant-design/icons';
@@ -103,9 +104,8 @@ const NotificationList: React.FC = () => {
   };
 
   const handleAction = (record: Notification) => {
-    if (record.action_url) {
-      navigate(record.action_url);
-    }
+    const url = notificationActionURL(record);
+    if (url) navigate(url);
   };
 
   const columns = getNotificationColumns({

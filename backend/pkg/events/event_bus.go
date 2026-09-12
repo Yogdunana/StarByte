@@ -49,12 +49,15 @@ func (e FlowTerminatedEvent) GetInstanceID() uuid.UUID { return e.InstanceID }
 
 // TaskCreatedEvent is published when a new flow task is created.
 type TaskCreatedEvent struct {
-	InstanceID uuid.UUID
-	TaskID     uuid.UUID
-	AssigneeID uuid.UUID
-	NodeID     string
-	NodeName   string
-	TaskType   string
+	BusinessType  string
+	BusinessKey   string
+	ApplicantName string
+	InstanceID    uuid.UUID
+	TaskID        uuid.UUID
+	AssigneeID    uuid.UUID
+	NodeID        string
+	NodeName      string
+	TaskType      string
 }
 
 func (e TaskCreatedEvent) EventName() string        { return "task.created" }

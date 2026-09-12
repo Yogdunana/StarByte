@@ -96,14 +96,18 @@ func (n *ApprovalNode) OnEnter(ctx context.Context, inst *model.FlowInstance, no
 			return err
 		}
 
-		// Publish TaskCreatedEvent.
+		// Publish task context so notifications can identify and open the approval.
+		applicantName, _ := vars["real_name"].(string)
 		n.EventBus.Publish(ctx, events.TaskCreatedEvent{
-			InstanceID: inst.ID,
-			TaskID:     task.ID,
-			AssigneeID: assigneeID,
-			NodeID:     node.ID,
-			NodeName:   node.Label,
-			TaskType:   "approval",
+			BusinessType:  inst.BusinessType,
+			BusinessKey:   inst.BusinessKey,
+			ApplicantName: applicantName,
+			InstanceID:    inst.ID,
+			TaskID:        task.ID,
+			AssigneeID:    assigneeID,
+			NodeID:        node.ID,
+			NodeName:      node.Label,
+			TaskType:      "approval",
 		})
 	}
 

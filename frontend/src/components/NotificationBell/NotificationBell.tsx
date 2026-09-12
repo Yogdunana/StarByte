@@ -1,3 +1,4 @@
+import { notificationActionURL } from '@/pages/notification/actionURL';
 import React, { useCallback } from 'react';
 import { Badge, Popover, List, Typography, Button, Empty, Tag, Tooltip } from 'antd';
 import { BellOutlined, CheckOutlined } from '@ant-design/icons';
@@ -78,12 +79,7 @@ const NotificationBell: React.FC = () => {
 
   const handleNotificationClick = useCallback(
     (notification: Notification) => {
-      // 如果有 action_url 跳转
-      if (notification.action_url?.startsWith('/') && !notification.action_url.startsWith('//')) {
-        navigate(notification.action_url);
-      } else {
-        navigate('/notification/list');
-      }
+      navigate(notificationActionURL(notification) || '/notification/list');
       // 标记已读
       if (!notification.is_read) {
         dispatch(markNotificationAsRead(notification.id));
