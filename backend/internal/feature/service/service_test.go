@@ -280,6 +280,33 @@ func TestStartHotReloadIgnoresStaleSnapshot(t *testing.T) {
 	}
 }
 
+func TestReloadSkipsUntrustedSnapshot(t *testing.T) {
+	rows := newMemRepo()
+	store := &stickySetSnapshot{
+		setErr: errors.New("redis set failed"),
+		delErr: errors.New("redis del failed"),
+	}
+	svc := New(rows, store, NewMemoryBus(), stubRoles{}, stubUsers{}, stubPerms{}).(*flagService)
+	ctx := context.Background()
+	id := uuid.New()
+	_ = rows.Create(ctx, &model.Flag{
+		ID: id, FlagKey: model.KeyCMSPublic, Name: "CMS", FlagType: model.TypeBoolean, Enabled: false,
+	})
+	store.flags = []model.Flag{{
+		ID: id, FlagKey: model.KeyCMSPublic, Name: "CMS", FlagType: model.TypeBoolean, Enabled: false,
+	}}
+	on := true
+	if _, err := svc.Toggle(ctx, uuid.New(), id, &dto.ToggleRequest{Enabled: &on}); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.reload(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !svc.Enabled(ctx, model.KeyCMSPublic, feature.Subject{}) {
+		t.Fatal("reload must not treat leftover Redis as authoritative after a failed SET/DEL")
+	}
+}
+
 func TestUnknownKeyDoesNotRollBackFreshMemory(t *testing.T) {
 	rows := newMemRepo()
 	store := &stickySetSnapshot{

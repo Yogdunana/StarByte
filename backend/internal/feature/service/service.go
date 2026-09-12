@@ -47,15 +47,16 @@ type Service interface {
 }
 
 type flagService struct {
-	rows   repo.Repository
-	store  SnapshotStore
-	bus    Broadcaster
-	roles  RoleLookup
-	users  UserLookup
-	perms  PermLookup
-	mu     sync.RWMutex
-	memory map[string]model.Flag
-	loaded bool
+	rows            repo.Repository
+	store           SnapshotStore
+	bus             Broadcaster
+	roles           RoleLookup
+	users           UserLookup
+	perms           PermLookup
+	mu              sync.RWMutex
+	memory          map[string]model.Flag
+	loaded          bool
+	snapshotTrusted bool
 }
 
 func New(rows repo.Repository, store SnapshotStore, bus Broadcaster, roles RoleLookup, users UserLookup, perms PermLookup) Service {
@@ -347,12 +348,19 @@ func (s *flagService) lookup(ctx context.Context, key string) *model.Flag {
 }
 
 func (s *flagService) reload(ctx context.Context) error {
+	s.mu.RLock()
+	trusted := s.snapshotTrusted
+	s.mu.RUnlock()
+	// After SET+DEL both fail, Redis still holds a leftover generation.
+	// Do not Get it — that would roll gates back to the stale snapshot.
+	if !trusted {
+		return s.reloadFromDB(ctx)
+	}
 	flags, err := s.store.Get(ctx)
 	if err != nil {
 		logCacheErr("snapshot-get", err)
-		flags = nil
+		return s.reloadFromDB(ctx)
 	}
-	// Empty / missing Redis must not wipe a fresher in-memory view.
 	if len(flags) == 0 {
 		return s.reloadFromDB(ctx)
 	}
@@ -383,9 +391,15 @@ func (s *flagService) syncSnapshot(ctx context.Context, flags []model.Flag) bool
 		logCacheErr("snapshot-set", err)
 		if delErr := s.store.Delete(ctx); delErr != nil {
 			logCacheErr("snapshot-del", delErr)
+			s.mu.Lock()
+			s.snapshotTrusted = false
+			s.mu.Unlock()
 			return false
 		}
 	}
+	s.mu.Lock()
+	s.snapshotTrusted = true
+	s.mu.Unlock()
 	return true
 }
 
