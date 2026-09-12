@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/feature/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/feature/model"
@@ -20,6 +21,9 @@ type Repository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	CreateAudit(ctx context.Context, row *model.Audit) error
 	ListAudits(ctx context.Context, q dto.AuditQuery) ([]model.Audit, int64, error)
+	LatestMutableAudit(ctx context.Context, flagID uuid.UUID) (*model.Audit, error)
+	CreateExposure(ctx context.Context, row *model.Exposure) error
+	SummarizeExposures(ctx context.Context, flagKey string, since time.Time) ([]model.ExposureBucket, error)
 }
 
 type repo struct{ db *gorm.DB }
@@ -101,6 +105,35 @@ func (r *repo) ListAudits(ctx context.Context, q dto.AuditQuery) ([]model.Audit,
 	var rows []model.Audit
 	err := query.Order("created_at DESC").Offset((page - 1) * size).Limit(size).Find(&rows).Error
 	return rows, total, err
+}
+
+func (r *repo) LatestMutableAudit(ctx context.Context, flagID uuid.UUID) (*model.Audit, error) {
+	var row model.Audit
+	err := r.db.WithContext(ctx).
+		Where("flag_id = ? AND before_json IS NOT NULL AND action IN ?", flagID, []string{
+			model.ActionUpdate, model.ActionToggle, model.ActionScheduleOn, model.ActionScheduleOff, model.ActionRollback,
+		}).
+		Order("created_at DESC").
+		First(&row).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &row, err
+}
+
+func (r *repo) CreateExposure(ctx context.Context, row *model.Exposure) error {
+	return r.db.WithContext(ctx).Create(row).Error
+}
+
+func (r *repo) SummarizeExposures(ctx context.Context, flagKey string, since time.Time) ([]model.ExposureBucket, error) {
+	var rows []model.ExposureBucket
+	err := r.db.WithContext(ctx).Model(&model.Exposure{}).
+		Select("variant, COUNT(DISTINCT user_id) AS count, BOOL_OR(enabled) AS enabled").
+		Where("flag_key = ? AND created_at >= ? AND user_id IS NOT NULL", flagKey, since).
+		Group("variant").
+		Order("count DESC").
+		Scan(&rows).Error
+	return rows, err
 }
 
 func normalizePage(page, size int) (int, int) {

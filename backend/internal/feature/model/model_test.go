@@ -5,8 +5,11 @@ import (
 )
 
 func TestValidType(t *testing.T) {
-	if !ValidType(TypeBoolean) || ValidType("ab_test") {
+	if !ValidType(TypeBoolean) || !ValidType(TypeABTest) || ValidType("wasm") {
 		t.Fatal("valid type")
+	}
+	if !ValidEnv(EnvProd) || ValidEnv("production") {
+		t.Fatal("valid env")
 	}
 }
 
@@ -34,4 +37,5 @@ func TestRulesValueScan(t *testing.T) {
 	}
 	_ = Flag{}.TableName()
 	_ = Audit{}.TableName()
+	_ = Exposure{}.TableName()
 }

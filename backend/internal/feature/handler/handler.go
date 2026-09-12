@@ -197,6 +197,50 @@ func (h *Handler) Audit(c *gin.Context) {
 	response.Page(c, list, total, q.Page, q.PageSize)
 }
 
+// Analytics 曝光分析
+// @Summary 特性开关曝光分析
+// @Tags 特性开关
+// @Produce json
+// @Param id path string true "开关 ID"
+// @Param days query int false "天数，默认 7"
+// @Success 200 {object} response.Response
+// @Router /system/features/{id}/analytics [get]
+// @Security BearerAuth
+func (h *Handler) Analytics(c *gin.Context) {
+	id, err := parseID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	var q dto.AnalyticsQuery
+	_ = c.ShouldBindQuery(&q)
+	out, err := h.svc.Analytics(c.Request.Context(), id, q.Days)
+	write(c, out, err)
+}
+
+// Rollback 回滚到最近一次可逆审计
+// @Summary 回滚特性开关
+// @Tags 特性开关
+// @Produce json
+// @Param id path string true "开关 ID"
+// @Success 200 {object} response.Response
+// @Router /system/features/{id}/rollback [post]
+// @Security BearerAuth
+func (h *Handler) Rollback(c *gin.Context) {
+	uid, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	id, err := parseID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	out, err := h.svc.Rollback(c.Request.Context(), uid, id)
+	write(c, out, err)
+}
+
 // EvaluateMe 当前调用方开关快照（公开；有 JWT 则按用户评估，否则匿名 subject）
 // @Summary 当前用户开关快照
 // @Tags 特性开关

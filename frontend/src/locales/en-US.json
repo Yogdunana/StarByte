@@ -850,7 +850,7 @@
   },
   "feature": {
     "gated": "This feature is in a limited rollout and is not enabled for you yet.",
-    "intro": "Pre-recruitment grayscale: toggling a flag hot-reloads via Redis. Login and CAS are never gated.",
+    "intro": "Feature flags: Redis hot-reload, timed on/off, multi-variant AB, and APP_ENV targeting (dev/test/prod). Login and CAS are never gated.",
     "search": "Search key or name",
     "create": "New flag",
     "created": "Created",
@@ -875,11 +875,38 @@
     "action": "Action",
     "reason": "Reason",
     "time": "Time",
+    "effective": "Effective",
+    "schedule": "Schedule",
+    "startsAt": "Enable at",
+    "endsAt": "Disable at",
+    "environments": "Environments",
+    "environmentsAll": "All environments (empty)",
+    "variants": "Variants",
+    "variant": "Variant",
+    "weight": "Weight",
+    "addVariant": "Add variant",
+    "analytics": "Exposures",
+    "exposureTotal": "Unique user exposures",
+    "exposureCount": "Users",
+    "rollback": "Rollback",
+    "rollbackHint": "Restore rules from the latest update, toggle, or schedule audit.",
+    "rolledBack": "Rolled back",
+    "scheduleStates": {
+      "pending": "Pending",
+      "active": "In window",
+      "expired": "Expired"
+    },
+    "envs": {
+      "dev": "Dev",
+      "test": "Test",
+      "prod": "Prod"
+    },
     "types": {
       "boolean": "Boolean",
       "user_allowlist": "User list",
       "role_dept": "Role / dept",
-      "percentage": "Percentage"
+      "percentage": "Percentage",
+      "ab_test": "A/B test"
     }
   },
   "cms": {

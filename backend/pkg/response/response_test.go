@@ -460,6 +460,7 @@ func TestModuleRanges(t *testing.T) {
 	assert.Equal(t, 34999, r[1])
 	assert.Equal(t, 34001, CodeFeatureNotFound)
 	assert.Equal(t, 34007, CodeFeatureDisabled)
+	assert.Equal(t, 34008, CodeFeatureNoRollback)
 	assert.True(t, r[0] > ModuleRanges["knowledge"][1], "feature must not collide with knowledge 33000-33999")
 }
 

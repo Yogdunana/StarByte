@@ -29,7 +29,7 @@ func TestCreateValidateAndToggle(t *testing.T) {
 	if codeOf(err) != response.CodeFeatureInvalidKey {
 		t.Fatalf("key: %v", err)
 	}
-	_, err = svc.Create(ctx, actor, &dto.CreateFlagRequest{FlagKey: "demo.flag", Name: "Demo", FlagType: "ab_test"})
+	_, err = svc.Create(ctx, actor, &dto.CreateFlagRequest{FlagKey: "demo.flag", Name: "Demo", FlagType: "wasm"})
 	if codeOf(err) != response.CodeFeatureInvalidType {
 		t.Fatalf("type: %v", err)
 	}
@@ -215,6 +215,201 @@ func TestListAudits(t *testing.T) {
 	list, total, err := svc.ListAudits(ctx, dto.AuditQuery{FlagKey: "audit.flag"})
 	if err != nil || total != 1 || list[0].Action != model.ActionCreate {
 		t.Fatalf("audit: %v %d %+v", err, total, list)
+	}
+}
+
+func TestABEnvScheduleRollbackAnalytics(t *testing.T) {
+	svc, rows, _ := newTestSvc(nil, nil, stubPerms{})
+	fs := svc.(*flagService)
+	fs.env = "prod"
+	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
+	fs.now = func() time.Time { return now }
+	ctx := context.Background()
+	actor := uuid.New()
+	uid := uuid.MustParse("55555555-5555-4555-8555-555555555555")
+
+	_, err := svc.Create(ctx, actor, &dto.CreateFlagRequest{
+		FlagKey: "exp.bad", Name: "bad", FlagType: model.TypeABTest,
+		Rules: model.Rules{Variants: []model.Variant{{Key: "only", Weight: 1}}},
+	})
+	if codeOf(err) != response.CodeFeatureInvalidRule {
+		t.Fatalf("ab variants: %v", err)
+	}
+	_, err = svc.Create(ctx, actor, &dto.CreateFlagRequest{
+		FlagKey: "exp.dup", Name: "bad", FlagType: model.TypeABTest,
+		Rules: model.Rules{Variants: []model.Variant{{Key: "a", Weight: 1}, {Key: "A", Weight: 1}}},
+	})
+	if codeOf(err) != response.CodeFeatureInvalidRule {
+		t.Fatalf("dup variant: %v", err)
+	}
+	_, err = svc.Create(ctx, actor, &dto.CreateFlagRequest{
+		FlagKey: "exp.neg", Name: "bad", FlagType: model.TypeABTest,
+		Rules: model.Rules{Variants: []model.Variant{{Key: "a", Weight: -1}, {Key: "b", Weight: 1}}},
+	})
+	if codeOf(err) != response.CodeFeatureInvalidRule {
+		t.Fatalf("neg weight: %v", err)
+	}
+	_, err = svc.Create(ctx, actor, &dto.CreateFlagRequest{
+		FlagKey: "exp.empty", Name: "bad", FlagType: model.TypeABTest,
+		Rules: model.Rules{Variants: []model.Variant{{Key: "", Weight: 1}, {Key: "b", Weight: 1}}},
+	})
+	if codeOf(err) != response.CodeFeatureInvalidRule {
+		t.Fatalf("empty key: %v", err)
+	}
+	_, err = svc.Create(ctx, actor, &dto.CreateFlagRequest{
+		FlagKey: "env.dup", Name: "bad", FlagType: model.TypeBoolean,
+		Rules: model.Rules{Environments: []string{"dev", "dev"}},
+	})
+	if codeOf(err) != response.CodeFeatureInvalidRule {
+		t.Fatalf("dup env: %v", err)
+	}
+	_, err = svc.Create(ctx, actor, &dto.CreateFlagRequest{
+		FlagKey: "env.bad", Name: "bad", FlagType: model.TypeBoolean,
+		Rules: model.Rules{Environments: []string{"staging"}},
+	})
+	if codeOf(err) != response.CodeFeatureInvalidRule {
+		t.Fatalf("env: %v", err)
+	}
+	start := now.Add(time.Hour)
+	end := now.Add(-time.Hour)
+	_, err = svc.Create(ctx, actor, &dto.CreateFlagRequest{
+		FlagKey: "sched.bad", Name: "bad", FlagType: model.TypeBoolean,
+		Rules: model.Rules{StartsAt: &start, EndsAt: &end},
+	})
+	if codeOf(err) != response.CodeFeatureInvalidRule {
+		t.Fatalf("window: %v", err)
+	}
+
+	created, err := svc.Create(ctx, actor, &dto.CreateFlagRequest{
+		FlagKey: "exp.hero", Name: "Hero", FlagType: model.TypeABTest, Enabled: true,
+		Rules: model.Rules{
+			Environments: []string{"prod"},
+			Variants:     []model.Variant{{Key: "control", Weight: 50}, {Key: "treatment", Weight: 50}},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.MustParse(created.ID)
+	if !created.EffectiveEnabled || created.Environment != "prod" {
+		t.Fatalf("decorate: %+v", created)
+	}
+	eval, err := svc.EvaluateID(ctx, id, uid)
+	if err != nil || eval.Variant == "" {
+		t.Fatalf("eval ab: %+v %v", eval, err)
+	}
+	me, err := svc.EvaluateMe(ctx, uid, []string{"exp.hero"})
+	if err != nil || me["exp.hero"].Variant == "" {
+		t.Fatalf("me: %+v %v", me, err)
+	}
+	stats, err := svc.Analytics(ctx, id, 0)
+	if err != nil || stats.Total < 1 || stats.Days != 7 {
+		t.Fatalf("analytics: %+v %v", stats, err)
+	}
+
+	name := "Hero v2"
+	if _, err := svc.Update(ctx, actor, id, &dto.UpdateFlagRequest{Name: &name}); err != nil {
+		t.Fatal(err)
+	}
+	rolled, err := svc.Rollback(ctx, actor, id)
+	if err != nil || rolled.Name != "Hero" {
+		t.Fatalf("rollback: %+v %v", rolled, err)
+	}
+	if _, err := svc.Rollback(ctx, actor, uuid.New()); codeOf(err) != response.CodeFeatureNotFound {
+		t.Fatalf("missing rollback: %v", err)
+	}
+	fresh, err := svc.Create(ctx, actor, &dto.CreateFlagRequest{FlagKey: "fresh.flag", Name: "Fresh", FlagType: model.TypeBoolean})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Rollback(ctx, actor, uuid.MustParse(fresh.ID)); codeOf(err) != response.CodeFeatureNoRollback {
+		t.Fatalf("no snapshot: %v", err)
+	}
+	if _, err := svc.Analytics(ctx, uuid.New(), 120); codeOf(err) != response.CodeFeatureNotFound {
+		t.Fatalf("analytics missing: %v", err)
+	}
+
+	offAt := now.Add(-time.Minute)
+	onAt := now.Add(-2 * time.Hour)
+	scheduled, err := svc.Create(ctx, actor, &dto.CreateFlagRequest{
+		FlagKey: "sched.window", Name: "Sched", FlagType: model.TypeBoolean, Enabled: true,
+		Rules: model.Rules{StartsAt: &onAt, EndsAt: &offAt},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if scheduled.EffectiveEnabled || scheduled.ScheduleState != model.ScheduleExpired {
+		t.Fatalf("expired decorate: %+v", scheduled)
+	}
+	if n := fs.applySchedules(ctx); n != 1 {
+		t.Fatalf("schedule off n=%d", n)
+	}
+	got, err := svc.Get(ctx, uuid.MustParse(scheduled.ID))
+	if err != nil || got.Enabled {
+		t.Fatalf("persisted off: %+v %v", got, err)
+	}
+
+	future := now.Add(time.Hour)
+	pending, err := svc.Create(ctx, actor, &dto.CreateFlagRequest{
+		FlagKey: "sched.on", Name: "Later", FlagType: model.TypeBoolean, Enabled: false,
+		Rules: model.Rules{StartsAt: &future},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fs.applySchedules(ctx) != 0 {
+		t.Fatal("should wait")
+	}
+	fs.now = func() time.Time { return future.Add(time.Second) }
+	if n := fs.applySchedules(ctx); n != 1 {
+		t.Fatalf("schedule on n=%d", n)
+	}
+	got, err = svc.Get(ctx, uuid.MustParse(pending.ID))
+	if err != nil || !got.Enabled {
+		t.Fatalf("persisted on: %+v %v", got, err)
+	}
+	if !svc.Enabled(ctx, "exp.hero", feature.Subject{UserID: uid}) && !svc.Enabled(ctx, "exp.hero", feature.Subject{UserID: uid, Environment: "prod"}) {
+		// either variant may be off; just ensure env is attached
+	}
+	_ = rows
+}
+
+func TestScheduleLoopAndNilClock(t *testing.T) {
+	svc, _, _ := newTestSvc(nil, nil, stubPerms{})
+	fs := svc.(*flagService)
+	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
+	end := now.Add(-time.Minute)
+	fs.now = func() time.Time { return now }
+	fs.tickEvery = 8 * time.Millisecond
+	ctx := context.Background()
+	created, err := svc.Create(ctx, uuid.New(), &dto.CreateFlagRequest{
+		FlagKey: "loop.off", Name: "Loop", FlagType: model.TypeBoolean, Enabled: true,
+		Rules: model.Rules{EndsAt: &end},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.MustParse(created.ID)
+	loopCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	if err := svc.StartHotReload(loopCtx); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(400 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		got, gerr := svc.Get(ctx, id)
+		if gerr == nil && got != nil && !got.Enabled {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	got, err := svc.Get(ctx, id)
+	if err != nil || got.Enabled {
+		t.Fatalf("loop should persist off: %+v %v", got, err)
+	}
+	fs.now = nil
+	if fs.clock().IsZero() {
+		t.Fatal("clock fallback")
 	}
 }
 

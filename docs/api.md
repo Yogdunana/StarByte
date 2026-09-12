@@ -206,3 +206,20 @@ WAL 增量 / 指定时间点恢复（PITR）需要主机级 `pg_basebackup` + WA
 - `POST /knowledge/docs/:id/attachments` 关联已有 `files` 记录
 
 公告模块（#77）仍是时效通知，不并入知识库。
+
+### 特性开关 / 灰度（#98）
+
+管理（`feature:read` / `feature:create` / `feature:update` / `feature:manage`）：
+
+- `GET|POST /system/features`、`GET|PUT /system/features/:id`
+- `GET /system/features/:id/evaluate` 按用户评估（可带 `user_id`）
+- `GET /system/features/:id/analytics?days=7` 独立用户曝光（按变体）
+- `POST /system/features/:id/toggle` 切换启用
+- `POST /system/features/:id/rollback` 回滚最近一次可逆审计（无快照 `34008`）
+- `GET /system/features/audit`
+
+公开 SDK：
+
+- `GET /features/me?keys=cms.public,announcement.feed`（可选 JWT；名单/百分比/AB 匿名 fail closed）
+
+规则字段：`starts_at` / `ends_at`（定时）、`environments`（`dev|test|prod`）、`variants`（`ab_test`）。WASM 客户端不做，浏览器走 HTTP SDK。
