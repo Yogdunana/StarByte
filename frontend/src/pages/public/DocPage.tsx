@@ -2,8 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Spin, Typography } from 'antd';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
-import { getPublicDoc } from '@/api/knowledge';
+import { getPublicDoc, isKnowledgeLoginRequired } from '@/api/knowledge';
 import type { KnowledgeDoc } from '@/api/knowledge';
 import { loginPath } from '@/utils/nextPath';
 import MarkdownArticle from './MarkdownArticle';
@@ -20,9 +19,7 @@ const DocPage: React.FC = () => {
     getPublicDoc(slug)
       .then(setDoc)
       .catch((err: unknown) => {
-        const status = axios.isAxiosError(err) ? err.response?.status : 0;
-        const code = axios.isAxiosError(err) ? (err.response?.data as { code?: number } | undefined)?.code : 0;
-        if (status === 401 || code === 33004) {
+        if (isKnowledgeLoginRequired(err)) {
           navigate(loginPath(`/docs/${slug}`), { replace: true });
           return;
         }

@@ -1,3 +1,4 @@
+import axios from 'axios';
 import request from './request';
 import type { PageResponse } from '@/types/api';
 
@@ -69,6 +70,13 @@ export interface KnowledgeVersion {
 }
 
 const publicOpts = { skipAuthRedirect: true, silent: true };
+
+export function isKnowledgeLoginRequired(err: unknown): boolean {
+  if (!axios.isAxiosError(err)) return false;
+  const status = err.response?.status;
+  const code = (err.response?.data as { code?: number } | undefined)?.code;
+  return status === 401 || code === 33004;
+}
 
 export function getPublicPage(slug: string): Promise<KnowledgeDoc> {
   return request.get(`/knowledge/public/pages/${slug}`, publicOpts);
