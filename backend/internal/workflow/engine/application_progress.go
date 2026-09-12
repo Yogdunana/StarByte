@@ -180,21 +180,28 @@ func walkNodeIDs(g *FlowGraph, starts []string) []string {
 	return order
 }
 
-// lastApplicationApproval is true when no other approval node is reachable
-// after nodeID (condition / gateway branches included).
-func lastApplicationApproval(g *FlowGraph, nodeID string) bool {
+// lastApplicationApproval is true when nodeID is the only remaining approval
+// on the instance frontier (current nodes plus everything reachable from them).
+// Parallel siblings therefore stay pending until only one approval is left.
+func lastApplicationApproval(g *FlowGraph, currentIDs []string, nodeID string) bool {
 	if g == nil || nodeID == "" || g.GetNode(nodeID) == nil {
 		return false
 	}
-	starts := []string{}
-	for _, edge := range g.GetNextNodes(nodeID, "") {
-		starts = append(starts, edge.Target)
+	starts := currentIDs
+	if len(starts) == 0 {
+		starts = []string{nodeID}
 	}
+	remaining := 0
+	found := false
 	for _, id := range walkNodeIDs(g, starts) {
 		node := g.GetNode(id)
-		if node != nil && node.Type == "approval" {
-			return false
+		if node == nil || node.Type != "approval" {
+			continue
+		}
+		remaining++
+		if id == nodeID {
+			found = true
 		}
 	}
-	return true
+	return found && remaining == 1
 }

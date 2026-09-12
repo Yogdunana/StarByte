@@ -318,7 +318,12 @@ func TestIsLastApplicationApprovalDefaultSpine(t *testing.T) {
 	last, err := e.IsLastApplicationApproval(context.Background(), inst.ID, "officer")
 	require.NoError(t, err)
 	require.False(t, last)
-	last, err = e.IsLastApplicationApproval(context.Background(), inst.ID, "president")
+
+	final, err := e.Start(context.Background(), MemberApplicationDefinitionKey, uuid.New().String(), "member_application", applicant, map[string]interface{}{
+		SkipOfficerVariable: true, SkipMinisterVariable: true,
+	})
+	require.NoError(t, err)
+	last, err = e.IsLastApplicationApproval(context.Background(), final.ID, "president")
 	require.NoError(t, err)
 	require.True(t, last)
 }

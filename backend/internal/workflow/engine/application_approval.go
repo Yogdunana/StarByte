@@ -351,7 +351,7 @@ func (e *FlowEngine) IsLastApplicationApproval(ctx context.Context, instanceID u
 	if err != nil {
 		return false, err
 	}
-	return lastApplicationApproval(graph, nodeID), nil
+	return lastApplicationApproval(graph, GetCurrentNodeIDs(inst.CurrentNodeIDs), nodeID), nil
 }
 
 // ApplicationApprovalRoles lists roleCode values on the instance graph.
