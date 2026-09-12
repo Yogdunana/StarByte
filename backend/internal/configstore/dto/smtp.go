@@ -16,12 +16,13 @@ type SMTPSettingsResponse struct {
 }
 
 type UpdateSMTPRequest struct {
-	Host     string `json:"host" binding:"required,max=255"`
-	Port     int    `json:"port" binding:"required,min=1,max=65535"`
-	SSLMode  string `json:"ssl_mode" binding:"required"`
-	From     string `json:"from" binding:"required,email,max=200"`
-	FromName string `json:"from_name" binding:"required,max=100"`
-	Username string `json:"username" binding:"omitempty,max=200"`
+	Password *string `json:"password,omitempty" binding:"omitempty,max=4096"`
+	Host     string  `json:"host" binding:"required,max=255"`
+	Port     int     `json:"port" binding:"required,min=1,max=65535"`
+	SSLMode  string  `json:"ssl_mode" binding:"required"`
+	From     string  `json:"from" binding:"required,email,max=200"`
+	FromName string  `json:"from_name" binding:"required,max=100"`
+	Username string  `json:"username" binding:"omitempty,max=200"`
 }
 
 type TestSMTPRequest struct {

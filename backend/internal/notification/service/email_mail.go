@@ -54,16 +54,18 @@ func smtpReady(cfg config.EmailConfig) error {
 	if cfg.SMTPHost == "" || cfg.SMTPPort <= 0 || strings.TrimSpace(cfg.From) == "" {
 		return fmt.Errorf("smtp is not configured")
 	}
-	// Same bar as TestSMTP: campus defaults fill host/from, but sends must
-	// not dial without STARBYTE_SMTP_PASSWORD (or SMTP_PASSWORD).
-	if config.SMTPPasswordFromEnv() == "" {
+	// A password must come from the encrypted runtime setting or an environment secret.
+	if cfg.Password == "" || cfg.PasswordSource == "" {
 		return fmt.Errorf("smtp password is not configured")
 	}
 	return nil
 }
 
 func (c *EmailChannel) SendMIME(ctx context.Context, job MailJob, files []MailAttachment) error {
-	cfg := c.resolve(ctx)
+	cfg, resolveErr := c.resolve(ctx)
+	if resolveErr != nil {
+		return resolveErr
+	}
 	if err := smtpReady(cfg); err != nil {
 		return err
 	}

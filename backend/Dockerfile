@@ -50,6 +50,7 @@ WORKDIR /app
 COPY --from=builder /app/starbyte-server .
 COPY --from=builder /app/migrations ./migrations
 COPY --from=builder /app/configs ./configs
+COPY internal/export/service/fonts/OFL.txt /usr/share/licenses/starbyte/NotoSansSC-OFL.txt
 
 # 复制迁移工具和 MinIO 客户端（mc 为占位脚本，见 Stage 2）
 COPY --from=migrate-builder /usr/local/bin/migrate /usr/local/bin/migrate

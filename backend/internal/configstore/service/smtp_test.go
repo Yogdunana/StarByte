@@ -105,3 +105,46 @@ func TestProtectedSMTPKey(t *testing.T) {
 	err = svc.Delete(context.Background(), uuid.MustParse(row.ID))
 	assert.Error(t, err)
 }
+
+func TestWebSMTPPasswordPreservedAndHidden(t *testing.T) {
+	t.Setenv("STARBYTE_CONFIG_ENCRYPTION_KEY", "a2tra2tra2tra2tra2tra2tra2tra2tra2tra2tra2s=")
+	t.Setenv("STARBYTE_SMTP_PASSWORD", "")
+	t.Setenv("SMTP_PASSWORD", "")
+	svc, tester := newSMTPSvc(t)
+	ctx := context.Background()
+	secret := "web-only-password"
+	req := &dto.UpdateSMTPRequest{Host: "smtp.example.test", Port: 465, SSLMode: "implicit", From: "a@b.test", FromName: "Test", Password: &secret}
+	got, err := svc.UpdateSMTP(ctx, uuid.New(), req)
+	require.NoError(t, err)
+	require.True(t, got.PasswordConfigured)
+	require.Equal(t, "web", got.PasswordSource)
+	rawRow, err := svc.(*configService).rows.GetByKey(ctx, config.SMTPSettingsKey)
+	require.NoError(t, err)
+	require.NotContains(t, rawRow.ConfigValue, secret)
+	require.Contains(t, rawRow.ConfigValue, "password_ciphertext")
+	encrypted := rawRow.ConfigValue
+	row, err := svc.GetByKey(ctx, config.SMTPSettingsKey)
+	require.NoError(t, err)
+	require.NotContains(t, row.ConfigValue, "password")
+	require.NotContains(t, row.ConfigValue, secret)
+	empty := ""
+	req.Password = &empty
+	_, err = svc.UpdateSMTP(ctx, uuid.New(), req)
+	require.NoError(t, err)
+	rawRow, err = svc.(*configService).rows.GetByKey(ctx, config.SMTPSettingsKey)
+	require.NoError(t, err)
+	require.Equal(t, encrypted, rawRow.ConfigValue)
+	_, err = svc.TestSMTP(ctx, &dto.TestSMTPRequest{To: "ops@example.test"})
+	require.NoError(t, err)
+	require.Equal(t, "ops@example.test", tester.to)
+	value := "{}"
+	_, err = svc.Update(ctx, uuid.New(), rawRow.ID, &dto.UpdateConfigRequest{ConfigValue: &value})
+	require.Error(t, err)
+	_, err = svc.Create(ctx, uuid.New(), &dto.CreateConfigRequest{ConfigKey: config.SMTPSettingsKey})
+	require.Error(t, err)
+	t.Setenv("STARBYTE_CONFIG_ENCRYPTION_KEY", "")
+	_, err = svc.GetSMTP(ctx)
+	require.Error(t, err)
+	_, err = svc.UpdateSMTP(ctx, uuid.New(), req)
+	require.Error(t, err)
+}

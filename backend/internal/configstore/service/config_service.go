@@ -78,6 +78,9 @@ func (s *configService) GetByKey(ctx context.Context, key string) (*dto.ConfigRe
 
 func (s *configService) Create(ctx context.Context, operator uuid.UUID, req *dto.CreateConfigRequest) (*dto.ConfigResponse, error) {
 	key := strings.TrimSpace(req.ConfigKey)
+	if key == config.SMTPSettingsKey {
+		return nil, response.NewError(response.CodeConfigProtected, "请使用 SMTP 设置页面修改此配置")
+	}
 	if !keyPattern.MatchString(key) {
 		return nil, response.NewError(response.CodeConfigInvalidKey, "配置键须为小写字母开头，仅含字母数字._")
 	}
@@ -124,6 +127,9 @@ func (s *configService) Update(ctx context.Context, operator uuid.UUID, id uuid.
 	}
 	if row == nil {
 		return nil, response.NewError(response.CodeConfigNotFound, "配置不存在")
+	}
+	if row.ConfigKey == config.SMTPSettingsKey {
+		return nil, response.NewError(response.CodeConfigProtected, "请使用 SMTP 设置页面修改此配置")
 	}
 	if req.ConfigType != nil {
 		if !model.ValidType(*req.ConfigType) {
@@ -200,10 +206,20 @@ func validateValue(typ, raw string) error {
 }
 
 func toResp(row *model.Config) dto.ConfigResponse {
+	value := row.ConfigValue
+	if row.ConfigKey == config.SMTPSettingsKey {
+		runtime, err := config.ParseSMTPRuntime(value)
+		value = "{}"
+		if err == nil {
+			runtime.PasswordCiphertext = ""
+			raw, _ := json.Marshal(runtime)
+			value = string(raw)
+		}
+	}
 	return dto.ConfigResponse{
 		ID:          row.ID.String(),
 		ConfigKey:   row.ConfigKey,
-		ConfigValue: row.ConfigValue,
+		ConfigValue: value,
 		ConfigType:  row.ConfigType,
 		Description: row.Description,
 		Category:    row.Category,

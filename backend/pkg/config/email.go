@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	// SMTPSettingsKey is the runtime configs row for non-secret SMTP fields.
+	// SMTPSettingsKey is the runtime configs row for SMTP settings and an encrypted password.
 	SMTPSettingsKey = "smtp_settings"
 
 	SSLModeImplicit = "implicit"
@@ -21,14 +21,15 @@ const (
 	defaultSMTPSSLMode  = SSLModeImplicit
 )
 
-// SMTPRuntime is the persisted, non-secret SMTP overlay stored in configs.
+// SMTPRuntime is the persisted SMTP overlay (passwords are encrypted) stored in configs.
 type SMTPRuntime struct {
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	SSLMode  string `json:"ssl_mode"`
-	From     string `json:"from"`
-	FromName string `json:"from_name"`
-	Username string `json:"username"`
+	PasswordCiphertext string `json:"password_ciphertext,omitempty"`
+	Host               string `json:"host"`
+	Port               int    `json:"port"`
+	SSLMode            string `json:"ssl_mode"`
+	From               string `json:"from"`
+	FromName           string `json:"from_name"`
+	Username           string `json:"username"`
 }
 
 // SMTPPasswordFromEnv returns the SMTP password from the preferred secret name,
@@ -139,11 +140,11 @@ func (e EmailConfig) EffectiveSSLMode() string {
 	return defaultSMTPSSLMode
 }
 
-// ApplyEnvPassword always refreshes Password from the environment so a
-// persisted settings blob can never supply a secret.
+// ApplyEnvPassword refreshes the legacy password fallback from the environment.
 func (e EmailConfig) ApplyEnvPassword() EmailConfig {
 	if v := SMTPPasswordFromEnv(); v != "" {
 		e.Password = v
+		e.PasswordSource = SMTPPasswordSource()
 	}
 	return e
 }
