@@ -48,6 +48,11 @@ func TestResolveRoleAssigneesUsesCodeAndDepartment(t *testing.T) {
 	require.Equal(t, dept, *store.dept)
 }
 
+func TestScopedDepartmentNilWithoutDepartment(t *testing.T) {
+	require.Nil(t, scopedDepartment(map[string]interface{}{"departmentScope": true}, map[string]interface{}{}))
+	require.Nil(t, scopedDepartment(map[string]interface{}{"departmentScope": true}, map[string]interface{}{"department_id": ""}))
+}
+
 func TestValidateRoleAcceptsRoleCode(t *testing.T) {
 	node := &ApprovalNode{}
 	err := node.Validate(&engine.FlowNode{ID: "minister", Type: "approval", Config: map[string]interface{}{

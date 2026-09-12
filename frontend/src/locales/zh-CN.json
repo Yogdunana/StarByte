@@ -463,6 +463,7 @@
       "approved": "已同意并推进流程",
       "rejected": "已拒绝该申请",
       "hint": "新申请走默认部长 → 社长链。更复杂的分支可在流程设计器编辑 member_application 定义后发布新版本。",
+      "supplementHint": "已要求补充材料，请等待申请人重新提交。",
       "viewFlow": "查看流程实例"
     }
   }

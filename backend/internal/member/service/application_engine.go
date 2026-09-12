@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -56,6 +57,7 @@ func applyEngineOutcome(app *model.MemberApplication, action, nodeID string, com
 		app.CurrentStage = stageLabel(model.AppApproved)
 		return
 	}
+	app.AdmissionStage = model.AdmissionEngine
 	if nodeID == "president" {
 		app.Status = model.AppReviewing
 		app.CurrentStage = engineStagePresident
@@ -63,6 +65,26 @@ func applyEngineOutcome(app *model.MemberApplication, action, nodeID string, com
 	}
 	app.Status = model.AppPending
 	app.CurrentStage = engineStageMinister
+}
+
+func skipMinisterNode(app *model.MemberApplication) bool {
+	return app != nil && app.DepartmentID == nil
+}
+
+func engineReviewPermission(actor *model.AdmissionActor, app *model.MemberApplication, parent *uuid.UUID, nodeID, comment string, now time.Time) error {
+	role := engineNodeRole(nodeID)
+	if role == "" {
+		return admissionDenied("当前环节不可审批")
+	}
+	allowed, delegated := admissionAuthority(actor, app, parent, role)
+	if !allowed {
+		return admissionDenied("无权审批该入会申请")
+	}
+	// 部长节点只允许意向部门部长立即处理；社长/中心主任须走既有 24h 代签规则。
+	if delegated && (strings.TrimSpace(comment) == "" || now.Before(app.StageEnteredAt.Add(24*time.Hour))) {
+		return admissionDenied("超时24小时后上级才可代签，并须填写原因")
+	}
+	return nil
 }
 
 func engineNodeRole(nodeID string) string {
@@ -139,10 +161,8 @@ func (s *admissionService) runEngineReview(
 	if completed {
 		return nil, response.NewError(response.CodeConflict, "入会流程已结束")
 	}
-	role := engineNodeRole(nodeID)
-	allowed, _ := admissionAuthority(actor, app, parent, role)
-	if !allowed {
-		return nil, admissionDenied("无权审批该入会申请")
+	if err := engineReviewPermission(actor, app, parent, nodeID, comment, s.now()); err != nil {
+		return nil, err
 	}
 	from := app.Status
 	now := s.now()

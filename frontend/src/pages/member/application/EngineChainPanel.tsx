@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { approveApplication, rejectApplication } from '@/api/member';
 import type { MemberApplication } from '@/types/api';
+import { engineReviewClosed } from './engineChain';
 import styles from './AdmissionPanel.module.css';
 
 interface Props {
@@ -22,7 +23,7 @@ export default function EngineChainPanel({ record, editable, onChanged }: Props)
   const { t } = useTranslation();
   const [form] = Form.useForm<{ comment?: string }>();
   const [busy, setBusy] = useState(false);
-  const closed = record.status === 3 || record.status === 4;
+  const closed = engineReviewClosed(record.status);
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);
     try {
@@ -59,6 +60,7 @@ export default function EngineChainPanel({ record, editable, onChanged }: Props)
         </p>
       )}
       <p className={styles.hint}>{t('member.engine.hint')}</p>
+      {record.status === 5 && <p className={styles.hint}>{t('member.engine.supplementHint')}</p>}
       {editable && !closed && (
         <Form form={form} layout="vertical" className={styles.form}>
           <Form.Item name="comment" label={t('member.engine.comment')} rules={[{ max: 1000 }]}>

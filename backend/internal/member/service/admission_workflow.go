@@ -39,8 +39,18 @@ func (s *admissionService) startAdmissionWorkflow(ctx context.Context, tx *gorm.
 		return nil, err
 	}
 	app.FlowInstanceID = &inst.ID
+	app.AdmissionStage = model.AdmissionEngine
+	app.StageEnteredAt = s.now()
 	app.Status = model.AppPending
 	app.CurrentStage = engineStageMinister
+	// 无意向部门的会员申请没有对口部长，跳过部长节点直达社长。干事申请提交时已强制部门。
+	if skipMinisterNode(app) {
+		if err := flow.SkipApplicationApproval(ctx, inst.ID, "minister", app.UserID, "会员申请无意向部门，跳过部长审批"); err != nil {
+			return nil, err
+		}
+		app.Status = model.AppReviewing
+		app.CurrentStage = engineStagePresident
+	}
 	if err := store.SaveApplication(ctx, app); err != nil {
 		return nil, err
 	}

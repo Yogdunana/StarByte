@@ -3,7 +3,7 @@ import en from '../../../locales/en-US.json';
 import zh from '../../../locales/zh-CN.json';
 
 const keys = [
-  'title', 'approve', 'reject', 'comment', 'commentRequired', 'approved', 'rejected', 'hint', 'viewFlow',
+  'title', 'approve', 'reject', 'comment', 'commentRequired', 'approved', 'rejected', 'hint', 'supplementHint', 'viewFlow',
   'steps.apply', 'steps.minister', 'steps.president', 'steps.end',
 ] as const;
 

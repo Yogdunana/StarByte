@@ -16,6 +16,7 @@ const (
 	AdmissionRejected   = "rejected"
 	AdmissionSupplement = "supplement"
 	AdmissionLegacy     = "legacy_review"
+	AdmissionEngine     = "engine"
 )
 
 type AdmissionSignature struct {

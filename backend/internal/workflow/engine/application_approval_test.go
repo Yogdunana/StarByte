@@ -98,3 +98,57 @@ func TestMemberApplicationRejectStopsChain(t *testing.T) {
 	require.NoError(t, e.CompleteApplicationApproval(context.Background(), inst.ID, minister, ActionReject, "材料不符"))
 	require.Equal(t, 2, insts.insts[inst.ID].Status)
 }
+
+func TestMemberApplicationRejectTerminatesOtherPendingTasks(t *testing.T) {
+	first, second, applicant := uuid.New(), uuid.New(), uuid.New()
+	tasks := newMockTaskRepo()
+	e, insts := memberApplicationEngine(t, tasks)
+
+	inst, err := e.Start(context.Background(), MemberApplicationDefinitionKey, uuid.New().String(), "member_application", applicant, nil)
+	require.NoError(t, err)
+	addApprovalTask(tasks, inst.ID, "minister", first)
+	addApprovalTask(tasks, inst.ID, "minister", second)
+	require.NoError(t, e.CompleteApplicationApproval(context.Background(), inst.ID, first, ActionReject, "材料不符"))
+	require.Equal(t, 2, insts.insts[inst.ID].Status)
+
+	var canceled, rejected int
+	for _, task := range tasks.tasks {
+		if task.InstanceID != inst.ID {
+			continue
+		}
+		if task.AssigneeID != nil && *task.AssigneeID == first {
+			require.Equal(t, 2, task.Status)
+			rejected++
+		}
+		if task.AssigneeID != nil && *task.AssigneeID == second {
+			require.Equal(t, 5, task.Status)
+			require.Equal(t, "cancel", task.Action)
+			canceled++
+		}
+	}
+	require.Equal(t, 1, rejected)
+	require.Equal(t, 1, canceled)
+	require.Error(t, e.CompleteApplicationApproval(context.Background(), inst.ID, second, ActionApprove, "不能救活"))
+}
+
+func TestSkipMinisterAdvancesToPresident(t *testing.T) {
+	applicant := uuid.New()
+	tasks := newMockTaskRepo()
+	e, _ := memberApplicationEngine(t, tasks)
+
+	inst, err := e.Start(context.Background(), MemberApplicationDefinitionKey, uuid.New().String(), "member_application", applicant, map[string]interface{}{
+		"applicant": applicant.String(), "apply_type": int16(1),
+	})
+	require.NoError(t, err)
+	addApprovalTask(tasks, inst.ID, "minister", uuid.New())
+	require.NoError(t, e.SkipApplicationApproval(context.Background(), inst.ID, "minister", applicant, "会员申请无意向部门，跳过部长审批"))
+	nodeID, done, err := e.RunningApprovalNode(context.Background(), inst.ID)
+	require.NoError(t, err)
+	require.False(t, done)
+	require.Equal(t, "president", nodeID)
+	for _, task := range tasks.tasks {
+		if task.InstanceID == inst.ID && task.NodeID == "minister" {
+			require.NotEqual(t, 0, task.Status)
+		}
+	}
+}

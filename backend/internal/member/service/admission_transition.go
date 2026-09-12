@@ -28,6 +28,6 @@ func advanceAdmission(app *model.MemberApplication, now time.Time) {
 	}
 }
 func admissionStageLabel(stage string) string {
-	labels := map[string]string{model.AdmissionMaterials: "资料审核", model.AdmissionRound1: "一面与会签", model.AdmissionRound2: "二面与中心审批", model.AdmissionPresident: "会长最终确认", model.AdmissionProbation: "候补期", model.AdmissionApproved: "正式成员", model.AdmissionRejected: "未通过", model.AdmissionSupplement: "待补充材料", model.AdmissionLegacy: "历史待核验"}
+	labels := map[string]string{model.AdmissionMaterials: "资料审核", model.AdmissionRound1: "一面与会签", model.AdmissionRound2: "二面与中心审批", model.AdmissionPresident: "会长最终确认", model.AdmissionProbation: "候补期", model.AdmissionApproved: "正式成员", model.AdmissionRejected: "未通过", model.AdmissionSupplement: "待补充材料", model.AdmissionLegacy: "历史待核验", model.AdmissionEngine: "流程审批"}
 	return labels[stage]
 }
