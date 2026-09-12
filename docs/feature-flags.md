@@ -62,8 +62,8 @@
 
 1. 落库并写审计
 2. 从数据库重建内存，并 `SET` Redis `feature:snapshot`（避免 `DEL` 失败后旧快照被灌回）
-3. 向 `feature:invalidate` 广播
-4. 其它实例重载快照
+3. `SET` 失败则删掉旧快照；删不掉就不广播，避免对端 `Get` 到过期数据
+4. 向 `feature:invalidate` 广播，其它实例重载快照
 
 无需重启 `starbyte-server`。
 
