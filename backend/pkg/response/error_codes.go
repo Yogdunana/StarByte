@@ -37,11 +37,7 @@ package response
 //	30000-30999 Leave (#56)
 //	31000-31999 Monitor / ops dashboard (#87)
 //	32000-32999 Backup / restore (#88)
-<<<<<<< HEAD
-//	33000-33999 Knowledge / CMS (#58 / #180)
-=======
 //	33000-33999 Knowledge / public CMS (#58 / #180)
->>>>>>> c546e9b (chore(feature): 迁移改为 000066，错误码改为 34000)
 //	34000-34999 Feature flags / grayscale (#98)
 //
 //	Note: issue #71 asked for 9000-9499, but that range is already owned by
@@ -348,7 +344,6 @@ const (
 	CodeBackupNotReady        = 32009 // 备份产物不完整，无法恢复
 	CodeBackupChecksum        = 32010 // 备份校验失败
 
-<<<<<<< HEAD
 	// ===== Knowledge / CMS (#58, 33000-33999) =====
 	CodeKnowledgeNotFound      = 33001 // 文档不存在
 	CodeKnowledgeInvalidState  = 33002 // 文档状态不允许该操作
@@ -359,10 +354,7 @@ const (
 	CodeKnowledgeInvalidVis    = 33007 // 文档可见性不合法
 
 	// ===== Feature flags / grayscale (#98, 34000-34999) =====
-=======
-	// ===== Feature flags / grayscale (#98, 34000-34999) =====
-	// 33000-33999 is reserved for knowledge/CMS (#180).
->>>>>>> c546e9b (chore(feature): 迁移改为 000066，错误码改为 34000)
+	// 33000-33999 is owned by knowledge/CMS (#180).
 	CodeFeatureNotFound    = 34001 // 特性开关不存在
 	CodeFeatureKeyExists   = 34002 // 开关键已存在
 	CodeFeatureInvalidType = 34003 // 不支持的开关类型

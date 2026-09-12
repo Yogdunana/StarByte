@@ -9,20 +9,16 @@ import (
 // BypassFunc lets staff keep managing a surface while members are in grayscale.
 type BypassFunc func(*gin.Context) bool
 
-// RequireFlag aborts with 34007 when the current user misses the flag.
+// RequireFlag aborts with 34007 when the caller misses the flag.
+// Anonymous callers (no JWT) evaluate as a zero subject: boolean-on passes,
+// allowlist/percentage fail closed.
 func RequireFlag(svc service.Service, key string, bypass BypassFunc) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if bypass != nil && bypass(c) {
 			c.Next()
 			return
 		}
-		uid, err := getUserID(c)
-		if err != nil {
-			response.Error(c, err)
-			c.Abort()
-			return
-		}
-		sub, err := svc.Resolve(c.Request.Context(), uid)
+		sub, err := svc.Resolve(c.Request.Context(), optionalUserID(c))
 		if err != nil {
 			response.Error(c, err)
 			c.Abort()

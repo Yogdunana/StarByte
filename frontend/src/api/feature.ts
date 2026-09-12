@@ -93,18 +93,11 @@ export function listFeatureAudits(params?: {
 }
 
 export function evaluateMyFeatures(keys?: string[]): Promise<Record<string, FeatureEvaluate>> {
-  return request.get('/features/me', { params: keys?.length ? { keys: keys.join(',') } : undefined });
-}
-
-export interface CmsPage {
-  id: string;
-  name: string;
-  description: string;
-  updated_at: string;
-}
-
-export function listCmsPages(): Promise<CmsPage[]> {
-  return request.get('/cms/pages');
+  return request.get('/features/me', {
+    params: keys?.length ? { keys: keys.join(',') } : undefined,
+    skipAuthRedirect: true,
+    silent: true,
+  });
 }
 
 export interface MembershipPortal {

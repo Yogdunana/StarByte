@@ -69,7 +69,7 @@ VALUES
         '00000000-0000-4000-8000-000000000166',
         'cms.public',
         '公开 CMS',
-        '公开 CMS / 已发布内容页。默认关闭，仅允许名单/角色/百分比灰度。',
+        '公开 CMS：/about-us、/docs、/docs/:slug、公开 /:slug 与 GET /api/v1/knowledge/public/*。默认关闭。不拦登录、CAS、入会申请和工作台 /knowledge 编辑。',
         'boolean',
         FALSE,
         'cms',

@@ -1,15 +1,14 @@
 package handler
 
 import (
-	"github.com/Yogdunana/StarByte/backend/internal/feature/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/feature/model"
 	"github.com/Yogdunana/StarByte/backend/internal/feature/service"
-	formdto "github.com/Yogdunana/StarByte/backend/internal/form/dto"
-	formsvc "github.com/Yogdunana/StarByte/backend/internal/form/service"
 	rbacService "github.com/Yogdunana/StarByte/backend/internal/rbac/service"
+	"github.com/Yogdunana/StarByte/backend/pkg/config"
 	"github.com/Yogdunana/StarByte/backend/pkg/middleware"
-	"github.com/Yogdunana/StarByte/backend/pkg/response"
+	authmiddleware "github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
 func withPermission(group *gin.RouterGroup, permCode string, cache rbacService.PermissionCacheService) *gin.RouterGroup {
@@ -19,10 +18,15 @@ func withPermission(group *gin.RouterGroup, permCode string, cache rbacService.P
 	return g
 }
 
-// RegisterRoutes 注册管理 API 与当前用户评估。静态 /audit 须在 /:id 之前。
-func RegisterRoutes(r *gin.RouterGroup, h *Handler, cache rbacService.PermissionCacheService) {
-	r.GET("/features/me", h.EvaluateMe)
+// RegisterPublic 匿名也可评估（boolean 开则放行；名单/百分比 fail closed）。不拦 /auth 与 CAS。
+func RegisterPublic(r *gin.RouterGroup, h *Handler, jwtCfg *config.JWTConfig, rdb *redis.Client) {
+	g := r.Group("")
+	g.Use(authmiddleware.OptionalJWT(jwtCfg, rdb))
+	g.GET("/features/me", h.EvaluateMe)
+}
 
+// RegisterRoutes 注册管理 API。静态 /audit 须在 /:id 之前。
+func RegisterRoutes(r *gin.RouterGroup, h *Handler, cache rbacService.PermissionCacheService) {
 	g := r.Group("/system/features")
 	read := withPermission(g, "feature:read", cache)
 	read.GET("", h.List)
@@ -35,25 +39,11 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, cache rbacService.Permission
 	withPermission(g, "feature:manage", cache).POST("/:id/toggle", h.Toggle)
 }
 
-// RegisterGates 挂上招新前要灰度的新表面。不拦截 /auth 与 CAS。
-func RegisterGates(r *gin.RouterGroup, feat service.Service, forms formsvc.FormService) {
-	cms := r.Group("/cms")
-	cms.Use(RequireFlag(feat, model.KeyCMSPublic, nil))
-	cms.GET("/pages", func(c *gin.Context) {
-		if forms == nil {
-			response.OK(c, []dto.CMSPage{})
-			return
-		}
-		pub := int16(1)
-		list, _, _, _, err := forms.List(c.Request.Context(), formdto.ListQuery{Page: 1, PageSize: 50, Status: &pub}, false)
-		if err != nil {
-			response.Error(c, err)
-			return
-		}
-		pages := make([]dto.CMSPage, 0, len(list))
-		for _, item := range list {
-			pages = append(pages, dto.CMSPage{ID: item.ID, Name: item.Name, Description: item.Description, UpdatedAt: item.UpdatedAt})
-		}
-		response.OK(c, pages)
-	})
+// GatePublicKnowledge 把 cms.public 挂到知识库公开读。OptionalJWT 先于评估，方便名单/百分比。
+// 不拦工作台 /knowledge 管理端。
+func GatePublicKnowledge(r *gin.RouterGroup, feat service.Service, jwtCfg *config.JWTConfig, rdb *redis.Client) *gin.RouterGroup {
+	g := r.Group("")
+	g.Use(authmiddleware.OptionalJWT(jwtCfg, rdb))
+	g.Use(RequireFlag(feat, model.KeyCMSPublic, nil))
+	return g
 }

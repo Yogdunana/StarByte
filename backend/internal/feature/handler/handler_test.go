@@ -113,15 +113,16 @@ func TestHandlerEvaluateAndAudit(t *testing.T) {
 }
 
 func TestHandlerAuthAndQueryErrors(t *testing.T) {
-	h := New(&stubSvc{err: response.NewError(response.CodeFeatureNotFound, "gone")})
+	anon := New(&stubSvc{me: map[string]dto.EvaluateResponse{"cms.public": {Key: "cms.public", Enabled: false, Reason: "disabled"}}})
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/features/me", nil)
 	c.Set("request_id", "rid")
-	h.EvaluateMe(c)
-	if w.Code == http.StatusOK {
-		t.Fatal("unauth me")
+	anon.EvaluateMe(c)
+	if w.Code != http.StatusOK {
+		t.Fatalf("anonymous evaluate should be 200, got %d", w.Code)
 	}
+	h := New(&stubSvc{err: response.NewError(response.CodeFeatureNotFound, "gone")})
 	w = withUser(h.Evaluate, http.MethodGet, "/api/v1/system/features/x/evaluate?user_id=not-a-uuid", nil)
 	if w.Code == http.StatusOK {
 		t.Fatal("bad user")
@@ -167,14 +168,14 @@ func TestRequireFlag(t *testing.T) {
 	off := &stubSvc{on: false}
 	on := &stubSvc{on: true}
 	deny := RequireFlag(off, "cms.public", nil)
-	w := withUser(deny, http.MethodGet, "/api/v1/cms/pages", nil)
+	w := withUser(deny, http.MethodGet, "/api/v1/knowledge/public/docs", nil)
 	var env response.Response
 	_ = json.Unmarshal(w.Body.Bytes(), &env)
 	if env.Code != response.CodeFeatureDisabled {
 		t.Fatalf("code=%d body=%s", env.Code, w.Body.String())
 	}
 	allow := RequireFlag(on, "cms.public", nil)
-	if withUser(allow, http.MethodGet, "/api/v1/cms/pages", nil).Code != http.StatusOK && withUser(allow, http.MethodGet, "/api/v1/cms/pages", nil).Body.Len() >= 0 {
+	if withUser(allow, http.MethodGet, "/api/v1/knowledge/public/docs", nil).Code != http.StatusOK && withUser(allow, http.MethodGet, "/api/v1/knowledge/public/docs", nil).Body.Len() >= 0 {
 		// middleware calls Next with empty handlers; gin test context finishes without writing
 	}
 }
@@ -211,23 +212,34 @@ func TestEvaluateAsUserAndBadID(t *testing.T) {
 	}
 }
 
-func TestRegisterGatesEmpty(t *testing.T) {
+func TestRequireFlagAnonymous(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	r := gin.New()
-	g := r.Group("/api/v1")
-	RegisterGates(g, &stubSvc{on: true}, nil)
+	off := RequireFlag(&stubSvc{on: false}, "cms.public", nil)
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/cms/pages", nil)
-	r.ServeHTTP(w, req)
-	// no JWT → 未认证
-	if w.Code == 0 {
-		t.Fatal("expected a response")
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/knowledge/public/docs", nil)
+	c.Set("request_id", "rid")
+	off(c)
+	var env response.Response
+	_ = json.Unmarshal(w.Body.Bytes(), &env)
+	if env.Code != response.CodeFeatureDisabled {
+		t.Fatalf("anon miss code=%d body=%s", env.Code, w.Body.String())
+	}
+
+	allow := RequireFlag(&stubSvc{on: true}, "cms.public", nil)
+	w = httptest.NewRecorder()
+	c, _ = gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/knowledge/public/docs", nil)
+	c.Set("request_id", "rid")
+	allow(c)
+	if c.IsAborted() {
+		t.Fatal("boolean-on should let anonymous through")
 	}
 }
 
 func TestRequireFlagBypass(t *testing.T) {
 	mw := RequireFlag(&stubSvc{on: false}, "cms.public", func(*gin.Context) bool { return true })
-	w := withUser(mw, http.MethodGet, "/api/v1/cms/pages", nil)
+	w := withUser(mw, http.MethodGet, "/api/v1/knowledge/public/docs", nil)
 	if w.Code != http.StatusOK && w.Body.Len() == 0 {
 		// bypass calls Next; empty handler is fine
 	}

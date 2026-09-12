@@ -270,7 +270,6 @@
     "/member/application": "Applications",
     "/member/list": "Profiles",
     "/member/portal": "Membership portal",
-    "/cms": "Public CMS",
     "/interview": "Interviews",
     "/interview/list": "Sessions",
     "/interview/score": "Scoring",
@@ -782,7 +781,7 @@
   },
   "cms": {
     "title": "Public CMS",
-    "intro": "Published forms are exposed as public CMS pages, gated by cms.public.",
+    "intro": "cms.public gates /about-us, /docs and public document APIs. Login and /knowledge editing stay open.",
     "empty": "No published pages"
   },
   "portal": {

@@ -497,7 +497,11 @@ func main() {
 		// 注册仍由 user handler 处理
 		public.POST("/auth/register", userHandler.Register)
 		scheduleHandler.RegisterPublicRoutes(public, calH)
-		knowledgeHandler.RegisterPublicRoutes(public, knH, &cfg.JWT, redis.Client(), cacheService)
+		featureHandler.RegisterPublic(public, featureHandler.New(featSvc), &cfg.JWT, redis.Client())
+		knowledgeHandler.RegisterPublicRoutes(
+			featureHandler.GatePublicKnowledge(public, featSvc, &cfg.JWT, redis.Client()),
+			knH, &cfg.JWT, redis.Client(), cacheService,
+		)
 	}
 
 	// 10b. 需要鉴权的路由
@@ -603,9 +607,8 @@ func main() {
 		formH := formHandler.NewFormHandler(formSvc, cacheService)
 		formHandler.RegisterRoutes(protected, formH, cacheService)
 
-		// 特性开关管理 + 灰度表面（CMS / 会员门户）。不挂在 /auth。
+		// 特性开关管理 + 会员门户灰度。公开 CMS 挂在 /knowledge/public，不拦 /auth、CAS、入会申请、/knowledge 编辑。
 		featureHandler.RegisterRoutes(protected, featureHandler.New(featSvc), cacheService)
-		featureHandler.RegisterGates(protected, featSvc, formSvc)
 		memberHandler.RegisterPortal(protected, memberH, featureHandler.RequireFlag(featSvc, featureModel.KeyMembershipPortal, nil))
 
 		// 财务 / 处分 / 合同（#22 #23 #24）

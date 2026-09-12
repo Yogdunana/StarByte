@@ -270,7 +270,6 @@
     "/member/application": "入会申请",
     "/member/list": "会员档案",
     "/member/portal": "会员门户",
-    "/cms": "公开内容",
     "/interview": "面试管理",
     "/interview/list": "面试安排",
     "/interview/score": "面试评分",
@@ -782,8 +781,8 @@
   },
   "cms": {
     "title": "公开内容",
-    "intro": "已发布的动态表单作为公开 CMS 页，受 cms.public 灰度控制。",
-    "empty": "暂无已发布内容"
+    "intro": "cms.public 控制 /about-us、/docs 与公开文档 API，不拦登录和知识库编辑。",
+    "empty": "该公开页尚未对你开放"
   },
   "portal": {
     "title": "会员门户",

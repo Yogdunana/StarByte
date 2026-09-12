@@ -13,6 +13,7 @@ import styles from './Login.module.css';
 import { fadeUp, staggerEnter } from '@/motion/tokens';
 import { useTranslation } from 'react-i18next';
 import { resolveRedirect } from '@/utils/nextPath';
+import { FeatureProvider, useFeature } from '@/hooks/useFeature';
 
 interface LocationFromState {
   from?: { pathname?: string };
@@ -45,6 +46,19 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 const envCasEnabled = import.meta.env.VITE_CAS_ENABLED === 'true';
+
+const LoginPublicFooter: React.FC = () => {
+  const { t } = useTranslation();
+  const { enabled, loading } = useFeature('cms.public');
+  if (loading || !enabled) return null;
+  return (
+    <footer className={styles.footer}>
+      <Link to="/about-us">{t('login.footerAbout')}</Link>
+      <Link to="/docs/association-charter">{t('login.footerCharter')}</Link>
+      <Link to="/docs">{t('login.footerDocs')}</Link>
+    </footer>
+  );
+};
 
 const Login: React.FC = () => {
   const { t } = useTranslation();
@@ -310,11 +324,9 @@ const Login: React.FC = () => {
             </Form>
           )}
         </Card>
-        <footer className={styles.footer}>
-          <Link to="/about-us">{t('login.footerAbout')}</Link>
-          <Link to="/docs/association-charter">{t('login.footerCharter')}</Link>
-          <Link to="/docs">{t('login.footerDocs')}</Link>
-        </footer>
+        <FeatureProvider keys={['cms.public']}>
+          <LoginPublicFooter />
+        </FeatureProvider>
       </motion.div>
     </div>
   );

@@ -197,22 +197,16 @@ func (h *Handler) Audit(c *gin.Context) {
 	response.Page(c, list, total, q.Page, q.PageSize)
 }
 
-// EvaluateMe 当前用户开关快照（登录即可，供前端 SDK）
+// EvaluateMe 当前调用方开关快照（公开；有 JWT 则按用户评估，否则匿名 subject）
 // @Summary 当前用户开关快照
 // @Tags 特性开关
 // @Produce json
 // @Param keys query string false "逗号分隔的 key"
 // @Success 200 {object} response.Response
 // @Router /features/me [get]
-// @Security BearerAuth
 func (h *Handler) EvaluateMe(c *gin.Context) {
-	uid, err := getUserID(c)
-	if err != nil {
-		response.Error(c, err)
-		return
-	}
 	var q dto.EvaluateMeQuery
 	_ = c.ShouldBindQuery(&q)
-	out, err := h.svc.EvaluateMe(c.Request.Context(), uid, splitKeys(q.Keys))
+	out, err := h.svc.EvaluateMe(c.Request.Context(), optionalUserID(c), splitKeys(q.Keys))
 	write(c, out, err)
 }

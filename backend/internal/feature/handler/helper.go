@@ -21,6 +21,19 @@ func getUserID(c *gin.Context) (uuid.UUID, error) {
 	return id, nil
 }
 
+// optionalUserID is for public grayscale: missing/invalid JWT becomes a zero subject.
+func optionalUserID(c *gin.Context) uuid.UUID {
+	raw := auth.GetUserID(c)
+	if raw == "" {
+		return uuid.Nil
+	}
+	id, err := uuid.Parse(raw)
+	if err != nil {
+		return uuid.Nil
+	}
+	return id
+}
+
 func parseID(c *gin.Context) (uuid.UUID, error) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
