@@ -435,6 +435,11 @@ func TestScheduleLoopAndNilClock(t *testing.T) {
 	if err != nil || got.Enabled {
 		t.Fatalf("loop should persist off: %+v %v", got, err)
 	}
+}
+
+func TestClockNilFallsBackToWallTime(t *testing.T) {
+	svc, _, _ := newTestSvc(nil, nil, stubPerms{})
+	fs := svc.(*flagService)
 	fs.now = nil
 	if fs.clock().IsZero() {
 		t.Fatal("clock fallback")
