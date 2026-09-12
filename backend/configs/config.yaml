@@ -83,6 +83,16 @@ cors:
     - "X-Request-Id"
   allow_credentials: false
 
+# 数据备份（#88 phase-1）。密码沿用 database / minio 环境变量，此处不放密钥。
+# STARBYTE_BACKUP_ENCRYPTION_KEY 预留 AES，phase-1 未启用。
+backup:
+  bucket: ""
+  prefix: backups
+  local_path: ""
+  pg_dump_bin: pg_dump
+  pg_restore_bin: pg_restore
+  timeout_sec: 1800
+
 # Google Calendar 单向拉取（密钥只用环境变量，勿提交真实值）
 google_calendar:
   client_id: ""

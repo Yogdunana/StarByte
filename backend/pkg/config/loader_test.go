@@ -113,6 +113,12 @@ func TestLoad_BaseConfig(t *testing.T) {
 	if cfg.Email.SMTPHost != "smtp.example.com" {
 		t.Errorf("Email.SMTPHost = %s, want smtp.example.com", cfg.Email.SMTPHost)
 	}
+	if cfg.Backup.Prefix != "backups" {
+		t.Errorf("Backup.Prefix = %s, want backups", cfg.Backup.Prefix)
+	}
+	if cfg.Backup.TimeoutSec != 1800 {
+		t.Errorf("Backup.TimeoutSec = %d, want 1800", cfg.Backup.TimeoutSec)
+	}
 }
 
 func TestLoad_EnvOverride(t *testing.T) {
@@ -272,6 +278,16 @@ func TestApplyEnvOverrides(t *testing.T) {
 	if !cfg.CORS.AllowCredentials {
 		t.Error("CORS.AllowCredentials = false, want true")
 	}
+
+	t.Setenv("STARBYTE_BACKUP_PREFIX", "ops-backups")
+	t.Setenv("STARBYTE_BACKUP_TIMEOUT_SEC", "900")
+	applyEnvOverrides(cfg)
+	if cfg.Backup.Prefix != "ops-backups" {
+		t.Errorf("Backup.Prefix = %s, want ops-backups", cfg.Backup.Prefix)
+	}
+	if cfg.Backup.TimeoutSec != 900 {
+		t.Errorf("Backup.TimeoutSec = %d, want 900", cfg.Backup.TimeoutSec)
+	}
 }
 
 func TestSetDefaults(t *testing.T) {
@@ -349,6 +365,16 @@ func TestSetDefaults(t *testing.T) {
 	}
 	if len(cfg.CORS.AllowedMethods) != 6 {
 		t.Errorf("CORS.AllowedMethods len = %d, want 6", len(cfg.CORS.AllowedMethods))
+	}
+
+	if cfg.Backup.Prefix != "backups" {
+		t.Errorf("Backup.Prefix = %s, want backups", cfg.Backup.Prefix)
+	}
+	if cfg.Backup.PgDumpBin != "pg_dump" {
+		t.Errorf("Backup.PgDumpBin = %s, want pg_dump", cfg.Backup.PgDumpBin)
+	}
+	if cfg.Backup.TimeoutSec != 1800 {
+		t.Errorf("Backup.TimeoutSec = %d, want 1800", cfg.Backup.TimeoutSec)
 	}
 }
 

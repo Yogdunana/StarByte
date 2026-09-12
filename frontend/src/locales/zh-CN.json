@@ -147,7 +147,8 @@
     "/system/cache": "缓存管理",
     "/system/scheduler": "定时任务",
     "/system/search": "统一搜索",
-    "/monitor": "运维监控"
+    "/monitor": "运维监控",
+    "/backup": "数据备份"
   },
   "finance": {
     "records": "财务记录",
@@ -398,5 +399,52 @@
     "apiErrors": "5xx 次数",
     "apiErrorRate": "错误率",
     "apiNote": "P50/P95/P99 持久化留到二期；当前复用 Prometheus 计数，直方图见 /metrics。"
+  },
+  "backup": {
+    "title": "数据备份",
+    "hint": "全量 PostgreSQL custom dump，gzip 后写入 MinIO。恢复走 pg_restore 单事务；失败可对同一备份重试。phase-1 不含 WAL / PITR / AES。SSH 应急仍用 starbyte backup。",
+    "refresh": "刷新",
+    "create": "立即备份",
+    "delete": "删除",
+    "restore": "恢复",
+    "restoreTitle": "确认恢复数据库",
+    "restoreWarn": "将用该备份覆盖当前数据库，运行中的请求会中断。请先通知在线用户。仅社长 / 超管 / 副社长可操作。",
+    "restoreConfirmLabel": "请输入 RESTORE 以确认：",
+    "restoreToken": "RESTORE",
+    "policy": "备份策略",
+    "policyEnabled": "启用定时备份",
+    "retentionDays": "保留天数",
+    "cron": "Cron（6 段，含秒）",
+    "timezone": "时区",
+    "savePolicy": "保存策略",
+    "storage": "对象前缀",
+    "storageCount": "成功备份数",
+    "storageSize": "占用体积",
+    "cliNote": "主机应急备份仍走 deploy/cli/starbyte backup（写入 /var/backups/starbyte），与本页互不替代。",
+    "deleteConfirm": "删除该备份记录及对象？",
+    "created": "备份任务已排队",
+    "deleted": "已删除",
+    "restoredQueued": "恢复任务已开始，完成后状态会更新",
+    "policySaved": "策略已保存",
+    "checksum": "SHA-256",
+    "size": "大小",
+    "filename": "文件",
+    "empty": "暂无备份",
+    "statusLabel": "状态",
+    "triggerLabel": "来源",
+    "finished": "完成时间",
+    "status": {
+      "0": "排队中",
+      "1": "备份中",
+      "2": "成功",
+      "3": "失败",
+      "4": "恢复中",
+      "5": "已恢复",
+      "6": "恢复失败"
+    },
+    "trigger": {
+      "manual": "手动",
+      "scheduled": "定时"
+    }
   }
 }

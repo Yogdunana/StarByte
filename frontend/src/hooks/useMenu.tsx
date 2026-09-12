@@ -24,6 +24,7 @@ import {
   NotificationOutlined,
   FieldTimeOutlined,
   MonitorOutlined,
+  CloudServerOutlined,
 } from '@ant-design/icons';
 
 import routes, { AppRouteObject, RouteMeta } from '@/router/routes';
@@ -72,6 +73,7 @@ const iconMap: Record<string, React.FC> = {
   NotificationOutlined,
   FieldTimeOutlined,
   MonitorOutlined,
+  CloudServerOutlined,
 };
 
 function hasMenuPermission(permissions: string[], meta?: RouteMeta): boolean {
@@ -195,7 +197,7 @@ export function useMenu(): UseMenuResult {
       { title: '成员与招新', keys: ['/member', '/interview', '/discipline'] },
       { title: '协作与活动', keys: ['/task', '/meeting', '/internship', '/announcement', '/leave'] },
       { title: '资源与财务', keys: ['/files', '/finance', '/contract', '/stats'] },
-      { title: '组织与系统', keys: ['/user', '/workflow', '/forms', '/system', '/monitor'] },
+      { title: '组织与系统', keys: ['/user', '/workflow', '/forms', '/system', '/monitor', '/backup'] },
     ];
     const known = new Set(sections.flatMap(section => section.keys));
     const otherNodes = visibleNodes.filter(node => !known.has(node.key));

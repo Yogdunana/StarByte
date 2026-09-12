@@ -147,7 +147,8 @@
     "/system/cache": "Cache",
     "/system/scheduler": "Scheduler",
     "/system/search": "Search",
-    "/monitor": "Ops monitor"
+    "/monitor": "Ops monitor",
+    "/backup": "Backups"
   },
   "finance": {
     "records": "Finance records",
@@ -398,5 +399,52 @@
     "apiErrors": "5xx errors",
     "apiErrorRate": "Error rate",
     "apiNote": "P50/P95/P99 persistence is deferred. Counters come from Prometheus; histograms remain on /metrics."
+  },
+  "backup": {
+    "title": "Backups",
+    "hint": "Full PostgreSQL custom dump, gzip, then MinIO. Restore uses pg_restore in one transaction; the same artifact can be retried after a restore failure. Phase-1 has no WAL / PITR / AES. SSH emergencies still use starbyte backup.",
+    "refresh": "Refresh",
+    "create": "Back up now",
+    "delete": "Delete",
+    "restore": "Restore",
+    "restoreTitle": "Confirm database restore",
+    "restoreWarn": "This overwrites the live database and will interrupt in-flight requests. Notify online users first. President / super-admin / vice-president only.",
+    "restoreConfirmLabel": "Type RESTORE to confirm:",
+    "restoreToken": "RESTORE",
+    "policy": "Backup policy",
+    "policyEnabled": "Enable scheduled backups",
+    "retentionDays": "Retention (days)",
+    "cron": "Cron (6 fields, with seconds)",
+    "timezone": "Timezone",
+    "savePolicy": "Save policy",
+    "storage": "Object prefix",
+    "storageCount": "Successful backups",
+    "storageSize": "Stored size",
+    "cliNote": "Host emergencies still use deploy/cli/starbyte backup (writes /var/backups/starbyte). That path is unchanged.",
+    "deleteConfirm": "Delete this backup record and object?",
+    "created": "Backup queued",
+    "deleted": "Deleted",
+    "restoredQueued": "Restore started; status updates when it finishes",
+    "policySaved": "Policy saved",
+    "checksum": "SHA-256",
+    "size": "Size",
+    "filename": "File",
+    "empty": "No backups yet",
+    "statusLabel": "Status",
+    "triggerLabel": "Source",
+    "finished": "Finished",
+    "status": {
+      "0": "Queued",
+      "1": "Running",
+      "2": "Success",
+      "3": "Failed",
+      "4": "Restoring",
+      "5": "Restored",
+      "6": "Restore failed"
+    },
+    "trigger": {
+      "manual": "Manual",
+      "scheduled": "Scheduled"
+    }
   }
 }

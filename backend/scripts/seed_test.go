@@ -39,7 +39,7 @@ func TestSeedTemplates_AtLeastFive(t *testing.T) {
 	for _, tpl := range seedTemplatesData {
 		codes[tpl.Code] = true
 	}
-	for _, need := range []string{"member_approved", "interview_invite", "meeting_notice", "discipline_notice", "task_assigned", "activity_registered", "activity_waitlist", "schedule_reminder", "announcement_published"} {
+	for _, need := range []string{"member_approved", "interview_invite", "meeting_notice", "discipline_notice", "task_assigned", "activity_registered", "activity_waitlist", "schedule_reminder", "announcement_published", "backup_failed"} {
 		assert.True(t, codes[need], "missing template %s", need)
 	}
 }
@@ -234,6 +234,7 @@ func TestAllSeedPermissions_IncludesOpsModules(t *testing.T) {
 		"announcement:publish", "announcement:manage",
 		"leave:read", "leave:approve",
 		"monitor:read",
+		"backup:read", "backup:create", "backup:delete", "backup:restore", "backup:manage",
 	} {
 		assert.True(t, seen[need], "missing permission %s", need)
 	}
@@ -254,6 +255,8 @@ func TestOfficerAndMemberPerms_NonEmpty(t *testing.T) {
 	assert.NotContains(t, memberPermCodes(), "leave:read")
 	assert.NotContains(t, officerPermCodes(), "monitor:read")
 	assert.NotContains(t, memberPermCodes(), "monitor:read")
+	assert.NotContains(t, officerPermCodes(), "backup:read")
+	assert.NotContains(t, memberPermCodes(), "backup:read")
 }
 
 func TestSeedMemberProfiles_StudentNos(t *testing.T) {

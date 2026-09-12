@@ -121,6 +121,13 @@ func Load(path string) (*Config, error) {
 //	GOOGLE_CALENDAR_CLIENT_ID     — google_calendar.client_id
 //	GOOGLE_CALENDAR_CLIENT_SECRET — google_calendar.client_secret
 //	GOOGLE_CALENDAR_REDIRECT_URI  — google_calendar.redirect_uri
+//	STARBYTE_BACKUP_BUCKET        — backup.bucket (empty = minio.bucket)
+//	STARBYTE_BACKUP_PREFIX        — backup.prefix
+//	STARBYTE_BACKUP_LOCAL_PATH    — backup.local_path
+//	STARBYTE_BACKUP_PG_DUMP       — backup.pg_dump_bin
+//	STARBYTE_BACKUP_PG_RESTORE    — backup.pg_restore_bin
+//	STARBYTE_BACKUP_TIMEOUT_SEC   — backup.timeout_sec
+//	STARBYTE_BACKUP_ENCRYPTION_KEY — reserved; unused in phase-1
 func applyEnvOverrides(cfg *Config) {
 	// Server
 	cfg.Server.Port = getEnvInt("SERVER_PORT", cfg.Server.Port)
@@ -200,6 +207,13 @@ func applyEnvOverrides(cfg *Config) {
 	cfg.GoogleCalendar.ClientID = getEnv("GOOGLE_CALENDAR_CLIENT_ID", cfg.GoogleCalendar.ClientID)
 	cfg.GoogleCalendar.ClientSecret = getEnv("GOOGLE_CALENDAR_CLIENT_SECRET", cfg.GoogleCalendar.ClientSecret)
 	cfg.GoogleCalendar.RedirectURI = getEnv("GOOGLE_CALENDAR_REDIRECT_URI", cfg.GoogleCalendar.RedirectURI)
+
+	cfg.Backup.Bucket = getEnv("STARBYTE_BACKUP_BUCKET", cfg.Backup.Bucket)
+	cfg.Backup.Prefix = getEnv("STARBYTE_BACKUP_PREFIX", cfg.Backup.Prefix)
+	cfg.Backup.LocalPath = getEnv("STARBYTE_BACKUP_LOCAL_PATH", cfg.Backup.LocalPath)
+	cfg.Backup.PgDumpBin = getEnv("STARBYTE_BACKUP_PG_DUMP", cfg.Backup.PgDumpBin)
+	cfg.Backup.PgRestoreBin = getEnv("STARBYTE_BACKUP_PG_RESTORE", cfg.Backup.PgRestoreBin)
+	cfg.Backup.TimeoutSec = getEnvInt("STARBYTE_BACKUP_TIMEOUT_SEC", cfg.Backup.TimeoutSec)
 }
 
 // getEnv returns the value of an environment variable or a fallback.
@@ -358,6 +372,19 @@ func setDefaults(cfg *Config) {
 	}
 	if cfg.CAS.DefaultRole == "" {
 		cfg.CAS.DefaultRole = "member"
+	}
+
+	if cfg.Backup.Prefix == "" {
+		cfg.Backup.Prefix = "backups"
+	}
+	if cfg.Backup.PgDumpBin == "" {
+		cfg.Backup.PgDumpBin = "pg_dump"
+	}
+	if cfg.Backup.PgRestoreBin == "" {
+		cfg.Backup.PgRestoreBin = "pg_restore"
+	}
+	if cfg.Backup.TimeoutSec == 0 {
+		cfg.Backup.TimeoutSec = 1800
 	}
 
 	// CORS defaults

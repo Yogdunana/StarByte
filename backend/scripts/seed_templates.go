@@ -115,6 +115,12 @@ var seedTemplatesData = []seedTemplate{
 		Schema: `{"task_name":"string","error":"string"}`,
 	},
 	{
+		Code: "backup_failed", Name: "备份失败", Category: "system",
+		Title:  "备份失败：{{.filename}}",
+		Body:   "备份任务失败：{{.error}}",
+		Schema: `{"filename":"string","error":"string"}`,
+	},
+	{
 		Code: "contract_expiring", Name: "合同即将到期", Category: "system",
 		Title:  "合同即将到期：{{.title}}",
 		Body:   "{{.real_name}}，合同「{{.title}}」将于 {{.expired_at}} 到期。",

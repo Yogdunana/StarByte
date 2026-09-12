@@ -142,6 +142,13 @@ func allSeedPermissions() []seedPerm {
 	perms = append(perms,
 		seedPerm{Name: "监控查看", Code: "monitor:read", Resource: "monitor", Action: "read"},
 	)
+	perms = append(perms,
+		seedPerm{Name: "备份查看", Code: "backup:read", Resource: "backup", Action: "read"},
+		seedPerm{Name: "备份创建", Code: "backup:create", Resource: "backup", Action: "create"},
+		seedPerm{Name: "备份删除", Code: "backup:delete", Resource: "backup", Action: "delete"},
+		seedPerm{Name: "备份恢复", Code: "backup:restore", Resource: "backup", Action: "restore"},
+		seedPerm{Name: "备份管理", Code: "backup:manage", Resource: "backup", Action: "manage"},
+	)
 	return perms
 }
 
@@ -230,7 +237,7 @@ func seedRolePermissions(db *gorm.DB) error {
 		INSERT INTO role_permissions (id, role_id, permission_id, data_scope)
 		SELECT uuid_generate_v4(), r.id, p.id, 'department'
 		FROM roles r CROSS JOIN permissions p
-		WHERE r.code = 'minister' AND p.resource <> 'monitor' AND (
+		WHERE r.code = 'minister' AND p.resource <> 'monitor' AND p.resource <> 'backup' AND (
 			p.action = 'read'
 			OR (p.resource IN ('member','interview','meeting','task','internship','schedule','file','workflow','notification','finance','discipline','contract','activity','announcement')
 			    AND p.action IN ('create','update'))
@@ -259,7 +266,7 @@ func seedRolePermissions(db *gorm.DB) error {
 		INSERT INTO role_permissions (id, role_id, permission_id, data_scope)
 		SELECT uuid_generate_v4(), r.id, p.id, 'department'
 		FROM roles r CROSS JOIN permissions p
-		WHERE r.code = 'vice_minister' AND p.resource <> 'interview_private' AND p.resource <> 'monitor' AND (
+		WHERE r.code = 'vice_minister' AND p.resource <> 'interview_private' AND p.resource <> 'monitor' AND p.resource <> 'backup' AND (
 			p.action = 'read'
 			OR (p.resource IN ('member','interview','meeting','task','internship','schedule','file','finance','discipline','contract','activity','announcement')
 			    AND p.action = 'create')

@@ -264,7 +264,9 @@ func TestHttpStatusFromCode(t *testing.T) {
 		{CodeCalendarNotFound, http.StatusNotFound},
 		{CodeLeaveNotFound, http.StatusNotFound},
 		{CodeLeaveTypeNotFound, http.StatusNotFound},
+		{CodeBackupNotFound, http.StatusNotFound},
 		{CodeConflict, http.StatusConflict},
+		{CodeBackupBusy, http.StatusConflict},
 		{CodeTooManyReq, http.StatusTooManyRequests},
 		{CodeRateLimited, http.StatusTooManyRequests},
 		{CodeCircuitOpen, http.StatusServiceUnavailable},
@@ -428,6 +430,15 @@ func TestModuleRanges(t *testing.T) {
 	assert.Equal(t, 31002, CodeMonitorRedisDown)
 	assert.Equal(t, 31003, CodeMonitorDBDown)
 	assert.True(t, r[0] > ModuleRanges["leave"][1], "monitor must not collide with leave 30000-30999")
+
+	r, ok = ModuleRanges["backup"]
+	assert.True(t, ok)
+	assert.Equal(t, 32000, r[0])
+	assert.Equal(t, 32999, r[1])
+	assert.Equal(t, 32001, CodeBackupNotFound)
+	assert.Equal(t, 32003, CodeBackupBusy)
+	assert.Equal(t, 32007, CodeBackupConfirmRequired)
+	assert.True(t, r[0] > ModuleRanges["monitor"][1], "backup must not collide with monitor 31000-31999")
 }
 
 // ========== TranslateGORMError tests ==========

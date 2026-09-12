@@ -17,6 +17,7 @@ type Config struct {
 	CORS           CORSConfig           `yaml:"cors"`
 	CAS            CASConfig            `yaml:"cas"`
 	GoogleCalendar GoogleCalendarConfig `yaml:"google_calendar"`
+	Backup         BackupConfig         `yaml:"backup"`
 }
 
 // ServerConfig holds the HTTP server settings.
@@ -105,6 +106,17 @@ type GoogleCalendarConfig struct {
 	ClientID     string `yaml:"client_id"`
 	ClientSecret string `yaml:"client_secret"`
 	RedirectURI  string `yaml:"redirect_uri"`
+}
+
+// BackupConfig is non-secret ops settings for #88. DB / MinIO passwords stay in Database / MinIO / env.
+// AES-256 is deferred; STARBYTE_BACKUP_ENCRYPTION_KEY is reserved and unused in phase-1.
+type BackupConfig struct {
+	Bucket       string `yaml:"bucket"`         // empty = reuse minio.bucket
+	Prefix       string `yaml:"prefix"`         // object key prefix, default backups
+	LocalPath    string `yaml:"local_path"`     // optional filesystem fallback
+	PgDumpBin    string `yaml:"pg_dump_bin"`    // default pg_dump
+	PgRestoreBin string `yaml:"pg_restore_bin"` // default pg_restore (custom format + gzip)
+	TimeoutSec   int    `yaml:"timeout_sec"`    // dump / restore timeout
 }
 
 type CORSConfig struct {
