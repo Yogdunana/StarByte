@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatBytes, formatDuration, formatPercent, pushSample } from './format';
+import { formatBytes, formatDuration, formatPercent, formatSeconds, pushSample } from './format';
 
 describe('monitor format', () => {
   it('formats bytes', () => {
@@ -21,5 +21,8 @@ describe('monitor format', () => {
     expect(formatPercent(12.34)).toBe(12.3);
     expect(formatPercent(undefined)).toBe(0);
     expect(pushSample([1, 2], 3, 2)).toEqual([2, 3]);
+    expect(formatSeconds(null)).toBe('—');
+    expect(formatSeconds(0.0123)).toBe('12.3 ms');
+    expect(formatSeconds(1.5)).toBe('1.50 s');
   });
 });

@@ -28,6 +28,7 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, cache rbacService.Permission
 	read.GET("/database", h.Database)
 	read.GET("/redis", h.Redis)
 	read.GET("/api-stats", h.APIStats)
+	read.GET("/slow-queries", h.SlowQueries)
 }
 
 // Server 服务器状态
@@ -90,9 +91,9 @@ func (h *Handler) Redis(c *gin.Context) {
 	write(c, out, err)
 }
 
-// APIStats API 调用计数
-// @Summary API 调用计数
-// @Description 复用 Prometheus 计数器；P50/P95 持久化见 percentiles_note
+// APIStats API 调用统计
+// @Summary API 调用统计
+// @Description 请求计数、错误率、P50/P95/P99（最近窗口或直方图插值）
 // @Tags 监控
 // @Produce json
 // @Success 200 {object} response.Response
@@ -102,6 +103,21 @@ func (h *Handler) Redis(c *gin.Context) {
 // @Security BearerAuth
 func (h *Handler) APIStats(c *gin.Context) {
 	out, err := h.svc.APIStats(c.Request.Context())
+	write(c, out, err)
+}
+
+// SlowQueries 慢查询
+// @Summary 慢查询
+// @Description pg_stat_statements（若已安装）或 pg_stat_activity + 进程内 GORM 环；附 Redis SLOWLOG
+// @Tags 监控
+// @Produce json
+// @Success 200 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Router /monitor/slow-queries [get]
+// @Security BearerAuth
+func (h *Handler) SlowQueries(c *gin.Context) {
+	out, err := h.svc.SlowQueries(c.Request.Context())
 	write(c, out, err)
 }
 

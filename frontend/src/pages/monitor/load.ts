@@ -2,6 +2,7 @@ import type {
   MonitorAPIStats,
   MonitorApp,
   MonitorDatabase,
+  MonitorLiveSnapshot,
   MonitorRedis,
   MonitorServer,
 } from '@/api/monitor';
@@ -75,6 +76,30 @@ export function createPollSession(): PollSession {
       controller = null;
     },
   };
+}
+
+export function applyLiveSnapshot(prev: Snapshot, live: MonitorLiveSnapshot): MergeResult {
+  const next: Snapshot = { ...prev };
+  const failed: SnapshotKey[] = [];
+  const succeeded: SnapshotKey[] = [];
+  const assign = (key: SnapshotKey, value: Snapshot[SnapshotKey] | undefined) => {
+    if (value != null) {
+      next[key] = value as never;
+      succeeded.push(key);
+    }
+  };
+  assign('server', live.server);
+  assign('app', live.app);
+  assign('database', live.database);
+  assign('redis', live.redis);
+  assign('api', live.api);
+  const errSet = new Set((live.errors || []).filter((k): k is SnapshotKey => (
+    k === 'server' || k === 'app' || k === 'database' || k === 'redis' || k === 'api'
+  )));
+  SNAPSHOT_KEYS.forEach((key) => {
+    if (errSet.has(key) && !succeeded.includes(key)) failed.push(key);
+  });
+  return { next, failed, succeeded };
 }
 
 export function applySettledIfCurrent(

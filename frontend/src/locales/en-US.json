@@ -356,7 +356,7 @@
   },
   "monitor": {
     "title": "Ops monitor",
-    "hint": "Server, app, database, and Redis snapshots. Phase-1 polls every 8s; no WebSocket live stream.",
+    "hint": "Server, app, database, and Redis snapshots. WebSocket push when available; 8s HTTP poll as fallback.",
     "refresh": "Refresh",
     "autoRefresh": "Auto refresh",
     "updatedAt": "Updated {{time}}",
@@ -398,7 +398,21 @@
     "apiTotal": "Requests",
     "apiErrors": "5xx errors",
     "apiErrorRate": "Error rate",
-    "apiNote": "P50/P95/P99 persistence is deferred. Counters come from Prometheus; histograms remain on /metrics."
+    "apiNote": "P50/P95/P99 come from the recent request window, falling back to the Prometheus histogram.",
+    "apiP50": "P50",
+    "apiP95": "P95",
+    "apiP99": "P99",
+    "liveOn": "Live push",
+    "liveOff": "Polling fallback",
+    "slowQueries": "Slow queries",
+    "slowSource": "Source",
+    "slowEmpty": "No slow queries yet (empty is normal without pg_stat_statements)",
+    "slowQuery": "Statement",
+    "slowCalls": "Calls",
+    "slowMean": "Mean",
+    "slowMax": "Max",
+    "slowRows": "Rows",
+    "redisSlow": "Redis slow commands"
   },
   "backup": {
     "title": "Backups",

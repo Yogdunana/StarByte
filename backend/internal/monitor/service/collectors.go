@@ -182,13 +182,19 @@ func hitRate(hits, misses int64) float64 {
 	return round2(float64(hits) / float64(total) * 100)
 }
 
-const apiStatsTODO = "TODO(phase-2): persist request histograms for P50/P95/P99; scrape /metrics starbyte_http_request_duration_seconds"
-
 func collectAPIStats(gatherer prometheus.Gatherer, now time.Time) *dto.APIStats {
 	stamp := now.UTC().Format(time.RFC3339)
+	p50, p95, p99, psrc, note := resolvePercentiles(gatherer)
+	src := "prometheus"
+	if psrc != "" {
+		src = "prometheus+" + psrc
+	}
 	out := &dto.APIStats{
-		Source:          "prometheus",
-		PercentilesNote: apiStatsTODO,
+		Source:          src,
+		P50Seconds:      p50,
+		P95Seconds:      p95,
+		P99Seconds:      p99,
+		PercentilesNote: note,
 		CollectedAt:     stamp,
 	}
 	if gatherer == nil {

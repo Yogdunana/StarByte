@@ -25,8 +25,10 @@ func Metrics() gin.HandlerFunc {
 				return
 			}
 			status := strconv.Itoa(c.Writer.Status())
+			elapsed := time.Since(start).Seconds()
 			metrics.HTTPRequestsTotal.WithLabelValues(c.Request.Method, path, status).Inc()
-			metrics.HTTPRequestDuration.WithLabelValues(c.Request.Method, path).Observe(time.Since(start).Seconds())
+			metrics.HTTPRequestDuration.WithLabelValues(c.Request.Method, path).Observe(elapsed)
+			metrics.RecordHTTPLatency(elapsed)
 		}()
 		c.Next()
 	}

@@ -67,8 +67,7 @@ type RedisStatus struct {
 	CollectedAt      string  `json:"collected_at"`
 }
 
-// APIStats is GET /monitor/api-stats. Phase-1 reads Prometheus counters only.
-// P50/P95/P99 persistence is deferred (scrape /metrics histograms later).
+// APIStats is GET /monitor/api-stats (counters + latency percentiles).
 type APIStats struct {
 	Available       bool     `json:"available"`
 	Source          string   `json:"source"`
@@ -80,4 +79,36 @@ type APIStats struct {
 	P99Seconds      *float64 `json:"p99_seconds"`
 	PercentilesNote string   `json:"percentiles_note"`
 	CollectedAt     string   `json:"collected_at"`
+}
+
+// SlowQuery is one statement or Redis command sample.
+type SlowQuery struct {
+	Query       string  `json:"query"`
+	Calls       int64   `json:"calls"`
+	MeanTimeMs  float64 `json:"mean_time_ms"`
+	TotalTimeMs float64 `json:"total_time_ms"`
+	MaxTimeMs   float64 `json:"max_time_ms"`
+	Rows        int64   `json:"rows"`
+	Source      string  `json:"source"`
+	CollectedAt string  `json:"collected_at,omitempty"`
+}
+
+// SlowQueries is GET /monitor/slow-queries.
+type SlowQueries struct {
+	Available     bool        `json:"available"`
+	Source        string      `json:"source"`
+	Note          string      `json:"note"`
+	Queries       []SlowQuery `json:"queries"`
+	RedisCommands []SlowQuery `json:"redis_commands"`
+	CollectedAt   string      `json:"collected_at"`
+}
+
+// LiveSnapshot is pushed on /ws/monitor (partial fields allowed).
+type LiveSnapshot struct {
+	Server   *ServerStatus   `json:"server,omitempty"`
+	App      *AppHealth      `json:"app,omitempty"`
+	Database *DatabaseStatus `json:"database,omitempty"`
+	Redis    *RedisStatus    `json:"redis,omitempty"`
+	API      *APIStats       `json:"api,omitempty"`
+	Errors   []string        `json:"errors,omitempty"`
 }

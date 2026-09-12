@@ -356,7 +356,7 @@
   },
   "monitor": {
     "title": "运维监控",
-    "hint": "服务器、应用、数据库与 Redis 快照。phase-1 每 8 秒轮询，不含 WebSocket 实时流。",
+    "hint": "服务器、应用、数据库与 Redis 快照。优先 WebSocket 推送，断开后回退 8 秒轮询。",
     "refresh": "刷新",
     "autoRefresh": "自动刷新",
     "updatedAt": "最近更新 {{time}}",
@@ -398,7 +398,21 @@
     "apiTotal": "请求总数",
     "apiErrors": "5xx 次数",
     "apiErrorRate": "错误率",
-    "apiNote": "P50/P95/P99 持久化留到二期；当前复用 Prometheus 计数，直方图见 /metrics。"
+    "apiNote": "P50/P95/P99 来自最近请求耗时窗口，不足时回退 Prometheus 直方图。",
+    "apiP50": "P50",
+    "apiP95": "P95",
+    "apiP99": "P99",
+    "liveOn": "实时推送",
+    "liveOff": "轮询回退",
+    "slowQueries": "慢查询",
+    "slowSource": "来源",
+    "slowEmpty": "暂无慢查询（未安装 pg_stat_statements 时可能为空）",
+    "slowQuery": "语句",
+    "slowCalls": "次数",
+    "slowMean": "平均耗时",
+    "slowMax": "最大耗时",
+    "slowRows": "行数",
+    "redisSlow": "Redis 慢命令"
   },
   "backup": {
     "title": "数据备份",

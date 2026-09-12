@@ -326,6 +326,8 @@ const (
 	CodeMonitorCollectFail = 31001 // 采集主机指标失败
 	CodeMonitorRedisDown   = 31002 // Redis 不可用
 	CodeMonitorDBDown      = 31003 // 数据库连接池不可用
+	CodeMonitorWSAuthFail  = 31004 // 监控 WebSocket 认证失败
+	CodeMonitorWSForbidden = 31005 // 监控 WebSocket 权限不足
 
 	// ===== Backup / restore (#88, 32000-32999) =====
 	CodeBackupNotFound        = 32001 // 备份记录不存在

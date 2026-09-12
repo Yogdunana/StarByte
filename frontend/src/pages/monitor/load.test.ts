@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MonitorApp, MonitorDatabase, MonitorRedis, MonitorServer } from '@/api/monitor';
-import { applySettledIfCurrent, createPollSession, mergeSettledSnapshot } from './load';
+import { applyLiveSnapshot, applySettledIfCurrent, createPollSession, mergeSettledSnapshot } from './load';
 
 const server = { cpu_percent: 10, mem_percent: 20, disk_percent: 30 } as MonitorServer;
 const app = { goroutines: 8, uptime_seconds: 12 } as MonitorApp;
@@ -65,6 +65,20 @@ function settledAll(value: MonitorServer) {
     { status: 'rejected' as const, reason: new Error('api') },
   ];
 }
+
+describe('applyLiveSnapshot', () => {
+  it('fills present slices and records WS errors', () => {
+    const { next, failed, succeeded } = applyLiveSnapshot(
+      { server, app },
+      { server: { ...server, cpu_percent: 44 }, redis, errors: ['database', 'api'] },
+    );
+    expect(next.server?.cpu_percent).toBe(44);
+    expect(next.app).toEqual(app);
+    expect(next.redis).toEqual(redis);
+    expect(succeeded).toEqual(['server', 'redis']);
+    expect(failed).toEqual(['database', 'api']);
+  });
+});
 
 describe('poll generation rejects stale overwrite', () => {
   it('keeps the newer snapshot when an older poll settles later', () => {

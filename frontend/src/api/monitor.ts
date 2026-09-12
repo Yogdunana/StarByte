@@ -95,3 +95,36 @@ export function getMonitorRedis(signal?: AbortSignal): Promise<MonitorRedis> {
 export function getMonitorAPIStats(signal?: AbortSignal): Promise<MonitorAPIStats> {
   return request.get('/monitor/api-stats', { signal });
 }
+
+export interface MonitorSlowQuery {
+  query: string;
+  calls: number;
+  mean_time_ms: number;
+  total_time_ms: number;
+  max_time_ms: number;
+  rows: number;
+  source: string;
+  collected_at?: string;
+}
+
+export interface MonitorSlowQueries {
+  available: boolean;
+  source: string;
+  note: string;
+  queries: MonitorSlowQuery[];
+  redis_commands: MonitorSlowQuery[];
+  collected_at: string;
+}
+
+export function getMonitorSlowQueries(signal?: AbortSignal): Promise<MonitorSlowQueries> {
+  return request.get('/monitor/slow-queries', { signal });
+}
+
+export interface MonitorLiveSnapshot {
+  server?: MonitorServer;
+  app?: MonitorApp;
+  database?: MonitorDatabase;
+  redis?: MonitorRedis;
+  api?: MonitorAPIStats;
+  errors?: string[];
+}

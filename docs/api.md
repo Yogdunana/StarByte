@@ -155,13 +155,17 @@ POST /api/v1/contracts
 
 健康检查（无前缀）：`GET /health` `GET /health/ready` `GET /metrics`。
 
-### 运维监控（#87 phase-1，`monitor:read`）
+### 运维监控（#87，`monitor:read`）
 
 - `GET /monitor/server` CPU / 内存 / 磁盘 / 负载
 - `GET /monitor/app` 运行时长、Goroutine、MemStats / GC
 - `GET /monitor/database` `sql.DB` 连接池
 - `GET /monitor/redis` INFO（连接数 / 内存 / 命中率，不含主机凭据）
-- `GET /monitor/api-stats` Prometheus 请求计数；P50/P95 持久化见响应 `percentiles_note`
+- `GET /monitor/api-stats` Prometheus 请求计数 + P50/P95/P99（最近请求窗口，不足时回退直方图插值）
+- `GET /monitor/slow-queries` 慢查询：`pg_stat_statements`（若已安装）否则 `pg_stat_activity` + 进程内 GORM 环；附 Redis SLOWLOG
+- `WS /ws/monitor` 实时快照推送（JWT query `token` 或 Bearer；需 `monitor:read`）。前端轮询为回退。
+
+进程列表 / 网卡流量深挖本切片不做。
 
 ### 数据备份（#88 phase-1，运维角色）
 
