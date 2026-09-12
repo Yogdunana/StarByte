@@ -402,7 +402,7 @@
   },
   "backup": {
     "title": "Backups",
-    "hint": "Full PostgreSQL dump, gzip, then MinIO. Phase-1 has no WAL / PITR / AES. SSH emergencies still use starbyte backup.",
+    "hint": "Full PostgreSQL custom dump, gzip, then MinIO. Restore uses pg_restore in one transaction; the same artifact can be retried after a restore failure. Phase-1 has no WAL / PITR / AES. SSH emergencies still use starbyte backup.",
     "refresh": "Refresh",
     "create": "Back up now",
     "delete": "Delete",
@@ -439,7 +439,8 @@
       "2": "Success",
       "3": "Failed",
       "4": "Restoring",
-      "5": "Restored"
+      "5": "Restored",
+      "6": "Restore failed"
     },
     "trigger": {
       "manual": "Manual",

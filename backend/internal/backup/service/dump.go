@@ -13,26 +13,26 @@ import (
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
 )
 
-// Engine runs pg_dump / psql. Tests replace it.
+// Engine runs pg_dump / pg_restore. Tests replace it.
 type Engine interface {
 	Dump(ctx context.Context, dest io.Writer) error
 	Restore(ctx context.Context, src io.Reader) error
 }
 
 type pgEngine struct {
-	db      config.DatabaseConfig
-	dumpBin string
-	psqlBin string
+	db         config.DatabaseConfig
+	dumpBin    string
+	restoreBin string
 }
 
-func newPGEngine(db config.DatabaseConfig, dumpBin, psqlBin string) Engine {
+func newPGEngine(db config.DatabaseConfig, dumpBin, restoreBin string) Engine {
 	if strings.TrimSpace(dumpBin) == "" {
 		dumpBin = "pg_dump"
 	}
-	if strings.TrimSpace(psqlBin) == "" {
-		psqlBin = "psql"
+	if strings.TrimSpace(restoreBin) == "" {
+		restoreBin = "pg_restore"
 	}
-	return &pgEngine{db: db, dumpBin: dumpBin, psqlBin: psqlBin}
+	return &pgEngine{db: db, dumpBin: dumpBin, restoreBin: restoreBin}
 }
 
 func (e *pgEngine) Dump(ctx context.Context, dest io.Writer) error {
@@ -40,9 +40,7 @@ func (e *pgEngine) Dump(ctx context.Context, dest io.Writer) error {
 	args = append(args,
 		"--no-owner",
 		"--no-acl",
-		"--clean",
-		"--if-exists",
-		"--format=plain",
+		"--format=custom",
 	)
 	cmd := exec.CommandContext(ctx, e.dumpBin, args...)
 	cmd.Env = e.childEnv()
@@ -56,15 +54,23 @@ func (e *pgEngine) Dump(ctx context.Context, dest io.Writer) error {
 }
 
 func (e *pgEngine) Restore(ctx context.Context, src io.Reader) error {
+	// Custom-format dump + --single-transaction: DROP/reload share one txn and roll back together.
+	// If restore still fails outside that txn, the record becomes restore_failed so the same artifact can be retried.
 	args := e.connArgs()
-	args = append(args, "-v", "ON_ERROR_STOP=1")
-	cmd := exec.CommandContext(ctx, e.psqlBin, args...)
+	args = append(args,
+		"--single-transaction",
+		"--clean",
+		"--if-exists",
+		"--no-owner",
+		"--no-acl",
+	)
+	cmd := exec.CommandContext(ctx, e.restoreBin, args...)
 	cmd.Env = e.childEnv()
 	cmd.Stdin = src
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("psql restore: %w (%s)", err, strings.TrimSpace(stderr.String()))
+		return errRestore(fmt.Sprintf("pg_restore: %s (%s)", err, strings.TrimSpace(stderr.String())))
 	}
 	return nil
 }

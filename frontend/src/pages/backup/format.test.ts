@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatBytes, isActiveStatus } from './format';
+import { canRetryRestore, formatBytes, isActiveStatus } from './format';
 
 describe('backup format', () => {
   it('formats bytes', () => {
@@ -13,5 +13,14 @@ describe('backup format', () => {
     expect(isActiveStatus(4)).toBe(true);
     expect(isActiveStatus(2)).toBe(false);
     expect(isActiveStatus(3)).toBe(false);
+    expect(isActiveStatus(6)).toBe(false);
+  });
+
+  it('allows restore retry on success / restored / restore-failed', () => {
+    expect(canRetryRestore(2)).toBe(true);
+    expect(canRetryRestore(5)).toBe(true);
+    expect(canRetryRestore(6)).toBe(true);
+    expect(canRetryRestore(3)).toBe(false);
+    expect(canRetryRestore(4)).toBe(false);
   });
 });

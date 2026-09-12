@@ -39,26 +39,29 @@ func (s *artifactStore) Put(ctx context.Context, key string, r io.Reader, size i
 	}
 	if s.local == "" {
 		if minioErr != nil {
-			return "", minioErr
+			return "", errStore(minioErr.Error())
 		}
-		return "", fmt.Errorf("MinIO 未配置且未设置本地回退路径")
+		return "", errStore("MinIO 未配置且未设置本地回退路径")
 	}
 	if seeker, ok := r.(io.Seeker); ok {
 		if _, err := seeker.Seek(0, io.SeekStart); err != nil {
-			return "", err
+			return "", errStore(err.Error())
 		}
 	}
 	full := filepath.Join(s.local, filepath.FromSlash(key))
 	if err := os.MkdirAll(filepath.Dir(full), 0o750); err != nil {
-		return "", err
+		return "", errStore(err.Error())
 	}
 	f, err := os.OpenFile(full, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
-		return "", err
+		return "", errStore(err.Error())
 	}
-	defer f.Close()
 	if _, err := io.Copy(f, r); err != nil {
-		return "", err
+		_ = f.Close()
+		return "", errStore("写入本地备份失败: " + err.Error())
+	}
+	if err := f.Close(); err != nil {
+		return "", errStore("关闭本地备份失败: " + err.Error())
 	}
 	return model.StorageLocal, nil
 }

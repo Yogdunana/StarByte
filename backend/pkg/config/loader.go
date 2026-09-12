@@ -381,7 +381,7 @@ func setDefaults(cfg *Config) {
 		cfg.Backup.PgDumpBin = "pg_dump"
 	}
 	if cfg.Backup.PgRestoreBin == "" {
-		cfg.Backup.PgRestoreBin = "psql"
+		cfg.Backup.PgRestoreBin = "pg_restore"
 	}
 	if cfg.Backup.TimeoutSec == 0 {
 		cfg.Backup.TimeoutSec = 1800

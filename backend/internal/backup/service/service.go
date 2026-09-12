@@ -74,7 +74,7 @@ func withBackupDefaults(cfg config.BackupConfig) config.BackupConfig {
 		cfg.PgDumpBin = "pg_dump"
 	}
 	if strings.TrimSpace(cfg.PgRestoreBin) == "" {
-		cfg.PgRestoreBin = "psql"
+		cfg.PgRestoreBin = "pg_restore"
 	}
 	if cfg.TimeoutSec <= 0 {
 		cfg.TimeoutSec = 1800
@@ -167,21 +167,22 @@ func (s *backupService) executeDump(ctx context.Context, id uuid.UUID) {
 	rec, err := s.rows.GetRecord(ctx, id)
 	if err != nil || rec == nil {
 		logger.Error("backup record missing before dump", zap.String("id", id.String()), zap.Error(err))
+		s.failByID(ctx, id, model.StatusFailed, "读取备份记录失败")
 		return
 	}
 	now := s.now()
 	if err := applyTransition(rec, model.StatusRunning, now, ""); err != nil {
-		logger.Error("backup cannot start", zap.Error(err))
+		s.fail(ctx, rec, "无法开始备份: "+err.Error())
 		return
 	}
 	if err := s.rows.UpdateRecord(ctx, rec); err != nil {
-		logger.Error("backup mark running failed", zap.Error(err))
+		s.fail(ctx, rec, "标记备份进行中失败: "+err.Error())
 		return
 	}
 
-	filename := fmt.Sprintf("starbyte-%s-%s.sql.gz", now.UTC().Format("20060102-150405"), rec.ID.String()[:8])
+	filename := fmt.Sprintf("starbyte-%s-%s.dump.gz", now.UTC().Format("20060102-150405"), rec.ID.String()[:8])
 	key := objectKey(s.cfg.Prefix, rec.ID.String(), filename)
-	tmp, err := os.CreateTemp("", "starbyte-backup-*.sql.gz")
+	tmp, err := os.CreateTemp("", "starbyte-backup-*.dump.gz")
 	if err != nil {
 		s.fail(ctx, rec, "创建临时文件失败: "+err.Error())
 		return
@@ -214,7 +215,7 @@ func (s *backupService) executeDump(ctx context.Context, id uuid.UUID) {
 	}
 	kind, err := s.store.Put(ctx, key, tmp, info.Size())
 	if err != nil {
-		s.fail(ctx, rec, "存储备份失败: "+err.Error())
+		s.fail(ctx, rec, errStore("存储备份失败: "+err.Error()).Error())
 		return
 	}
 
@@ -238,9 +239,13 @@ func (s *backupService) executeDump(ctx context.Context, id uuid.UUID) {
 }
 
 func (s *backupService) fail(ctx context.Context, rec *model.Record, msg string) {
+	to := model.StatusFailed
+	if rec.Status == model.StatusRestoring {
+		to = model.StatusRestoreFailed
+	}
 	logger.Error("backup failed", zap.String("id", rec.ID.String()), zap.String("error", msg))
-	if err := applyTransition(rec, model.StatusFailed, s.now(), msg); err != nil {
-		rec.Status = model.StatusFailed
+	if err := applyTransition(rec, to, s.now(), msg); err != nil {
+		rec.Status = to
 		rec.ErrorMessage = msg
 		now := s.now()
 		rec.FinishedAt = &now
@@ -254,6 +259,13 @@ func (s *backupService) fail(ctx context.Context, rec *model.Record, msg string)
 		name = rec.ID.String()
 	}
 	s.alert.Failed(ctx, rec.CreatedBy, name, msg)
+}
+
+func (s *backupService) failByID(ctx context.Context, id uuid.UUID, status int16, msg string) {
+	if err := s.rows.MarkTerminal(ctx, id, status, msg, s.now()); err != nil {
+		logger.Error("backup mark terminal failed", zap.String("id", id.String()), zap.Error(err))
+	}
+	s.alert.Failed(ctx, nil, id.String(), msg)
 }
 
 func (s *backupService) Delete(ctx context.Context, id uuid.UUID) error {
@@ -286,8 +298,8 @@ func (s *backupService) Restore(ctx context.Context, _ uuid.UUID, id uuid.UUID, 
 	if rec == nil {
 		return nil, errNotFound()
 	}
-	if rec.Status != model.StatusSuccess && rec.Status != model.StatusRestored {
-		return nil, errNotReady("只能从成功的备份恢复")
+	if rec.Status != model.StatusSuccess && rec.Status != model.StatusRestored && rec.Status != model.StatusRestoreFailed {
+		return nil, errNotReady("只能从成功或可重试的备份恢复")
 	}
 	if rec.ObjectKey == "" || rec.ChecksumSHA256 == "" {
 		return nil, errNotReady("备份产物不完整")
@@ -321,16 +333,17 @@ func (s *backupService) executeRestore(ctx context.Context, id uuid.UUID) {
 	rec, err := s.rows.GetRecord(ctx, id)
 	if err != nil || rec == nil {
 		logger.Error("backup record missing before restore", zap.String("id", id.String()), zap.Error(err))
+		s.failByID(ctx, id, model.StatusRestoreFailed, "读取备份记录失败")
 		return
 	}
 	src, err := s.store.Get(ctx, rec.Storage, rec.ObjectKey)
 	if err != nil {
-		s.fail(ctx, rec, "下载备份失败: "+err.Error())
+		s.fail(ctx, rec, errStore("下载备份失败: "+err.Error()).Error())
 		return
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
 
-	tmp, err := os.CreateTemp("", "starbyte-restore-*.sql.gz")
+	tmp, err := os.CreateTemp("", "starbyte-restore-*.dump.gz")
 	if err != nil {
 		s.fail(ctx, rec, err.Error())
 		return
@@ -358,7 +371,7 @@ func (s *backupService) executeRestore(ctx context.Context, id uuid.UUID) {
 		s.fail(ctx, rec, "解压失败: "+err.Error())
 		return
 	}
-	defer gz.Close()
+	defer func() { _ = gz.Close() }()
 	if err := s.engine.Restore(ctx, gz); err != nil {
 		s.fail(ctx, rec, err.Error())
 		return
@@ -398,7 +411,7 @@ func (s *backupService) UpdatePolicy(ctx context.Context, userID uuid.UUID, req 
 		return nil, err
 	}
 	if err := s.syncTask(ctx, p); err != nil {
-		logger.Error("sync backup scheduler task failed", zap.Error(err))
+		return nil, errPolicy("调度任务同步失败: " + err.Error())
 	}
 	return toPolicyDTO(p), nil
 }

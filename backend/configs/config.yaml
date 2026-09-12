@@ -90,7 +90,7 @@ backup:
   prefix: backups
   local_path: ""
   pg_dump_bin: pg_dump
-  pg_restore_bin: psql
+  pg_restore_bin: pg_restore
   timeout_sec: 1800
 
 # Google Calendar 单向拉取（密钥只用环境变量，勿提交真实值）

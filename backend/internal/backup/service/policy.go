@@ -91,10 +91,10 @@ func CanTransition(from, to int16) bool {
 		return to == model.StatusRunning || to == model.StatusFailed
 	case model.StatusRunning:
 		return to == model.StatusSuccess || to == model.StatusFailed
-	case model.StatusSuccess, model.StatusRestored:
+	case model.StatusSuccess, model.StatusRestored, model.StatusRestoreFailed:
 		return to == model.StatusRestoring
 	case model.StatusRestoring:
-		return to == model.StatusRestored || to == model.StatusFailed
+		return to == model.StatusRestored || to == model.StatusRestoreFailed
 	default:
 		return false
 	}
@@ -117,7 +117,7 @@ func applyTransition(rec *model.Record, to int16, now time.Time, errText string)
 	case model.StatusSuccess, model.StatusRestored:
 		rec.FinishedAt = &now
 		rec.ErrorMessage = ""
-	case model.StatusFailed:
+	case model.StatusFailed, model.StatusRestoreFailed:
 		rec.FinishedAt = &now
 		rec.ErrorMessage = errText
 	}

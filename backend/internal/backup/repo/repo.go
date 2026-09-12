@@ -36,6 +36,7 @@ type Repository interface {
 	GetPolicy(ctx context.Context) (*model.Policy, error)
 	UpsertPolicy(ctx context.Context, p *model.Policy) error
 	SyncScheduledTask(ctx context.Context, spec ScheduledTaskSpec) error
+	MarkTerminal(ctx context.Context, id uuid.UUID, status int16, msg string, now time.Time) error
 }
 
 type repository struct{ db *gorm.DB }
@@ -48,6 +49,20 @@ func (r *repository) CreateRecord(ctx context.Context, rec *model.Record) error 
 
 func (r *repository) UpdateRecord(ctx context.Context, rec *model.Record) error {
 	return r.db.WithContext(ctx).Save(rec).Error
+}
+
+func (r *repository) MarkTerminal(ctx context.Context, id uuid.UUID, status int16, msg string, now time.Time) error {
+	if now.IsZero() {
+		now = time.Now()
+	}
+	return r.db.WithContext(ctx).Model(&model.Record{}).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"status":        status,
+			"error_message": msg,
+			"finished_at":   now,
+			"updated_at":    now,
+		}).Error
 }
 
 func (r *repository) DeleteRecord(ctx context.Context, id uuid.UUID) error {
@@ -109,7 +124,7 @@ func (r *repository) ListExpired(ctx context.Context, before time.Time) ([]model
 	var rows []model.Record
 	err := r.db.WithContext(ctx).
 		Where("status IN ? AND COALESCE(finished_at, created_at) < ?",
-			[]int16{model.StatusSuccess, model.StatusFailed, model.StatusRestored}, before).
+			[]int16{model.StatusSuccess, model.StatusFailed, model.StatusRestored, model.StatusRestoreFailed}, before).
 		Find(&rows).Error
 	return rows, err
 }
@@ -121,7 +136,7 @@ func (r *repository) StorageStats(ctx context.Context) (int64, int64, error) {
 	}
 	err := r.db.WithContext(ctx).Model(&model.Record{}).
 		Select("COUNT(*) AS count, COALESCE(SUM(size_bytes), 0) AS size").
-		Where("status IN ?", []int16{model.StatusSuccess, model.StatusRestored}).
+		Where("status IN ?", []int16{model.StatusSuccess, model.StatusRestored, model.StatusRestoreFailed}).
 		Scan(&out).Error
 	return out.Count, out.Size, err
 }

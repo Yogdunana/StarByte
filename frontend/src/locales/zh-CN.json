@@ -402,7 +402,7 @@
   },
   "backup": {
     "title": "数据备份",
-    "hint": "全量 PostgreSQL 备份，gzip 后写入 MinIO。phase-1 不含 WAL / PITR / AES。SSH 应急仍用 starbyte backup。",
+    "hint": "全量 PostgreSQL custom dump，gzip 后写入 MinIO。恢复走 pg_restore 单事务；失败可对同一备份重试。phase-1 不含 WAL / PITR / AES。SSH 应急仍用 starbyte backup。",
     "refresh": "刷新",
     "create": "立即备份",
     "delete": "删除",
@@ -439,7 +439,8 @@
       "2": "成功",
       "3": "失败",
       "4": "恢复中",
-      "5": "已恢复"
+      "5": "已恢复",
+      "6": "恢复失败"
     },
     "trigger": {
       "manual": "手动",

@@ -11,7 +11,7 @@ import {
   restoreBackup, updateBackupPolicy, type BackupPolicy, type BackupRecord, type BackupStorageStats,
 } from '@/api/backup';
 import { usePermissions } from '@/hooks/usePermission';
-import { formatBytes, isActiveStatus } from './format';
+import { canRetryRestore, formatBytes, isActiveStatus } from './format';
 import './backup.css';
 
 const statusColor: Record<number, string> = {
@@ -21,6 +21,7 @@ const statusColor: Record<number, string> = {
   3: 'error',
   4: 'warning',
   5: 'blue',
+  6: 'error',
 };
 
 const BackupPage: React.FC = () => {
@@ -145,7 +146,7 @@ const BackupPage: React.FC = () => {
       width: 180,
       render: (_, row) => (
         <Space wrap size="small">
-          {canRestore && (row.status === 2 || row.status === 5) && (
+          {canRestore && canRetryRestore(row.status) && (
             <Button type="link" size="small" danger onClick={() => { setRestoreText(''); setRestoreRow(row); }}>
               {t('backup.restore')}
             </Button>

@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"sort"
 	"sync"
@@ -15,10 +16,16 @@ import (
 )
 
 type memRepo struct {
-	mu      sync.Mutex
-	records map[uuid.UUID]*model.Record
-	policy  *model.Policy
-	tasks   map[string]repo.ScheduledTaskSpec
+	mu           sync.Mutex
+	records      map[uuid.UUID]*model.Record
+	policy       *model.Policy
+	tasks        map[string]repo.ScheduledTaskSpec
+	syncErr      error
+	getErr       error
+	getCalls     int
+	getFailAfter int
+	updateCalls  int
+	updateFailN  int
 }
 
 func newMemRepo() *memRepo {
@@ -40,7 +47,28 @@ func (m *memRepo) CreateRecord(_ context.Context, rec *model.Record) error {
 func (m *memRepo) UpdateRecord(_ context.Context, rec *model.Record) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.updateCalls++
+	if m.updateFailN > 0 && m.updateCalls <= m.updateFailN {
+		return errors.New("forced update fail")
+	}
 	m.records[rec.ID] = m.clone(rec)
+	return nil
+}
+
+func (m *memRepo) MarkTerminal(_ context.Context, id uuid.UUID, status int16, msg string, now time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	r := m.records[id]
+	if r == nil {
+		return nil
+	}
+	if now.IsZero() {
+		now = time.Now()
+	}
+	r.Status = status
+	r.ErrorMessage = msg
+	r.FinishedAt = &now
+	r.UpdatedAt = now
 	return nil
 }
 
@@ -54,6 +82,13 @@ func (m *memRepo) DeleteRecord(_ context.Context, id uuid.UUID) error {
 func (m *memRepo) GetRecord(_ context.Context, id uuid.UUID) (*model.Record, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.getCalls++
+	if m.getErr != nil {
+		return nil, m.getErr
+	}
+	if m.getFailAfter > 0 && m.getCalls > m.getFailAfter {
+		return nil, errors.New("forced get fail")
+	}
 	r := m.records[id]
 	if r == nil {
 		return nil, nil
@@ -126,7 +161,7 @@ func (m *memRepo) ListExpired(_ context.Context, before time.Time) ([]model.Reco
 		if r.FinishedAt != nil {
 			when = *r.FinishedAt
 		}
-		if (r.Status == model.StatusSuccess || r.Status == model.StatusFailed || r.Status == model.StatusRestored) && when.Before(before) {
+		if (r.Status == model.StatusSuccess || r.Status == model.StatusFailed || r.Status == model.StatusRestored || r.Status == model.StatusRestoreFailed) && when.Before(before) {
 			rows = append(rows, *m.clone(r))
 		}
 	}
@@ -138,7 +173,7 @@ func (m *memRepo) StorageStats(context.Context) (int64, int64, error) {
 	defer m.mu.Unlock()
 	var count, size int64
 	for _, r := range m.records {
-		if r.Status == model.StatusSuccess || r.Status == model.StatusRestored {
+		if r.Status == model.StatusSuccess || r.Status == model.StatusRestored || r.Status == model.StatusRestoreFailed {
 			count++
 			size += r.SizeBytes
 		}
@@ -167,6 +202,9 @@ func (m *memRepo) UpsertPolicy(_ context.Context, p *model.Policy) error {
 func (m *memRepo) SyncScheduledTask(_ context.Context, spec repo.ScheduledTaskSpec) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.syncErr != nil {
+		return m.syncErr
+	}
 	m.tasks[spec.Code] = spec
 	return nil
 }

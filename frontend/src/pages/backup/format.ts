@@ -14,3 +14,7 @@ export function formatBytes(n: number | undefined): string {
 export function isActiveStatus(status: number): boolean {
   return status === 0 || status === 1 || status === 4;
 }
+
+export function canRetryRestore(status: number): boolean {
+  return status === 2 || status === 5 || status === 6;
+}

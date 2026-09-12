@@ -115,7 +115,7 @@ type BackupConfig struct {
 	Prefix       string `yaml:"prefix"`         // object key prefix, default backups
 	LocalPath    string `yaml:"local_path"`     // optional filesystem fallback
 	PgDumpBin    string `yaml:"pg_dump_bin"`    // default pg_dump
-	PgRestoreBin string `yaml:"pg_restore_bin"` // default psql (plain SQL + gzip)
+	PgRestoreBin string `yaml:"pg_restore_bin"` // default pg_restore (custom format + gzip)
 	TimeoutSec   int    `yaml:"timeout_sec"`    // dump / restore timeout
 }
 

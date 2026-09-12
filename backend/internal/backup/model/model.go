@@ -7,12 +7,13 @@ import (
 )
 
 const (
-	StatusPending   int16 = 0
-	StatusRunning   int16 = 1
-	StatusSuccess   int16 = 2
-	StatusFailed    int16 = 3
-	StatusRestoring int16 = 4
-	StatusRestored  int16 = 5
+	StatusPending       int16 = 0
+	StatusRunning       int16 = 1
+	StatusSuccess       int16 = 2
+	StatusFailed        int16 = 3 // dump failed; no usable artifact
+	StatusRestoring     int16 = 4
+	StatusRestored      int16 = 5
+	StatusRestoreFailed int16 = 6 // artifact intact; restore may be retried
 
 	TriggerManual    = "manual"
 	TriggerScheduled = "scheduled"
