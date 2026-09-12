@@ -127,7 +127,7 @@ func Load(path string) (*Config, error) {
 //	STARBYTE_BACKUP_PG_DUMP       — backup.pg_dump_bin
 //	STARBYTE_BACKUP_PG_RESTORE    — backup.pg_restore_bin
 //	STARBYTE_BACKUP_TIMEOUT_SEC   — backup.timeout_sec
-//	STARBYTE_BACKUP_ENCRYPTION_KEY — reserved; unused in phase-1
+//	STARBYTE_BACKUP_ENCRYPTION_KEY — backup AES-256 key (env-only, never YAML)
 func applyEnvOverrides(cfg *Config) {
 	// Server
 	cfg.Server.Port = getEnvInt("SERVER_PORT", cfg.Server.Port)
@@ -214,6 +214,9 @@ func applyEnvOverrides(cfg *Config) {
 	cfg.Backup.PgDumpBin = getEnv("STARBYTE_BACKUP_PG_DUMP", cfg.Backup.PgDumpBin)
 	cfg.Backup.PgRestoreBin = getEnv("STARBYTE_BACKUP_PG_RESTORE", cfg.Backup.PgRestoreBin)
 	cfg.Backup.TimeoutSec = getEnvInt("STARBYTE_BACKUP_TIMEOUT_SEC", cfg.Backup.TimeoutSec)
+	if v := strings.TrimSpace(os.Getenv("STARBYTE_BACKUP_ENCRYPTION_KEY")); v != "" {
+		cfg.Backup.EncryptionKey = v
+	}
 }
 
 // getEnv returns the value of an environment variable or a fallback.

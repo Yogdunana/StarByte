@@ -21,6 +21,7 @@ func toRecordDTO(r *model.Record) *dto.Record {
 		Filename:       r.Filename,
 		ChecksumSHA256: r.ChecksumSHA256,
 		SizeBytes:      r.SizeBytes,
+		Encrypted:      r.Encrypted,
 		ErrorMessage:   r.ErrorMessage,
 		CreatedAt:      r.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt:      r.UpdatedAt.UTC().Format(time.RFC3339),

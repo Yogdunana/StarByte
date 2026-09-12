@@ -281,12 +281,16 @@ func TestApplyEnvOverrides(t *testing.T) {
 
 	t.Setenv("STARBYTE_BACKUP_PREFIX", "ops-backups")
 	t.Setenv("STARBYTE_BACKUP_TIMEOUT_SEC", "900")
+	t.Setenv("STARBYTE_BACKUP_ENCRYPTION_KEY", "env-only-backup-key")
 	applyEnvOverrides(cfg)
 	if cfg.Backup.Prefix != "ops-backups" {
 		t.Errorf("Backup.Prefix = %s, want ops-backups", cfg.Backup.Prefix)
 	}
 	if cfg.Backup.TimeoutSec != 900 {
 		t.Errorf("Backup.TimeoutSec = %d, want 900", cfg.Backup.TimeoutSec)
+	}
+	if cfg.Backup.EncryptionKey != "env-only-backup-key" {
+		t.Errorf("Backup.EncryptionKey not loaded from env")
 	}
 }
 

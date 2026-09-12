@@ -85,7 +85,7 @@ func (s *notificationService) Send(ctx context.Context, req *dto.SendNotificatio
 		}
 	}
 
-	// 4. 为每个用户发送通知（收集所有错误，不因单个用户失败而中断）
+	// 4. 为每个用户发送通知；无邮箱则跳过 email，避免空地址拖垮站内/WS。
 	var sendErrs []error
 	for _, userID := range req.UserIDs {
 		msg := &NotificationMessage{
@@ -96,7 +96,11 @@ func (s *notificationService) Send(ctx context.Context, req *dto.SendNotificatio
 			Category: category,
 			Priority: "normal",
 		}
-		if errs := s.channelRegistry.SendViaChannels(ctx, msg, channels); len(errs) > 0 {
+		userChannels := channels
+		if wantsEmail(channels) && msg.Email == "" {
+			userChannels = dropChannel(channels, "email")
+		}
+		if errs := s.channelRegistry.SendViaChannels(ctx, msg, userChannels); len(errs) > 0 {
 			sendErrs = append(sendErrs, fmt.Errorf("user %s: %w", userID, errs[0]))
 		}
 	}
@@ -114,6 +118,16 @@ func wantsEmail(channels []string) bool {
 		}
 	}
 	return false
+}
+
+func dropChannel(channels []string, skip string) []string {
+	out := make([]string, 0, len(channels))
+	for _, ch := range channels {
+		if ch != skip {
+			out = append(out, ch)
+		}
+	}
+	return out
 }
 
 // BatchSend 批量发送通知

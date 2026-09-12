@@ -8,6 +8,9 @@ const keys = [
   'retentionDays', 'cron', 'timezone', 'savePolicy', 'storage', 'storageCount',
   'storageSize', 'cliNote', 'deleteConfirm', 'created', 'deleted', 'restoredQueued',
   'policySaved', 'checksum', 'size', 'filename', 'empty', 'statusLabel', 'triggerLabel', 'finished',
+  'preview', 'previewTitle', 'previewReady', 'previewNotReady', 'previewChecksum', 'previewDecrypt',
+  'previewGzip', 'previewTOC', 'previewContinue', 'encrypted', 'unencrypted', 'encryptionOn',
+  'encryptionOff', 'compression', 'walGap',
   'status.0', 'status.1', 'status.2', 'status.3', 'status.4', 'status.5', 'status.6',
   'trigger.manual', 'trigger.scheduled',
 ] as const;

@@ -37,6 +37,7 @@ type Repository interface {
 	UpsertPolicy(ctx context.Context, p *model.Policy) error
 	SyncScheduledTask(ctx context.Context, spec ScheduledTaskSpec) error
 	MarkTerminal(ctx context.Context, id uuid.UUID, status int16, msg string, now time.Time) error
+	ListOpsUserIDs(ctx context.Context) ([]uuid.UUID, error)
 }
 
 type repository struct{ db *gorm.DB }
@@ -185,4 +186,19 @@ func (r *repository) SyncScheduledTask(ctx context.Context, spec ScheduledTaskSp
 		INSERT INTO scheduler_tasks (id, name, code, cron_expr, timezone, handler_key, next_run_at, timeout_sec, max_retries, status)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
 	`, uuid.New(), spec.Name, spec.Code, spec.CronExpr, spec.Timezone, spec.HandlerKey, spec.NextRunAt, timeout, status).Error
+}
+
+func (r *repository) ListOpsUserIDs(ctx context.Context) ([]uuid.UUID, error) {
+	var ids []uuid.UUID
+	err := r.db.WithContext(ctx).Raw(`
+		SELECT DISTINCT u.id
+		FROM users u
+		JOIN user_roles ur ON ur.user_id = u.id
+		JOIN roles r ON r.id = ur.role_id
+		WHERE u.status = 0 AND u.deleted_at IS NULL
+		  AND r.status = 0
+		  AND (ur.expired_at IS NULL OR ur.expired_at > NOW())
+		  AND r.code IN ('president', 'super_admin', 'vice_president')
+	`).Scan(&ids).Error
+	return ids, err
 }

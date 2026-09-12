@@ -10,6 +10,7 @@ type Record struct {
 	Filename       string  `json:"filename"`
 	ChecksumSHA256 string  `json:"checksum_sha256"`
 	SizeBytes      int64   `json:"size_bytes"`
+	Encrypted      bool    `json:"encrypted"`
 	StartedAt      *string `json:"started_at"`
 	FinishedAt     *string `json:"finished_at"`
 	ErrorMessage   string  `json:"error_message"`
@@ -56,9 +57,30 @@ type UpdatePolicyRequest struct {
 
 // StorageStats is GET /system/backups/storage.
 type StorageStats struct {
-	Count     int64  `json:"count"`
-	SizeBytes int64  `json:"size_bytes"`
-	Prefix    string `json:"prefix"`
-	Bucket    string `json:"bucket"`
-	LocalPath string `json:"local_path,omitempty"`
+	Count              int64  `json:"count"`
+	SizeBytes          int64  `json:"size_bytes"`
+	Prefix             string `json:"prefix"`
+	Bucket             string `json:"bucket"`
+	LocalPath          string `json:"local_path,omitempty"`
+	Compression        string `json:"compression"`
+	EncryptionEnabled  bool   `json:"encryption_enabled"`
+	IncrementalEnabled bool   `json:"incremental_enabled"`
+	PITREnabled        bool   `json:"pitr_enabled"`
+}
+
+// Preview is GET /system/backups/:id/preview — integrity check, no restore.
+type Preview struct {
+	ID                   string `json:"id"`
+	Filename             string `json:"filename"`
+	SizeBytes            int64  `json:"size_bytes"`
+	ChecksumOK           bool   `json:"checksum_ok"`
+	Encrypted            bool   `json:"encrypted"`
+	DecryptOK            bool   `json:"decrypt_ok"`
+	GzipOK               bool   `json:"gzip_ok"`
+	TOCValid             bool   `json:"toc_valid"`
+	TOC                  string `json:"toc,omitempty"`
+	Ready                bool   `json:"ready"`
+	Compression          string `json:"compression"`
+	EncryptionConfigured bool   `json:"encryption_configured"`
+	Error                string `json:"error,omitempty"`
 }

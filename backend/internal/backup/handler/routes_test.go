@@ -47,6 +47,10 @@ func TestRegisterRoutes_RequiresBackupRead(t *testing.T) {
 	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/system/backups/policies", nil))
 	assert.Equal(t, http.StatusOK, w.Code)
 
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/system/backups/"+uuid.New().String()+"/preview", nil))
+	assert.Equal(t, http.StatusOK, w.Code)
+
 	denied := gin.New()
 	denied.Use(func(c *gin.Context) {
 		c.Set(auth.ContextKeyUserID, uid.String())

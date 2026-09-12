@@ -1,17 +1,20 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert, Button, Card, Form, Input, InputNumber, Modal, Space, Statistic,
   Switch, Table, Tag, Typography, message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { CloudServerOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
+import { CloudServerOutlined, DeleteOutlined, ReloadOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import {
   createBackup, deleteBackup, getBackupPolicy, getBackups, getBackupStorage,
-  restoreBackup, updateBackupPolicy, type BackupPolicy, type BackupRecord, type BackupStorageStats,
+  previewBackup, restoreBackup, updateBackupPolicy,
+  type BackupPolicy, type BackupPreview, type BackupRecord, type BackupStorageStats,
 } from '@/api/backup';
 import { usePermissions } from '@/hooks/usePermission';
+import { isCanceledError } from '@/api/error';
 import { canRetryRestore, formatBytes, isActiveStatus } from './format';
+import { applyPreviewIfCurrent, canContinueRestore, createPreviewSession, failedPreview, previewErrorMessage } from './preview';
 import './backup.css';
 
 const statusColor: Record<number, string> = {
@@ -38,6 +41,10 @@ const BackupPage: React.FC = () => {
   const [form] = Form.useForm<BackupPolicy>();
   const [restoreRow, setRestoreRow] = useState<BackupRecord | null>(null);
   const [restoreText, setRestoreText] = useState('');
+  const [previewRow, setPreviewRow] = useState<BackupRecord | null>(null);
+  const [preview, setPreview] = useState<BackupPreview | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const previewSession = useRef(createPreviewSession()).current;
 
   const load = useCallback(async (p = page) => {
     setLoading(true);
@@ -95,6 +102,32 @@ const BackupPage: React.FC = () => {
     });
   };
 
+  const closePreview = () => {
+    previewSession.invalidate();
+    setPreviewRow(null);
+    setPreview(null);
+    setPreviewing(false);
+  };
+
+  const onPreview = async (row: BackupRecord) => {
+    const ticket = previewSession.begin(row.id);
+    setPreviewRow(row);
+    setPreview(null);
+    setPreviewing(true);
+    try {
+      const next = applyPreviewIfCurrent(previewSession, ticket, await previewBackup(row.id, ticket.signal));
+      if (!next) return;
+      setPreview(next);
+    } catch (err) {
+      if (isCanceledError(err) || !previewSession.isCurrent(ticket.gen)) return;
+      setPreview(failedPreview(row, previewErrorMessage(err)));
+    } finally {
+      if (previewSession.isCurrent(ticket.gen)) setPreviewing(false);
+    }
+  };
+
+  useEffect(() => () => previewSession.invalidate(), [previewSession]);
+
   const onRestore = async () => {
     if (!restoreRow) return;
     if (restoreText.trim() !== t('backup.restoreToken')) return;
@@ -105,11 +138,20 @@ const BackupPage: React.FC = () => {
     void load();
   };
 
+  const flag = (ok: boolean) => (ok ? <Tag color="success">OK</Tag> : <Tag color="error">FAIL</Tag>);
+
   const columns: ColumnsType<BackupRecord> = [
     {
       title: t('backup.filename'),
       dataIndex: 'filename',
-      render: (v: string) => <span className="backup-mono">{v || '-'}</span>,
+      render: (v: string, row) => (
+        <Space size={6} wrap>
+          <span className="backup-mono">{v || '-'}</span>
+          <Tag color={row.encrypted ? 'geekblue' : 'default'}>
+            {row.encrypted ? t('backup.encrypted') : t('backup.unencrypted')}
+          </Tag>
+        </Space>
+      ),
     },
     {
       title: t('backup.statusLabel'),
@@ -143,9 +185,14 @@ const BackupPage: React.FC = () => {
     },
     {
       title: t('common.actions'),
-      width: 180,
+      width: 260,
       render: (_, row) => (
         <Space wrap size="small">
+          {canRetryRestore(row.status) && (
+            <Button type="link" size="small" icon={<SafetyCertificateOutlined />} onClick={() => { void onPreview(row); }}>
+              {t('backup.preview')}
+            </Button>
+          )}
           {canRestore && canRetryRestore(row.status) && (
             <Button type="link" size="small" danger onClick={() => { setRestoreText(''); setRestoreRow(row); }}>
               {t('backup.restore')}
@@ -180,10 +227,21 @@ const BackupPage: React.FC = () => {
         </Space>
       </div>
 
+      <Alert className="backup-wal" type="warning" showIcon message={t('backup.walGap')} />
+
       <div className="backup-stats">
         <Card><Statistic title={t('backup.storageCount')} value={storage?.count ?? 0} /></Card>
         <Card><Statistic title={t('backup.storageSize')} value={formatBytes(storage?.size_bytes)} /></Card>
         <Card><Statistic title={t('backup.storage')} value={storage?.prefix || 'backups'} /></Card>
+        <Card>
+          <Statistic
+            title={t('backup.compression')}
+            value={storage?.compression || 'gzip'}
+          />
+          <div className="backup-enc-flag">
+            {storage?.encryption_enabled ? t('backup.encryptionOn') : t('backup.encryptionOff')}
+          </div>
+        </Card>
       </div>
 
       <Card title={t('backup.policy')} style={{ marginBottom: 16 }}>
@@ -223,6 +281,39 @@ const BackupPage: React.FC = () => {
         />
         <Alert className="backup-cli" type="info" showIcon message={t('backup.cliNote')} />
       </Card>
+
+      <Modal
+        open={!!previewRow}
+        title={t('backup.previewTitle')}
+        confirmLoading={previewing}
+        okText={t('backup.previewContinue')}
+        okButtonProps={{ disabled: !canContinueRestore(previewRow, preview) || !canRestore }}
+        onCancel={closePreview}
+        onOk={() => {
+          if (!canContinueRestore(previewRow, preview) || !previewRow) return;
+          setRestoreText('');
+          setRestoreRow(previewRow);
+          closePreview();
+        }}
+      >
+        {previewing && <p>{t('backup.preview')}…</p>}
+        {preview && (
+          <div>
+            <Alert
+              type={preview.ready ? 'success' : 'error'}
+              showIcon
+              style={{ marginBottom: 16 }}
+              message={preview.ready ? t('backup.previewReady') : t('backup.previewNotReady')}
+            />
+            <p>{t('backup.previewChecksum')}: {flag(preview.checksum_ok)}</p>
+            <p>{t('backup.previewDecrypt')}: {preview.encrypted ? flag(preview.decrypt_ok) : t('backup.unencrypted')}</p>
+            <p>{t('backup.previewGzip')}: {flag(preview.gzip_ok)}</p>
+            <p>{t('backup.previewTOC')}: {flag(preview.toc_valid)}</p>
+            {preview.error ? <Alert type="error" showIcon message={preview.error} /> : null}
+            {preview.toc ? <pre className="backup-toc">{preview.toc}</pre> : null}
+          </div>
+        )}
+      </Modal>
 
       <Modal
         open={!!restoreRow}

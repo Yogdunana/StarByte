@@ -41,3 +41,7 @@ func errNotReady(msg string) error {
 func errChecksum() error {
 	return response.NewError(response.CodeBackupChecksum, "备份校验和不匹配，已中止恢复")
 }
+
+func errDecrypt(msg string) error {
+	return response.NewError(response.CodeBackupChecksum, msg)
+}
