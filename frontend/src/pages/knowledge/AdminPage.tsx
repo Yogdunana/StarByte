@@ -1,3 +1,4 @@
+import { tx } from '@/i18n/text';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Button, Drawer, Form, Input, Modal, Select, Space, Tree, Typography, message,
@@ -172,7 +173,7 @@ const AdminPage: React.FC = () => {
               <Form.Item name="title" label={t('knowledge.docTitle')} rules={[{ required: true }]} style={{ minWidth: 220 }}>
                 <Input />
               </Form.Item>
-              <Form.Item name="slug" label="Slug" rules={[{ required: true }]}>
+              <Form.Item name="slug" label={tx('链接标识')} rules={[{ required: true }]}>
                 <Input />
               </Form.Item>
               <Form.Item name="kind" label={t('knowledge.kind')} rules={[{ required: true }]}>

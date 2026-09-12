@@ -271,10 +271,24 @@ func TestExportUnicodeRoundTrip(t *testing.T) {
 	lines := parseSimpleHTML(html)
 	require.Equal(t, "h1", lines[0].kind)
 	require.Equal(t, "申请 / Заявление", lines[0].text)
-	require.Contains(t, lines, htmlLine{kind: "p", text: "申请人：张三 & Иван <A>"})
+	require.Contains(t, lines, htmlLine{kind: "p", text: "申请人: 张三 & Иван <A>"})
 	raw, err := buildTemplatePDF(html, "申请 / Заявление", "")
 	require.NoError(t, err)
 	if path := os.Getenv("STARBYTE_PDF_QA_OUTPUT"); path != "" {
 		require.NoError(t, os.WriteFile(path+".template.pdf", raw, 0600))
+	}
+}
+
+func TestRussianPrintTemplateKeepsApplicantData(t *testing.T) {
+	body, err := renderTemplate("member_application", map[string]string{"RealName": "张三 & Иван"}, "ru-RU")
+	require.NoError(t, err)
+	require.Contains(t, body, `lang="ru-RU"`)
+	require.Contains(t, body, "Заявитель")
+	require.Contains(t, body, "张三 &amp; Иван")
+	require.NotContains(t, body, "申请人")
+	raw, err := buildTemplatePDF(body, "Заявка на вступление", "StarByte", "ru-RU")
+	require.NoError(t, err)
+	if path := os.Getenv("STARBYTE_PDF_QA_OUTPUT"); path != "" {
+		require.NoError(t, os.WriteFile(path+".ru.pdf", raw, 0600))
 	}
 }

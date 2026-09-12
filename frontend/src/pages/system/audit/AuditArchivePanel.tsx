@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, Drawer, Input, Table, Tag, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
@@ -11,6 +12,7 @@ import {
 import { actionColorMap } from './auditColumns';
 
 const AuditArchivePanel: React.FC = () => {
+  useLocale();
   const [loading, setLoading] = useState(false);
   const [list, setList] = useState<AuditArchiveItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -31,7 +33,7 @@ const AuditArchivePanel: React.FC = () => {
       setList(res.list);
       setTotal(res.total);
     } catch {
-      message.error('加载归档列表失败');
+      message.error(tx('加载归档列表失败'));
     } finally {
       setLoading(false);
     }
@@ -46,36 +48,41 @@ const AuditArchivePanel: React.FC = () => {
     setOpen(true);
     setPulling(true);
     try {
-      const res = await pullAuditArchive({ id: row.id, page: p, page_size: 20, keyword: kw || undefined });
+      const res = await pullAuditArchive({
+        id: row.id,
+        page: p,
+        page_size: 20,
+        keyword: kw || undefined,
+      });
       setRecords(res.list);
       setRecordTotal(res.total);
       setRecordPage(p);
       if (res.truncated) {
-        message.warning('归档对象过大，结果可能被截断');
+        message.warning(tx('归档对象过大，结果可能被截断'));
       }
     } catch {
-      message.error('拉取归档对象失败');
+      message.error(tx('拉取归档对象失败'));
     } finally {
       setPulling(false);
     }
   };
 
   const columns: ColumnsType<AuditArchiveItem> = [
-    { title: '归档日期', dataIndex: 'archive_date', width: 120 },
-    { title: '记录数', dataIndex: 'record_count', width: 90 },
-    { title: 'MinIO 对象', dataIndex: 'minio_object', ellipsis: true },
+    { title: tx('归档日期'), dataIndex: 'archive_date', width: 120 },
+    { title: tx('记录数'), dataIndex: 'record_count', width: 90 },
+    { title: tx('MinIO 对象'), dataIndex: 'minio_object', ellipsis: true },
     {
-      title: '时间',
+      title: tx('时间'),
       dataIndex: 'created_at',
       width: 170,
       render: (t: string) => (t ? dayjs(t).format('YYYY-MM-DD HH:mm:ss') : '-'),
     },
     {
-      title: '操作',
+      title: tx('操作'),
       width: 90,
       render: (_, row) => (
         <Button type="link" size="small" onClick={() => pull(row, 1, '')}>
-          拉取
+          {tx('拉取')}
         </Button>
       ),
     },
@@ -83,18 +90,18 @@ const AuditArchivePanel: React.FC = () => {
 
   const recordColumns: ColumnsType<AuditLogItem> = [
     {
-      title: '时间',
+      title: tx('时间'),
       dataIndex: 'timestamp',
       width: 170,
       render: (t: string) => (t ? dayjs(t).format('YYYY-MM-DD HH:mm:ss') : '-'),
     },
-    { title: '用户', render: (_, r) => r.user?.username || '-' },
+    { title: tx('用户'), render: (_, r) => r.user?.username || '-' },
     {
-      title: '动作',
+      title: tx('动作'),
       dataIndex: 'action',
       render: (a: string) => <Tag color={actionColorMap[a] || 'default'}>{a}</Tag>,
     },
-    { title: '路径', dataIndex: 'path', ellipsis: true },
+    { title: tx('路径'), dataIndex: 'path', ellipsis: true },
   ];
 
   return (
@@ -116,13 +123,13 @@ const AuditArchivePanel: React.FC = () => {
         }}
       />
       <Drawer
-        title={current ? `归档 ${current.archive_date}` : '归档内容'}
+        title={current ? tx('归档 {{value0}}', { value0: current.archive_date }) : tx('归档内容')}
         open={open}
         width={720}
         onClose={() => setOpen(false)}
       >
         <Input.Search
-          placeholder="按路径/用户/模块筛选"
+          placeholder={tx('按路径/用户/模块筛选')}
           allowClear
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}

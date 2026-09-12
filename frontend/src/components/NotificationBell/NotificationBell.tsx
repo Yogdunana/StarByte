@@ -1,3 +1,6 @@
+import { notificationText } from '@/pages/notification/localizedText';
+import i18n from '@/i18n';
+import { tx, useLocale } from '@/i18n/text';
 import { notificationActionURL } from '@/pages/notification/actionURL';
 import React, { useCallback } from 'react';
 import { Badge, Popover, List, Typography, Button, Empty, Tag, Tooltip } from 'antd';
@@ -27,14 +30,30 @@ const priorityColorMap: Record<string, string> = {
 
 /** 分类中文映射 */
 const categoryLabelMap: Record<string, string> = {
-  system: '系统',
-  task: '任务',
-  meeting: '会议',
-  approval: '审批',
-  member: '入会',
-  interview: '面试',
-  announcement: '公告',
-  other: '其他',
+  get system() {
+    return tx('系统');
+  },
+  get task() {
+    return tx('任务');
+  },
+  get meeting() {
+    return tx('会议');
+  },
+  get approval() {
+    return tx('审批');
+  },
+  get member() {
+    return tx('入会');
+  },
+  get interview() {
+    return tx('面试');
+  },
+  get announcement() {
+    return tx('公告');
+  },
+  get other() {
+    return tx('其他');
+  },
 };
 
 /** 格式化时间为相对时间 */
@@ -47,14 +66,15 @@ function formatRelativeTime(dateStr: string): string {
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
 
-  if (minutes < 1) return '刚刚';
-  if (minutes < 60) return `${minutes} 分钟前`;
-  if (hours < 24) return `${hours} 小时前`;
-  if (days < 7) return `${days} 天前`;
-  return date.toLocaleDateString('zh-CN');
+  if (minutes < 1) return tx('刚刚');
+  if (minutes < 60) return tx('{{value0}} 分钟前', { value0: minutes });
+  if (hours < 24) return tx('{{value0}} 小时前', { value0: hours });
+  if (days < 7) return tx('{{value0}} 天前', { value0: days });
+  return date.toLocaleDateString(i18n.language);
 }
 
 const NotificationBell: React.FC = () => {
+  useLocale();
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const unreadCount = useSelector(selectUnreadCount);
@@ -98,16 +118,30 @@ const NotificationBell: React.FC = () => {
       onClick={() => handleNotificationClick(item)}
     >
       <div style={{ width: '100%' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-          <Button type="text" style={{ height: 'auto', whiteSpace: 'normal', textAlign: 'left', padding: 0 }} onClick={(event) => { event.stopPropagation(); handleNotificationClick(item); }}>
-            <Text strong={!item.is_read}>{item.title}</Text>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 4,
+          }}
+        >
+          <Button
+            type="text"
+            style={{ height: 'auto', whiteSpace: 'normal', textAlign: 'left', padding: 0 }}
+            onClick={(event) => {
+              event.stopPropagation();
+              handleNotificationClick(item);
+            }}
+          >
+            <Text strong={!item.is_read}>{notificationText(item, 'title')}</Text>
           </Button>
           {!item.is_read && (
-            <Tooltip title="标记已读">
+            <Tooltip title={tx('标记已读')}>
               <Button
                 type="text"
                 size="small"
-                aria-label="标记已读"
+                aria-label={tx('标记已读')}
                 icon={<CheckOutlined />}
                 onClick={(e) => handleMarkRead(item.id, e)}
               />
@@ -115,10 +149,13 @@ const NotificationBell: React.FC = () => {
           )}
         </div>
         <Text type="secondary" style={{ fontSize: 12, display: 'block' }} ellipsis>
-          {item.content}
+          {notificationText(item, 'content')}
         </Text>
         <div style={{ display: 'flex', gap: 6, marginTop: 4, alignItems: 'center' }}>
-          <Tag color={priorityColorMap[item.priority as NotificationPriority] || 'default'} style={{ fontSize: 11 }}>
+          <Tag
+            color={priorityColorMap[item.priority as NotificationPriority] || 'default'}
+            style={{ fontSize: 11 }}
+          >
             {categoryLabelMap[item.category as NotificationCategory] || item.category}
           </Tag>
           <Text type="secondary" style={{ fontSize: 11 }}>
@@ -131,21 +168,32 @@ const NotificationBell: React.FC = () => {
 
   const content = (
     <div style={{ width: 'min(360px, calc(100vw - 48px))' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 4px 8px' }}>
-        <Text strong>消息通知</Text>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '4px 4px 8px',
+        }}
+      >
+        <Text strong>{tx('消息通知')}</Text>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <Tooltip title={wsConnected ? '已连接' : '未连接'}>
+          <Tooltip title={wsConnected ? tx('已连接') : tx('未连接')}>
             <Badge status={wsConnected ? 'success' : 'default'} />
           </Tooltip>
           {unreadCount > 0 && (
             <Button type="link" size="small" icon={<CheckOutlined />} onClick={handleMarkAllRead}>
-              全部已读
+              {tx('全部已读')}
             </Button>
           )}
         </div>
       </div>
       {recentNotifications.length === 0 ? (
-        <Empty description="暂无通知" image={Empty.PRESENTED_IMAGE_SIMPLE} style={{ padding: 20 }} />
+        <Empty
+          description={tx('暂无通知')}
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          style={{ padding: 20 }}
+        />
       ) : (
         <List
           dataSource={recentNotifications.slice(0, 10)}
@@ -155,7 +203,7 @@ const NotificationBell: React.FC = () => {
       )}
       <div style={{ textAlign: 'center', borderTop: '1px solid #f0f0f0', padding: '8px 0' }}>
         <Button type="link" onClick={handleViewAll} style={{ fontSize: 13 }}>
-          查看全部通知
+          {tx('查看全部通知')}
         </Button>
       </div>
     </div>
@@ -173,9 +221,13 @@ const NotificationBell: React.FC = () => {
         }
       }}
     >
-      <Tooltip title="消息通知">
+      <Tooltip title={tx('消息通知')}>
         <Badge count={unreadCount} size="small" offset={[-2, 2]}>
-          <Button type="text" aria-label="消息通知" icon={<BellOutlined style={{ fontSize: 18 }} />} />
+          <Button
+            type="text"
+            aria-label={tx('消息通知')}
+            icon={<BellOutlined style={{ fontSize: 18 }} />}
+          />
         </Badge>
       </Tooltip>
     </Popover>

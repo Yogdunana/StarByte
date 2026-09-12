@@ -1,3 +1,4 @@
+import { tx } from '@/i18n/text';
 /**
  * 文件下载工具
  */
@@ -25,11 +26,7 @@ export function downloadBlob(blob: Blob, filename: string): void {
  * @param filename 下载文件名
  * @param token 鉴权 Token（可选）
  */
-export async function downloadFile(
-  url: string,
-  filename?: string,
-  token?: string,
-): Promise<void> {
+export async function downloadFile(url: string, filename?: string, token?: string): Promise<void> {
   const headers: Record<string, string> = {};
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -37,7 +34,7 @@ export async function downloadFile(
 
   const response = await fetch(url, { headers });
   if (!response.ok) {
-    throw new Error(`下载失败: ${response.status}`);
+    throw new Error(tx('下载失败: {{value0}}', { value0: response.status }));
   }
 
   const blob = await response.blob();

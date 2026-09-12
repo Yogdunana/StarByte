@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useState, useEffect } from 'react';
 import { Upload, message, Image } from 'antd';
 import { UploadOutlined, PlusOutlined } from '@ant-design/icons';
@@ -28,6 +29,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
   listType = 'text',
   multiple = false,
 }) => {
+  useLocale();
   const [internalFileList, setInternalFileList] = useState<UploadFile[]>(value || []);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState('');
@@ -49,17 +51,21 @@ const FileUpload: React.FC<FileUploadProps> = ({
       const fileType = file.type;
       const ext = '.' + file.name.split('.').pop()?.toLowerCase();
       const matched = types.some(
-        (t) => fileType === t || ext === t || (t.startsWith('.') && ext === t) || (t.endsWith('/*') && fileType.startsWith(t.slice(0, -1))),
+        (t) =>
+          fileType === t ||
+          ext === t ||
+          (t.startsWith('.') && ext === t) ||
+          (t.endsWith('/*') && fileType.startsWith(t.slice(0, -1))),
       );
       if (!matched) {
-        message.error(`不支持的文件类型: ${ext || fileType}`);
+        message.error(tx('不支持的文件类型: {{value0}}', { value0: ext || fileType }));
         return Upload.LIST_IGNORE;
       }
     }
 
     // 大小检查
     if (file.size / 1024 / 1024 > maxSize) {
-      message.error(`文件大小不能超过 ${maxSize}MB`);
+      message.error(tx('文件大小不能超过 {{value0}}MB', { value0: maxSize }));
       return Upload.LIST_IGNORE;
     }
 
@@ -104,17 +110,24 @@ const FileUpload: React.FC<FileUploadProps> = ({
   return (
     <>
       <Upload {...uploadProps}>
-        {listType === 'picture-card' && fileList.length >= maxCount ? null : (
-          listType === 'picture-card' ? (
-            <div>
-              <PlusOutlined />
-              <div style={{ marginTop: 8 }}>上传</div>
-            </div>
-          ) : (
-            <button style={{ border: '1px dashed #d9d9d9', padding: '4px 15px', borderRadius: 6, background: '#fff', cursor: 'pointer' }}>
-              <UploadOutlined /> 点击上传
-            </button>
-          )
+        {listType === 'picture-card' && fileList.length >= maxCount ? null : listType ===
+          'picture-card' ? (
+          <div>
+            <PlusOutlined />
+            <div style={{ marginTop: 8 }}>{tx('上传')}</div>
+          </div>
+        ) : (
+          <button
+            style={{
+              border: '1px dashed #d9d9d9',
+              padding: '4px 15px',
+              borderRadius: 6,
+              background: '#fff',
+              cursor: 'pointer',
+            }}
+          >
+            <UploadOutlined /> {tx('点击上传')}
+          </button>
         )}
       </Upload>
       {previewOpen && (

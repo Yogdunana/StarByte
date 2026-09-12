@@ -1,3 +1,4 @@
+import { tx } from '@/i18n/text';
 import { Button, Space, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { FileInfo } from '@/types/api';
@@ -9,9 +10,15 @@ const categoryColor: Record<string, string> = {
 };
 
 const categoryLabel: Record<string, string> = {
-  image: '图片',
-  document: '文档',
-  video: '视频',
+  get image() {
+    return tx('图片');
+  },
+  get document() {
+    return tx('文档');
+  },
+  get video() {
+    return tx('视频');
+  },
 };
 
 function formatSize(size: number): string {
@@ -26,7 +33,7 @@ export function buildFileColumns(
 ): ColumnsType<FileInfo> {
   return [
     {
-      title: '原始文件名',
+      title: tx('原始文件名'),
       dataIndex: 'original_name',
       ellipsis: true,
       render: (name: string, record) => (
@@ -34,7 +41,7 @@ export function buildFileColumns(
       ),
     },
     {
-      title: '分类',
+      title: tx('分类'),
       dataIndex: 'category',
       width: 90,
       render: (category: string) => (
@@ -42,41 +49,41 @@ export function buildFileColumns(
       ),
     },
     {
-      title: '大小',
+      title: tx('大小'),
       dataIndex: 'file_size',
       width: 100,
       render: (fileSize: number, record) => formatSize(fileSize || record.size || 0),
     },
     {
-      title: '类型',
+      title: tx('类型'),
       dataIndex: 'mime_type',
       width: 160,
       ellipsis: true,
     },
     {
-      title: '上传者',
+      title: tx('上传者'),
       dataIndex: 'uploader_name',
       width: 120,
       render: (name: string, record) => name || record.uploader?.name || '-',
     },
     {
-      title: '上传时间',
+      title: tx('上传时间'),
       dataIndex: 'created_at',
       width: 180,
     },
     {
-      title: '操作',
+      title: tx('操作'),
       key: 'action',
       width: 160,
       fixed: 'right',
       render: (_, record) => (
         <Space>
           <Button type="link" size="small" onClick={() => onDownload(record)}>
-            下载
+            {tx('下载')}
           </Button>
           {onDelete && (
             <Button type="link" size="small" danger onClick={() => onDelete(record)}>
-              删除
+              {tx('删除')}
             </Button>
           )}
         </Space>

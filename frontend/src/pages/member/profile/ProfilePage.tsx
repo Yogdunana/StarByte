@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, Card, Input, Modal, Select, Space, Table, message } from 'antd';
 import { exportMemberProfiles, getMemberList, updateMemberStatus } from '@/api/member';
@@ -8,6 +9,7 @@ import { buildProfileColumns } from './profileColumns';
 import ProfileDetailDrawer from './ProfileDetailDrawer';
 
 const ProfilePage: React.FC = () => {
+  useLocale();
   const canExport = usePermission('member:export');
   const canManage = usePermission('member:manage');
   const [loading, setLoading] = useState(false);
@@ -47,16 +49,16 @@ const ProfilePage: React.FC = () => {
       keyword: keyword || undefined,
     });
     downloadBlob(res.data, 'member-profiles.pdf');
-    message.success('已开始下载');
+    message.success(tx('已开始下载'));
   };
 
   const handleStatusOk = async () => {
     if (!statusRecord || !reason.trim()) {
-      message.warning('请填写原因');
+      message.warning(tx('请填写原因'));
       return;
     }
     await updateMemberStatus(statusRecord.id, newStatus, reason);
-    message.success('状态已更新');
+    message.success(tx('状态已更新'));
     setStatusRecord(null);
     setReason('');
     void load();
@@ -64,16 +66,12 @@ const ProfilePage: React.FC = () => {
 
   return (
     <Card
-      title="人员档案"
-      extra={
-        canExport && (
-          <Button onClick={() => void handleExport()}>导出 PDF</Button>
-        )
-      }
+      title={tx('人员档案')}
+      extra={canExport && <Button onClick={() => void handleExport()}>{tx('导出 PDF')}</Button>}
     >
       <Space style={{ marginBottom: 16 }}>
         <Input.Search
-          placeholder="姓名 / 学号 / 技能 / 部门"
+          placeholder={tx('姓名 / 学号 / 技能 / 部门')}
           allowClear
           onSearch={(v) => {
             setKeyword(v);
@@ -110,7 +108,7 @@ const ProfilePage: React.FC = () => {
         }}
       />
       <Modal
-        title="变更档案状态"
+        title={tx('变更档案状态')}
         open={!!statusRecord}
         onCancel={() => setStatusRecord(null)}
         onOk={() => void handleStatusOk()}
@@ -120,14 +118,14 @@ const ProfilePage: React.FC = () => {
           value={newStatus}
           onChange={setNewStatus}
           options={[
-            { value: 0, label: '正常' },
-            { value: 1, label: '禁用' },
-            { value: 2, label: '已退出' },
+            { value: 0, label: tx('正常') },
+            { value: 1, label: tx('禁用') },
+            { value: 2, label: tx('已退出') },
           ]}
         />
         <Input.TextArea
           rows={3}
-          placeholder="变更原因"
+          placeholder={tx('变更原因')}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
         />

@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React from 'react';
 import { Drawer, Empty, Table, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
@@ -20,25 +21,28 @@ const statusColor: Record<string, string> = {
 };
 
 const RunDrawer: React.FC<Props> = ({ open, logs, onClose, onSelectRun }) => {
+  useLocale();
   const columns: ColumnsType<SchedulerRun> = [
     {
-      title: '状态',
+      title: tx('状态'),
       dataIndex: 'status',
       width: 100,
       render: (v: string) => <Tag color={statusColor[v] || 'default'}>{v}</Tag>,
     },
-    { title: '次数', dataIndex: 'attempt', width: 70 },
-    { title: '开始', dataIndex: 'started_at', width: 180 },
+    { title: tx('次数'), dataIndex: 'attempt', width: 70 },
+    { title: tx('开始'), dataIndex: 'started_at', width: 180 },
     {
-      title: '错误',
+      title: tx('错误'),
       dataIndex: 'error_text',
       ellipsis: true,
     },
   ];
 
   return (
-    <Drawer title="执行记录" open={open} onClose={onClose} width={640}>
-      {!logs ? <Empty /> : (
+    <Drawer title={tx('执行记录')} open={open} onClose={onClose} width={640}>
+      {!logs ? (
+        <Empty />
+      ) : (
         <>
           <Table
             rowKey="id"
@@ -49,7 +53,7 @@ const RunDrawer: React.FC<Props> = ({ open, logs, onClose, onSelectRun }) => {
             onRow={(row) => ({ onClick: () => onSelectRun(row.id) })}
           />
           <div className="sched-log" style={{ marginTop: 16 }}>
-            {(logs.logs || []).map((l) => `[${l.level}] ${l.line}`).join('\n') || '暂无日志'}
+            {(logs.logs || []).map((l) => `[${l.level}] ${l.line}`).join('\n') || tx('暂无日志')}
           </div>
         </>
       )}

@@ -7,6 +7,7 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/export/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/export/service"
+	"github.com/Yogdunana/StarByte/backend/pkg/locale"
 	"github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/gin-gonic/gin"
@@ -82,6 +83,7 @@ func (h *ExportHandler) exportTable(c *gin.Context, format string) {
 		response.BadRequest(c, "参数错误: "+err.Error())
 		return
 	}
+	req.Locale = locale.FromHeader(c.GetHeader("Accept-Language"))
 	out, err := h.svc.ExportTable(c.Request.Context(), format, auth.GetUserID(c), &req)
 	if err != nil {
 		response.Error(c, err)
@@ -114,6 +116,7 @@ func (h *ExportHandler) ExportTemplate(c *gin.Context) {
 		response.BadRequest(c, "参数错误: "+err.Error())
 		return
 	}
+	req.Locale = locale.FromHeader(c.GetHeader("Accept-Language"))
 	out, err := h.svc.ExportTemplate(c.Request.Context(), templateID, auth.GetUserID(c), &req)
 	if err != nil {
 		response.Error(c, err)
@@ -144,6 +147,11 @@ func (h *ExportHandler) GetTask(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
+	if out != nil {
+		copy := *out
+		copy.Error = locale.Message(locale.FromHeader(c.GetHeader("Accept-Language")), copy.Error)
+		out = &copy
+	}
 	response.OK(c, out)
 }
 
@@ -157,7 +165,13 @@ func (h *ExportHandler) GetTask(c *gin.Context) {
 // @Router /export/templates [get]
 // @Security BearerAuth
 func (h *ExportHandler) ListTemplates(c *gin.Context) {
-	response.OK(c, h.svc.ListTemplates())
+	items := h.svc.ListTemplates()
+	lang := locale.FromHeader(c.GetHeader("Accept-Language"))
+	for i := range items {
+		items[i].Name = locale.Text(lang, items[i].Name)
+		items[i].Description = locale.Text(lang, items[i].Description)
+	}
+	response.OK(c, items)
 }
 
 // Download 下载导出文件

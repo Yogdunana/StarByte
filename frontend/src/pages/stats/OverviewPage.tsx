@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, Col, Row, Select, Space, Statistic, Typography, message } from 'antd';
 import {
@@ -17,14 +18,40 @@ import ProviderCharts from './ProviderCharts';
 import './stats.css';
 
 const PROVIDERS: Array<{ code: StatsProviderCode; title: string }> = [
-  { code: 'member-distribution', title: '会员分布' },
-  { code: 'interview-data', title: '面试数据统计' },
-  { code: 'meeting-attendance', title: '会议出席统计' },
-  { code: 'task-progress', title: '任务进度统计' },
-  { code: 'internship-duration', title: '实习时长统计' },
+  {
+    code: 'member-distribution',
+    get title() {
+      return tx('会员分布');
+    },
+  },
+  {
+    code: 'interview-data',
+    get title() {
+      return tx('面试数据统计');
+    },
+  },
+  {
+    code: 'meeting-attendance',
+    get title() {
+      return tx('会议出席统计');
+    },
+  },
+  {
+    code: 'task-progress',
+    get title() {
+      return tx('任务进度统计');
+    },
+  },
+  {
+    code: 'internship-duration',
+    get title() {
+      return tx('实习时长统计');
+    },
+  },
 ];
 
 const OverviewPage: React.FC = () => {
+  const uiLanguage = useLocale();
   const canExport = usePermission('stats:export');
   const [range, setRange] = useState<TimeRangeValue>({ preset: 'month' });
   const [departmentId, setDepartmentId] = useState<string>();
@@ -36,16 +63,20 @@ const OverviewPage: React.FC = () => {
   const [errors, setErrors] = useState<Partial<Record<StatsProviderCode, string>>>({});
 
   const query = useMemo<StatsQuery>(() => {
+    // Invalidate cached labels when the selected language changes.
+    void uiLanguage;
     const dates = resolveTimeRange(range);
     return {
       ...dates,
       department_id: departmentId,
       granularity,
     };
-  }, [range, departmentId, granularity]);
+  }, [range, departmentId, granularity, uiLanguage]);
 
   useEffect(() => {
-    void getMemberDepartments().then(setDepartments).catch(() => undefined);
+    void getMemberDepartments()
+      .then(setDepartments)
+      .catch(() => undefined);
   }, []);
 
   const load = useCallback(async () => {
@@ -62,7 +93,7 @@ const OverviewPage: React.FC = () => {
       try {
         next[p.code] = await getStats(p.code, query);
       } catch (e) {
-        errs[p.code] = e instanceof Error ? e.message : '加载失败';
+        errs[p.code] = e instanceof Error ? e.message : tx('加载失败');
       }
     }
     setResults(next);
@@ -78,7 +109,7 @@ const OverviewPage: React.FC = () => {
     try {
       await exportStats(code, format, query);
     } catch {
-      message.error('导出失败');
+      message.error(tx('导出失败'));
     }
   };
 
@@ -86,16 +117,18 @@ const OverviewPage: React.FC = () => {
     <div className="stats-page">
       <div className="stats-hero">
         <div>
-          <Typography.Title level={3} style={{ color: '#fff', margin: 0 }}>统计概览</Typography.Title>
+          <Typography.Title level={3} style={{ color: '#fff', margin: 0 }}>
+            {tx('统计概览')}
+          </Typography.Title>
           <Typography.Paragraph style={{ color: 'rgba(255,255,255,.85)', margin: '6px 0 0' }}>
-            会员 / 面试 / 会议 / 任务 / 实习 一期五组图表
+            {tx('会员 / 面试 / 会议 / 任务 / 实习 一期五组图表')}
           </Typography.Paragraph>
         </div>
         <Space wrap size={12}>
           <TimeRangeSelect value={range} onChange={setRange} />
           <Select
             allowClear
-            placeholder="部门"
+            placeholder={tx('部门')}
             style={{ minWidth: 160 }}
             value={departmentId}
             onChange={setDepartmentId}
@@ -106,19 +139,35 @@ const OverviewPage: React.FC = () => {
             style={{ width: 110 }}
             onChange={setGranularity}
             options={[
-              { value: 'day', label: '按日' },
-              { value: 'week', label: '按周' },
-              { value: 'month', label: '按月' },
+              { value: 'day', label: tx('按日') },
+              { value: 'week', label: tx('按周') },
+              { value: 'month', label: tx('按月') },
             ]}
           />
         </Space>
       </div>
 
       <Row gutter={[16, 16]} className="stats-kpis">
-        <Col xs={12} md={6}><Card><Statistic title="会员总数" value={overview?.total_members ?? 0} /></Card></Col>
-        <Col xs={12} md={6}><Card><Statistic title="本月会议" value={overview?.total_meetings_this_month ?? 0} /></Card></Col>
-        <Col xs={12} md={6}><Card><Statistic title="进行中任务" value={overview?.total_tasks_in_progress ?? 0} /></Card></Col>
-        <Col xs={12} md={6}><Card><Statistic title="活跃实习" value={overview?.total_internships_active ?? 0} /></Card></Col>
+        <Col xs={12} md={6}>
+          <Card>
+            <Statistic title={tx('会员总数')} value={overview?.total_members ?? 0} />
+          </Card>
+        </Col>
+        <Col xs={12} md={6}>
+          <Card>
+            <Statistic title={tx('本月会议')} value={overview?.total_meetings_this_month ?? 0} />
+          </Card>
+        </Col>
+        <Col xs={12} md={6}>
+          <Card>
+            <Statistic title={tx('进行中任务')} value={overview?.total_tasks_in_progress ?? 0} />
+          </Card>
+        </Col>
+        <Col xs={12} md={6}>
+          <Card>
+            <Statistic title={tx('活跃实习')} value={overview?.total_internships_active ?? 0} />
+          </Card>
+        </Col>
       </Row>
 
       {PROVIDERS.map((p) => (
@@ -127,7 +176,13 @@ const OverviewPage: React.FC = () => {
             result={results[p.code]}
             loading={loading}
             error={errors[p.code]}
-            onExport={canExport ? (format) => { void handleExport(p.code, format); } : undefined}
+            onExport={
+              canExport
+                ? (format) => {
+                    void handleExport(p.code, format);
+                  }
+                : undefined
+            }
           />
         </Card>
       ))}

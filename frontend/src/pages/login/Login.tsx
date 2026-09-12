@@ -1,3 +1,4 @@
+import LanguageSelect from '@/components/LanguageSelect/LanguageSelect';
 import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, Card, Tabs, Divider, message } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, BankOutlined } from '@ant-design/icons';
@@ -33,7 +34,11 @@ function getRedirectPath(state: unknown, nextQuery?: string | null): string {
   if (fromQuery) return fromQuery;
   if (state && typeof state === 'object' && 'from' in state) {
     const from = (state as LocationFromState).from;
-    if (from?.pathname?.startsWith('/') && !from.pathname.startsWith('//') && from.pathname !== '/') {
+    if (
+      from?.pathname?.startsWith('/') &&
+      !from.pathname.startsWith('//') &&
+      from.pathname !== '/'
+    ) {
       return from.pathname;
     }
   }
@@ -139,18 +144,34 @@ const Login: React.FC = () => {
   return (
     <div className={styles.container}>
       <div className={styles.left}>
-        <motion.div className={styles.brand} variants={staggerEnter} initial="hidden" animate="show">
+        <motion.div
+          className={styles.brand}
+          variants={staggerEnter}
+          initial="hidden"
+          animate="show"
+        >
           <motion.div className={styles.identity} variants={fadeUp}>
-            <div className={styles.wordmark}>StarByte<span>.</span></div>
+            <div className={styles.wordmark}>
+              StarByte<span>.</span>
+            </div>
             <p className={styles.kicker}>{t('login.kicker')}</p>
           </motion.div>
           <motion.div className={styles.message} variants={fadeUp}>
-            <h1>{t('login.headlineLine1')}<br />{t('login.headlineLine2')}</h1>
+            <h1>
+              {t('login.headlineLine1')}
+              <br />
+              {t('login.headlineLine2')}
+            </h1>
             <p className={styles.story}>{t('login.story')}</p>
           </motion.div>
           <motion.div className={styles.visual} variants={fadeUp}>
             <div className={styles.connections}>
-              <span className={styles.mark} aria-hidden="true"><i /><i /><i /><i /></span>
+              <span className={styles.mark} aria-hidden="true">
+                <i />
+                <i />
+                <i />
+                <i />
+              </span>
               <span>{t('login.pillars')}</span>
             </div>
             <p className={styles.caption}>{t('login.caption')}</p>
@@ -160,6 +181,9 @@ const Login: React.FC = () => {
       <motion.div className={styles.right} variants={fadeUp} initial="hidden" animate="show">
         <div className={styles.mobileBrand}>StarByte.</div>
         <Card className={styles.card}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+            <LanguageSelect />
+          </div>
           <header className={styles.cardHeader}>
             <p className={styles.formKicker}>{t('login.formKicker')}</p>
             <h2>{activeTab === 'login' ? t('login.welcomeBack') : t('login.joinUs')}</h2>
@@ -185,7 +209,9 @@ const Login: React.FC = () => {
                     icon={<BankOutlined />}
                     className={styles.casBtn}
                     onClick={() => {
-                      window.location.assign(getCasLoginURL(getRedirectPath(location.state, searchParams.get('next'))));
+                      window.location.assign(
+                        getCasLoginURL(getRedirectPath(location.state, searchParams.get('next'))),
+                      );
                     }}
                   >
                     {t('login.cas')}
@@ -194,7 +220,11 @@ const Login: React.FC = () => {
                 </div>
               )}
 
-              {casEnabled && <Divider plain className={styles.casDivider}>{t('login.orLocal')}</Divider>}
+              {casEnabled && (
+                <Divider plain className={styles.casDivider}>
+                  {t('login.orLocal')}
+                </Divider>
+              )}
 
               <Form
                 name="login"
@@ -211,7 +241,11 @@ const Login: React.FC = () => {
                     { min: 3, message: t('login.minChars', { n: 3 }) },
                   ]}
                 >
-                  <Input autoComplete="username" prefix={<UserOutlined />} placeholder={t('login.usernameOrStudent')} />
+                  <Input
+                    autoComplete="username"
+                    prefix={<UserOutlined />}
+                    placeholder={t('login.usernameOrStudent')}
+                  />
                 </Form.Item>
 
                 <Form.Item
@@ -222,7 +256,11 @@ const Login: React.FC = () => {
                     { min: 6, message: t('login.passwordMin') },
                   ]}
                 >
-                  <Input.Password autoComplete="current-password" prefix={<LockOutlined />} placeholder={t('login.password')} />
+                  <Input.Password
+                    autoComplete="current-password"
+                    prefix={<LockOutlined />}
+                    placeholder={t('login.password')}
+                  />
                 </Form.Item>
 
                 <Form.Item className={styles.submitItem}>
@@ -233,7 +271,9 @@ const Login: React.FC = () => {
 
                 <div className={styles.switchTab}>
                   {t('login.hint')}
-                  <Button type="link" onClick={() => setActiveTab('register')}>{t('login.goRegister')}</Button>
+                  <Button type="link" onClick={() => setActiveTab('register')}>
+                    {t('login.goRegister')}
+                  </Button>
                 </div>
               </Form>
             </>
@@ -289,7 +329,11 @@ const Login: React.FC = () => {
                     { min: 6, message: t('login.passwordMin') },
                   ]}
                 >
-                  <Input.Password autoComplete="new-password" prefix={<LockOutlined />} placeholder={t('login.password')} />
+                  <Input.Password
+                    autoComplete="new-password"
+                    prefix={<LockOutlined />}
+                    placeholder={t('login.password')}
+                  />
                 </Form.Item>
 
                 <Form.Item
@@ -308,7 +352,10 @@ const Login: React.FC = () => {
                     }),
                   ]}
                 >
-                  <Input.Password prefix={<LockOutlined />} placeholder={t('login.confirmPassword')} />
+                  <Input.Password
+                    prefix={<LockOutlined />}
+                    placeholder={t('login.confirmPassword')}
+                  />
                 </Form.Item>
               </div>
 
@@ -320,7 +367,9 @@ const Login: React.FC = () => {
 
               <div className={styles.switchTab}>
                 {t('login.hasAccount')}
-                <Button type="link" onClick={() => setActiveTab('login')}>{t('login.goLogin')}</Button>
+                <Button type="link" onClick={() => setActiveTab('login')}>
+                  {t('login.goLogin')}
+                </Button>
               </div>
             </Form>
           )}

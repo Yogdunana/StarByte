@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Card, Modal, Table, Upload, message } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
@@ -11,6 +12,7 @@ import { buildFileColumns } from './fileColumns';
 const emptyFilter: FileFilterValue = { keyword: '', category: undefined };
 
 const FileList: React.FC = () => {
+  useLocale();
   const canCreate = usePermission('file:create');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<FileInfo[]>([]);
@@ -36,7 +38,7 @@ const FileList: React.FC = () => {
       setData(res.list);
       setTotal(res.total);
     } catch {
-      message.error('加载文件列表失败');
+      message.error(tx('加载文件列表失败'));
     } finally {
       setLoading(false);
     }
@@ -51,16 +53,18 @@ const FileList: React.FC = () => {
       window.open(record.url, '_blank');
       return;
     }
-    message.warning('暂无下载地址');
+    message.warning(tx('暂无下载地址'));
   };
 
   const handleDelete = (record: FileInfo) => {
     Modal.confirm({
-      title: '删除文件',
-      content: `确定删除「${record.original_name || record.filename}」？将同时删除存储对象。`,
+      title: tx('删除文件'),
+      content: tx('确定删除「{{value0}}」？将同时删除存储对象。', {
+        value0: record.original_name || record.filename,
+      }),
       onOk: async () => {
         await deleteFile(record.id);
-        message.success('删除成功');
+        message.success(tx('删除成功'));
         loadList(buildParams(page, pageSize));
       },
     });
@@ -75,7 +79,7 @@ const FileList: React.FC = () => {
         options.onProgress?.({ percent });
       });
       options.onSuccess?.({});
-      message.success('上传成功');
+      message.success(tx('上传成功'));
       loadList(buildParams(page, pageSize));
     } catch (err) {
       options.onError?.(err as Error);
@@ -83,7 +87,7 @@ const FileList: React.FC = () => {
   };
 
   return (
-    <Card title="文件管理">
+    <Card title={tx('文件管理')}>
       <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap' }}>
         <FileFilterBar
           value={filters}
@@ -100,8 +104,17 @@ const FileList: React.FC = () => {
         />
         {canCreate && (
           <Upload customRequest={customRequest} showUploadList={false}>
-            <button type="button" style={{ border: '1px dashed #d9d9d9', padding: '4px 15px', borderRadius: 6, background: '#fff', cursor: 'pointer' }}>
-              <UploadOutlined /> 上传文件
+            <button
+              type="button"
+              style={{
+                border: '1px dashed #d9d9d9',
+                padding: '4px 15px',
+                borderRadius: 6,
+                background: '#fff',
+                cursor: 'pointer',
+              }}
+            >
+              <UploadOutlined /> {tx('上传文件')}
             </button>
           </Upload>
         )}
@@ -118,7 +131,7 @@ const FileList: React.FC = () => {
           pageSize,
           total,
           showSizeChanger: true,
-          showTotal: (t) => `共 ${t} 条`,
+          showTotal: (t) => tx('共 {{value0}} 条', { value0: t }),
           onChange: (p, ps) => {
             setPage(p);
             setPageSize(ps);

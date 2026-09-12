@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import { notificationActionURL } from './actionURL';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Table, Button, Select, Space, Typography, message, Switch } from 'antd';
@@ -5,10 +6,7 @@ import { CheckOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import type { AppDispatch } from '@/store';
-import {
-  fetchUnreadCount,
-  markAllNotificationsAsRead,
-} from '@/store/slices/notificationSlice';
+import { fetchUnreadCount, markAllNotificationsAsRead } from '@/store/slices/notificationSlice';
 import {
   getNotificationList,
   markAsRead,
@@ -23,6 +21,7 @@ import NotificationDetailDrawer from './NotificationDetailDrawer';
 const { Text } = Typography;
 
 const NotificationList: React.FC = () => {
+  useLocale();
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -47,7 +46,7 @@ const NotificationList: React.FC = () => {
       setData(res.list);
       setTotal(res.total);
     } catch {
-      message.error('加载通知列表失败');
+      message.error(tx('加载通知列表失败'));
     } finally {
       setLoading(false);
     }
@@ -61,14 +60,12 @@ const NotificationList: React.FC = () => {
     try {
       await markAsRead(record.id);
       setData((prev) =>
-        prev.map((item) =>
-          item.id === record.id ? { ...item, is_read: true } : item,
-        ),
+        prev.map((item) => (item.id === record.id ? { ...item, is_read: true } : item)),
       );
       dispatch(fetchUnreadCount());
-      message.success('已标记为已读');
+      message.success(tx('已标记为已读'));
     } catch {
-      message.error('标记已读失败');
+      message.error(tx('标记已读失败'));
     }
   };
 
@@ -77,9 +74,9 @@ const NotificationList: React.FC = () => {
       await markAllAsRead(category || undefined);
       dispatch(markAllNotificationsAsRead());
       loadData();
-      message.success('已全部标记为已读');
+      message.success(tx('已全部标记为已读'));
     } catch {
-      message.error('操作失败');
+      message.error(tx('操作失败'));
     }
   };
 
@@ -89,9 +86,9 @@ const NotificationList: React.FC = () => {
       setData((prev) => prev.filter((item) => item.id !== record.id));
       setTotal((prev) => prev - 1);
       dispatch(fetchUnreadCount());
-      message.success('删除成功');
+      message.success(tx('删除成功'));
     } catch {
-      message.error('删除失败');
+      message.error(tx('删除失败'));
     }
   };
 
@@ -127,7 +124,7 @@ const NotificationList: React.FC = () => {
           options={categoryOptions}
         />
         <Space>
-          <Text>仅未读</Text>
+          <Text>{tx('仅未读')}</Text>
           <Switch
             checked={unreadOnly}
             onChange={(checked) => {
@@ -137,7 +134,7 @@ const NotificationList: React.FC = () => {
           />
         </Space>
         <Button icon={<ReloadOutlined />} onClick={loadData}>
-          刷新
+          {tx('刷新')}
         </Button>
         <div style={{ flex: 1 }} />
         <Button
@@ -146,7 +143,7 @@ const NotificationList: React.FC = () => {
           onClick={handleMarkAllRead}
           disabled={total === 0}
         >
-          全部已读
+          {tx('全部已读')}
         </Button>
       </div>
 
@@ -162,7 +159,7 @@ const NotificationList: React.FC = () => {
           total,
           showSizeChanger: true,
           showQuickJumper: true,
-          showTotal: (t) => `共 ${t} 条`,
+          showTotal: (t) => tx('共 {{value0}} 条', { value0: t }),
           onChange: (p, ps) => {
             setPage(p);
             setPageSize(ps);

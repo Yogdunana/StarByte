@@ -1,3 +1,4 @@
+import { tx } from '@/i18n/text';
 /**
  * 通用类型定义
  */
@@ -71,20 +72,60 @@ export interface UploadFileInfo {
 
 /** 性别枚举 */
 export const GenderMap: StatusMap = {
-  0: { color: 'default', text: '未知' },
-  1: { color: 'blue', text: '男' },
-  2: { color: 'magenta', text: '女' },
+  0: {
+    color: 'default',
+    get text() {
+      return tx('未知');
+    },
+  },
+  1: {
+    color: 'blue',
+    get text() {
+      return tx('男');
+    },
+  },
+  2: {
+    color: 'magenta',
+    get text() {
+      return tx('女');
+    },
+  },
 };
 
 /** 用户状态映射 */
 export const UserStatusMap: StatusMap = {
-  0: { color: 'success', text: '正常' },
-  1: { color: 'error', text: '禁用' },
-  2: { color: 'warning', text: '锁定' },
+  0: {
+    color: 'success',
+    get text() {
+      return tx('正常');
+    },
+  },
+  1: {
+    color: 'error',
+    get text() {
+      return tx('禁用');
+    },
+  },
+  2: {
+    color: 'warning',
+    get text() {
+      return tx('锁定');
+    },
+  },
 };
 
 /** 通用启用/禁用状态 */
 export const EnableStatusMap: StatusMap = {
-  0: { color: 'success', text: '启用' },
-  1: { color: 'error', text: '禁用' },
+  0: {
+    color: 'success',
+    get text() {
+      return tx('启用');
+    },
+  },
+  1: {
+    color: 'error',
+    get text() {
+      return tx('禁用');
+    },
+  },
 };

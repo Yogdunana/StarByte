@@ -10,6 +10,7 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/export/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/export/model"
 	"github.com/Yogdunana/StarByte/backend/internal/export/repo"
+	"github.com/Yogdunana/StarByte/backend/pkg/locale"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/Yogdunana/StarByte/backend/pkg/storage"
 	"github.com/google/uuid"
@@ -205,7 +206,7 @@ func (s *exportService) runTableJob(ctx context.Context, taskID, format, userID 
 
 func (s *exportService) runTemplateJob(ctx context.Context, taskID, templateID, userID string, req *dto.TemplateExportRequest) error {
 	_ = s.patchTask(ctx, taskID, model.StatusRunning, 10, "", "")
-	htmlBody, err := renderTemplate(templateID, req.Vars)
+	htmlBody, err := renderTemplate(templateID, req.Vars, req.Locale)
 	if err != nil {
 		_ = s.failTask(ctx, taskID, err.Error())
 		return err
@@ -216,10 +217,10 @@ func (s *exportService) runTemplateJob(ctx context.Context, taskID, templateID, 
 	}
 	if title == "" {
 		if meta := findBuiltin(templateID); meta != nil {
-			title = meta.Name
+			title = locale.Text(req.Locale, meta.Name)
 		}
 	}
-	data, err := buildTemplatePDF(htmlBody, title, req.Watermark)
+	data, err := buildTemplatePDF(htmlBody, title, req.Watermark, req.Locale)
 	if err != nil {
 		_ = s.failTask(ctx, taskID, err.Error())
 		return response.NewError(response.CodeInternalError, "生成 PDF 失败")

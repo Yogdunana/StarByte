@@ -1,3 +1,5 @@
+import i18n from '@/i18n';
+import { tx } from '@/i18n/text';
 /**
  * 日期/数字/金额格式化工具
  */
@@ -56,11 +58,11 @@ export function formatRelativeTime(value: string | number | Date | null | undefi
   const month = 30 * day;
 
   if (diff < 0) return formatDateTime(value);
-  if (diff < minute) return '刚刚';
-  if (diff < hour) return `${Math.floor(diff / minute)}分钟前`;
-  if (diff < day) return `${Math.floor(diff / hour)}小时前`;
-  if (diff < week) return `${Math.floor(diff / day)}天前`;
-  if (diff < month) return `${Math.floor(diff / week)}周前`;
+  if (diff < minute) return tx('刚刚');
+  if (diff < hour) return tx('{{value0}}分钟前', { value0: Math.floor(diff / minute) });
+  if (diff < day) return tx('{{value0}}小时前', { value0: Math.floor(diff / hour) });
+  if (diff < week) return tx('{{value0}}天前', { value0: Math.floor(diff / day) });
+  if (diff < month) return tx('{{value0}}周前', { value0: Math.floor(diff / week) });
   return formatDate(value);
 }
 
@@ -71,7 +73,7 @@ export function formatNumber(value: number | string | null | undefined, decimals
   if (value === null || value === undefined || value === '') return '-';
   const num = typeof value === 'string' ? parseFloat(value) : value;
   if (Number.isNaN(num)) return '-';
-  return num.toLocaleString('zh-CN', {
+  return num.toLocaleString(i18n.language, {
     minimumFractionDigits: 0,
     maximumFractionDigits: decimals,
   });
@@ -84,7 +86,7 @@ export function formatCurrency(value: number | string | null | undefined, decima
   if (value === null || value === undefined || value === '') return '¥-';
   const num = typeof value === 'string' ? parseFloat(value) : value;
   if (Number.isNaN(num)) return '¥-';
-  return `¥${num.toLocaleString('zh-CN', {
+  return `¥${num.toLocaleString(i18n.language, {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   })}`;

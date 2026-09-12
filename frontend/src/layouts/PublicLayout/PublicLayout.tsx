@@ -1,3 +1,4 @@
+import LanguageSelect from '@/components/LanguageSelect/LanguageSelect';
 import React from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -16,19 +17,28 @@ const PublicNav: React.FC = () => {
 
   return (
     <header className={styles.header}>
-      <Link to="/" className={styles.brand}>StarByte<span>.</span></Link>
+      <Link to="/" className={styles.brand}>
+        StarByte<span>.</span>
+      </Link>
       <nav className={styles.nav}>
         {enabled && (
           <>
-            <NavLink to="/about-us" className={({ isActive }) => (isActive ? styles.active : undefined)}>
+            <NavLink
+              to="/about-us"
+              className={({ isActive }) => (isActive ? styles.active : undefined)}
+            >
               {t('public.about')}
             </NavLink>
-            <NavLink to="/docs" className={({ isActive }) => (isActive ? styles.active : undefined)}>
+            <NavLink
+              to="/docs"
+              className={({ isActive }) => (isActive ? styles.active : undefined)}
+            >
               {t('public.docs')}
             </NavLink>
           </>
         )}
         <Link to={loginHref}>{authed ? t('public.workbench') : t('public.login')}</Link>
+        <LanguageSelect />
       </nav>
     </header>
   );

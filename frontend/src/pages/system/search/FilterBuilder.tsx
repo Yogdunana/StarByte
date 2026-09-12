@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React from 'react';
 import { Button, Input, InputNumber, Select, Space } from 'antd';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
@@ -14,10 +15,16 @@ function emptyCond(fields: SearchField[]): SearchCondition {
 }
 
 function parseIn(raw: string): Array<string | number> {
-  return raw.split(',').map((s) => s.trim()).filter(Boolean).map((s) => {
-    const n = Number(s);
-    return Number.isFinite(n) && s !== '' && !Number.isNaN(n) && /^-?\d+(\.\d+)?$/.test(s) ? n : s;
-  });
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => {
+      const n = Number(s);
+      return Number.isFinite(n) && s !== '' && !Number.isNaN(n) && /^-?\d+(\.\d+)?$/.test(s)
+        ? n
+        : s;
+    });
 }
 
 interface Props {
@@ -28,6 +35,7 @@ interface Props {
 }
 
 const FilterBuilder: React.FC<Props> = ({ group, fields, onChange, nested }) => {
+  useLocale();
   const filterable = fields.filter((f) => f.filterable);
   const setCond = (i: number, next: SearchCondition) => {
     const conditions = group.conditions.slice();
@@ -42,7 +50,7 @@ const FilterBuilder: React.FC<Props> = ({ group, fields, onChange, nested }) => 
     if (c.operator === 'in' || c.operator === 'between') {
       return (
         <Input
-          placeholder={c.operator === 'in' ? '逗号分隔' : 'min,max'}
+          placeholder={c.operator === 'in' ? tx('逗号分隔') : 'min,max'}
           value={Array.isArray(c.value) ? c.value.join(',') : String(c.value ?? '')}
           onChange={(e) => setCond(i, { ...c, value: parseIn(e.target.value) })}
         />
@@ -68,23 +76,35 @@ const FilterBuilder: React.FC<Props> = ({ group, fields, onChange, nested }) => 
   return (
     <div className={nested ? 'search-nested' : undefined}>
       <Space style={{ marginBottom: 8 }}>
-        <span>组合</span>
+        <span>{tx('组合')}</span>
         <Select
           style={{ width: 90 }}
           value={group.logic}
           options={logicOptions}
           onChange={(logic) => onChange({ ...group, logic: logic as SearchGroup['logic'] })}
         />
-        <Button size="small" icon={<PlusOutlined />} onClick={() => onChange({
-          ...group, conditions: [...group.conditions, emptyCond(filterable)],
-        })}>
-          条件
+        <Button
+          size="small"
+          icon={<PlusOutlined />}
+          onClick={() =>
+            onChange({
+              ...group,
+              conditions: [...group.conditions, emptyCond(filterable)],
+            })
+          }
+        >
+          {tx('条件')}
         </Button>
-        <Button size="small" onClick={() => onChange({
-          ...group,
-          groups: [...(group.groups || []), { logic: 'or', conditions: [] }],
-        })}>
-          子组
+        <Button
+          size="small"
+          onClick={() =>
+            onChange({
+              ...group,
+              groups: [...(group.groups || []), { logic: 'or', conditions: [] }],
+            })
+          }
+        >
+          {tx('子组')}
         </Button>
       </Space>
       {group.conditions.map((c, i) => {
@@ -109,10 +129,12 @@ const FilterBuilder: React.FC<Props> = ({ group, fields, onChange, nested }) => 
             <Button
               type="text"
               icon={<MinusCircleOutlined />}
-              onClick={() => onChange({
-                ...group,
-                conditions: group.conditions.filter((_, j) => j !== i),
-              })}
+              onClick={() =>
+                onChange({
+                  ...group,
+                  conditions: group.conditions.filter((_, j) => j !== i),
+                })
+              }
             />
           </div>
         );

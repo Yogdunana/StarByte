@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Yogdunana/StarByte/backend/pkg/locale"
 	"github.com/gin-gonic/gin"
 )
 
@@ -145,7 +146,7 @@ func OKWithoutData(c *gin.Context) {
 func Degraded(c *gin.Context, data interface{}) {
 	c.JSON(http.StatusOK, Response{
 		Code:      CodeDegraded,
-		Message:   "服务降级，已返回兜底数据",
+		Message:   locale.Message(responseLanguage(c), "服务降级，已返回兜底数据"),
 		Data:      data,
 		RequestID: c.GetString("request_id"),
 		Timestamp: time.Now().Unix(),
@@ -156,7 +157,7 @@ func Degraded(c *gin.Context, data interface{}) {
 func BadRequest(c *gin.Context, msg string) {
 	c.JSON(http.StatusBadRequest, Response{
 		Code:      CodeBadRequest,
-		Message:   msg,
+		Message:   locale.Message(responseLanguage(c), msg),
 		Data:      nil,
 		RequestID: c.GetString("request_id"),
 		Timestamp: time.Now().Unix(),
@@ -167,7 +168,7 @@ func BadRequest(c *gin.Context, msg string) {
 func Unauthorized(c *gin.Context, msg string) {
 	c.JSON(http.StatusUnauthorized, Response{
 		Code:      CodeUnauthorized,
-		Message:   msg,
+		Message:   locale.Message(responseLanguage(c), msg),
 		Data:      nil,
 		RequestID: c.GetString("request_id"),
 		Timestamp: time.Now().Unix(),
@@ -178,7 +179,7 @@ func Unauthorized(c *gin.Context, msg string) {
 func Forbidden(c *gin.Context, msg string) {
 	c.JSON(http.StatusForbidden, Response{
 		Code:      CodeForbidden,
-		Message:   msg,
+		Message:   locale.Message(responseLanguage(c), msg),
 		Data:      nil,
 		RequestID: c.GetString("request_id"),
 		Timestamp: time.Now().Unix(),
@@ -189,7 +190,7 @@ func Forbidden(c *gin.Context, msg string) {
 func NotFound(c *gin.Context, msg string) {
 	c.JSON(http.StatusNotFound, Response{
 		Code:      CodeNotFound,
-		Message:   msg,
+		Message:   locale.Message(responseLanguage(c), msg),
 		Data:      nil,
 		RequestID: c.GetString("request_id"),
 		Timestamp: time.Now().Unix(),
@@ -200,7 +201,7 @@ func NotFound(c *gin.Context, msg string) {
 func Conflict(c *gin.Context, msg string) {
 	c.JSON(http.StatusConflict, Response{
 		Code:      CodeConflict,
-		Message:   msg,
+		Message:   locale.Message(responseLanguage(c), msg),
 		Data:      nil,
 		RequestID: c.GetString("request_id"),
 		Timestamp: time.Now().Unix(),
@@ -211,7 +212,7 @@ func Conflict(c *gin.Context, msg string) {
 func NotImplemented(c *gin.Context, msg string) {
 	c.JSON(http.StatusNotImplemented, Response{
 		Code:      CodeNotImplemented,
-		Message:   msg,
+		Message:   locale.Message(responseLanguage(c), msg),
 		Data:      nil,
 		RequestID: c.GetString("request_id"),
 		Timestamp: time.Now().Unix(),
@@ -238,7 +239,7 @@ func Error(c *gin.Context, err error) {
 		}
 		c.JSON(httpStatus, Response{
 			Code:      domainErr.Code(),
-			Message:   domainErr.Message(),
+			Message:   locale.Message(responseLanguage(c), domainErr.Message()),
 			Data:      nil,
 			RequestID: c.GetString("request_id"),
 			Timestamp: time.Now().Unix(),
@@ -255,7 +256,7 @@ func Error(c *gin.Context, err error) {
 		}
 		c.JSON(status, Response{
 			Code:      appErr.Code,
-			Message:   appErr.Message,
+			Message:   locale.Message(responseLanguage(c), appErr.Message),
 			Data:      nil,
 			RequestID: c.GetString("request_id"),
 			Timestamp: time.Now().Unix(),
@@ -266,7 +267,7 @@ func Error(c *gin.Context, err error) {
 	// 3. Unknown error — treat as internal server error
 	c.JSON(http.StatusInternalServerError, Response{
 		Code:      CodeInternalError,
-		Message:   "内部错误",
+		Message:   locale.Message(responseLanguage(c), "内部错误"),
 		Data:      nil,
 		RequestID: c.GetString("request_id"),
 		Timestamp: time.Now().Unix(),
@@ -333,4 +334,11 @@ func httpStatusFromCode(code int) int {
 		// errors and default to 400 Bad Request.
 		return http.StatusBadRequest
 	}
+}
+
+func responseLanguage(c *gin.Context) string {
+	if c.Request == nil {
+		return "zh-CN"
+	}
+	return locale.FromHeader(c.GetHeader("Accept-Language"))
 }

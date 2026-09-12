@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React from 'react';
 import { Empty, Form, Input } from 'antd';
 import type {
@@ -30,11 +31,12 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
   onChangeData,
   onRetarget,
 }) => {
+  useLocale();
   if (!node) {
     return (
       <div className="designer-side-panel">
-        <h4>属性面板</h4>
-        <Empty description="选中节点后配置属性" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        <h4>{tx('属性面板')}</h4>
+        <Empty description={tx('选中节点后配置属性')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
       </div>
     );
   }
@@ -47,16 +49,16 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
 
   return (
     <div className="designer-side-panel">
-      <h4>属性面板</h4>
+      <h4>{tx('属性面板')}</h4>
       <Form layout="vertical" size="small">
-        <Form.Item label="节点名称">
+        <Form.Item label={tx('节点名称')}>
           <Input
             disabled={disabled}
             value={node.data.name}
             onChange={(event) => patchData({ name: event.target.value })}
           />
         </Form.Item>
-        <Form.Item label="节点说明">
+        <Form.Item label={tx('节点说明')}>
           <Input.TextArea
             disabled={disabled}
             rows={2}

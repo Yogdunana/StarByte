@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React from 'react';
 import { DatePicker, Radio, Space } from 'antd';
 import type { Dayjs } from 'dayjs';
@@ -25,12 +26,18 @@ function semesterRange(now: Dayjs): [Dayjs, Dayjs] {
     return [now.month(7).date(1).startOf('day'), now.add(1, 'year').month(0).date(31).endOf('day')];
   }
   if (month === 0) {
-    return [now.subtract(1, 'year').month(7).date(1).startOf('day'), now.month(0).date(31).endOf('day')];
+    return [
+      now.subtract(1, 'year').month(7).date(1).startOf('day'),
+      now.month(0).date(31).endOf('day'),
+    ];
   }
   return [now.month(1).date(1).startOf('day'), now.month(6).date(31).endOf('day')];
 }
 
-export function resolveTimeRange(value: TimeRangeValue): { start_date?: string; end_date?: string } {
+export function resolveTimeRange(value: TimeRangeValue): {
+  start_date?: string;
+  end_date?: string;
+} {
   const now = dayjs();
   let start = value.start ? dayjs(value.start) : undefined;
   let end = value.end ? dayjs(value.end) : undefined;
@@ -62,31 +69,34 @@ export function resolveTimeRange(value: TimeRangeValue): { start_date?: string; 
   };
 }
 
-const TimeRangeSelect: React.FC<TimeRangeSelectProps> = ({ value, onChange }) => (
-  <Space wrap>
-    <Radio.Group
-      value={value.preset}
-      onChange={(e) => onChange({ ...value, preset: e.target.value as TimePreset })}
-    >
-      <Radio.Button value="today">今天</Radio.Button>
-      <Radio.Button value="week">本周</Radio.Button>
-      <Radio.Button value="month">本月</Radio.Button>
-      <Radio.Button value="semester">本学期</Radio.Button>
-      <Radio.Button value="custom">自定义</Radio.Button>
-    </Radio.Group>
-    {value.preset === 'custom' ? (
-      <DatePicker.RangePicker
-        value={value.start && value.end ? [dayjs(value.start), dayjs(value.end)] : null}
-        onChange={(dates) => {
-          onChange({
-            preset: 'custom',
-            start: dates?.[0]?.format('YYYY-MM-DD'),
-            end: dates?.[1]?.format('YYYY-MM-DD'),
-          });
-        }}
-      />
-    ) : null}
-  </Space>
-);
+const TimeRangeSelect: React.FC<TimeRangeSelectProps> = ({ value, onChange }) => {
+  useLocale();
+  return (
+    <Space wrap>
+      <Radio.Group
+        value={value.preset}
+        onChange={(e) => onChange({ ...value, preset: e.target.value as TimePreset })}
+      >
+        <Radio.Button value="today">{tx('今天')}</Radio.Button>
+        <Radio.Button value="week">{tx('本周')}</Radio.Button>
+        <Radio.Button value="month">{tx('本月')}</Radio.Button>
+        <Radio.Button value="semester">{tx('本学期')}</Radio.Button>
+        <Radio.Button value="custom">{tx('自定义')}</Radio.Button>
+      </Radio.Group>
+      {value.preset === 'custom' ? (
+        <DatePicker.RangePicker
+          value={value.start && value.end ? [dayjs(value.start), dayjs(value.end)] : null}
+          onChange={(dates) => {
+            onChange({
+              preset: 'custom',
+              start: dates?.[0]?.format('YYYY-MM-DD'),
+              end: dates?.[1]?.format('YYYY-MM-DD'),
+            });
+          }}
+        />
+      ) : null}
+    </Space>
+  );
+};
 
 export default TimeRangeSelect;

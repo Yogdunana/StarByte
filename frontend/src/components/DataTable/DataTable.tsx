@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Table, Card, Input, Space } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
@@ -33,6 +34,7 @@ function DataTable<T extends Record<string, unknown>>({
   toolbar,
   scroll,
 }: DataTableProps<T>) {
+  useLocale();
   // 内部搜索值（当外部未提供 value 时使用）
   const [searchValue, setSearchValue] = useState(search?.value || '');
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -83,7 +85,7 @@ function DataTable<T extends Record<string, unknown>>({
         total: pagination.total,
         showSizeChanger: true,
         showQuickJumper: true,
-        showTotal: (total) => `共 ${total} 条`,
+        showTotal: (total) => tx('共 {{value0}} 条', { value0: total }),
         onChange: (page, pageSize) => pagination.onChange(page, pageSize),
       }
     : undefined;

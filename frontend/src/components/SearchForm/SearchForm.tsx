@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useMemo } from 'react';
 import { Form, Input, Select, DatePicker, Button, Space, Row, Col } from 'antd';
 import { SearchOutlined, ReloadOutlined } from '@ant-design/icons';
@@ -24,12 +25,13 @@ const SearchForm: React.FC<SearchFormProps> = ({
   loading = false,
   colSpan = 6,
 }) => {
+  const uiLanguage = useLocale();
   const [form] = Form.useForm();
 
-  const internalFields = useMemo(
-    () => fields.filter((f) => f && f.name && f.label),
-    [fields],
-  );
+  const internalFields = useMemo(() => {
+    void uiLanguage;
+    return fields.filter((f) => f && f.name && f.label);
+  }, [fields, uiLanguage]);
 
   const handleSearch = async () => {
     const values = await form.validateFields();
@@ -54,7 +56,7 @@ const SearchForm: React.FC<SearchFormProps> = ({
   };
 
   const renderField = (field: SearchField) => {
-    const placeholder = field.placeholder || `请输入${field.label}`;
+    const placeholder = field.placeholder || tx('请输入{{value0}}', { value0: field.label });
 
     switch (field.type) {
       case 'select':
@@ -96,11 +98,16 @@ const SearchForm: React.FC<SearchFormProps> = ({
         ))}
         <Col flex="auto" style={{ textAlign: 'right' }}>
           <Space>
-            <Button type="primary" icon={<SearchOutlined />} loading={loading} onClick={handleSearch}>
-              搜索
+            <Button
+              type="primary"
+              icon={<SearchOutlined />}
+              loading={loading}
+              onClick={handleSearch}
+            >
+              {tx('搜索')}
             </Button>
             <Button icon={<ReloadOutlined />} onClick={handleReset}>
-              重置
+              {tx('重置')}
             </Button>
           </Space>
         </Col>

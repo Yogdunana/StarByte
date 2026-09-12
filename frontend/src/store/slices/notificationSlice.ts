@@ -1,3 +1,4 @@
+import { tx } from '@/i18n/text';
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import {
   getUnreadCount,
@@ -27,13 +28,10 @@ const initialState: NotificationState = {
 };
 
 /** 拉取未读通知数量 */
-export const fetchUnreadCount = createAsyncThunk(
-  'notification/fetchUnreadCount',
-  async () => {
-    const res = await getUnreadCount();
-    return res.count;
-  },
-);
+export const fetchUnreadCount = createAsyncThunk('notification/fetchUnreadCount', async () => {
+  const res = await getUnreadCount();
+  return res.count;
+});
 
 /** 拉取最近通知（前 10 条，用于铃铛下拉） */
 export const fetchRecentNotifications = createAsyncThunk(
@@ -44,7 +42,7 @@ export const fetchRecentNotifications = createAsyncThunk(
       const res = await getNotificationList(params);
       return res.list;
     } catch (error: unknown) {
-      return rejectWithValue(error instanceof Error ? error.message : '获取通知失败');
+      return rejectWithValue(error instanceof Error ? error.message : tx('获取通知失败'));
     }
   },
 );
@@ -57,7 +55,7 @@ export const markNotificationAsRead = createAsyncThunk(
       await markAsReadApi(id);
       return id;
     } catch (error: unknown) {
-      return rejectWithValue(error instanceof Error ? error.message : '标记已读失败');
+      return rejectWithValue(error instanceof Error ? error.message : tx('标记已读失败'));
     }
   },
 );
@@ -115,7 +113,9 @@ const notificationSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchUnreadCount.pending, (state, action) => { state.countRequest = action.meta.requestId; })
+      .addCase(fetchUnreadCount.pending, (state, action) => {
+        state.countRequest = action.meta.requestId;
+      })
       // 未读计数
       .addCase(fetchUnreadCount.fulfilled, (state, action) => {
         if (state.countRequest !== action.meta.requestId) return;
@@ -164,7 +164,8 @@ export const {
 } = notificationSlice.actions;
 
 export const selectUnreadCount = (state: RootState) => state.notification.unreadCount;
-export const selectRecentNotifications = (state: RootState) => state.notification.recentNotifications;
+export const selectRecentNotifications = (state: RootState) =>
+  state.notification.recentNotifications;
 export const selectWSConnected = (state: RootState) => state.notification.wsConnected;
 export const selectNotificationLoading = (state: RootState) => state.notification.loading;
 export const selectNotificationError = (state: RootState) => state.notification.error;

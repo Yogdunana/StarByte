@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="{{locale}}">
 <head><meta charset="utf-8"><title>{{.Title}}</title></head>
 <body>
   <h1>{{.Title}}</h1>
-  <p>日期：{{.Date}}</p>
-  <p>申请人：{{.RealName}}</p>
-  <p>学号：{{.StudentNo}}</p>
-  <p>意向部门：{{.Department}}</p>
-  <p>联系电话：{{.Phone}}</p>
-  <p>申请理由：{{.Reason}}</p>
+  <p>{{t "日期"}}: {{.Date}}</p>
+  <p>{{t "申请人"}}: {{.RealName}}</p>
+  <p>{{t "学号"}}: {{.StudentNo}}</p>
+  <p>{{t "意向部门"}}: {{.Department}}</p>
+  <p>{{t "联系电话"}}: {{.Phone}}</p>
+  <p>{{t "申请理由"}}: {{.Reason}}</p>
 </body>
 </html>

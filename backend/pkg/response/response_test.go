@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -537,3 +538,14 @@ type mockDomainErrorWithStatus struct {
 }
 
 func (e *mockDomainErrorWithStatus) HTTPStatus() int { return e.httpStatus }
+
+func TestErrorResponseRespectsRussian(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest("GET", "/", nil)
+	c.Request.Header.Set("Accept-Language", "ru-RU")
+	Error(c, NewError(CodeNotFound, "申请不存在"))
+	if !strings.Contains(recorder.Body.String(), "Заявка не найдена") {
+		t.Fatal(recorder.Body.String())
+	}
+}

@@ -1,5 +1,17 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useState } from 'react';
-import { Button, Descriptions, Empty, Input, Select, Space, Table, Tag, Typography, message } from 'antd';
+import {
+  Button,
+  Descriptions,
+  Empty,
+  Input,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Typography,
+  message,
+} from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { getAuditTrace, type AuditTraceItem } from '@/api/audit';
@@ -8,12 +20,28 @@ import { actionColorMap, formatJSON } from './auditColumns';
 const { Text, Paragraph } = Typography;
 
 const entityOptions = [
-  { value: 'user', label: '用户 user' },
-  { value: 'role', label: '角色 role' },
-  { value: 'department', label: '部门 department' },
+  {
+    value: 'user',
+    get label() {
+      return tx('用户 user');
+    },
+  },
+  {
+    value: 'role',
+    get label() {
+      return tx('角色 role');
+    },
+  },
+  {
+    value: 'department',
+    get label() {
+      return tx('部门 department');
+    },
+  },
 ];
 
 const AuditTracePanel: React.FC = () => {
+  useLocale();
   const [entityType, setEntityType] = useState('user');
   const [entityId, setEntityId] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,7 +54,7 @@ const AuditTracePanel: React.FC = () => {
   const load = async (p: number, ps: number) => {
     const id = entityId.trim();
     if (!id) {
-      message.warning('请填写实体 ID');
+      message.warning(tx('请填写实体 ID'));
       return;
     }
     setLoading(true);
@@ -35,7 +63,7 @@ const AuditTracePanel: React.FC = () => {
       setList(res.list);
       setTotal(res.total);
     } catch {
-      message.error('加载变更历史失败');
+      message.error(tx('加载变更历史失败'));
     } finally {
       setLoading(false);
     }
@@ -43,25 +71,25 @@ const AuditTracePanel: React.FC = () => {
 
   const columns: ColumnsType<AuditTraceItem> = [
     {
-      title: '时间',
+      title: tx('时间'),
       dataIndex: 'timestamp',
       width: 170,
       render: (t: string) => (t ? dayjs(t).format('YYYY-MM-DD HH:mm:ss') : '-'),
     },
     {
-      title: '操作人',
+      title: tx('操作人'),
       width: 120,
-      render: (_, row) => row.user?.username || '未认证',
+      render: (_, row) => row.user?.username || tx('未认证'),
     },
     {
-      title: '动作',
+      title: tx('动作'),
       dataIndex: 'action',
       width: 90,
       render: (action: string) => <Tag color={actionColorMap[action] || 'default'}>{action}</Tag>,
     },
-    { title: '路径', dataIndex: 'path', ellipsis: true },
+    { title: tx('路径'), dataIndex: 'path', ellipsis: true },
     {
-      title: '合规',
+      title: tx('合规'),
       dataIndex: 'compliance_flags',
       width: 160,
       render: (flags: string[] | undefined) =>
@@ -77,8 +105,12 @@ const AuditTracePanel: React.FC = () => {
       title: 'Diff',
       width: 80,
       render: (_, row) => (
-        <Button type="link" size="small" onClick={() => setExpanded(expanded === row.id ? null : row.id)}>
-          {expanded === row.id ? '收起' : '查看'}
+        <Button
+          type="link"
+          size="small"
+          onClick={() => setExpanded(expanded === row.id ? null : row.id)}
+        >
+          {expanded === row.id ? tx('收起') : tx('查看')}
         </Button>
       ),
     },
@@ -87,9 +119,14 @@ const AuditTracePanel: React.FC = () => {
   return (
     <div>
       <Space wrap style={{ marginBottom: 16 }}>
-        <Select value={entityType} onChange={setEntityType} options={entityOptions} style={{ width: 180 }} />
+        <Select
+          value={entityType}
+          onChange={setEntityType}
+          options={entityOptions}
+          style={{ width: 180 }}
+        />
         <Input
-          placeholder="实体 UUID"
+          placeholder={tx('实体 UUID')}
           value={entityId}
           onChange={(e) => setEntityId(e.target.value)}
           style={{ width: 360 }}
@@ -102,7 +139,7 @@ const AuditTracePanel: React.FC = () => {
             load(1, pageSize);
           }}
         >
-          查询历史
+          {tx('查询历史')}
         </Button>
       </Space>
       <Table
@@ -127,14 +164,15 @@ const AuditTracePanel: React.FC = () => {
           expandedRowRender: (row) => (
             <div>
               <Descriptions size="small" column={1} bordered>
-                <Descriptions.Item label="变更字段">
+                <Descriptions.Item label={tx('变更字段')}>
                   {row.diff?.length
                     ? row.diff.map((d) => (
                         <Paragraph key={d.path} style={{ marginBottom: 4 }}>
-                          <Text code>{d.path}</Text>：{JSON.stringify(d.before)} → {JSON.stringify(d.after)}
+                          <Text code>{d.path}</Text>：{JSON.stringify(d.before)} →{' '}
+                          {JSON.stringify(d.after)}
                         </Paragraph>
                       ))
-                    : '无字段级 Diff（可能缺少 before 快照）'}
+                    : tx('无字段级 Diff（可能缺少 before 快照）')}
                 </Descriptions.Item>
               </Descriptions>
               <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
@@ -150,7 +188,7 @@ const AuditTracePanel: React.FC = () => {
             </div>
           ),
         }}
-        locale={{ emptyText: <Empty description="输入实体类型与 ID 查询变更历史" /> }}
+        locale={{ emptyText: <Empty description={tx('输入实体类型与 ID 查询变更历史')} /> }}
       />
     </div>
   );

@@ -1,9 +1,7 @@
+import i18n from '@/i18n';
+import { tx } from '@/i18n/text';
 import { Button, Space, Tag, Typography, Popconfirm } from 'antd';
-import {
-  EditOutlined,
-  DeleteOutlined,
-  ExperimentOutlined,
-} from '@ant-design/icons';
+import { EditOutlined, DeleteOutlined, ExperimentOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { NotificationTemplate } from '@/types/api';
 import { statusMap, channelColorMap } from './templateMeta';
@@ -21,27 +19,27 @@ export function getTemplateColumns(
 ): ColumnsType<NotificationTemplate> {
   return [
     {
-      title: '编码',
+      title: tx('编码'),
       dataIndex: 'code',
       key: 'code',
       width: 180,
       render: (code: string) => <Text code>{code}</Text>,
     },
     {
-      title: '名称',
+      title: tx('名称'),
       dataIndex: 'name',
       key: 'name',
       width: 160,
     },
     {
-      title: '分类',
+      title: tx('分类'),
       dataIndex: 'category',
       key: 'category',
       width: 100,
       render: (cat: string) => cat || '-',
     },
     {
-      title: '渠道',
+      title: tx('渠道'),
       dataIndex: 'channels',
       key: 'channels',
       width: 200,
@@ -56,7 +54,7 @@ export function getTemplateColumns(
       ),
     },
     {
-      title: '状态',
+      title: tx('状态'),
       dataIndex: 'status',
       key: 'status',
       width: 80,
@@ -66,15 +64,14 @@ export function getTemplateColumns(
       },
     },
     {
-      title: '创建时间',
+      title: tx('创建时间'),
       dataIndex: 'created_at',
       key: 'created_at',
       width: 160,
-      render: (time: string) =>
-        new Date(time).toLocaleString('zh-CN', { hour12: false }),
+      render: (time: string) => new Date(time).toLocaleString(i18n.language, { hour12: false }),
     },
     {
-      title: '操作',
+      title: tx('操作'),
       key: 'action',
       width: 200,
       fixed: 'right',
@@ -86,7 +83,7 @@ export function getTemplateColumns(
             icon={<ExperimentOutlined />}
             onClick={() => handlers.onTest(record)}
           >
-            测试
+            {tx('测试')}
           </Button>
           <Button
             type="link"
@@ -94,14 +91,11 @@ export function getTemplateColumns(
             icon={<EditOutlined />}
             onClick={() => handlers.onEdit(record)}
           >
-            编辑
+            {tx('编辑')}
           </Button>
-          <Popconfirm
-            title="确认删除此模板？"
-            onConfirm={() => handlers.onDelete(record)}
-          >
+          <Popconfirm title={tx('确认删除此模板？')} onConfirm={() => handlers.onDelete(record)}>
             <Button type="link" size="small" danger icon={<DeleteOutlined />}>
-              删除
+              {tx('删除')}
             </Button>
           </Popconfirm>
         </Space>

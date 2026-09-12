@@ -1,3 +1,4 @@
+import { tx } from '@/i18n/text';
 import React from 'react';
 import { Result, Button } from 'antd';
 
@@ -42,11 +43,11 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
       return (
         <Result
           status="error"
-          title="页面出错了"
-          subTitle={this.state.error?.message || '发生了未知错误'}
+          title={tx('页面出错了')}
+          subTitle={this.state.error?.message || tx('发生了未知错误')}
           extra={
             <Button type="primary" onClick={this.handleReset}>
-              重试
+              {tx('重试')}
             </Button>
           }
         />

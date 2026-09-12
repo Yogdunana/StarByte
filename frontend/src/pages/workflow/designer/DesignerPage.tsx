@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { message, Modal } from 'antd';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -35,6 +36,7 @@ import {
 import './designer.css';
 
 const DesignerPageInner: React.FC = () => {
+  const uiLanguage = useLocale();
   const { id } = useParams<{ id?: string }>();
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
@@ -64,20 +66,25 @@ const DesignerPageInner: React.FC = () => {
         setNodes(converted.nodes);
         setEdges(converted.edges);
         resetHistory();
-        dispatch(setDefinitionMeta({
-          id,
-          name: result.name,
-          key: result.key,
-          status: result.status,
-        }));
+        dispatch(
+          setDefinitionMeta({
+            id,
+            name: result.name,
+            key: result.key,
+            status: result.status,
+          }),
+        );
       })
-      .catch(() => message.error('加载流程失败'));
+      .catch(() => message.error(tx('加载流程失败')));
   }, [id, dispatch, resetHistory]);
 
   useDesignerHotkeys(undo, redo);
 
   const selectedNode = nodes.find((node) => node.id === selectedNodeId) ?? null;
-  const graph = useMemo(() => toFlowGraph(nodes, edges), [nodes, edges]);
+  const graph = useMemo(() => {
+    void uiLanguage;
+    return toFlowGraph(nodes, edges);
+  }, [nodes, edges, uiLanguage]);
 
   const applyGraph = (next: { nodes: DesignerRFNode[]; edges: DesignerRFEdge[] }) => {
     applyImportedGraph(setNodes, setEdges, takeSnapshot, next);
@@ -125,7 +132,11 @@ const DesignerPageInner: React.FC = () => {
         current.map((edge) => {
           const branch = config.branches.find((item) => item.id === edge.sourceHandle);
           if (!branch || edge.source !== nodeId) return edge;
-          return { ...edge, label: branch.expression || branch.label, data: { condition: branch.expression } };
+          return {
+            ...edge,
+            label: branch.expression || branch.label,
+            data: { condition: branch.expression },
+          };
         }),
       );
     }
@@ -164,7 +175,7 @@ const DesignerPageInner: React.FC = () => {
         setCreateOpen(true);
         return;
       }
-      message.error(error instanceof Error ? error.message : '保存失败');
+      message.error(error instanceof Error ? error.message : tx('保存失败'));
     } finally {
       setSaving(false);
     }
@@ -186,7 +197,7 @@ const DesignerPageInner: React.FC = () => {
         setCreateOpen(true);
         return;
       }
-      message.error(error instanceof Error ? error.message : '发布失败');
+      message.error(error instanceof Error ? error.message : tx('发布失败'));
     } finally {
       setPublishing(false);
     }
@@ -207,16 +218,18 @@ const DesignerPageInner: React.FC = () => {
       try {
         const imported = parseImportedGraph(text);
         Modal.confirm({
-          title: '导入将替换当前画布',
+          title: tx('导入将替换当前画布'),
           onOk: () => applyGraph(fromFlowGraph(imported)),
         });
       } catch (error) {
-        message.error(error instanceof Error ? error.message : '导入失败');
+        message.error(error instanceof Error ? error.message : tx('导入失败'));
       }
     });
   };
 
   const edgeTargets = useMemo(() => {
+    // Invalidate cached labels when the selected language changes.
+    void uiLanguage;
     const map: Record<string, string> = {};
     edges.forEach((edge) => {
       if (edge.source === selectedNodeId && edge.sourceHandle) {
@@ -224,12 +237,12 @@ const DesignerPageInner: React.FC = () => {
       }
     });
     return map;
-  }, [edges, selectedNodeId]);
+  }, [edges, selectedNodeId, uiLanguage]);
 
   return (
     <div className="designer-page">
       <DesignerToolbar
-        title={id ? '流程设计' : '新建流程'}
+        title={id ? tx('流程设计') : tx('新建流程')}
         previewMode={previewMode}
         saving={saving}
         publishing={publishing}
@@ -248,7 +261,10 @@ const DesignerPageInner: React.FC = () => {
       <div className="designer-body">
         <NodePanel
           disabled={previewMode}
-          onAddNode={(type) => { addNodeOfType(setNodes, takeSnapshot, type); dispatch(setDirty(true)); }}
+          onAddNode={(type) => {
+            addNodeOfType(setNodes, takeSnapshot, type);
+            dispatch(setDirty(true));
+          }}
         />
         <DesignerCanvas
           nodes={nodes}
@@ -258,19 +274,31 @@ const DesignerPageInner: React.FC = () => {
           onEdgesChange={handleEdgesChange}
           onConnect={handleConnect}
           onNodeClick={(nodeId) => dispatch(setSelectedNodeId(nodeId))}
-          onDropNode={(node) => { takeSnapshot(); setNodes((c) => appendNode(c, node)); dispatch(setDirty(true)); }}
+          onDropNode={(node) => {
+            takeSnapshot();
+            setNodes((c) => appendNode(c, node));
+            dispatch(setDirty(true));
+          }}
           onDragStop={() => takeSnapshot()}
         />
         <PropertyPanel
           node={selectedNode}
-          nodeOptions={nodes.filter((n) => n.id !== selectedNodeId).map((n) => ({ label: n.data.name, value: n.id }))}
+          nodeOptions={nodes
+            .filter((n) => n.id !== selectedNodeId)
+            .map((n) => ({ label: n.data.name, value: n.id }))}
           edgeTargets={edgeTargets}
           disabled={previewMode}
           onChangeData={handleChangeData}
           onRetarget={handleRetarget}
         />
       </div>
-      <input ref={fileRef} type="file" accept="application/json" hidden onChange={handleImportFile} />
+      <input
+        ref={fileRef}
+        type="file"
+        accept="application/json"
+        hidden
+        onChange={handleImportFile}
+      />
       <CreateDefinitionModal
         open={createOpen}
         confirmLoading={saving || publishing}
@@ -289,10 +317,13 @@ const DesignerPageInner: React.FC = () => {
   );
 };
 
-const DesignerPage: React.FC = () => (
-  <ReactFlowProvider>
-    <DesignerPageInner />
-  </ReactFlowProvider>
-);
+const DesignerPage: React.FC = () => {
+  useLocale();
+  return (
+    <ReactFlowProvider>
+      <DesignerPageInner />
+    </ReactFlowProvider>
+  );
+};
 
 export default DesignerPage;

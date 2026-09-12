@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Yogdunana/StarByte/backend/internal/export/dto"
+	"github.com/Yogdunana/StarByte/backend/pkg/locale"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/phpdave11/gofpdf"
 	"golang.org/x/net/html"
@@ -20,7 +21,7 @@ func buildTablePDF(req *dto.TableExportRequest) ([]byte, error) {
 	if len(req.Columns) > 6 {
 		orient = "L"
 	}
-	pdf, font := newPDF(orient, "StarByte")
+	pdf, font := newPDF(orient, "StarByte", req.Locale)
 	pdf.SetTitle(req.Title, true)
 	pdf.AddPage()
 	if strings.TrimSpace(req.Title) != "" {
@@ -32,13 +33,17 @@ func buildTablePDF(req *dto.TableExportRequest) ([]byte, error) {
 	return outputPDF(pdf)
 }
 
-func buildTemplatePDF(htmlBody, title, watermark string) ([]byte, error) {
+func buildTemplatePDF(htmlBody, title, watermark string, langs ...string) ([]byte, error) {
+	lang := "zh-CN"
+	if len(langs) > 0 {
+		lang = locale.Normalize(langs[0])
+	}
 	if strings.TrimSpace(watermark) == "" {
 		watermark = "StarByte"
 	}
-	pdf, font := newPDF("P", watermark)
+	pdf, font := newPDF("P", watermark, lang)
 	if title == "" {
-		title = "打印件"
+		title = locale.Text(lang, "打印件")
 	}
 	pdf.SetTitle(title, true)
 	pdf.AddPage()
@@ -57,7 +62,11 @@ func buildTemplatePDF(htmlBody, title, watermark string) ([]byte, error) {
 	return outputPDF(pdf)
 }
 
-func newPDF(orientation, watermark string) (*gofpdf.Fpdf, string) {
+func newPDF(orientation, watermark string, langs ...string) (*gofpdf.Fpdf, string) {
+	lang := "zh-CN"
+	if len(langs) > 0 {
+		lang = locale.Normalize(langs[0])
+	}
 	pdf := gofpdf.New(orientation, "mm", "A4", "")
 	font := addPDFFont(pdf)
 	mark := watermark
@@ -67,7 +76,7 @@ func newPDF(orientation, watermark string) (*gofpdf.Fpdf, string) {
 		drawWatermark(pdf, font, mark)
 		pdf.SetFont(font, "", 9)
 		pdf.SetTextColor(100, 116, 139)
-		pdf.CellFormat(0, 6, "StarByte 计协 · 导出报表", "", 0, "L", false, 0, "")
+		pdf.CellFormat(0, 6, locale.Text(lang, "StarByte 计协 · 导出报表"), "", 0, "L", false, 0, "")
 		pdf.Ln(8)
 		pdf.SetTextColor(15, 23, 42)
 		pdf.SetDrawColor(29, 78, 216)
@@ -78,7 +87,7 @@ func newPDF(orientation, watermark string) (*gofpdf.Fpdf, string) {
 		pdf.SetY(-12)
 		pdf.SetFont(font, "", 8)
 		pdf.SetTextColor(100, 116, 139)
-		pdf.CellFormat(0, 8, fmt.Sprintf("第 %d 页", pdf.PageNo()), "", 0, "C", false, 0, "")
+		pdf.CellFormat(0, 8, fmt.Sprintf(locale.Text(lang, "第 %d 页"), pdf.PageNo()), "", 0, "C", false, 0, "")
 	})
 	return pdf, font
 }

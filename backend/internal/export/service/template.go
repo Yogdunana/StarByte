@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/export/dto"
+	"github.com/Yogdunana/StarByte/backend/pkg/locale"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 )
 
@@ -49,7 +50,11 @@ func findBuiltin(id string) *builtinTpl {
 	return nil
 }
 
-func renderTemplate(id string, vars map[string]string) (string, error) {
+func renderTemplate(id string, vars map[string]string, langs ...string) (string, error) {
+	lang := "zh-CN"
+	if len(langs) > 0 {
+		lang = locale.Normalize(langs[0])
+	}
 	meta := findBuiltin(id)
 	if meta == nil {
 		return "", response.NewError(response.CodeExportTplNotFound, "导出模板不存在")
@@ -58,7 +63,7 @@ func renderTemplate(id string, vars map[string]string) (string, error) {
 	if err != nil {
 		return "", response.NewError(response.CodeExportTplNotFound, "导出模板不存在")
 	}
-	tpl, err := template.New(meta.ID).Parse(string(raw))
+	tpl, err := template.New(meta.ID).Funcs(template.FuncMap{"t": func(s string) string { return locale.Text(lang, s) }, "locale": func() string { return lang }}).Parse(string(raw))
 	if err != nil {
 		return "", response.NewError(response.CodeInternalError, "模板解析失败")
 	}
@@ -66,7 +71,7 @@ func renderTemplate(id string, vars map[string]string) (string, error) {
 		vars = map[string]string{}
 	}
 	if _, ok := vars["Title"]; !ok {
-		vars["Title"] = meta.Name
+		vars["Title"] = locale.Text(lang, meta.Name)
 	}
 	if _, ok := vars["Date"]; !ok {
 		vars["Date"] = time.Now().Format("2006-01-02")

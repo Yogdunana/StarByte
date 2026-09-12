@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, Select, Space, Tag } from 'antd';
 import { getDictItems, getDictTypes, type DictItem, type DictType } from '@/api/dict';
@@ -8,6 +9,7 @@ import TypePanel from './TypePanel';
 import './dict.css';
 
 const DictPage: React.FC = () => {
+  useLocale();
   const canCreate = usePermission('dict:create');
   const canUpdate = usePermission('dict:update');
   const canDelete = usePermission('dict:delete');
@@ -74,12 +76,22 @@ const DictPage: React.FC = () => {
     <div>
       <div className="dict-hero">
         <div>
-          <h2>数据字典</h2>
-          <p>维护业务枚举类型与选项，公开读接口带 Redis 缓存，前端用 useDict(type) 取启用项。</p>
+          <h2>{tx('数据字典')}</h2>
+          <p>
+            {tx('维护业务枚举类型与选项，公开读接口带 Redis 缓存，前端用 useDict(type) 取启用项。')}
+          </p>
         </div>
       </div>
       <div className="dict-layout">
-        <Card className="dict-card" title="字典类型" extra={<Tag>{types.length} 类</Tag>}>
+        <Card
+          className="dict-card"
+          title={tx('字典类型')}
+          extra={
+            <Tag>
+              {types.length} {tx('类')}
+            </Tag>
+          }
+        >
           <TypePanel
             types={types}
             loading={typeLoading}
@@ -91,7 +103,10 @@ const DictPage: React.FC = () => {
             onChanged={afterChange}
           />
         </Card>
-        <Card className="dict-card" title={selected ? `${selected.name}（${selected.code}）` : '字典项'}>
+        <Card
+          className="dict-card"
+          title={selected ? `${selected.name}（${selected.code}）` : tx('字典项')}
+        >
           <ItemPanel
             type={selected}
             items={items}
@@ -103,12 +118,12 @@ const DictPage: React.FC = () => {
           />
           <div className="dict-preview">
             <Space direction="vertical" style={{ width: '100%' }}>
-              <span>useDict 预览（仅启用项）</span>
+              <span>{tx('useDict 预览（仅启用项）')}</span>
               <Select
                 style={{ width: '100%' }}
                 options={preview.options}
                 loading={preview.loading}
-                placeholder={preview.labelOf(preview.items[0]?.item_value) || '暂无启用项'}
+                placeholder={preview.labelOf(preview.items[0]?.item_value) || tx('暂无启用项')}
               />
             </Space>
           </div>

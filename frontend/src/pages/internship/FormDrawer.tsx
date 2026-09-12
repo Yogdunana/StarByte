@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useEffect, useState } from 'react';
 import { Button, DatePicker, Drawer, Form, Input, Select, Space } from 'antd';
 import type { Dayjs } from 'dayjs';
@@ -40,6 +41,7 @@ function fromCalendarDate(raw?: string): Dayjs | undefined {
 }
 
 const FormDrawer: React.FC<Props> = ({ open, editing, onClose, onSubmit }) => {
+  useLocale();
   const [form] = Form.useForm<FormValues>();
   const [users, setUsers] = useState<UserListItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -59,10 +61,7 @@ const FormDrawer: React.FC<Props> = ({ open, editing, onClose, onSubmit }) => {
         mentor_id: editing.mentor?.id,
         skills: editing.skills,
         achievements: editing.achievements,
-        range: [
-          fromCalendarDate(editing.start_date),
-          fromCalendarDate(editing.end_date),
-        ],
+        range: [fromCalendarDate(editing.start_date), fromCalendarDate(editing.end_date)],
       });
     } else {
       form.resetFields();
@@ -96,34 +95,47 @@ const FormDrawer: React.FC<Props> = ({ open, editing, onClose, onSubmit }) => {
 
   return (
     <Drawer
-      title={editing ? '编辑实习' : '登记实习'}
+      title={editing ? tx('编辑实习') : tx('登记实习')}
       open={open}
       onClose={onClose}
       width={480}
       destroyOnClose
       footer={
         <Space style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <Button onClick={onClose}>取消</Button>
-          <Button type="primary" loading={loading} onClick={() => void handleOk()}>保存</Button>
+          <Button onClick={onClose}>{tx('取消')}</Button>
+          <Button type="primary" loading={loading} onClick={() => void handleOk()}>
+            {tx('保存')}
+          </Button>
         </Space>
       }
     >
       <Form form={form} layout="vertical">
-        <Form.Item name="title" label="实习项目" rules={[{ required: true, max: 200 }]}>
-          <Input placeholder="例如：StarByte 后端开发实习" />
+        <Form.Item name="title" label={tx('实习项目')} rules={[{ required: true, max: 200 }]}>
+          <Input placeholder={tx('例如：StarByte 后端开发实习')} />
         </Form.Item>
-        <Form.Item name="organization" label="实习单位" rules={[{ required: true, max: 200 }]}>
-          <Input placeholder="例如：计算机协会项目开发部" />
+        <Form.Item
+          name="organization"
+          label={tx('实习单位')}
+          rules={[{ required: true, max: 200 }]}
+        >
+          <Input placeholder={tx('例如：计算机协会项目开发部')} />
         </Form.Item>
-        <Form.Item name="range" label="实习时间" rules={[{ required: true, message: '请选择开始日期' }]}>
+        <Form.Item
+          name="range"
+          label={tx('实习时间')}
+          rules={[{ required: true, message: tx('请选择开始日期') }]}
+        >
           <DatePicker.RangePicker allowEmpty={[false, true]} style={{ width: '100%' }} />
         </Form.Item>
-        <Form.Item name="type" label="类型" rules={[{ required: true }]}>
+        <Form.Item name="type" label={tx('类型')} rules={[{ required: true }]}>
           <Select
-            options={Object.entries(InternshipTypeMap).map(([k, v]) => ({ value: Number(k), label: v.text }))}
+            options={Object.entries(InternshipTypeMap).map(([k, v]) => ({
+              value: Number(k),
+              label: v.text,
+            }))}
           />
         </Form.Item>
-        <Form.Item name="mentor_id" label="指导老师">
+        <Form.Item name="mentor_id" label={tx('指导老师')}>
           <Select
             allowClear
             showSearch
@@ -131,13 +143,13 @@ const FormDrawer: React.FC<Props> = ({ open, editing, onClose, onSubmit }) => {
             options={users.map((u) => ({ value: u.id, label: u.real_name || u.username }))}
           />
         </Form.Item>
-        <Form.Item name="skills" label="技能标签">
-          <Select mode="tags" placeholder="输入后回车" />
+        <Form.Item name="skills" label={tx('技能标签')}>
+          <Select mode="tags" placeholder={tx('输入后回车')} />
         </Form.Item>
-        <Form.Item name="description" label="实习说明">
+        <Form.Item name="description" label={tx('实习说明')}>
           <Input.TextArea rows={3} />
         </Form.Item>
-        <Form.Item name="achievements" label="实习成果">
+        <Form.Item name="achievements" label={tx('实习成果')}>
           <Input.TextArea rows={3} />
         </Form.Item>
       </Form>

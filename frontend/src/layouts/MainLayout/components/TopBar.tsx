@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React from 'react';
 import { Layout, Avatar, Dropdown, Breadcrumb, Button, theme } from 'antd';
 import {
@@ -29,9 +30,13 @@ import styles from './TopBar.module.css';
 
 const { Header: AntHeader } = Layout;
 
-interface TopBarProps { mobile?: boolean; onOpenMenu?: () => void }
+interface TopBarProps {
+  mobile?: boolean;
+  onOpenMenu?: () => void;
+}
 
 const TopBar: React.FC<TopBarProps> = ({ mobile, onOpenMenu }) => {
+  useLocale();
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const dispatch = useDispatch<AppDispatch>();
@@ -39,7 +44,8 @@ const TopBar: React.FC<TopBarProps> = ({ mobile, onOpenMenu }) => {
   const location = useLocation();
   const collapsed = useSelector((state: { app: { collapsed: boolean } }) => state.app.collapsed);
   const currentUser = useSelector(selectCurrentUser);
-  const { setLang, setPreference, preference, lang, reduceMotion, setReduceMotion } = useThemeLang();
+  const { setLang, setPreference, preference, lang, reduceMotion, setReduceMotion } =
+    useThemeLang();
 
   useNotificationWebSocket();
 
@@ -57,8 +63,18 @@ const TopBar: React.FC<TopBarProps> = ({ mobile, onOpenMenu }) => {
   };
 
   const userMenuItems = [
-    { key: 'profile', icon: <ProfileOutlined />, label: t('topbar.profile'), onClick: () => navigate('/user/profile') },
-    { key: 'settings', icon: <SettingOutlined />, label: t('topbar.settings'), onClick: () => navigate('/user/settings') },
+    {
+      key: 'profile',
+      icon: <ProfileOutlined />,
+      label: t('topbar.profile'),
+      onClick: () => navigate('/user/profile'),
+    },
+    {
+      key: 'settings',
+      icon: <SettingOutlined />,
+      label: t('topbar.settings'),
+      onClick: () => navigate('/user/settings'),
+    },
     { type: 'divider' as const },
     { key: 'logout', icon: <LogoutOutlined />, label: t('topbar.logout'), onClick: handleLogout },
   ];
@@ -76,17 +92,28 @@ const TopBar: React.FC<TopBarProps> = ({ mobile, onOpenMenu }) => {
   ];
 
   const langItems = [
-    { key: 'zh-CN', label: '简体中文', onClick: () => setLang('zh-CN') },
+    { key: 'zh-CN', label: tx('简体中文'), onClick: () => setLang('zh-CN') },
     { key: 'en-US', label: 'English', onClick: () => setLang('en-US') },
+    { key: 'ru-RU', label: 'Русский', onClick: () => setLang('ru-RU') },
   ];
 
   const paths = location.pathname.split('/').filter(Boolean);
   const crumbs = paths.map((_, idx) => {
     const full = `/${paths.slice(0, idx + 1).join('/')}`;
-    return { title: t(`menu.${full}`, { defaultValue: /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(paths[idx]) ? t('shell.detail') : paths[idx] }) };
+    return {
+      title: t(`menu.${full}`, {
+        defaultValue: /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(paths[idx])
+          ? t('shell.detail')
+          : paths[idx],
+      }),
+    };
   });
 
-  const menuLabel = mobile ? t('shell.openNav') : collapsed ? t('shell.expandNav') : t('shell.collapseNav');
+  const menuLabel = mobile
+    ? t('shell.openNav')
+    : collapsed
+      ? t('shell.expandNav')
+      : t('shell.collapseNav');
 
   return (
     <AntHeader className={styles.header}>
@@ -101,21 +128,40 @@ const TopBar: React.FC<TopBarProps> = ({ mobile, onOpenMenu }) => {
       </div>
 
       <div className={styles.actions}>
-        <Dropdown trigger={['click']} menu={{ items: themeItems, selectedKeys: [preference] }} placement="bottomRight">
+        <Dropdown
+          trigger={['click']}
+          menu={{ items: themeItems, selectedKeys: [preference] }}
+          placement="bottomRight"
+        >
           <Button type="text" aria-label={t('topbar.theme')} icon={<BgColorsOutlined />} />
         </Dropdown>
-        <Dropdown trigger={['click']} menu={{ items: langItems, selectedKeys: [lang] }} placement="bottomRight">
-          <Button type="text" className={styles.language} aria-label={t('topbar.language')} icon={<GlobalOutlined />} />
+        <Dropdown
+          trigger={['click']}
+          menu={{ items: langItems, selectedKeys: [lang] }}
+          placement="bottomRight"
+        >
+          <Button
+            type="text"
+            className={styles.language}
+            aria-label={t('topbar.language')}
+            icon={<GlobalOutlined />}
+          />
         </Dropdown>
         <AnnouncementBadge />
         <NotificationBell />
         <Dropdown trigger={['click']} menu={{ items: userMenuItems }} placement="bottomRight">
           <button type="button" className={styles.account} aria-label={t('shell.accountMenu')}>
-            <Avatar size="small" src={currentUser?.avatar_url} icon={!currentUser?.avatar_url && <UserOutlined />} />
+            <Avatar
+              size="small"
+              src={currentUser?.avatar_url}
+              icon={!currentUser?.avatar_url && <UserOutlined />}
+            />
             <span className={styles.accountText}>
               <span>{currentUser?.real_name || currentUser?.username || t('common.user')}</span>
               {currentUser?.student_no ? (
-                <span className={styles.studentNo} style={{ color: token.colorTextSecondary }}>{currentUser.student_no}</span>
+                <span className={styles.studentNo} style={{ color: token.colorTextSecondary }}>
+                  {currentUser.student_no}
+                </span>
               ) : null}
             </span>
           </button>

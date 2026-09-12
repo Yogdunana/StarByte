@@ -1,3 +1,4 @@
+import { tx } from '@/i18n/text';
 import { message } from 'antd';
 import {
   createFlowDefinition,
@@ -29,11 +30,14 @@ export async function loadDefinitionGraph(id: string): Promise<{
   const versions = await listFlowVersions(id);
   const current = versions.find((item) => item.status === 1) ?? versions[0];
   if (!current) {
-    return { name: detail.name, key: detail.key, status: detail.status, graph: { nodes: [], edges: [] } };
+    return {
+      name: detail.name,
+      key: detail.key,
+      status: detail.status,
+      graph: { nodes: [], edges: [] },
+    };
   }
-  const version = current.bpmn_data?.nodes
-    ? current
-    : await getFlowVersion(id, current.id);
+  const version = current.bpmn_data?.nodes ? current : await getFlowVersion(id, current.id);
   return {
     name: detail.name,
     key: detail.key,
@@ -60,7 +64,7 @@ export async function persistDraft(
     id = created.id;
   }
   await saveFlowDraft(id, graph);
-  message.success('草稿已保存');
+  message.success(tx('草稿已保存'));
   return id;
 }
 
@@ -70,5 +74,5 @@ export async function persistPublish(definitionId: string, graph: FlowGraphData)
     throw new Error(issues.map((item) => item.message).join('；'));
   }
   await publishFlowDefinition(definitionId, toPublishGraph(graph));
-  message.success('流程已发布');
+  message.success(tx('流程已发布'));
 }

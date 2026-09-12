@@ -1,3 +1,4 @@
+import { tx, useLocale } from '@/i18n/text';
 import React, { useState } from 'react';
 import { Button, Popconfirm, message } from 'antd';
 
@@ -27,10 +28,11 @@ const ConfirmButton: React.FC<ConfirmButtonProps> = ({
   danger = false,
   size = 'middle',
   disabled = false,
-  successMessage = '操作成功',
-  errorMessage = '操作失败',
+  successMessage = tx('操作成功'),
+  errorMessage = tx('操作失败'),
   children,
 }) => {
+  useLocale();
   const [loading, setLoading] = useState(false);
 
   const handleConfirm = async () => {
@@ -53,8 +55,8 @@ const ConfirmButton: React.FC<ConfirmButtonProps> = ({
       title={title}
       description={description}
       onConfirm={handleConfirm}
-      okText="确定"
-      cancelText="取消"
+      okText={tx('确定')}
+      cancelText={tx('取消')}
       okButtonProps={{ danger }}
       disabled={disabled || loading}
     >

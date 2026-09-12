@@ -1,3 +1,4 @@
+import { tx } from '@/i18n/text';
 import type { Edge, Node } from 'reactflow';
 import type { DesignerNodeData, DesignerNodeType, FlowGraphData } from '@/types/workflow';
 import { NODE_META } from '../constants';
@@ -20,14 +21,18 @@ export function defaultNodeData(type: DesignerNodeType): DesignerNodeData {
       label: name,
       config: {
         branches: [
-          { id: 'branch_1', label: '条件1', expression: '', is_default: false },
-          { id: 'branch_2', label: '默认', expression: '', is_default: true },
+          { id: 'branch_1', label: tx('条件1'), expression: '', is_default: false },
+          { id: 'branch_2', label: tx('默认'), expression: '', is_default: true },
         ],
       },
     };
   }
   if (type === 'parallel') {
-    return { name, label: name, config: { branchCount: 2, branchLabels: ['分支1', '分支2'] } };
+    return {
+      name,
+      label: name,
+      config: { branchCount: 2, branchLabels: [tx('分支1'), tx('分支2')] },
+    };
   }
   if (type === 'merge') {
     return { name, label: name, config: { kind: 'join', branchCount: 2, branchLabels: [] } };
@@ -86,10 +91,7 @@ export function createNodeId(type: DesignerNodeType): string {
   return `${type}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
-export function appendNode(
-  current: DesignerRFNode[],
-  node: DesignerRFNode,
-): DesignerRFNode[] {
+export function appendNode(current: DesignerRFNode[], node: DesignerRFNode): DesignerRFNode[] {
   let { x, y } = node.position;
   const overlaps = current.some(
     (item) => Math.abs(item.position.x - x) < 16 && Math.abs(item.position.y - y) < 16,
