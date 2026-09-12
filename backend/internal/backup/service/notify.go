@@ -71,6 +71,7 @@ func (a *notifAlerter) Failed(ctx context.Context, userID *uuid.UUID, filename, 
 		logger.Error("backup job failed", zap.String("filename", filename), zap.String("error", errText))
 		return
 	}
+	// NotificationService.Send 会按 users.email 填充邮件渠道；无邮箱则跳过 email，站内信仍发。
 	err := a.inner.Send(ctx, &notifdto.SendNotificationRequest{
 		UserIDs:      ids,
 		TemplateCode: tplBackupFailed,

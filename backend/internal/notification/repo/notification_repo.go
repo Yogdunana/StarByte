@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"strings"
 
 	"github.com/Yogdunana/StarByte/backend/internal/notification/model"
 	"github.com/google/uuid"
@@ -146,8 +147,8 @@ func (r *notificationRepo) EmailsByUserIDs(ctx context.Context, ids []uuid.UUID)
 		return nil, err
 	}
 	for _, row := range rows {
-		if row.Email != "" {
-			out[row.ID] = row.Email
+		if email := strings.TrimSpace(row.Email); email != "" {
+			out[row.ID] = email
 		}
 	}
 	return out, nil
