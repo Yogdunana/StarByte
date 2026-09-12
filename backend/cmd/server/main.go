@@ -52,6 +52,9 @@ import (
 	interviewHandler "github.com/Yogdunana/StarByte/backend/internal/interview/handler"
 	interviewRepo "github.com/Yogdunana/StarByte/backend/internal/interview/repo"
 	interviewService "github.com/Yogdunana/StarByte/backend/internal/interview/service"
+	knowledgeHandler "github.com/Yogdunana/StarByte/backend/internal/knowledge/handler"
+	knowledgeRepo "github.com/Yogdunana/StarByte/backend/internal/knowledge/repo"
+	knowledgeService "github.com/Yogdunana/StarByte/backend/internal/knowledge/service"
 	leaveHandler "github.com/Yogdunana/StarByte/backend/internal/leave/handler"
 	leaveRepo "github.com/Yogdunana/StarByte/backend/internal/leave/repo"
 	leaveService "github.com/Yogdunana/StarByte/backend/internal/leave/service"
@@ -344,6 +347,7 @@ func main() {
 		announcementService.NewNotifier(notifSvc),
 	)
 	annH := announcementHandler.New(annSvc)
+	knH := knowledgeHandler.New(knowledgeService.New(knowledgeRepo.New(database.DB())))
 	schedService.RegisterHandler("announcement_scheduled_publish", "扫描并发布到期定时公告", annSvc.DispatchDuePublishes)
 	schedService.RegisterHandler("announcement_auto_unpublish", "扫描并归档到期公告", annSvc.DispatchExpired)
 
@@ -465,6 +469,7 @@ func main() {
 		// 注册仍由 user handler 处理
 		public.POST("/auth/register", userHandler.Register)
 		scheduleHandler.RegisterPublicRoutes(public, calH)
+		knowledgeHandler.RegisterPublicRoutes(public, knH, &cfg.JWT, redis.Client(), cacheService)
 	}
 
 	// 10b. 需要鉴权的路由
@@ -509,6 +514,9 @@ func main() {
 
 		// 公告中心（/announcements，#77）
 		announcementHandler.RegisterRoutes(protected, annH, cacheService)
+
+		// 知识库 / CMS（/knowledge，#58）
+		knowledgeHandler.RegisterRoutes(protected, knH, cacheService)
 
 		// 请假管理（/leave，#56）
 		leaveHandler.RegisterRoutes(protected, leaveH, cacheService, database.DB(), deptRepo)

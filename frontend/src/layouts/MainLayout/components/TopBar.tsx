@@ -53,7 +53,7 @@ const TopBar: React.FC<TopBarProps> = ({ mobile, onOpenMenu }) => {
     dispatch(clearUser());
     dispatch(clearNotifications());
     removeToken();
-    navigate('/login', { replace: true });
+    navigate('/', { replace: true });
   };
 
   const userMenuItems = [

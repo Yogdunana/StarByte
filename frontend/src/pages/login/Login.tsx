@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, Card, Tabs, Divider, message } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, BankOutlined } from '@ant-design/icons';
-import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { login, selectIsAuthenticated } from '@/store/slices/authSlice';
@@ -12,6 +12,7 @@ import { motion } from 'motion/react';
 import styles from './Login.module.css';
 import { fadeUp, staggerEnter } from '@/motion/tokens';
 import { useTranslation } from 'react-i18next';
+import { resolveRedirect } from '@/utils/nextPath';
 
 interface LocationFromState {
   from?: { pathname?: string };
@@ -25,10 +26,14 @@ interface RegisterFormValues {
   email: string;
 }
 
-function getRedirectPath(state: unknown): string {
+function getRedirectPath(state: unknown, nextQuery?: string | null): string {
+  const fromQuery = resolveRedirect(nextQuery, '');
+  if (fromQuery) return fromQuery;
   if (state && typeof state === 'object' && 'from' in state) {
     const from = (state as LocationFromState).from;
-    if (from?.pathname?.startsWith('/') && !from.pathname.startsWith('//')) return from.pathname;
+    if (from?.pathname?.startsWith('/') && !from.pathname.startsWith('//') && from.pathname !== '/') {
+      return from.pathname;
+    }
   }
   return '/dashboard';
 }
@@ -55,9 +60,9 @@ const Login: React.FC = () => {
   // 如果已登录，跳转到首页
   useEffect(() => {
     if (isAuthenticated) {
-      navigate(getRedirectPath(location.state), { replace: true });
+      navigate(getRedirectPath(location.state, searchParams.get('next')), { replace: true });
     }
-  }, [isAuthenticated, navigate, location.state]);
+  }, [isAuthenticated, navigate, location.state, searchParams]);
 
   useEffect(() => {
     getCasStatus()
@@ -78,7 +83,7 @@ const Login: React.FC = () => {
       await dispatch(login(values)).unwrap();
       await dispatch(fetchCurrentUser()).unwrap();
       message.success(t('login.success'));
-      navigate(getRedirectPath(location.state), { replace: true });
+      navigate(getRedirectPath(location.state, searchParams.get('next')), { replace: true });
     } catch (error: unknown) {
       message.error(getErrorMessage(error, t('login.fail')));
     } finally {
@@ -165,7 +170,7 @@ const Login: React.FC = () => {
                     icon={<BankOutlined />}
                     className={styles.casBtn}
                     onClick={() => {
-                      window.location.assign(getCasLoginURL(getRedirectPath(location.state)));
+                      window.location.assign(getCasLoginURL(getRedirectPath(location.state, searchParams.get('next'))));
                     }}
                   >
                     {t('login.cas')}
@@ -305,6 +310,11 @@ const Login: React.FC = () => {
             </Form>
           )}
         </Card>
+        <footer className={styles.footer}>
+          <Link to="/about-us">{t('login.footerAbout')}</Link>
+          <Link to="/docs/association-charter">{t('login.footerCharter')}</Link>
+          <Link to="/docs">{t('login.footerDocs')}</Link>
+        </footer>
       </motion.div>
     </div>
   );

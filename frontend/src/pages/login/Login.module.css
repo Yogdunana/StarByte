@@ -197,6 +197,19 @@ html[data-theme='dark'] .container::before {
   gap: 0 12px;
 }
 .mobileBrand { display: none; }
+
+.footer {
+  display: flex;
+  gap: var(--sb-space-4, 16px);
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: var(--sb-space-4, 16px) 0 var(--sb-space-2, 8px);
+  font-size: 13px;
+}
+
+.footer a { color: var(--sb-muted); }
+.footer a:hover { color: var(--sb-brand); }
+
 @media (max-width: 1000px) {
   .container { padding: var(--sb-space-4); gap: var(--sb-space-3); }
   .left { padding: var(--sb-space-5) var(--sb-space-3); justify-content: center; }

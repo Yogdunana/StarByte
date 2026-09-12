@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 
 import { getToken } from '@/utils/storage';
+import { loginPath } from '@/utils/nextPath';
 import { logout as logoutAction } from '@/store/slices/authSlice';
 import { fetchCurrentUser, selectCurrentUser, selectUserLoading, selectUserError, clearUser } from '@/store/slices/userSlice';
 import type { AppDispatch } from '@/store';
@@ -67,14 +68,14 @@ const AuthRoute: React.FC<AuthRouteProps> = ({ children }) => {
     }
   }, [token, userError, currentUser, dispatch]);
 
-  // 无 token → 登录页
+  // 无 token → 登录门脸，带回跳
   if (!token) {
-    return <Navigate to="/login" replace state={{ from: location }} />;
+    return <Navigate to={loginPath(location.pathname + location.search)} replace state={{ from: location }} />;
   }
 
   // token 存在但用户信息获取失败 → 重定向登录页（dispatch 在上方 effect 中执行）
   if (userError && !currentUser) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={loginPath(location.pathname + location.search)} replace />;
   }
 
   // token 存在且正在加载用户信息 → 全屏 Loading

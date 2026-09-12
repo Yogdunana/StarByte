@@ -37,6 +37,7 @@ package response
 //	30000-30999 Leave (#56)
 //	31000-31999 Monitor / ops dashboard (#87)
 //	32000-32999 Backup / restore (#88)
+//	33000-33999 Knowledge / CMS (#58)
 //
 //	Note: issue #71 asked for 9000-9499, but that range is already owned by
 //	the task module (9000-9999). Export therefore uses 17000-17999 (after
@@ -341,6 +342,15 @@ const (
 	CodeBackupPolicyInvalid   = 32008 // 备份策略不合法
 	CodeBackupNotReady        = 32009 // 备份产物不完整，无法恢复
 	CodeBackupChecksum        = 32010 // 备份校验失败
+
+	// ===== Knowledge / CMS (#58, 33000-33999) =====
+	CodeKnowledgeNotFound      = 33001 // 文档不存在
+	CodeKnowledgeInvalidState  = 33002 // 文档状态不允许该操作
+	CodeKnowledgeNoAccess      = 33003 // 无权操作该文档
+	CodeKnowledgeLoginRequired = 33004 // 阅读该文档需要登录
+	CodeKnowledgeInvalidSlug   = 33005 // 文档 slug 不合法
+	CodeKnowledgeConflict      = 33006 // 文档 slug 已存在
+	CodeKnowledgeInvalidVis    = 33007 // 文档可见性不合法
 )
 
 // ModuleRanges maps each module name to its error-code range [min, max].
@@ -378,4 +388,5 @@ var ModuleRanges = map[string][2]int{
 	"leave":        {30000, 30999},
 	"monitor":      {31000, 31999},
 	"backup":       {32000, 32999},
+	"knowledge":    {33000, 33999},
 }

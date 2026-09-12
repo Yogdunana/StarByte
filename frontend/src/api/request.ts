@@ -2,6 +2,14 @@ import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosError } from 'ax
 import { message } from 'antd';
 import { getToken, getRefreshToken, setToken, setRefreshToken, removeToken } from '@/utils/storage';
 import { handleApiError, isCanceledError } from './error';
+import { loginPath } from '@/utils/nextPath';
+
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    skipAuthRedirect?: boolean;
+    silent?: boolean;
+  }
+}
 
 const baseURL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
@@ -113,6 +121,10 @@ request.interceptors.response.use(
 
     const originalRequest = error.config as InternalAxiosRequestConfig;
 
+    if (error.response?.status === 401 && originalRequest?.skipAuthRedirect) {
+      return Promise.reject(error);
+    }
+
     // 处理 401 Token 过期
     if (error.response?.status === 401) {
       if (!isRefreshing) {
@@ -144,7 +156,7 @@ request.interceptors.response.use(
           // 刷新失败，跳转到登录页
           removeToken();
           message.error('登录已过期，请重新登录');
-          window.location.href = '/login';
+          window.location.href = loginPath(window.location.pathname + window.location.search);
           return Promise.reject(refreshError);
         } finally {
           isRefreshing = false;
@@ -170,8 +182,10 @@ request.interceptors.response.use(
     }
 
     // 其他错误：统一错误处理
-    const errorMsg = handleApiError(error);
-    message.error(errorMsg);
+    if (!originalRequest?.silent) {
+      const errorMsg = handleApiError(error);
+      message.error(errorMsg);
+    }
     return Promise.reject(error);
   }
 );

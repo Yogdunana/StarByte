@@ -149,6 +149,8 @@ func allSeedPermissions() []seedPerm {
 		seedPerm{Name: "备份恢复", Code: "backup:restore", Resource: "backup", Action: "restore"},
 		seedPerm{Name: "备份管理", Code: "backup:manage", Resource: "backup", Action: "manage"},
 	)
+	perms = append(perms, moduleCRUD("doc", "文档")...)
+	perms = append(perms, seedPerm{Name: "文档发布", Code: "doc:publish", Resource: "doc", Action: "publish"})
 	return perms
 }
 
@@ -239,9 +241,10 @@ func seedRolePermissions(db *gorm.DB) error {
 		FROM roles r CROSS JOIN permissions p
 		WHERE r.code = 'minister' AND p.resource <> 'monitor' AND p.resource <> 'backup' AND (
 			p.action = 'read'
-			OR (p.resource IN ('member','interview','meeting','task','internship','schedule','file','workflow','notification','finance','discipline','contract','activity','announcement')
+			OR (p.resource IN ('member','interview','meeting','task','internship','schedule','file','workflow','notification','finance','discipline','contract','activity','announcement','doc')
 			    AND p.action IN ('create','update'))
 			OR (p.resource = 'announcement' AND p.action = 'publish')
+			OR (p.resource = 'doc' AND p.action = 'publish')
 			OR (p.resource = 'leave' AND p.action IN ('read','approve'))
 			OR (p.resource = 'member' AND p.action IN ('approve','export','manage'))
 			OR (p.resource = 'interview' AND p.action IN ('manage','evaluate'))
@@ -268,10 +271,11 @@ func seedRolePermissions(db *gorm.DB) error {
 		FROM roles r CROSS JOIN permissions p
 		WHERE r.code = 'vice_minister' AND p.resource <> 'interview_private' AND p.resource <> 'monitor' AND p.resource <> 'backup' AND (
 			p.action = 'read'
-			OR (p.resource IN ('member','interview','meeting','task','internship','schedule','file','finance','discipline','contract','activity','announcement')
+			OR (p.resource IN ('member','interview','meeting','task','internship','schedule','file','finance','discipline','contract','activity','announcement','doc')
 			    AND p.action = 'create')
 			OR (p.resource = 'leave' AND p.action = 'read')
 			OR (p.resource = 'announcement' AND p.action = 'update')
+			OR (p.resource = 'doc' AND p.action = 'update')
 			OR (p.resource = 'task' AND p.action IN ('update','comment'))
 			OR (p.resource = 'form' AND p.action IN ('write', 'submit'))
 		)
@@ -291,7 +295,7 @@ func officerPermCodes() []string {
 		"user:read", "member:read", "member:create",
 		"interview:read", "interview:evaluate", "meeting:read",
 		"activity:read", "activity:create", "activity:update",
-		"announcement:read", "leave:read",
+		"announcement:read", "leave:read", "doc:read",
 		"task:read", "task:create", "task:update", "task:comment",
 		"file:read", "file:create",
 		"internship:read", "internship:create", "internship:update", "internship:delete",
@@ -304,7 +308,7 @@ func officerPermCodes() []string {
 func memberPermCodes() []string {
 	return []string{
 		"user:read", "member:read", "meeting:read", "task:read",
-		"activity:read", "announcement:read",
+		"activity:read", "announcement:read", "doc:read",
 		"file:read", "file:create", "internship:read", "internship:create", "internship:update", "internship:delete",
 		"schedule:read", "schedule:create", "schedule:update", "schedule:delete",
 		"form:submit", "discipline:read",
