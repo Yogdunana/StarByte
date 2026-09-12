@@ -40,6 +40,18 @@ func codeOf(err error) int {
 	return 0
 }
 
+func asPublisher(id uuid.UUID) Viewer {
+	return Viewer{UserID: id, Staff: true, CanPublish: true}
+}
+
+func asManager(id uuid.UUID) Viewer {
+	return Viewer{UserID: id, Staff: true, CanPublish: true, CanManage: true}
+}
+
+func asViceMinister(id uuid.UUID) Viewer {
+	return Viewer{UserID: id, Staff: true}
+}
+
 func TestCreate_Success(t *testing.T) {
 	svc, _, _ := newTestSvc()
 	author := uuid.New()
@@ -120,7 +132,7 @@ func TestUpdate_Draft(t *testing.T) {
 func TestUpdate_ArchivedForbidden(t *testing.T) {
 	svc, _, _ := newTestSvc()
 	author := uuid.New()
-	staff := Viewer{UserID: author, Staff: true}
+	staff := asManager(author)
 	resp := mustCreate(t, svc, author, "归档前", model.CategorySystem)
 	id := parseID(t, resp.ID)
 	if _, err := svc.Publish(context.Background(), staff, id); err != nil {
@@ -159,7 +171,7 @@ func TestPublish_NotifyAndReadFlow(t *testing.T) {
 
 	resp := mustCreate(t, svc, author, "开学通知", model.CategoryAssociation)
 	id := parseID(t, resp.ID)
-	staff := Viewer{UserID: author, Staff: true}
+	staff := asPublisher(author)
 	pub, err := svc.Publish(context.Background(), staff, id)
 	if err != nil {
 		t.Fatalf("Publish: %v", err)
@@ -200,7 +212,7 @@ func TestPublish_NotifyAndReadFlow(t *testing.T) {
 func TestPublish_NotDraft(t *testing.T) {
 	svc, _, _ := newTestSvc()
 	author := uuid.New()
-	staff := Viewer{UserID: author, Staff: true}
+	staff := asPublisher(author)
 	resp := mustCreate(t, svc, author, "已发", model.CategorySystem)
 	id := parseID(t, resp.ID)
 	if _, err := svc.Publish(context.Background(), staff, id); err != nil {
@@ -225,7 +237,7 @@ func TestMarkRead_DraftForbidden(t *testing.T) {
 func TestPinToggleAndArchive(t *testing.T) {
 	svc, _, _ := newTestSvc()
 	author := uuid.New()
-	staff := Viewer{UserID: author, Staff: true}
+	staff := asManager(author)
 	resp := mustCreate(t, svc, author, "置顶", model.CategorySystem)
 	id := parseID(t, resp.ID)
 	if _, err := svc.Publish(context.Background(), staff, id); err != nil {
@@ -260,7 +272,7 @@ func TestList_FiltersAndVisibility(t *testing.T) {
 	svc, _, _ := newTestSvc()
 	author := uuid.New()
 	other := uuid.New()
-	staff := Viewer{UserID: author, Staff: true}
+	staff := asPublisher(author)
 	d1 := mustCreate(t, svc, author, "协会草稿", model.CategoryAssociation)
 	p1 := mustCreate(t, svc, author, "活动已发", model.CategoryActivity)
 	if _, err := svc.Publish(context.Background(), staff, parseID(t, p1.ID)); err != nil {
@@ -335,7 +347,7 @@ func TestDispatchDuePublishes(t *testing.T) {
 func TestPublish_ClearsScheduledAtAndAllowsEdit(t *testing.T) {
 	svc, _, _ := newTestSvc()
 	author := uuid.New()
-	staff := Viewer{UserID: author, Staff: true}
+	staff := asPublisher(author)
 	when := time.Date(2026, 9, 12, 11, 0, 0, 0, time.UTC)
 	resp, err := svc.Create(context.Background(), Viewer{UserID: author, CanPublish: true}, &dto.CreateAnnouncementRequest{
 		Title: "定时稿", Category: model.CategorySystem, ScheduledAt: &when,
@@ -431,12 +443,124 @@ func TestUpdate_ScheduleRequiresPublish(t *testing.T) {
 	}
 }
 
+func TestPublish_OwnDraftNeedsPublish(t *testing.T) {
+	svc, _, _ := newTestSvc()
+	author := uuid.New()
+	resp := mustCreate(t, svc, author, "自己的草稿", model.CategorySystem)
+	_, err := svc.Publish(context.Background(), asViceMinister(author), parseID(t, resp.ID))
+	if codeOf(err) != response.CodeAnnouncementNoAccess {
+		t.Fatalf("own draft without publish: code=%d err=%v", codeOf(err), err)
+	}
+	if _, err := svc.Publish(context.Background(), asPublisher(author), parseID(t, resp.ID)); err != nil {
+		t.Fatalf("author with publish should publish own draft: %v", err)
+	}
+}
+
+func TestCreate_IgnoresPinnedWithoutManage(t *testing.T) {
+	svc, _, _ := newTestSvc()
+	author := uuid.New()
+	created, err := svc.Create(context.Background(), asPublisher(author), &dto.CreateAnnouncementRequest{
+		Title: "想置顶", Category: model.CategorySystem, Pinned: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Pinned {
+		t.Fatal("create without manage must not persist pinned")
+	}
+	pub, err := svc.Publish(context.Background(), asPublisher(author), parseID(t, created.ID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pub.Pinned {
+		t.Fatal("create+publish without manage must not land pinned=true")
+	}
+}
+
+func TestCreate_ManageCanPin(t *testing.T) {
+	svc, _, _ := newTestSvc()
+	author := uuid.New()
+	created, err := svc.Create(context.Background(), asManager(author), &dto.CreateAnnouncementRequest{
+		Title: "管理置顶", Category: model.CategorySystem, Pinned: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !created.Pinned {
+		t.Fatal("manage should be able to pin on create")
+	}
+}
+
+func TestIDOR_ViceMinisterCannotTouchPeerDraft(t *testing.T) {
+	svc, _, _ := newTestSvc()
+	author := uuid.New()
+	peer := uuid.New()
+	draft := mustCreate(t, svc, author, "他人草稿", model.CategorySystem)
+	id := parseID(t, draft.ID)
+	vice := asViceMinister(peer)
+
+	if _, err := svc.Get(context.Background(), vice, id); codeOf(err) != response.CodeAnnouncementNoAccess {
+		t.Fatalf("peer get draft: code=%d err=%v", codeOf(err), err)
+	}
+	title := "篡改"
+	if _, err := svc.Update(context.Background(), vice, id, &dto.UpdateAnnouncementRequest{Title: &title}); codeOf(err) != response.CodeAnnouncementNoAccess {
+		t.Fatalf("peer update draft: code=%d err=%v", codeOf(err), err)
+	}
+	if err := svc.Delete(context.Background(), vice, id); codeOf(err) != response.CodeAnnouncementNoAccess {
+		t.Fatalf("peer delete draft: code=%d err=%v", codeOf(err), err)
+	}
+	if _, err := svc.Publish(context.Background(), Viewer{UserID: peer, Staff: true, CanPublish: true}, id); codeOf(err) != response.CodeAnnouncementNoAccess {
+		t.Fatalf("publish others' draft without manage: code=%d err=%v", codeOf(err), err)
+	}
+
+	got, err := svc.Update(context.Background(), asManager(peer), id, &dto.UpdateAnnouncementRequest{Title: &title})
+	if err != nil || got.Title != title {
+		t.Fatalf("manage should edit peer draft: %+v err=%v", got, err)
+	}
+	if _, err := svc.Publish(context.Background(), asManager(peer), id); err != nil {
+		t.Fatalf("manage should publish peer draft: %v", err)
+	}
+}
+
+func TestList_StaffHidesPeerDrafts(t *testing.T) {
+	svc, _, _ := newTestSvc()
+	author := uuid.New()
+	peer := uuid.New()
+	own := mustCreate(t, svc, author, "自己的草稿", model.CategorySystem)
+	mustCreate(t, svc, peer, "同事草稿", model.CategorySystem)
+	pub := mustCreate(t, svc, peer, "已发", model.CategoryActivity)
+	if _, err := svc.Publish(context.Background(), asPublisher(peer), parseID(t, pub.ID)); err != nil {
+		t.Fatal(err)
+	}
+
+	staff := asViceMinister(author)
+	list, total, err := svc.List(context.Background(), staff, &dto.ListAnnouncementRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 2 {
+		t.Fatalf("staff without manage should see own draft + published, total=%d list=%+v", total, list)
+	}
+	ids := map[string]bool{}
+	for _, item := range list {
+		ids[item.ID] = true
+	}
+	if !ids[own.ID] || !ids[pub.ID] {
+		t.Fatalf("missing expected items: %+v", ids)
+	}
+
+	all, allTotal, err := svc.List(context.Background(), asManager(author), &dto.ListAnnouncementRequest{})
+	if err != nil || allTotal != 3 {
+		t.Fatalf("manage should see all, total=%d err=%v items=%d", allTotal, err, len(all))
+	}
+}
+
 func TestReadStatus_RequiresManage(t *testing.T) {
 	svc, _, _ := newTestSvc()
 	author := uuid.New()
 	resp := mustCreate(t, svc, author, "已发", model.CategorySystem)
 	id := parseID(t, resp.ID)
-	if _, err := svc.Publish(context.Background(), Viewer{UserID: author, Staff: true}, id); err != nil {
+	if _, err := svc.Publish(context.Background(), asPublisher(author), id); err != nil {
 		t.Fatal(err)
 	}
 	_, err := svc.ReadStatus(context.Background(), Viewer{UserID: author}, id)

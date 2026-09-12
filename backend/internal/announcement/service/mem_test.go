@@ -91,7 +91,7 @@ func (m *memRepo) GetByIDNamed(_ context.Context, id, viewer uuid.UUID) (*model.
 	return &named, nil
 }
 
-func (m *memRepo) List(_ context.Context, viewer uuid.UUID, staff bool, req *dto.ListAnnouncementRequest) ([]model.AnnouncementNamed, int64, error) {
+func (m *memRepo) List(_ context.Context, viewer uuid.UUID, staff, manage bool, req *dto.ListAnnouncementRequest) ([]model.AnnouncementNamed, int64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if req == nil {
@@ -124,10 +124,16 @@ func (m *memRepo) List(_ context.Context, viewer uuid.UUID, staff bool, req *dto
 			if a.Status != *req.Status {
 				continue
 			}
-			if *req.Status == model.StatusDraft && !staff && a.AuthorID != viewer {
+			if *req.Status == model.StatusDraft && !manage && a.AuthorID != viewer {
 				continue
 			}
-		} else if !staff && a.Status != model.StatusPublished && a.Status != model.StatusArchived {
+		} else if manage {
+			// all statuses
+		} else if staff {
+			if a.Status != model.StatusPublished && a.Status != model.StatusArchived && a.AuthorID != viewer {
+				continue
+			}
+		} else if a.Status != model.StatusPublished && a.Status != model.StatusArchived {
 			continue
 		}
 		out = append(out, m.named(a, viewer))

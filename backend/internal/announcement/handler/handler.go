@@ -117,7 +117,6 @@ func (h *Handler) Publish(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	v.Staff = true
 	result, err := h.svc.Publish(c.Request.Context(), v, id)
 	if err != nil {
 		response.Error(c, err)
@@ -137,7 +136,6 @@ func (h *Handler) Pin(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	v.Staff = true
 	var req dto.PinRequest
 	_ = c.ShouldBindJSON(&req)
 	result, err := h.svc.Pin(c.Request.Context(), v, id, req.Pinned)
@@ -159,7 +157,6 @@ func (h *Handler) Archive(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	v.Staff = true
 	result, err := h.svc.Archive(c.Request.Context(), v, id)
 	if err != nil {
 		response.Error(c, err)

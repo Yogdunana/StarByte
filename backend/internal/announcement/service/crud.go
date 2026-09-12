@@ -38,13 +38,17 @@ func (s *announcementService) Create(ctx context.Context, viewer Viewer, req *dt
 	}
 
 	now := s.clock()
+	pinned := false
+	if viewer.CanManage {
+		pinned = req.Pinned
+	}
 	a := &model.Announcement{
 		ID:          uuid.New(),
 		Title:       title,
 		Content:     req.Content,
 		ContentType: contentType,
 		Category:    req.Category,
-		Pinned:      req.Pinned,
+		Pinned:      pinned,
 		Required:    req.Required,
 		Status:      model.StatusDraft,
 		ScheduledAt: req.ScheduledAt,
@@ -178,7 +182,7 @@ func (s *announcementService) List(ctx context.Context, viewer Viewer, req *dto.
 	if req.Status != nil && !model.ValidStatus(*req.Status) {
 		return nil, 0, response.NewError(response.CodeBadRequest, "状态不合法")
 	}
-	rows, total, err := s.rows.List(ctx, viewer.UserID, viewer.Staff, req)
+	rows, total, err := s.rows.List(ctx, viewer.UserID, viewer.Staff, viewer.CanManage, req)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list announcements: %w", err)
 	}
@@ -200,23 +204,31 @@ func (s *announcementService) getResponse(ctx context.Context, id, viewer uuid.U
 	return toResponse(row), nil
 }
 
+func isAuthor(v Viewer, a *model.Announcement) bool {
+	return v.UserID == a.AuthorID
+}
+
 func canView(v Viewer, a *model.Announcement) bool {
 	if a.Status == model.StatusPublished || a.Status == model.StatusArchived {
 		return true
 	}
-	return v.Staff || v.UserID == a.AuthorID
+	return v.CanManage || isAuthor(v, a)
 }
 
 func canEdit(v Viewer, a *model.Announcement) bool {
-	if v.Staff {
-		return true
+	if a.Status == model.StatusArchived {
+		return false
 	}
-	return a.Status == model.StatusDraft && v.UserID == a.AuthorID
+	return v.CanManage || isAuthor(v, a)
 }
 
 func canDelete(v Viewer, a *model.Announcement) bool {
-	if v.Staff {
-		return true
+	return v.CanManage || isAuthor(v, a)
+}
+
+func canPublishDraft(v Viewer, a *model.Announcement) bool {
+	if isAuthor(v, a) {
+		return v.CanPublish
 	}
-	return a.Status == model.StatusDraft && v.UserID == a.AuthorID
+	return v.CanManage
 }

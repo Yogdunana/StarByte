@@ -16,7 +16,7 @@ func (s *announcementService) Publish(ctx context.Context, viewer Viewer, id uui
 	if err != nil {
 		return nil, err
 	}
-	if !viewer.Staff && viewer.UserID != a.AuthorID {
+	if !canPublishDraft(viewer, a) {
 		return nil, noAccess("无权发布该公告")
 	}
 	if a.Status != model.StatusDraft {
@@ -42,7 +42,7 @@ func (s *announcementService) publishLocked(ctx context.Context, a *model.Announ
 }
 
 func (s *announcementService) Pin(ctx context.Context, viewer Viewer, id uuid.UUID, pinned *bool) (*dto.AnnouncementResponse, error) {
-	if !viewer.Staff {
+	if !viewer.CanManage {
 		return nil, noAccess("无权置顶公告")
 	}
 	a, err := s.load(ctx, id)
@@ -62,7 +62,7 @@ func (s *announcementService) Pin(ctx context.Context, viewer Viewer, id uuid.UU
 }
 
 func (s *announcementService) Archive(ctx context.Context, viewer Viewer, id uuid.UUID) (*dto.AnnouncementResponse, error) {
-	if !viewer.Staff {
+	if !viewer.CanManage {
 		return nil, noAccess("无权归档公告")
 	}
 	a, err := s.load(ctx, id)

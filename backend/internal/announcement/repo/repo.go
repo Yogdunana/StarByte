@@ -19,7 +19,7 @@ type Repository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*model.Announcement, error)
 	GetByIDForUpdate(ctx context.Context, id uuid.UUID) (*model.Announcement, error)
 	GetByIDNamed(ctx context.Context, id, viewer uuid.UUID) (*model.AnnouncementNamed, error)
-	List(ctx context.Context, viewer uuid.UUID, staff bool, req *dto.ListAnnouncementRequest) ([]model.AnnouncementNamed, int64, error)
+	List(ctx context.Context, viewer uuid.UUID, staff, manage bool, req *dto.ListAnnouncementRequest) ([]model.AnnouncementNamed, int64, error)
 	ListDueDrafts(ctx context.Context, now time.Time, limit int) ([]model.Announcement, error)
 	MarkRead(ctx context.Context, announcementID, userID uuid.UUID, at time.Time) error
 	UnreadCount(ctx context.Context, userID uuid.UUID) (int64, error)
@@ -89,12 +89,12 @@ func (r *repository) GetByIDNamed(ctx context.Context, id, viewer uuid.UUID) (*m
 	return &row, nil
 }
 
-func (r *repository) List(ctx context.Context, viewer uuid.UUID, staff bool, req *dto.ListAnnouncementRequest) ([]model.AnnouncementNamed, int64, error) {
+func (r *repository) List(ctx context.Context, viewer uuid.UUID, staff, manage bool, req *dto.ListAnnouncementRequest) ([]model.AnnouncementNamed, int64, error) {
 	if req == nil {
 		req = &dto.ListAnnouncementRequest{}
 	}
 	q := r.namedQuery(ctx, viewer)
-	q = applyListFilters(q, viewer, staff, req)
+	q = applyListFilters(q, viewer, staff, manage, req)
 
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
@@ -115,7 +115,7 @@ func (r *repository) List(ctx context.Context, viewer uuid.UUID, staff bool, req
 	return rows, total, err
 }
 
-func applyListFilters(q *gorm.DB, viewer uuid.UUID, staff bool, req *dto.ListAnnouncementRequest) *gorm.DB {
+func applyListFilters(q *gorm.DB, viewer uuid.UUID, staff, manage bool, req *dto.ListAnnouncementRequest) *gorm.DB {
 	if req.Category != "" {
 		q = q.Where("a.category = ?", req.Category)
 	}
@@ -132,13 +132,16 @@ func applyListFilters(q *gorm.DB, viewer uuid.UUID, staff bool, req *dto.ListAnn
 	}
 	if req.Status != nil {
 		q = q.Where("a.status = ?", *req.Status)
-		if *req.Status == model.StatusDraft && !staff {
+		if *req.Status == model.StatusDraft && !manage {
 			q = q.Where("a.author_id = ?", viewer)
 		}
 		return q
 	}
-	if staff {
+	if manage {
 		return q
+	}
+	if staff {
+		return q.Where("a.status IN ? OR a.author_id = ?", []int16{model.StatusPublished, model.StatusArchived}, viewer)
 	}
 	return q.Where("a.status IN ?", []int16{model.StatusPublished, model.StatusArchived})
 }

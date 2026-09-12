@@ -27,7 +27,6 @@ export interface CreateAnnouncementParams {
   content?: string;
   content_type?: AnnouncementContentType;
   category: AnnouncementCategory;
-  pinned?: boolean;
   required?: boolean;
   scheduled_at?: string;
 }
