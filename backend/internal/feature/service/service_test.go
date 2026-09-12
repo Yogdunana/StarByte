@@ -620,6 +620,41 @@ func TestInvalidateRefreshesWhenDeleteFails(t *testing.T) {
 	}
 }
 
+func TestStartHotReloadSurvivesStuckSnapshot(t *testing.T) {
+	rows := newMemRepo()
+	store := &stickySetSnapshot{
+		setErr: errors.New("redis set failed"),
+		delErr: errors.New("redis del failed"),
+	}
+	svc := New(rows, store, NewMemoryBus(), stubRoles{}, stubUsers{}, stubPerms{}).(*flagService)
+	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
+	end := now.Add(time.Hour)
+	svc.now = func() time.Time { return now }
+	svc.tickEvery = 8 * time.Millisecond
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	id := uuid.New()
+	if err := rows.Create(ctx, &model.Flag{
+		ID: id, FlagKey: "boot.loop", Name: "Boot", FlagType: model.TypeBoolean,
+		Enabled: true, Rules: model.Rules{EndsAt: &end}, CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	svc.now = func() time.Time { return end.Add(time.Second) }
+	if err := svc.StartHotReload(ctx); err != nil {
+		t.Fatalf("boot must continue after Redis write failure: %v", err)
+	}
+	deadline := time.Now().Add(400 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		got, gerr := svc.Get(ctx, id)
+		if gerr == nil && got != nil && !got.Enabled {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("schedule loop should still persist off after a Redis blip at boot")
+}
+
 func TestInvalidateDropsSnapshotWhenSetFails(t *testing.T) {
 	rows := newMemRepo()
 	store := &stickySetSnapshot{}
