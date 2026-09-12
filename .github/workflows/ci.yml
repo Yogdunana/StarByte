@@ -163,6 +163,9 @@ jobs:
           migrate -path backend/migrations -database "postgres://starbyte:starbyte@localhost:5432/starbyte_test?sslmode=disable" down 1
           migrate -path backend/migrations -database "postgres://starbyte:starbyte@localhost:5432/starbyte_test?sslmode=disable" up
 
+      - name: Preserve customized member approval templates
+        run: psql "postgres://starbyte:starbyte@localhost:5432/starbyte_test?sslmode=disable" -X -v ON_ERROR_STOP=1 -f backend/migrations/tests/member_application_v2.sql
+
   # ─────────────────────────────────────────────────────────
   # Docker 镜像构建测试
   # ─────────────────────────────────────────────────────────
