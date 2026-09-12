@@ -396,6 +396,14 @@ func TestStatsExcludeRejectedAndHonorYear(t *testing.T) {
 	require.Len(t, year2025.Personal.ByType, 1)
 	assert.Equal(t, int64(1), year2025.Personal.ByType[0].Count)
 	assert.Equal(t, 1.0, year2025.Personal.ByType[0].Days)
+
+	inbox, err := svc.Stats(ctx, self, 0)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), inbox.Total)
+	assert.Equal(t, int64(1), inbox.ByStatus[model.ApprovalStatusRejected])
+	assert.Equal(t, int64(1), inbox.ByStatus[model.ApprovalStatusApproved])
+	assert.Equal(t, int64(1), inbox.Personal.Total)
+	assert.Equal(t, 1.0, inbox.Personal.Days)
 }
 
 func TestRejectRestoresUsingDeductionSnapshot(t *testing.T) {

@@ -189,9 +189,8 @@ func (s *leaveService) Stats(ctx context.Context, viewer Viewer, year int) (*dto
 		return nil, noAccess("无权查看请假统计")
 	}
 	sqlScope := rewriteApplicantScope(viewer.Scope, viewer.UserID)
-	if year == 0 {
-		year = bizYear(s.clock())
-	}
+	// year==0：待办页不传年份，合计须覆盖全部历史，与列表分页一致。
+	// year>0：统计页按所选年份过滤。
 	total, byStatus, byType, err := s.rows.CountStats(ctx, year, sqlScope)
 	if err != nil {
 		return nil, err

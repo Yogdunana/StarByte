@@ -14,6 +14,8 @@ import (
 
 var typeCodeRe = regexp.MustCompile(`^[a-z][a-z0-9_]{0,19}$`)
 
+// canManageTypes 仅组织范围（data_scope=all）的审批人可改全局类型与默认额度。
+// 部门级 leave:approve 只能批请假，不能禁用年假或改发放规则。
 func canManageTypes(v Viewer) bool {
 	return v.CanApprove && isUnrestricted(v.Scope)
 }
