@@ -92,6 +92,17 @@ func (m *memRepo) Update(_ context.Context, flag *model.Flag) error {
 	return nil
 }
 
+func (m *memRepo) UpdateScheduledState(_ context.Context, id uuid.UUID, expectedUpdatedAt time.Time, enabled bool, updatedAt time.Time) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	row := m.flags[id]
+	if row == nil || !row.UpdatedAt.Equal(expectedUpdatedAt) || row.Enabled == enabled {
+		return false, nil
+	}
+	row.Enabled, row.UpdatedAt = enabled, updatedAt
+	return true, nil
+}
+
 func (m *memRepo) Delete(_ context.Context, id uuid.UUID) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
