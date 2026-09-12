@@ -41,6 +41,17 @@ function flattenCats(rows: KnowledgeCategory[], prefix = ''): { value: string; l
   return out;
 }
 
+function collectExpandKeys(nodes: KnowledgeTreeNode[]): React.Key[] {
+  const keys: React.Key[] = [];
+  for (const node of nodes) {
+    if (node.children?.length) {
+      keys.push(node.id);
+      keys.push(...collectExpandKeys(node.children));
+    }
+  }
+  return keys;
+}
+
 const AdminPage: React.FC = () => {
   const { t } = useTranslation();
   const canCreate = usePermission('doc:create');
@@ -48,6 +59,7 @@ const AdminPage: React.FC = () => {
   const canPublish = usePermission('doc:publish');
   const [form] = Form.useForm();
   const [tree, setTree] = useState<KnowledgeTreeNode[]>([]);
+  const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
   const [cats, setCats] = useState<KnowledgeCategory[]>([]);
   const [current, setCurrent] = useState<KnowledgeDoc | null>(null);
   const [content, setContent] = useState('');
@@ -57,7 +69,9 @@ const AdminPage: React.FC = () => {
 
   const reloadTree = useCallback(async () => {
     const [nodes, categories] = await Promise.all([getKnowledgeTree(), listKnowledgeCategories()]);
-    setTree(nodes || []);
+    const next = nodes || [];
+    setTree(next);
+    setExpandedKeys(collectExpandKeys(next));
     setCats(categories || []);
   }, []);
 
@@ -119,15 +133,18 @@ const AdminPage: React.FC = () => {
                 return;
               }
               const res = await searchKnowledge(q.trim());
-              setTree((res.list || []).map((d) => ({
+              const hits = (res.list || []).map((d) => ({
                 id: d.id, type: 'doc' as const, title: d.title, slug: d.slug, path: d.path, kind: d.kind,
-              })));
+              }));
+              setTree(hits);
+              setExpandedKeys([]);
             }}
           />
           <Tree
             style={{ marginTop: 12 }}
             treeData={toTree(tree)}
-            defaultExpandAll
+            expandedKeys={expandedKeys}
+            onExpand={setExpandedKeys}
             onSelect={onSelect}
           />
           {canCreate && (
