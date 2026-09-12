@@ -46,7 +46,7 @@ func (s *taskService) GetTransfer(ctx context.Context, transferID, actor uuid.UU
 	if request == nil {
 		return nil, response.NewError(response.CodeTaskNotFound, "转办请求不存在")
 	}
-	t, _, err := s.handoverVisible(ctx, request.TaskID, actor)
+	t, err := s.transferVisible(ctx, request, actor)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func (s *taskService) DecideTransfer(ctx context.Context, transferID, actor uuid
 		return nil, response.NewError(response.CodeTaskNotFound, "转办请求不存在")
 	}
 	return taskMutation(ctx, s, request.TaskID, func(b *taskService) (*dto.HandoverResponse, error) {
-		t, _, err := b.handoverVisible(ctx, request.TaskID, actor)
+		t, err := b.transferVisible(ctx, request, actor)
 		if err != nil {
 			return nil, err
 		}
@@ -289,6 +289,10 @@ func (s *taskService) finishSignedHandover(ctx context.Context, t *model.Task, r
 	request.Status = "completed"
 	request.CompletedAt = &now
 	t.AssigneeID = &request.ToUserID
+	if request.TargetDepartmentID != uuid.Nil {
+		dept := request.TargetDepartmentID
+		t.DepartmentID = &dept
+	}
 	t.WorkflowRevision++
 	t.UpdatedAt = now
 	if err := s.tasks.Update(ctx, t); err != nil {
@@ -303,10 +307,10 @@ func (s *taskService) finishSignedHandover(ctx context.Context, t *model.Task, r
 
 func (s *taskService) classifyHandover(ctx context.Context, t *model.Task, target *model.NamedUser) (kind string, sourceDept, targetDept, sourceCenter, targetCenter uuid.UUID, supervisor string, err error) {
 	source := t.DepartmentID
-	if source == nil {
+	if t.AssigneeID != nil {
 		if actor, lookupErr := s.transfers.Actor(ctx, *t.AssigneeID); lookupErr != nil {
 			return "", uuid.Nil, uuid.Nil, uuid.Nil, uuid.Nil, "", lookupErr
-		} else if actor != nil {
+		} else if actor != nil && actor.DepartmentID != nil && *actor.DepartmentID != uuid.Nil {
 			source = actor.DepartmentID
 		}
 	}
@@ -360,18 +364,67 @@ func (s *taskService) handoverVisible(ctx context.Context, id, actor uuid.UUID) 
 	if err != nil {
 		return nil, nil, err
 	}
-	if workflowParticipant(t, actor) {
-		return t, request, nil
+	if err := s.ensureHandoverAccess(ctx, t, request, actor); err != nil {
+		return nil, nil, err
 	}
-	if request != nil && s.canSignHandover(ctx, request, actor) {
-		return t, request, nil
+	return t, request, nil
+}
+
+func (s *taskService) transferVisible(ctx context.Context, request *model.TaskTransfer, actor uuid.UUID) (*model.Task, error) {
+	if request == nil {
+		return nil, response.NewError(response.CodeTaskNotFound, "转办请求不存在")
+	}
+	t, err := s.tasks.GetByID(ctx, request.TaskID)
+	if err != nil {
+		return nil, err
+	}
+	if t == nil {
+		return nil, response.NewError(response.CodeTaskNotFound, "任务不存在")
+	}
+	if err := s.ensureHandoverAccess(ctx, t, request, actor); err != nil {
+		return nil, err
+	}
+	return t, nil
+}
+
+func (s *taskService) ensureHandoverAccess(ctx context.Context, t *model.Task, request *model.TaskTransfer, actor uuid.UUID) error {
+	if workflowParticipant(t, actor) {
+		return nil
+	}
+	if s.canAccessHandover(ctx, request, actor) {
+		return nil
 	}
 	if t.WorkflowInstanceID != nil {
-		if _, err := s.workflowTask(ctx, id, actor); err == nil {
-			return t, request, nil
+		if _, err := s.workflowTask(ctx, t.ID, actor); err == nil {
+			return nil
 		}
 	}
-	return nil, nil, response.NewError(response.CodeForbidden, "无权查看该转办")
+	return response.NewError(response.CodeForbidden, "无权查看该转办")
+}
+
+func (s *taskService) canAccessHandover(ctx context.Context, request *model.TaskTransfer, actor uuid.UUID) bool {
+	if request == nil || actor == uuid.Nil {
+		return false
+	}
+	if actor == request.InitiatorID || actor == request.FromUserID || actor == request.ToUserID {
+		return true
+	}
+	if s.canSignHandover(ctx, request, actor) {
+		return true
+	}
+	if s.transfers == nil {
+		return false
+	}
+	signatures, err := s.transfers.Signatures(ctx, request.ID)
+	if err != nil {
+		return false
+	}
+	for _, item := range signatures {
+		if item.SignerID == actor {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *taskService) canSignHandover(ctx context.Context, request *model.TaskTransfer, actor uuid.UUID) bool {

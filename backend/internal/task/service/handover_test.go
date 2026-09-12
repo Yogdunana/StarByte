@@ -238,6 +238,12 @@ func TestClassifyHandoverKinds(t *testing.T) {
 	if _, _, _, _, _, _, err = svc.classifyHandover(context.Background(), &model.Task{AssigneeID: &ids[1]}, &model.NamedUser{ID: uuid.New(), DepartmentID: &src}); err == nil {
 		t.Fatal("missing source department treated as internal")
 	}
+	store.actors[ids[1]] = &model.TransferActor{ID: ids[1], DepartmentID: &dst}
+	stale := &model.Task{DepartmentID: &src, AssigneeID: &ids[1]}
+	kind, sourceDept, _, _, _, _, err := svc.classifyHandover(context.Background(), stale, &model.NamedUser{ID: uuid.New(), DepartmentID: &dst})
+	if err != nil || kind != "internal" || sourceDept != dst {
+		t.Fatalf("stale task department hid current assignee team: %s %s %v", kind, sourceDept, err)
+	}
 }
 
 func TestGetAndDecideTransferByID(t *testing.T) {
@@ -279,6 +285,13 @@ func TestGetAndDecideTransferByID(t *testing.T) {
 	out, err := svc.DecideTransfer(ctx, transferID, minister, &dto.HandoverDecision{Requirement: "source_minister", Decision: "reject", Comment: "人手不够", Revision: 1})
 	if err != nil || out.Status != "rejected" || !stub.terminated {
 		t.Fatalf("decide transfer: %v %+v", err, out)
+	}
+	afterReject, err := svc.GetTransfer(ctx, transferID, minister)
+	if err != nil || afterReject.Status != "rejected" {
+		t.Fatalf("signer lost rejected transfer: %v %+v", err, afterReject)
+	}
+	if _, err := svc.GetTransfer(ctx, transferID, uuid.New()); err == nil {
+		t.Fatal("stranger read rejected transfer")
 	}
 }
 
@@ -509,5 +522,61 @@ func TestMissingDepartmentCannotSkipSignatures(t *testing.T) {
 	}
 	if tasks.items[uuid.MustParse(row.ID)].AssigneeID == nil || *tasks.items[uuid.MustParse(row.ID)].AssigneeID != ids[1] {
 		t.Fatal("assignee changed without signatures")
+	}
+}
+
+func TestCompletedHandoverMovesDepartmentAndKeepsSignerAccess(t *testing.T) {
+	svc, tasks, stub, ids := workflowFixture(t)
+	store := newMemTransfers()
+	svc.transfers = store
+	src, dst, center := uuid.New(), uuid.New(), uuid.New()
+	store.depts[src] = &model.TransferDepartment{ID: src, ParentID: &center, Name: "前端"}
+	store.depts[dst] = &model.TransferDepartment{ID: dst, ParentID: &center, Name: "后端"}
+	peer, teammate, minister, otherMinister := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	tasks.users[peer] = &model.NamedUser{ID: peer, Username: "peer", DepartmentID: &dst}
+	tasks.users[teammate] = &model.NamedUser{ID: teammate, Username: "teammate", DepartmentID: &dst}
+	tasks.users[ids[1]].DepartmentID = &src
+	store.actors[ids[1]] = &model.TransferActor{ID: ids[1], DepartmentID: &src}
+	store.actors[peer] = &model.TransferActor{ID: peer, DepartmentID: &dst}
+	store.actors[minister] = &model.TransferActor{ID: minister, DepartmentID: &src, Roles: []string{"minister"}}
+	store.actors[otherMinister] = &model.TransferActor{ID: otherMinister, DepartmentID: &dst, Roles: []string{"minister"}}
+	ctx := context.Background()
+	row, err := svc.Create(ctx, ids[0], &dto.CreateTaskRequest{
+		Title: "DeptMove", AssigneeID: ids[1].String(), DepartmentID: src.String(),
+		Workflow: &dto.WorkflowConfig{ReviewerID: ids[2].String(), AcceptorID: ids[3].String()},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.MustParse(row.ID)
+	created, err := svc.RequestHandover(ctx, id, ids[1], &dto.HandoverRequest{TargetID: peer.String(), Reason: "跨组接手", Revision: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.DecideHandover(ctx, id, minister, &dto.HandoverDecision{Requirement: "source_minister", Decision: "approve", Comment: "同意转出", Revision: 1}); err != nil {
+		t.Fatal(err)
+	}
+	stub.done = true
+	final, err := svc.DecideHandover(ctx, id, otherMinister, &dto.HandoverDecision{Requirement: "target_minister", Decision: "approve", Comment: "同意转入", Revision: 2})
+	if err != nil || final.Status != "completed" {
+		t.Fatalf("completed handover: %v %+v", err, final)
+	}
+	if tasks.items[id].DepartmentID == nil || *tasks.items[id].DepartmentID != dst {
+		t.Fatalf("task stayed in source department: %v", tasks.items[id].DepartmentID)
+	}
+	transferID := uuid.MustParse(created.ID)
+	for _, signer := range []uuid.UUID{minister, otherMinister} {
+		got, err := svc.GetTransfer(ctx, transferID, signer)
+		if err != nil || got.Status != "completed" {
+			t.Fatalf("signer lost completed transfer: actor=%s err=%v %+v", signer, err, got)
+		}
+	}
+	sameTeam, err := svc.RequestHandover(ctx, id, peer, &dto.HandoverRequest{TargetID: teammate.String(), Reason: "同组再交", Revision: tasks.items[id].WorkflowRevision})
+	if err != nil || sameTeam.Kind != "internal" || sameTeam.Status != "completed" {
+		t.Fatalf("same-team after transfer still required signatures: %v %+v", err, sameTeam)
+	}
+	back, err := svc.RequestHandover(ctx, id, teammate, &dto.HandoverRequest{TargetID: ids[1].String(), Reason: "转回原组", Revision: tasks.items[id].WorkflowRevision})
+	if err != nil || back.Kind != "department" || back.Status != "pending" {
+		t.Fatalf("return to original department skipped signatures: %v %+v", err, back)
 	}
 }
