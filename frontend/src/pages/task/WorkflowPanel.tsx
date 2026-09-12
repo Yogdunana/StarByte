@@ -62,7 +62,7 @@ export default function WorkflowPanel({ taskId, onChanged }: Props) {
         <h3>{t('task.engine.title')}</h3>
         <Button size="small" disabled={busy} onClick={() => void load()}>{t('task.engine.refresh')}</Button>
       </div>
-      {error && <Alert type="error" showIcon message={t('task.engine.closed')} action={<Button onClick={() => void load()}>{t('task.engine.refresh')}</Button>} />}
+      {error && <Alert type="error" showIcon message={t('task.engine.loadFailed')} action={<Button onClick={() => void load()}>{t('task.engine.refresh')}</Button>} />}
       {!flow && !error && <Spin tip={t('common.loading')}><div className={styles.placeholder} /></Spin>}
       {flow && (
         <>

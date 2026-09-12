@@ -488,6 +488,7 @@
       "rejected": "Rejected; the workflow stopped",
       "claimed": "Task claimed",
       "closed": "This task workflow has ended. History is kept.",
+      "loadFailed": "Failed to load the task workflow. Refresh and try again.",
       "waitingAssignee": "Waiting for an assignee",
       "assignmentMode": "Assignment",
       "assignmentManual": "Manual / claim",

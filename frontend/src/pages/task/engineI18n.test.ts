@@ -5,7 +5,7 @@ import zh from '../../locales/zh-CN.json';
 const keys = [
   'title', 'hint', 'viewFlow', 'refresh', 'comment', 'commentRequired', 'updated',
   'approve', 'reject', 'return', 'claim', 'submit', 'start', 'pause', 'resume',
-  'approved', 'rejected', 'claimed', 'closed',
+  'approved', 'rejected', 'claimed', 'closed', 'loadFailed',
   'steps.assignment', 'steps.execution', 'steps.review', 'steps.acceptance', 'steps.completed',
   'waitingAssignee', 'assignmentMode', 'assignmentManual', 'submission', 'submissionEmpty',
 ] as const;

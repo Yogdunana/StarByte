@@ -488,6 +488,7 @@
       "rejected": "已拒绝并终止流程",
       "claimed": "已认领任务",
       "closed": "该任务流程已结束，历史记录仍保留。",
+      "loadFailed": "任务流程加载失败，请刷新后重试。",
       "waitingAssignee": "等待指定执行人",
       "assignmentMode": "分配方式",
       "assignmentManual": "手动指定 / 认领",

@@ -290,6 +290,48 @@ func TestWorkflowClaimAdvancesAssignment(t *testing.T) {
 	}
 }
 
+func TestWorkflowClaimHonorsTaskReadScopeOnPersonalViewer(t *testing.T) {
+	svc, tasks, stub, ids := workflowFixture(t)
+	dept, other, peer, stranger := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	tasks.users[peer] = &model.NamedUser{ID: peer, Username: "peer"}
+	tasks.users[stranger] = &model.NamedUser{ID: stranger, Username: "stranger"}
+	ctx := context.Background()
+	row, err := svc.Create(ctx, ids[0], &dto.CreateTaskRequest{Title: "Dept task", DepartmentID: dept.String(), Workflow: &dto.WorkflowConfig{ReviewerID: ids[2].String(), AcceptorID: ids[3].String()}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.MustParse(row.ID)
+	personal := func(id uuid.UUID, read *rbac.DataScopeCondition) context.Context {
+		return model.WithViewer(ctx, model.Viewer{
+			ID:     id,
+			Scope:  &rbac.DataScopeCondition{Query: "1 = 0", IsSelf: true},
+			Scopes: map[string]*rbac.DataScopeCondition{"task:read": read},
+		})
+	}
+	deptRead := &rbac.DataScopeCondition{Query: "department_id = ?", Args: []interface{}{dept}}
+	selfRead := &rbac.DataScopeCondition{Query: "1 = 0", IsSelf: true}
+	otherRead := &rbac.DataScopeCondition{Query: "department_id = ?", Args: []interface{}{other}}
+	if _, err := svc.GetWorkflow(personal(stranger, selfRead), id, stranger); err == nil {
+		t.Fatal("self-scope outsider opened workflow")
+	}
+	if _, err := svc.ActWorkflow(personal(stranger, selfRead), id, stranger, &dto.WorkflowActionRequest{Action: "claim", Comment: "我来认领", Revision: 1}); err == nil {
+		t.Fatal("self-scope outsider claimed")
+	}
+	if _, err := svc.GetWorkflow(personal(stranger, otherRead), id, stranger); err == nil {
+		t.Fatal("other-department viewer opened workflow")
+	}
+	if _, err := svc.GetWorkflow(personal(peer, deptRead), id, peer); err != nil {
+		t.Fatal(err)
+	}
+	state, err := svc.ActWorkflow(personal(peer, deptRead), id, peer, &dto.WorkflowActionRequest{Action: "claim", Comment: "我来认领", Revision: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Stage != "execution" || tasks.items[id].AssigneeID == nil || *tasks.items[id].AssigneeID != peer || len(stub.calls) == 0 {
+		t.Fatalf("department peer could not claim: %+v assignee=%v calls=%v", state, tasks.items[id].AssigneeID, stub.calls)
+	}
+}
+
 func (w *workflowStub) CompleteTaskTransferApproval(context.Context, uuid.UUID, string, uuid.UUID, uuid.UUID, bool) error {
 	return w.fail
 }

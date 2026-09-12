@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	rbac "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/task/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/task/model"
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/engine"
@@ -106,16 +107,21 @@ func (s *taskService) workflowTask(ctx context.Context, id, actor uuid.UUID) (*m
 	if workflowParticipant(t, actor) {
 		return t, nil
 	}
-	// Unassigned assignment-stage tasks can be claimed by anyone who can already view them.
+	// Personal workflow routes pin viewer.Scope to IsSelf. Claimers who can already
+	// list the task must be judged by task:read, not that personal default.
 	if t.WorkflowStage == "assignment" && t.AssigneeID == nil {
-		if viewer, ok := model.ViewerFromContext(ctx); ok && canViewTask(t, actor, viewer.Scope) {
-			return t, nil
-		}
-		if canViewTask(t, actor, nil) {
+		if viewer, ok := model.ViewerFromContext(ctx); ok && canViewTask(t, actor, workflowReadScope(viewer)) {
 			return t, nil
 		}
 	}
 	return nil, response.NewError(response.CodeForbidden, "仅任务参与人可查看或处理审批")
+}
+
+func workflowReadScope(viewer model.Viewer) *rbac.DataScopeCondition {
+	if scope, ok := viewer.Scopes["task:read"]; ok {
+		return scope
+	}
+	return viewer.Scope
 }
 func (s *taskService) ActWorkflow(ctx context.Context, id, actor uuid.UUID, req *dto.WorkflowActionRequest) (*dto.WorkflowResponse, error) {
 	if req == nil || strings.TrimSpace(req.Comment) == "" || utf8.RuneCountInString(req.Comment) > 5000 {
