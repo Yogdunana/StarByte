@@ -138,28 +138,33 @@ func (m *memRepo) SummarizeExposures(_ context.Context, flagKey string, since ti
 	defer m.mu.Unlock()
 	type key struct {
 		variant string
+		enabled bool
 		user    string
 	}
+	type bucketKey struct {
+		variant string
+		enabled bool
+	}
 	seen := map[key]bool{}
-	counts := map[string]*model.ExposureBucket{}
-	order := []string{}
+	counts := map[bucketKey]*model.ExposureBucket{}
+	order := []bucketKey{}
 	for _, e := range m.exposures {
 		if e.FlagKey != flagKey || e.CreatedAt.Before(since) || e.UserID == nil {
 			continue
 		}
-		k := key{variant: e.Variant, user: e.UserID.String()}
+		k := key{variant: e.Variant, enabled: e.Enabled, user: e.UserID.String()}
 		if seen[k] {
 			continue
 		}
 		seen[k] = true
-		b, ok := counts[e.Variant]
+		bk := bucketKey{variant: e.Variant, enabled: e.Enabled}
+		b, ok := counts[bk]
 		if !ok {
-			b = &model.ExposureBucket{Variant: e.Variant}
-			counts[e.Variant] = b
-			order = append(order, e.Variant)
+			b = &model.ExposureBucket{Variant: e.Variant, Enabled: e.Enabled}
+			counts[bk] = b
+			order = append(order, bk)
 		}
 		b.Count++
-		b.Enabled = b.Enabled || e.Enabled
 	}
 	out := make([]model.ExposureBucket, 0, len(order))
 	for _, v := range order {

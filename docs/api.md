@@ -213,7 +213,7 @@ WAL 增量 / 指定时间点恢复（PITR）需要主机级 `pg_basebackup` + WA
 
 - `GET|POST /system/features`、`GET|PUT /system/features/:id`
 - `GET /system/features/:id/evaluate` 按用户评估（可带 `user_id`）
-- `GET /system/features/:id/analytics?days=7` 独立用户曝光（按变体）
+- `GET /system/features/:id/analytics?days=7` 独立用户曝光（按 `variant + enabled`）
 - `POST /system/features/:id/toggle` 切换启用
 - `POST /system/features/:id/rollback` 回滚最近一次可逆审计（无快照 `34008`）
 - `GET /system/features/audit`

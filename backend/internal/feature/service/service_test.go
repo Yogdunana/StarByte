@@ -329,8 +329,8 @@ func TestABEnvScheduleRollbackAnalytics(t *testing.T) {
 		t.Fatalf("analytics missing: %v", err)
 	}
 
-	offAt := now.Add(-time.Minute)
 	onAt := now.Add(-2 * time.Hour)
+	offAt := now.Add(time.Hour)
 	scheduled, err := svc.Create(ctx, actor, &dto.CreateFlagRequest{
 		FlagKey: "sched.window", Name: "Sched", FlagType: model.TypeBoolean, Enabled: true,
 		Rules: model.Rules{StartsAt: &onAt, EndsAt: &offAt},
@@ -338,9 +338,13 @@ func TestABEnvScheduleRollbackAnalytics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if scheduled.EffectiveEnabled || scheduled.ScheduleState != model.ScheduleExpired {
-		t.Fatalf("expired decorate: %+v", scheduled)
+	if !scheduled.EffectiveEnabled || scheduled.ScheduleState != model.ScheduleActive {
+		t.Fatalf("active decorate: %+v", scheduled)
 	}
+	if n := fs.applySchedules(ctx); n != 0 {
+		t.Fatalf("window still open n=%d", n)
+	}
+	fs.now = func() time.Time { return offAt.Add(time.Second) }
 	if n := fs.applySchedules(ctx); n != 1 {
 		t.Fatalf("schedule off n=%d", n)
 	}
@@ -348,7 +352,19 @@ func TestABEnvScheduleRollbackAnalytics(t *testing.T) {
 	if err != nil || got.Enabled {
 		t.Fatalf("persisted off: %+v %v", got, err)
 	}
+	on := true
+	if _, err := svc.Toggle(ctx, actor, uuid.MustParse(scheduled.ID), &dto.ToggleRequest{Enabled: &on}); err != nil {
+		t.Fatal(err)
+	}
+	if n := fs.applySchedules(ctx); n != 0 {
+		t.Fatalf("manual enable after ends_at must stick, n=%d", n)
+	}
+	got, err = svc.Get(ctx, uuid.MustParse(scheduled.ID))
+	if err != nil || !got.Enabled || got.EffectiveEnabled {
+		t.Fatalf("manual enable after ends_at: %+v %v", got, err)
+	}
 
+	fs.now = func() time.Time { return now }
 	future := now.Add(time.Hour)
 	pending, err := svc.Create(ctx, actor, &dto.CreateFlagRequest{
 		FlagKey: "sched.on", Name: "Later", FlagType: model.TypeBoolean, Enabled: false,
@@ -368,6 +384,17 @@ func TestABEnvScheduleRollbackAnalytics(t *testing.T) {
 	if err != nil || !got.Enabled {
 		t.Fatalf("persisted on: %+v %v", got, err)
 	}
+	off := false
+	if _, err := svc.Toggle(ctx, actor, uuid.MustParse(pending.ID), &dto.ToggleRequest{Enabled: &off}); err != nil {
+		t.Fatal(err)
+	}
+	if n := fs.applySchedules(ctx); n != 0 {
+		t.Fatalf("manual disable after starts_at must stick, n=%d", n)
+	}
+	got, err = svc.Get(ctx, uuid.MustParse(pending.ID))
+	if err != nil || got.Enabled {
+		t.Fatalf("manual disable after starts_at: %+v %v", got, err)
+	}
 	if !svc.Enabled(ctx, "exp.hero", feature.Subject{UserID: uid}) && !svc.Enabled(ctx, "exp.hero", feature.Subject{UserID: uid, Environment: "prod"}) {
 		// either variant may be off; just ensure env is attached
 	}
@@ -378,7 +405,7 @@ func TestScheduleLoopAndNilClock(t *testing.T) {
 	svc, _, _ := newTestSvc(nil, nil, stubPerms{})
 	fs := svc.(*flagService)
 	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
-	end := now.Add(-time.Minute)
+	end := now.Add(time.Hour)
 	fs.now = func() time.Time { return now }
 	fs.tickEvery = 8 * time.Millisecond
 	ctx := context.Background()
@@ -390,6 +417,7 @@ func TestScheduleLoopAndNilClock(t *testing.T) {
 		t.Fatal(err)
 	}
 	id := uuid.MustParse(created.ID)
+	fs.now = func() time.Time { return end.Add(time.Second) }
 	loopCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	if err := svc.StartHotReload(loopCtx); err != nil {
@@ -670,6 +698,7 @@ func TestInvalidateReloadsFromDBWhenSnapshotStale(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Snapshot keeps the enabled=true copy even after later writes.
 	store.flags = []model.Flag{{
 		ID: uuid.MustParse(created.ID), FlagKey: "stale.flag", Name: "Stale",
 		FlagType: model.TypeBoolean, Enabled: true,
@@ -680,6 +709,40 @@ func TestInvalidateReloadsFromDBWhenSnapshotStale(t *testing.T) {
 	}
 	if svc.Enabled(ctx, "stale.flag", feature.Subject{UserID: uuid.New()}) {
 		t.Fatal("failed snapshot delete must not refill memory from stale Redis data")
+	}
+}
+
+func TestBooleanAnalyticsSplitsEnabledAndDisabled(t *testing.T) {
+	svc, _, _ := newTestSvc(nil, nil, stubPerms{})
+	ctx := context.Background()
+	created, err := svc.Create(ctx, uuid.New(), &dto.CreateFlagRequest{
+		FlagKey: "bool.gate", Name: "Bool", FlagType: model.TypeBoolean, Enabled: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.MustParse(created.ID)
+	onUser := uuid.MustParse("11111111-1111-4111-8111-111111111111")
+	offUser := uuid.MustParse("22222222-2222-4222-8222-222222222222")
+	if _, err := svc.EvaluateID(ctx, id, onUser); err != nil {
+		t.Fatal(err)
+	}
+	off := false
+	if _, err := svc.Toggle(ctx, uuid.New(), id, &dto.ToggleRequest{Enabled: &off}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.EvaluateID(ctx, id, offUser); err != nil {
+		t.Fatal(err)
+	}
+	stats, err := svc.Analytics(ctx, id, 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.Total != 2 || stats.EnabledCount != 1 || stats.DisabledCount != 1 {
+		t.Fatalf("boolean analytics %+v", stats)
+	}
+	if len(stats.Variants) != 2 {
+		t.Fatalf("expected two variant/enabled buckets, got %+v", stats.Variants)
 	}
 }
 

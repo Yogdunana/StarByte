@@ -128,9 +128,9 @@ func (r *repo) CreateExposure(ctx context.Context, row *model.Exposure) error {
 func (r *repo) SummarizeExposures(ctx context.Context, flagKey string, since time.Time) ([]model.ExposureBucket, error) {
 	var rows []model.ExposureBucket
 	err := r.db.WithContext(ctx).Model(&model.Exposure{}).
-		Select("variant, COUNT(DISTINCT user_id) AS count, BOOL_OR(enabled) AS enabled").
+		Select("variant, enabled, COUNT(DISTINCT user_id) AS count").
 		Where("flag_key = ? AND created_at >= ? AND user_id IS NOT NULL", flagKey, since).
-		Group("variant").
+		Group("variant, enabled").
 		Order("count DESC").
 		Scan(&rows).Error
 	return rows, err

@@ -130,7 +130,7 @@ func (s *flagService) Create(ctx context.Context, actor uuid.UUID, req *dto.Crea
 	if exist != nil {
 		return nil, response.NewError(response.CodeFeatureKeyExists, "开关键已存在")
 	}
-	now := time.Now()
+	now := s.clock()
 	row := &model.Flag{
 		ID: uuid.New(), FlagKey: key, Name: strings.TrimSpace(req.Name), Description: req.Description,
 		FlagType: req.FlagType, Enabled: req.Enabled, GroupName: strings.TrimSpace(req.GroupName),
@@ -180,7 +180,7 @@ func (s *flagService) Update(ctx context.Context, actor, id uuid.UUID, req *dto.
 		return nil, err
 	}
 	row.UpdatedBy = &actor
-	row.UpdatedAt = time.Now()
+	row.UpdatedAt = s.clock()
 	if err := s.rows.Update(ctx, row); err != nil {
 		return nil, fmt.Errorf("update flag: %w", err)
 	}
@@ -206,7 +206,7 @@ func (s *flagService) Toggle(ctx context.Context, actor, id uuid.UUID, req *dto.
 		reason = strings.TrimSpace(req.Reason)
 	}
 	row.UpdatedBy = &actor
-	row.UpdatedAt = time.Now()
+	row.UpdatedAt = s.clock()
 	if err := s.rows.Update(ctx, row); err != nil {
 		return nil, fmt.Errorf("toggle flag: %w", err)
 	}
@@ -434,6 +434,7 @@ func (s *flagService) replaceMemory(flags []model.Flag) {
 }
 
 func (s *flagService) invalidate(ctx context.Context) {
+	// Rebuild from DB first so Set overwrites a stuck snapshot before peers Get.
 	ok, err := s.loadFromDB(ctx)
 	if err != nil {
 		logCacheErr("reload-db", err)

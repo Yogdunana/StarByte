@@ -37,7 +37,7 @@
 2. 至少两个变体，填写 `key` + `weight`（权重按比例归一）
 3. 变体可单独标记是否作为门闸开启；未填时 `control`/`off` 为关，其余为开
 4. 同一用户同一盐值稳定命中同一变体
-5. `GET /api/v1/features/me` 与评估接口会写入曝光（登录用户），管理页「曝光分析」按变体统计独立用户
+5. `GET /api/v1/features/me` 与评估接口会写入曝光（登录用户），管理页「曝光分析」按 `variant + enabled` 统计独立用户（boolean / 百分比空变体也会分开计开/关）
 
 前端：`useFeature('exp.hero').variant`。后端：`feature.Evaluate` 的 `Result.Variant`。
 
@@ -51,6 +51,7 @@
 
 - **评估时立即生效**：`enabled=true` 且未到 `starts_at` → `schedule_pending`；过了 `ends_at` → `schedule_expired`
 - **后台约 30s 落库**：窗口开始且仍关闭 → 打开并记 `schedule_on`；窗口结束且仍开启 → 关闭并记 `schedule_off`
+- **人工覆盖优先**：`UpdatedAt` 晚于 `starts_at` / `ends_at` 时，ticker 不再改回人工开关；评估层仍按窗口门闸
 - 列表里的「当前生效」= `enabled && 环境命中 && 窗口内`（不含用户定向）
 
 推荐：把开关设为启用，再填未来的 `starts_at` / `ends_at`。评估不会等 ticker。
@@ -60,9 +61,9 @@
 写操作会：
 
 1. 落库并写审计
-2. 删除 Redis `feature:snapshot`
+2. 从数据库重建内存，并 `SET` Redis `feature:snapshot`（避免 `DEL` 失败后旧快照被灌回）
 3. 向 `feature:invalidate` 广播
-4. 本进程与其它实例重载内存快照
+4. 其它实例重载快照
 
 无需重启 `starbyte-server`。
 
@@ -75,8 +76,8 @@
 | Key | 默认 | 作用 |
 |-----|------|------|
 | `cms.public` | 关 | `/about-us`、`/docs`、`/docs/:slug`、公开 `/:slug`，以及 `GET /api/v1/knowledge/public/*` |
-| `announcement.feed` | 开 | 工作台「最新公告」+ 公告列表/详情（写操作不拦；有发布权限可绕过） |
-| `membership.portal` | 关 | `/member/portal`（**不**替代入会申请） |
+| `announcement.feed` | 开 | 工作台整块「最新公告」（关则不渲染、不请求）+ 公告列表/详情（写操作不拦；有发布权限可绕过） |
+| `membership.portal` | 关 | `/member/portal`（关则不请求门户接口；**不**替代入会申请） |
 
 前端：`useFeature('cms.public')` / `<FeatureEnabled flag="cms.public">`。  
 后端：`feature.Evaluate(flag, subject)` / `RequireFlag`（匿名为零 subject；`Subject.Environment` 来自 `APP_ENV`）。

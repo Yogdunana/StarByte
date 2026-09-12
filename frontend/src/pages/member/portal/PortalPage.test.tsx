@@ -27,20 +27,20 @@ beforeEach(() => {
 
 describe('PortalPage', () => {
   it('does not fetch while the membership.portal flag is loading', async () => {
-    vi.mocked(useFeature).mockReturnValue({ enabled: false, loading: true, reason: '' });
+    vi.mocked(useFeature).mockReturnValue({ enabled: false, loading: true, reason: '', variant: '' });
     render(<MemoryRouter><PortalPage /></MemoryRouter>);
     await waitFor(() => expect(getMembershipPortal).not.toHaveBeenCalled());
   });
 
   it('does not fetch when membership.portal is closed', async () => {
-    vi.mocked(useFeature).mockReturnValue({ enabled: false, loading: false, reason: 'disabled' });
+    vi.mocked(useFeature).mockReturnValue({ enabled: false, loading: false, reason: 'disabled', variant: '' });
     render(<MemoryRouter><PortalPage /></MemoryRouter>);
     await waitFor(() => expect(screen.getByText('feature.gated')).toBeInTheDocument());
     expect(getMembershipPortal).not.toHaveBeenCalled();
   });
 
   it('fetches portal data only after the flag is on', async () => {
-    vi.mocked(useFeature).mockReturnValue({ enabled: true, loading: false, reason: 'boolean' });
+    vi.mocked(useFeature).mockReturnValue({ enabled: true, loading: false, reason: 'boolean', variant: '' });
     render(<MemoryRouter><PortalPage /></MemoryRouter>);
     await waitFor(() => expect(getMembershipPortal).toHaveBeenCalledTimes(1));
     expect(await screen.findByText('张三')).toBeInTheDocument();

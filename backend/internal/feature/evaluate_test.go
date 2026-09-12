@@ -199,11 +199,19 @@ func TestScheduleHelpers(t *testing.T) {
 	}
 	off := &model.Flag{Enabled: false, Rules: model.Rules{StartsAt: &past, EndsAt: &future}}
 	if !ShouldScheduleOn(off, now) || ShouldScheduleOff(off, now) {
-		t.Fatal("should turn on")
+		t.Fatal("should turn on when UpdatedAt is unset")
+	}
+	off.UpdatedAt = now
+	if ShouldScheduleOn(off, now) {
+		t.Fatal("manual disable after starts_at must not be scheduled on")
 	}
 	on := &model.Flag{Enabled: true, Rules: model.Rules{EndsAt: &past}}
 	if !ShouldScheduleOff(on, now) || ShouldScheduleOn(on, now) {
-		t.Fatal("should turn off")
+		t.Fatal("should turn off when UpdatedAt is unset")
+	}
+	on.UpdatedAt = now
+	if ShouldScheduleOff(on, now) {
+		t.Fatal("manual enable after ends_at must not be scheduled off")
 	}
 	if MasterOn(nil, "prod", now) || MasterOn(&model.Flag{Enabled: true, Rules: model.Rules{Environments: []string{"prod"}}}, "dev", now) {
 		t.Fatal("master off")

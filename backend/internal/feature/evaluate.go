@@ -248,30 +248,47 @@ func MasterOn(flag *model.Flag, env string, now time.Time) bool {
 	return true
 }
 
-// ShouldScheduleOn is true when the window is open and the flag is still disabled.
+// ShouldScheduleOn is true when starts_at has arrived, the flag is still off,
+// and the last write happened before starts_at (so a later manual disable is kept).
 func ShouldScheduleOn(flag *model.Flag, now time.Time) bool {
-	if flag == nil || flag.Enabled {
-		return false
-	}
-	if flag.Rules.StartsAt == nil {
+	if flag == nil || flag.Enabled || flag.Rules.StartsAt == nil {
 		return false
 	}
 	now = now.UTC()
-	if now.Before(flag.Rules.StartsAt.UTC()) {
+	start := flag.Rules.StartsAt.UTC()
+	if now.Before(start) {
 		return false
 	}
 	if flag.Rules.EndsAt != nil && !now.Before(flag.Rules.EndsAt.UTC()) {
 		return false
 	}
+	if writtenAtOrAfter(flag.UpdatedAt, start) {
+		return false
+	}
 	return true
 }
 
-// ShouldScheduleOff is true when the end timestamp has passed and the flag is still on.
+// ShouldScheduleOff is true when ends_at has passed, the flag is still on,
+// and the last write happened before ends_at (so a later manual enable is kept).
 func ShouldScheduleOff(flag *model.Flag, now time.Time) bool {
 	if flag == nil || !flag.Enabled || flag.Rules.EndsAt == nil {
 		return false
 	}
-	return !now.UTC().Before(flag.Rules.EndsAt.UTC())
+	end := flag.Rules.EndsAt.UTC()
+	if now.UTC().Before(end) {
+		return false
+	}
+	if writtenAtOrAfter(flag.UpdatedAt, end) {
+		return false
+	}
+	return true
+}
+
+func writtenAtOrAfter(updated, boundary time.Time) bool {
+	if updated.IsZero() {
+		return false
+	}
+	return !updated.UTC().Before(boundary)
 }
 
 // Bucket returns a stable 0-99 bucket for percentage rollout.
