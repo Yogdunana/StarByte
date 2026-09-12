@@ -24,7 +24,7 @@ export default function Dashboard() {
   const canReadFiles = usePermission('file:read');
   const canReadTasks = usePermission('task:read');
   const announcementFeed = useFeature('announcement.feed');
-  const { tasks, taskTotal, approvals, approvalTotal, interviews, applications, announcements, overview, loading, failed, reload } = useWorkspace(canReadStats, announcementFeed.enabled);
+  const { tasks, taskTotal, approvals, approvalTotal, interviews, applications, announcements, overview, loading, failed, reload } = useWorkspace(canReadStats, announcementFeed.enabled, !announcementFeed.loading);
   const locale = i18n.language === 'en-US' ? 'en-US' : 'zh-CN';
   const date = new Intl.DateTimeFormat(locale, { month: 'long', day: 'numeric', weekday: 'long' }).format(new Date());
   const name = user?.real_name || user?.username || t('dashboard.classmate');
@@ -151,6 +151,7 @@ export default function Dashboard() {
           </Card>
         </motion.section>
         <motion.aside className={styles.aside} variants={fadeUp}>
+          {announcementFeed.enabled && (
           <section className={styles.feed} aria-labelledby="announcement-feed-title">
             <span className={styles.eyebrow}>{t('dashboard.feedEyebrow')}</span>
             <h2 id="announcement-feed-title">{t('dashboard.feedTitle')}</h2>
@@ -164,6 +165,7 @@ export default function Dashboard() {
             ))}
             <Link to="/announcement/list">{t('dashboard.feedAll')} <ArrowRightOutlined /></Link>
           </section>
+          )}
           <section className={styles.quickAccess}>
             <span className={styles.eyebrow}>{t('dashboard.shortcutsEyebrow')}</span>
             <h2>{t('dashboard.shortcutsTitle')}</h2>

@@ -344,13 +344,44 @@ func (s *flagService) reload(ctx context.Context) error {
 		logCacheErr("snapshot-get", err)
 		flags = nil
 	}
-	if flags == nil {
-		flags, err = s.rows.ListAll(ctx)
-		if err != nil {
-			return err
-		}
-		logCacheErr("snapshot-set", s.store.Set(ctx, flags))
+	// Empty / missing Redis must not wipe a fresher in-memory view.
+	if len(flags) == 0 {
+		return s.reloadFromDB(ctx)
 	}
+	s.replaceMemory(flags)
+	return nil
+}
+
+func (s *flagService) reloadFromDB(ctx context.Context) error {
+	_, err := s.loadFromDB(ctx)
+	return err
+}
+
+// loadFromDB fills memory from Postgres. snapshotOK is false when Redis still
+// holds a leftover generation (SET and DEL both failed). Boot treats that as
+// non-fatal; invalidate must not publish in that case.
+func (s *flagService) loadFromDB(ctx context.Context) (snapshotOK bool, err error) {
+	flags, err := s.rows.ListAll(ctx)
+	if err != nil {
+		return false, err
+	}
+	ok := s.syncSnapshot(ctx, flags)
+	s.replaceMemory(flags)
+	return ok, nil
+}
+
+func (s *flagService) syncSnapshot(ctx context.Context, flags []model.Flag) bool {
+	if err := s.store.Set(ctx, flags); err != nil {
+		logCacheErr("snapshot-set", err)
+		if delErr := s.store.Delete(ctx); delErr != nil {
+			logCacheErr("snapshot-del", delErr)
+			return false
+		}
+	}
+	return true
+}
+
+func (s *flagService) replaceMemory(flags []model.Flag) {
 	next := make(map[string]model.Flag, len(flags))
 	for i := range flags {
 		next[flags[i].FlagKey] = flags[i]
@@ -358,16 +389,25 @@ func (s *flagService) reload(ctx context.Context) error {
 	s.mu.Lock()
 	s.memory = next
 	s.mu.Unlock()
-	return nil
 }
 
 func (s *flagService) invalidate(ctx context.Context) {
-	logCacheErr("snapshot-del", s.store.Delete(ctx))
-	s.mu.Lock()
-	s.memory = map[string]model.Flag{}
-	s.mu.Unlock()
+	ok, err := s.loadFromDB(ctx)
+	if err != nil {
+		logCacheErr("reload-db", err)
+		if delErr := s.store.Delete(ctx); delErr != nil {
+			logCacheErr("snapshot-del", delErr)
+			return
+		}
+		s.mu.Lock()
+		s.memory = map[string]model.Flag{}
+		s.mu.Unlock()
+	} else if !ok {
+		// Local memory is fresh; leftover snapshot is still readable — do not
+		// tell peers to Get it.
+		return
+	}
 	logCacheErr("publish", s.bus.Publish(ctx, time.Now().UTC().Format(time.RFC3339Nano)))
-	_ = s.reload(ctx)
 }
 
 func (s *flagService) audit(ctx context.Context, flag *model.Flag, actor uuid.UUID, action string, before, after *model.Flag, reason string) {

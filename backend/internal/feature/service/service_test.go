@@ -2,7 +2,10 @@ package service
 
 import (
 	"context"
+	"errors"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/feature"
 	"github.com/Yogdunana/StarByte/backend/internal/feature/dto"
@@ -213,6 +216,201 @@ func TestListAudits(t *testing.T) {
 	if err != nil || total != 1 || list[0].Action != model.ActionCreate {
 		t.Fatalf("audit: %v %d %+v", err, total, list)
 	}
+}
+
+func TestToggleCMSPublicIgnoresStickySnapshot(t *testing.T) {
+	rows := newMemRepo()
+	store := &stickySetSnapshot{
+		setErr: errors.New("redis set failed"),
+		delErr: errors.New("redis del failed"),
+	}
+	svc := New(rows, store, NewMemoryBus(), stubRoles{}, stubUsers{}, stubPerms{}).(*flagService)
+	ctx := context.Background()
+	id := uuid.New()
+	_ = rows.Create(ctx, &model.Flag{
+		ID: id, FlagKey: model.KeyCMSPublic, Name: "CMS", FlagType: model.TypeBoolean, Enabled: false,
+	})
+	store.flags = []model.Flag{{
+		ID: id, FlagKey: model.KeyCMSPublic, Name: "CMS", FlagType: model.TypeBoolean, Enabled: false,
+	}}
+	on := true
+	if _, err := svc.Toggle(ctx, uuid.New(), id, &dto.ToggleRequest{Enabled: &on}); err != nil {
+		t.Fatal(err)
+	}
+	if !svc.Enabled(ctx, model.KeyCMSPublic, feature.Subject{UserID: uuid.New()}) {
+		t.Fatal("toggle cms.public must apply immediately even when Redis snapshot cannot be replaced")
+	}
+}
+
+func TestReloadEmptySnapshotFallsBackToDB(t *testing.T) {
+	rows := newMemRepo()
+	store := NewMemorySnapshot()
+	svc := New(rows, store, NewMemoryBus(), stubRoles{}, stubUsers{}, stubPerms{}).(*flagService)
+	ctx := context.Background()
+	_ = rows.Create(ctx, &model.Flag{
+		ID: uuid.New(), FlagKey: model.KeyCMSPublic, Name: "CMS", FlagType: model.TypeBoolean, Enabled: true,
+	})
+	if err := store.Set(ctx, []model.Flag{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.reload(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !svc.Enabled(ctx, model.KeyCMSPublic, feature.Subject{UserID: uuid.New()}) {
+		t.Fatal("empty snapshot must fall back to DB")
+	}
+}
+
+func TestInvalidateDropsSnapshotWhenSetFails(t *testing.T) {
+	rows := newMemRepo()
+	store := &stickySetSnapshot{}
+	bus := NewMemoryBus()
+	writer := New(rows, store, bus, stubRoles{}, stubUsers{}, stubPerms{}).(*flagService)
+	peer := New(rows, store, bus, stubRoles{}, stubUsers{}, stubPerms{}).(*flagService)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	created, err := writer.Create(ctx, uuid.New(), &dto.CreateFlagRequest{
+		FlagKey: "set.fail", Name: "Set", FlagType: model.TypeBoolean, Enabled: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := peer.StartHotReload(ctx); err != nil {
+		t.Fatal(err)
+	}
+	store.setErr = errors.New("redis set failed")
+	off := false
+	if _, err := writer.Toggle(ctx, uuid.New(), uuid.MustParse(created.ID), &dto.ToggleRequest{Enabled: &off}); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(400 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if !peer.Enabled(ctx, "set.fail", feature.Subject{UserID: uuid.New()}) {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if peer.Enabled(ctx, "set.fail", feature.Subject{UserID: uuid.New()}) {
+		t.Fatal("peer must not keep a leftover snapshot after a failed SET")
+	}
+	got, err := store.Get(ctx)
+	if err != nil || got != nil {
+		t.Fatalf("failed SET should delete leftover snapshot, got %+v %v", got, err)
+	}
+}
+
+func TestInvalidateSkipsPublishWhenSnapshotStuck(t *testing.T) {
+	rows := newMemRepo()
+	store := &stickySetSnapshot{
+		setErr: errors.New("redis set failed"),
+		delErr: errors.New("redis del failed"),
+	}
+	bus := &countBus{inner: NewMemoryBus()}
+	svc := New(rows, store, bus, stubRoles{}, stubUsers{}, stubPerms{}).(*flagService)
+	ctx := context.Background()
+	id := uuid.New()
+	_ = rows.Create(ctx, &model.Flag{
+		ID: id, FlagKey: "stuck.flag", Name: "Stuck", FlagType: model.TypeBoolean, Enabled: true,
+	})
+	store.flags = []model.Flag{{
+		ID: id, FlagKey: "stuck.flag", Name: "Stuck", FlagType: model.TypeBoolean, Enabled: true,
+	}}
+	before := bus.n
+	if _, err := svc.Toggle(ctx, uuid.New(), id, &dto.ToggleRequest{}); err != nil {
+		t.Fatal(err)
+	}
+	if bus.n != before {
+		t.Fatalf("stuck snapshot must not be broadcast, publishes %d -> %d", before, bus.n)
+	}
+	if svc.Enabled(ctx, "stuck.flag", feature.Subject{UserID: uuid.New()}) {
+		t.Fatal("writer should still apply the DB write locally")
+	}
+}
+
+func TestInvalidateReloadsFromDBWhenSnapshotStale(t *testing.T) {
+	rows := newMemRepo()
+	store := &staleSnapshot{}
+	bus := NewMemoryBus()
+	svc := New(rows, store, bus, stubRoles{}, stubUsers{}, stubPerms{}).(*flagService)
+	ctx := context.Background()
+	created, err := svc.Create(ctx, uuid.New(), &dto.CreateFlagRequest{
+		FlagKey: "stale.flag", Name: "Stale", FlagType: model.TypeBoolean, Enabled: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.flags = []model.Flag{{
+		ID: uuid.MustParse(created.ID), FlagKey: "stale.flag", Name: "Stale",
+		FlagType: model.TypeBoolean, Enabled: true,
+	}}
+	off := false
+	if _, err := svc.Toggle(ctx, uuid.New(), uuid.MustParse(created.ID), &dto.ToggleRequest{Enabled: &off}); err != nil {
+		t.Fatal(err)
+	}
+	if svc.Enabled(ctx, "stale.flag", feature.Subject{UserID: uuid.New()}) {
+		t.Fatal("failed snapshot delete must not refill memory from stale Redis data")
+	}
+}
+
+type stickySetSnapshot struct {
+	mu     sync.Mutex
+	flags  []model.Flag
+	setErr error
+	delErr error
+}
+
+func (s *stickySetSnapshot) Get(context.Context) ([]model.Flag, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return cloneFlags(s.flags), nil
+}
+
+func (s *stickySetSnapshot) Set(_ context.Context, flags []model.Flag) error {
+	if s.setErr != nil {
+		return s.setErr
+	}
+	s.mu.Lock()
+	s.flags = cloneFlags(flags)
+	s.mu.Unlock()
+	return nil
+}
+
+func (s *stickySetSnapshot) Delete(context.Context) error {
+	if s.delErr != nil {
+		return s.delErr
+	}
+	s.mu.Lock()
+	s.flags = nil
+	s.mu.Unlock()
+	return nil
+}
+
+type countBus struct {
+	inner *MemoryBus
+	n     int
+}
+
+func (b *countBus) Publish(ctx context.Context, payload string) error {
+	b.n++
+	return b.inner.Publish(ctx, payload)
+}
+
+func (b *countBus) Subscribe(ctx context.Context, onMsg func(string)) error {
+	return b.inner.Subscribe(ctx, onMsg)
+}
+
+type staleSnapshot struct {
+	flags []model.Flag
+}
+
+func (s *staleSnapshot) Get(context.Context) ([]model.Flag, error) {
+	return cloneFlags(s.flags), nil
+}
+
+func (s *staleSnapshot) Set(context.Context, []model.Flag) error { return nil }
+
+func (s *staleSnapshot) Delete(context.Context) error {
+	return errors.New("redis delete failed")
 }
 
 func TestUserDepartmentsNil(t *testing.T) {

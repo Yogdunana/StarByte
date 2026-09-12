@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { getMembershipPortal, type MembershipPortal } from '@/api/feature';
 import FeatureEnabled from '@/components/FeatureEnabled/FeatureEnabled';
+import { useFeature } from '@/hooks/useFeature';
 
 const statusColor: Record<number, string> = {
   0: 'default', 1: 'processing', 2: 'processing', 3: 'success', 4: 'error', 5: 'warning',
@@ -11,13 +12,17 @@ const statusColor: Record<number, string> = {
 
 const PortalPage: React.FC = () => {
   const { t } = useTranslation();
+  const { enabled, loading: flagLoading } = useFeature('membership.portal');
   const [data, setData] = useState<MembershipPortal | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (flagLoading || !enabled) {
+      return;
+    }
     setLoading(true);
     getMembershipPortal().then(setData).finally(() => setLoading(false));
-  }, []);
+  }, [flagLoading, enabled]);
 
   return (
     <FeatureEnabled flag="membership.portal">

@@ -15,10 +15,13 @@ interface WorkspaceState {
 }
 const initial: WorkspaceState = { approvals: [], approvalTotal: null, tasks: [], taskTotal: null, interviews: [], applications: [], announcements: [], overview: null, loading: true, failed: [] };
 
-export function useWorkspace(canReadStats: boolean, includeAnnouncements = true) {
+export function useWorkspace(canReadStats: boolean, includeAnnouncements = true, flagsReady = true) {
   const [state, setState] = useState<WorkspaceState>(initial);
   const sequence = useRef(0);
   const reload = useCallback(async () => {
+    if (!flagsReady) {
+      return;
+    }
     const current = ++sequence.current;
     setState(previous => ({ ...previous, loading: true, failed: [], overview: canReadStats ? previous.overview : null }));
     const [tasks, interviews, applications, overview, approvals, announcements] = await Promise.allSettled([
@@ -45,7 +48,7 @@ export function useWorkspace(canReadStats: boolean, includeAnnouncements = true)
       overview: overview.status === 'fulfilled' ? overview.value : null,
       loading: false, failed,
     });
-  }, [canReadStats, includeAnnouncements]);
+  }, [canReadStats, includeAnnouncements, flagsReady]);
   useEffect(() => { void reload(); return () => { sequence.current += 1; }; }, [reload]);
   return { ...state, reload };
 }
