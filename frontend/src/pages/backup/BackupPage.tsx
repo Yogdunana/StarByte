@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert, Button, Card, Form, Input, InputNumber, Modal, Space, Statistic,
   Switch, Table, Tag, Typography, message,
@@ -12,7 +12,9 @@ import {
   type BackupPolicy, type BackupPreview, type BackupRecord, type BackupStorageStats,
 } from '@/api/backup';
 import { usePermissions } from '@/hooks/usePermission';
+import { isCanceledError } from '@/api/error';
 import { canRetryRestore, formatBytes, isActiveStatus } from './format';
+import { applyPreviewIfCurrent, canContinueRestore, createPreviewSession } from './preview';
 import './backup.css';
 
 const statusColor: Record<number, string> = {
@@ -42,6 +44,7 @@ const BackupPage: React.FC = () => {
   const [previewRow, setPreviewRow] = useState<BackupRecord | null>(null);
   const [preview, setPreview] = useState<BackupPreview | null>(null);
   const [previewing, setPreviewing] = useState(false);
+  const previewSession = useRef(createPreviewSession()).current;
 
   const load = useCallback(async (p = page) => {
     setLoading(true);
@@ -99,16 +102,30 @@ const BackupPage: React.FC = () => {
     });
   };
 
+  const closePreview = () => {
+    previewSession.invalidate();
+    setPreviewRow(null);
+    setPreview(null);
+    setPreviewing(false);
+  };
+
   const onPreview = async (row: BackupRecord) => {
+    const ticket = previewSession.begin(row.id);
     setPreviewRow(row);
     setPreview(null);
     setPreviewing(true);
     try {
-      setPreview(await previewBackup(row.id));
+      const next = applyPreviewIfCurrent(previewSession, ticket, await previewBackup(row.id, ticket.signal));
+      if (!next) return;
+      setPreview(next);
+    } catch (err) {
+      if (isCanceledError(err) || !previewSession.isCurrent(ticket.gen)) return;
     } finally {
-      setPreviewing(false);
+      if (previewSession.isCurrent(ticket.gen)) setPreviewing(false);
     }
   };
+
+  useEffect(() => () => previewSession.invalidate(), [previewSession]);
 
   const onRestore = async () => {
     if (!restoreRow) return;
@@ -269,14 +286,13 @@ const BackupPage: React.FC = () => {
         title={t('backup.previewTitle')}
         confirmLoading={previewing}
         okText={t('backup.previewContinue')}
-        okButtonProps={{ disabled: !preview?.ready || !canRestore }}
-        onCancel={() => { setPreviewRow(null); setPreview(null); }}
+        okButtonProps={{ disabled: !canContinueRestore(previewRow, preview) || !canRestore }}
+        onCancel={closePreview}
         onOk={() => {
-          if (!previewRow) return;
+          if (!canContinueRestore(previewRow, preview) || !previewRow) return;
           setRestoreText('');
           setRestoreRow(previewRow);
-          setPreviewRow(null);
-          setPreview(null);
+          closePreview();
         }}
       >
         {previewing && <p>{t('backup.preview')}…</p>}

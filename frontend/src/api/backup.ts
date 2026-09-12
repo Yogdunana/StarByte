@@ -94,6 +94,6 @@ export function getBackupStorage(): Promise<BackupStorageStats> {
   return request.get('/system/backups/storage');
 }
 
-export function previewBackup(id: string): Promise<BackupPreview> {
-  return request.get(`/system/backups/${id}/preview`, { timeout: 180000 });
+export function previewBackup(id: string, signal?: AbortSignal): Promise<BackupPreview> {
+  return request.get(`/system/backups/${id}/preview`, { timeout: 180000, signal });
 }
