@@ -75,6 +75,8 @@ const AboutUsPage = lazy(() => import('@/pages/public/AboutUsPage'));
 const DocsIndexPage = lazy(() => import('@/pages/public/DocsIndexPage'));
 const PublicDocPage = lazy(() => import('@/pages/public/DocPage'));
 const KnowledgeAdminPage = lazy(() => import('@/pages/knowledge/AdminPage'));
+const FeaturePage = lazy(() => import('@/pages/system/features/FeaturePage'));
+const MemberPortalPage = lazy(() => import('@/pages/member/portal/PortalPage'));
 const Forbidden = lazy(() => import('@/pages/error/Forbidden'));
 const NotFound = lazy(() => import('@/pages/error/NotFound'));
 
@@ -116,6 +118,7 @@ export interface RouteMeta {
   permission?: string; // 权限码
   public?: boolean; // 是否公开页面（不需要登录）
   hidden?: boolean; // 是否在菜单中隐藏
+  featureFlag?: string; // 特性开关，未命中则隐藏菜单
 }
 
 // 扩展 RouteObject 类型
@@ -244,6 +247,11 @@ const routes: AppRouteObject[] = [
             path: 'list',
             element: lazyGuarded(ProfilePage, 'member:read'),
             meta: { title: '会员档案', permission: 'member:read' },
+          },
+          {
+            path: 'portal',
+            element: lazyWrap(MemberPortalPage),
+            meta: { title: '会员门户', featureFlag: 'membership.portal' },
           },
         ],
       },
@@ -565,6 +573,11 @@ const routes: AppRouteObject[] = [
             path: 'search',
             element: lazyGuarded(SearchPage, 'search:read'),
             meta: { title: '统一搜索', permission: 'search:read' },
+          },
+          {
+            path: 'features',
+            element: lazyGuarded(FeaturePage, 'feature:read'),
+            meta: { title: '特性开关', permission: 'feature:read' },
           },
         ],
       },

@@ -269,6 +269,8 @@
     "/member": "Members",
     "/member/application": "Applications",
     "/member/list": "Profiles",
+    "/member/portal": "Membership portal",
+    "/cms": "Public CMS",
     "/interview": "Interviews",
     "/interview/list": "Sessions",
     "/interview/score": "Scoring",
@@ -318,6 +320,7 @@
     "/system/cache": "Cache",
     "/system/scheduler": "Scheduler",
     "/system/search": "Search",
+    "/system/features": "Feature flags",
     "/monitor": "Ops monitor",
     "/backup": "Backups",
     "/knowledge": "Knowledge"
@@ -741,6 +744,59 @@
         "acceptance": "Accept",
         "completed": "Done"
       }
+    }
+  },
+  "feature": {
+    "gated": "This feature is in a limited rollout and is not enabled for you yet.",
+    "intro": "Pre-recruitment grayscale: toggling a flag hot-reloads via Redis. Login and CAS are never gated.",
+    "search": "Search key or name",
+    "create": "New flag",
+    "created": "Created",
+    "edit": "Edit flag",
+    "list": "Flags",
+    "audit": "Audit",
+    "key": "Key",
+    "name": "Name",
+    "description": "Description",
+    "type": "Type",
+    "enabled": "Enabled",
+    "group": "Group",
+    "priority": "Priority",
+    "userIds": "User allowlist (one UUID per line)",
+    "roleCodes": "Role codes",
+    "deptIds": "Department IDs",
+    "percent": "Percent 0-100",
+    "salt": "Bucket salt",
+    "toggled": "Toggled",
+    "evaluate": "Evaluate",
+    "evalUser": "User ID (empty = you)",
+    "action": "Action",
+    "reason": "Reason",
+    "time": "Time",
+    "types": {
+      "boolean": "Boolean",
+      "user_allowlist": "User list",
+      "role_dept": "Role / dept",
+      "percentage": "Percentage"
+    }
+  },
+  "cms": {
+    "title": "Public CMS",
+    "intro": "Published forms are exposed as public CMS pages, gated by cms.public.",
+    "empty": "No published pages"
+  },
+  "portal": {
+    "title": "Membership portal",
+    "intro": "New membership portal (grayscale). The application form stays available and is not gated.",
+    "goApply": "Go to applications",
+    "empty": "No applications yet",
+    "status": {
+      "0": "Pending",
+      "1": "In review",
+      "2": "Interview",
+      "3": "Accepted",
+      "4": "Rejected",
+      "5": "Need materials"
     }
   }
 }

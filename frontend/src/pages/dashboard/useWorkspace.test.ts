@@ -51,6 +51,12 @@ describe('workspace data', () => {
     expect(result.current.approvalTotal).toBe(0);
     expect(result.current.failed).toEqual([]);
   });
+  it('skips announcement feed when grayscale is off', async () => {
+    const { result } = renderHook(() => useWorkspace(false, false));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(getAnnouncementList).not.toHaveBeenCalled();
+    expect(result.current.announcements).toEqual([]);
+  });
   it('loads homepage announcement feed without blocking workspace', async () => {
     vi.mocked(getAnnouncementList).mockResolvedValueOnce({
       list: [{ id: 'a1', title: '周报', pinned: true } as never],

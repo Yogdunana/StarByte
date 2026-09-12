@@ -1,0 +1,4 @@
+.feature-page { display: flex; flex-direction: column; gap: 16px; }
+.feature-toolbar { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.feature-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.feature-hint { color: var(--sb-text-secondary, #667); margin-bottom: 8px; }

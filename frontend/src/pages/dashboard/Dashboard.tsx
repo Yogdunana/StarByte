@@ -10,6 +10,7 @@ import { selectUnreadCount } from '@/store/slices/notificationSlice';
 import { motion } from 'motion/react';
 import { fadeUp, staggerEnter } from '@/motion/tokens';
 import { formatDateTime } from '@/utils/format';
+import { useFeature } from '@/hooks/useFeature';
 import { useWorkspace } from './useWorkspace';
 import styles from './Dashboard.module.css';
 
@@ -22,7 +23,8 @@ export default function Dashboard() {
   const canReadStats = usePermission('stats:read');
   const canReadFiles = usePermission('file:read');
   const canReadTasks = usePermission('task:read');
-  const { tasks, taskTotal, approvals, approvalTotal, interviews, applications, announcements, overview, loading, failed, reload } = useWorkspace(canReadStats);
+  const announcementFeed = useFeature('announcement.feed');
+  const { tasks, taskTotal, approvals, approvalTotal, interviews, applications, announcements, overview, loading, failed, reload } = useWorkspace(canReadStats, announcementFeed.enabled);
   const locale = i18n.language === 'en-US' ? 'en-US' : 'zh-CN';
   const date = new Intl.DateTimeFormat(locale, { month: 'long', day: 'numeric', weekday: 'long' }).format(new Date());
   const name = user?.real_name || user?.username || t('dashboard.classmate');

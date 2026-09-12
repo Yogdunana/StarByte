@@ -18,6 +18,8 @@ import {
 import type { Announcement, AnnouncementAttachment, AnnouncementReadStatus } from '@/api/announcement';
 import { getFileDetail } from '@/api/file';
 import { formatDateTime } from '@/utils/format';
+import FeatureEnabled from '@/components/FeatureEnabled/FeatureEnabled';
+import { useFeature } from '@/hooks/useFeature';
 import { announcementStatusMap, sanitizeAnnouncementHTML } from './meta';
 import './announcement.css';
 
@@ -29,13 +31,14 @@ const DetailPage: React.FC = () => {
   const canManage = usePermission('announcement:manage');
   const canDelete = usePermission('announcement:delete');
   const { refresh } = useAnnouncementUnread(0);
+  const feed = useFeature('announcement.feed');
   const [item, setItem] = useState<Announcement | null>(null);
   const [reads, setReads] = useState<AnnouncementReadStatus | null>(null);
   const openedAt = useRef(Date.now());
   const reportForID = useRef('');
 
   const load = useCallback(async () => {
-    if (!id) return;
+    if (!id || !feed.enabled) return;
     const a = await getAnnouncementDetail(id);
     if (a.status === 1 || a.status === 2) {
       reportForID.current = id;
@@ -59,7 +62,7 @@ const DetailPage: React.FC = () => {
     } else {
       setReads(null);
     }
-  }, [id, refresh, canManage]);
+  }, [id, refresh, canManage, feed.enabled]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -87,6 +90,9 @@ const DetailPage: React.FC = () => {
     }
   };
 
+  if (!feed.enabled) {
+    return <FeatureEnabled flag="announcement.feed"><span /></FeatureEnabled>;
+  }
   if (!item) return <Card loading />;
 
   const content = item.content || t('announcement.emptyContent');

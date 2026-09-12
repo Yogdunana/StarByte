@@ -6,11 +6,12 @@ import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
 import TopBar from './components/TopBar';
 import { useMenu } from '@/hooks/useMenu';
+import { FeatureProvider } from '@/hooks/useFeature';
 import { fadeRight, fadeUp, shellTransition } from '@/motion/tokens';
 import styles from './MainLayout.module.css';
 
 export interface MainLayoutProps { children?: React.ReactNode }
-const MainLayout: React.FC<MainLayoutProps> = () => {
+const MainLayoutInner: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const screens = Grid.useBreakpoint();
@@ -150,4 +151,11 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
     </Layout>
   );
 };
+
+const MainLayout: React.FC<MainLayoutProps> = () => (
+  <FeatureProvider>
+    <MainLayoutInner />
+  </FeatureProvider>
+);
+
 export default MainLayout;

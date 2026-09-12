@@ -18,6 +18,8 @@ import {
 } from '@/api/announcement';
 import type { Announcement, AnnouncementStatus, CreateAnnouncementParams } from '@/api/announcement';
 import { formatDateTime } from '@/utils/format';
+import FeatureEnabled from '@/components/FeatureEnabled/FeatureEnabled';
+import { useFeature } from '@/hooks/useFeature';
 import FormModal from './FormModal';
 import { AnnouncementCategories, announcementStatusMap } from './meta';
 
@@ -42,7 +44,9 @@ const ListPage: React.FC = () => {
   const [editing, setEditing] = useState<Announcement | null>(null);
   const statusMap = announcementStatusMap(t);
 
+  const feed = useFeature('announcement.feed');
   const load = useCallback(async () => {
+    if (!feed.enabled) return;
     setLoading(true);
     try {
       const res = await getAnnouncementList({
@@ -59,7 +63,7 @@ const ListPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, status, category, keyword, unreadOnly, refreshUnread]);
+  }, [page, status, category, keyword, unreadOnly, refreshUnread, feed.enabled]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -139,6 +143,7 @@ const ListPage: React.FC = () => {
   ];
 
   return (
+    <FeatureEnabled flag="announcement.feed">
     <Card
       title={
         <Space>
@@ -229,6 +234,7 @@ const ListPage: React.FC = () => {
         }}
       />
     </Card>
+    </FeatureEnabled>
   );
 };
 
