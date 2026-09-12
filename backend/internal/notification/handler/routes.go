@@ -37,12 +37,13 @@ func RegisterRoutes(
 		}
 	}
 
-	// 管理员通知路由（需要权限）
+	// 管理员发送：须 notification:send（与 /notifications/email/send 对齐）。
+	// main.go 把 systemProtected 接到同一 JWT 组，因此这里必须自己挂权限，不能只靠分组名。
 	if systemProtected != nil {
-		systemNotifications := systemProtected.Group("/notifications")
-		{
-			systemNotifications.POST("/send", notificationHandler.Send)
-			systemNotifications.POST("/broadcast", notificationHandler.Broadcast)
+		for _, prefix := range []string{"/notifications", "/system/notifications"} {
+			send := withPermission(systemProtected.Group(prefix), "notification:send", cacheService)
+			send.POST("/send", notificationHandler.Send)
+			send.POST("/broadcast", notificationHandler.Broadcast)
 		}
 
 		templates := systemProtected.Group("/notification-templates")
