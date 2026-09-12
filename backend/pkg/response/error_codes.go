@@ -35,6 +35,7 @@ package response
 //	28000-28999 Announcement (#77; issue listed 10000-10499, taken by internship)
 //	29000-29999 Schedule / calendar (#78; issue listed 10500-10999, taken by internship)
 //	30000-30999 Leave (#56)
+//	31000-31999 Monitor / ops dashboard (#87)
 //
 //	Note: issue #71 asked for 9000-9499, but that range is already owned by
 //	the task module (9000-9999). Export therefore uses 17000-17999 (after
@@ -319,6 +320,11 @@ const (
 	CodeLeaveTypeNotFound   = 30006 // 请假类型不存在
 	CodeLeaveOverlap        = 30007 // 请假时间重叠
 	CodeLeaveBalanceMissing = 30008 // 未找到假期余额
+
+	// ===== Monitor / ops dashboard (#87, 31000-31999) =====
+	CodeMonitorCollectFail = 31001 // 采集主机指标失败
+	CodeMonitorRedisDown   = 31002 // Redis 不可用
+	CodeMonitorDBDown      = 31003 // 数据库连接池不可用
 )
 
 // ModuleRanges maps each module name to its error-code range [min, max].
@@ -354,4 +360,5 @@ var ModuleRanges = map[string][2]int{
 	"announcement": {28000, 28999},
 	"schedule":     {29000, 29999},
 	"leave":        {30000, 30999},
+	"monitor":      {31000, 31999},
 }
