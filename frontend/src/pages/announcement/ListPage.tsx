@@ -193,6 +193,7 @@ const ListPage: React.FC = () => {
       <FormModal
         open={open}
         editing={editing}
+        canSchedule={canPublish}
         onCancel={() => setOpen(false)}
         onSubmit={async (values) => {
           if (editing) {

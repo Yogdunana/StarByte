@@ -8,11 +8,12 @@ import { AnnouncementCategories } from './meta';
 interface Props {
   open: boolean;
   editing: Announcement | null;
+  canSchedule?: boolean;
   onCancel: () => void;
   onSubmit: (values: Record<string, unknown>) => Promise<void>;
 }
 
-const FormModal: React.FC<Props> = ({ open, editing, onCancel, onSubmit }) => {
+const FormModal: React.FC<Props> = ({ open, editing, canSchedule, onCancel, onSubmit }) => {
   const { t } = useTranslation();
   const [form] = Form.useForm();
 
@@ -47,7 +48,7 @@ const FormModal: React.FC<Props> = ({ open, editing, onCancel, onSubmit }) => {
         layout="vertical"
         onFinish={async (values) => {
           const isDraft = !editing || editing.status === 0;
-          const scheduled = values.scheduled_at
+          const scheduled = canSchedule && values.scheduled_at
             ? (values.scheduled_at as dayjs.Dayjs).toISOString()
             : undefined;
           await onSubmit({
@@ -56,7 +57,7 @@ const FormModal: React.FC<Props> = ({ open, editing, onCancel, onSubmit }) => {
             content: values.content,
             content_type: 'markdown',
             required: values.required,
-            scheduled_at: isDraft ? scheduled : undefined,
+            scheduled_at: isDraft && canSchedule ? scheduled : undefined,
             clear_scheduled_at: Boolean(
               editing && (editing.status !== 0 || (!scheduled && editing.scheduled_at)),
             ),
@@ -77,7 +78,7 @@ const FormModal: React.FC<Props> = ({ open, editing, onCancel, onSubmit }) => {
         <Form.Item name="content" label={t('announcement.content')}>
           <Input.TextArea rows={10} maxLength={50000} showCount placeholder={t('announcement.contentHint')} />
         </Form.Item>
-        {(!editing || editing.status === 0) && (
+        {canSchedule && (!editing || editing.status === 0) && (
           <Form.Item name="scheduled_at" label={t('announcement.scheduledAt')}>
             <DatePicker showTime style={{ width: '100%' }} />
           </Form.Item>

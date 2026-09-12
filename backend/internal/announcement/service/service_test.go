@@ -13,7 +13,7 @@ import (
 
 func mustCreate(t *testing.T, svc Service, author uuid.UUID, title, category string) *dto.AnnouncementResponse {
 	t.Helper()
-	resp, err := svc.Create(context.Background(), author, &dto.CreateAnnouncementRequest{
+	resp, err := svc.Create(context.Background(), Viewer{UserID: author}, &dto.CreateAnnouncementRequest{
 		Title:    title,
 		Content:  "正文 **" + title + "**",
 		Category: category,
@@ -57,7 +57,7 @@ func TestCreate_Success(t *testing.T) {
 
 func TestCreate_InvalidCategory(t *testing.T) {
 	svc, _, _ := newTestSvc()
-	_, err := svc.Create(context.Background(), uuid.New(), &dto.CreateAnnouncementRequest{
+	_, err := svc.Create(context.Background(), Viewer{UserID: uuid.New()}, &dto.CreateAnnouncementRequest{
 		Title: "x", Category: "unknown",
 	})
 	if codeOf(err) != response.CodeAnnouncementInvalidCat {
@@ -67,7 +67,7 @@ func TestCreate_InvalidCategory(t *testing.T) {
 
 func TestCreate_EmptyTitle(t *testing.T) {
 	svc, _, _ := newTestSvc()
-	_, err := svc.Create(context.Background(), uuid.New(), &dto.CreateAnnouncementRequest{
+	_, err := svc.Create(context.Background(), Viewer{UserID: uuid.New()}, &dto.CreateAnnouncementRequest{
 		Title: "  ", Category: model.CategorySystem,
 	})
 	if err == nil {
@@ -188,7 +188,7 @@ func TestPublish_NotifyAndReadFlow(t *testing.T) {
 	if err != nil || unread.Count != 0 {
 		t.Fatalf("unread after read = %+v err=%v", unread, err)
 	}
-	st, err := svc.ReadStatus(context.Background(), id)
+	st, err := svc.ReadStatus(context.Background(), Viewer{UserID: author, CanManage: true}, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,19 +302,21 @@ func TestDispatchDuePublishes(t *testing.T) {
 	svc, repo, n := newTestSvc()
 	author := uuid.New()
 	repo.addUser(author, "作者")
-	past := time.Date(2026, 9, 12, 9, 0, 0, 0, time.UTC)
+	soon := time.Date(2026, 9, 12, 11, 0, 0, 0, time.UTC)
 	future := time.Date(2026, 9, 13, 10, 0, 0, 0, time.UTC)
-	due, err := svc.Create(context.Background(), author, &dto.CreateAnnouncementRequest{
-		Title: "到点发布", Category: model.CategorySystem, ScheduledAt: &past,
+	publisher := Viewer{UserID: author, CanPublish: true}
+	due, err := svc.Create(context.Background(), publisher, &dto.CreateAnnouncementRequest{
+		Title: "到点发布", Category: model.CategorySystem, ScheduledAt: &soon,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Create(context.Background(), author, &dto.CreateAnnouncementRequest{
+	if _, err := svc.Create(context.Background(), publisher, &dto.CreateAnnouncementRequest{
 		Title: "未到点", Category: model.CategorySystem, ScheduledAt: &future,
 	}); err != nil {
 		t.Fatal(err)
 	}
+	svc.now = func() time.Time { return time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC) }
 	if err := svc.DispatchDuePublishes(context.Background(), "", nil); err != nil {
 		t.Fatal(err)
 	}
@@ -334,8 +336,8 @@ func TestPublish_ClearsScheduledAtAndAllowsEdit(t *testing.T) {
 	svc, _, _ := newTestSvc()
 	author := uuid.New()
 	staff := Viewer{UserID: author, Staff: true}
-	when := time.Date(2026, 9, 12, 9, 0, 0, 0, time.UTC)
-	resp, err := svc.Create(context.Background(), author, &dto.CreateAnnouncementRequest{
+	when := time.Date(2026, 9, 12, 11, 0, 0, 0, time.UTC)
+	resp, err := svc.Create(context.Background(), Viewer{UserID: author, CanPublish: true}, &dto.CreateAnnouncementRequest{
 		Title: "定时稿", Category: model.CategorySystem, ScheduledAt: &when,
 	})
 	if err != nil {
@@ -362,6 +364,58 @@ func TestPublish_ClearsScheduledAtAndAllowsEdit(t *testing.T) {
 	}
 	if updated.ScheduledAt != "" {
 		t.Fatalf("update must not restore scheduled_at on published, got %q", updated.ScheduledAt)
+	}
+}
+
+func TestCreate_ScheduleRequiresPublish(t *testing.T) {
+	svc, _, _ := newTestSvc()
+	when := time.Date(2026, 9, 12, 11, 0, 0, 0, time.UTC)
+	_, err := svc.Create(context.Background(), Viewer{UserID: uuid.New()}, &dto.CreateAnnouncementRequest{
+		Title: "越权定时", Category: model.CategorySystem, ScheduledAt: &when,
+	})
+	if codeOf(err) != response.CodeAnnouncementNoAccess {
+		t.Fatalf("code = %d, err=%v", codeOf(err), err)
+	}
+}
+
+func TestCreate_ScheduleRejectsPast(t *testing.T) {
+	svc, _, _ := newTestSvc()
+	past := time.Date(2026, 9, 12, 9, 0, 0, 0, time.UTC)
+	_, err := svc.Create(context.Background(), Viewer{UserID: uuid.New(), CanPublish: true}, &dto.CreateAnnouncementRequest{
+		Title: "过去时间", Category: model.CategorySystem, ScheduledAt: &past,
+	})
+	if err == nil {
+		t.Fatal("expected past scheduled_at to fail")
+	}
+	if codeOf(err) != response.CodeBadRequest {
+		t.Fatalf("code = %d, err=%v", codeOf(err), err)
+	}
+}
+
+func TestUpdate_ScheduleRequiresPublish(t *testing.T) {
+	svc, _, _ := newTestSvc()
+	author := uuid.New()
+	resp := mustCreate(t, svc, author, "草稿", model.CategorySystem)
+	when := time.Date(2026, 9, 12, 11, 0, 0, 0, time.UTC)
+	_, err := svc.Update(context.Background(), Viewer{UserID: author}, parseID(t, resp.ID), &dto.UpdateAnnouncementRequest{
+		ScheduledAt: &when,
+	})
+	if codeOf(err) != response.CodeAnnouncementNoAccess {
+		t.Fatalf("code = %d, err=%v", codeOf(err), err)
+	}
+}
+
+func TestReadStatus_RequiresManage(t *testing.T) {
+	svc, _, _ := newTestSvc()
+	author := uuid.New()
+	resp := mustCreate(t, svc, author, "已发", model.CategorySystem)
+	id := parseID(t, resp.ID)
+	if _, err := svc.Publish(context.Background(), Viewer{UserID: author, Staff: true}, id); err != nil {
+		t.Fatal(err)
+	}
+	_, err := svc.ReadStatus(context.Background(), Viewer{UserID: author}, id)
+	if codeOf(err) != response.CodeAnnouncementNoAccess {
+		t.Fatalf("code = %d, err=%v", codeOf(err), err)
 	}
 }
 

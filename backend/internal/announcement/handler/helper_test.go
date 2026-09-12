@@ -57,6 +57,27 @@ func TestParseID(t *testing.T) {
 	}
 }
 
+func TestHasPerm(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	if hasPerm(c, "announcement:publish") {
+		t.Fatal("empty should not have perm")
+	}
+	c.Set("user_permissions", []string{"announcement:create"})
+	if hasPerm(c, "announcement:publish") {
+		t.Fatal("create should not imply publish")
+	}
+	c.Set("user_permissions", []string{"announcement:publish"})
+	if !hasPerm(c, "announcement:publish") {
+		t.Fatal("publish should match")
+	}
+	c.Set("user_permissions", []string{"*"})
+	if !hasPerm(c, "announcement:manage") {
+		t.Fatal("super admin should match")
+	}
+}
+
 func TestViewerOf_Unauthorized(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())

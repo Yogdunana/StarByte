@@ -7,7 +7,7 @@ import (
 )
 
 func (h *Handler) Create(c *gin.Context) {
-	uid, err := getUserID(c)
+	v, err := viewerOf(c)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -17,7 +17,7 @@ func (h *Handler) Create(c *gin.Context) {
 		response.BadRequest(c, "参数错误: "+err.Error())
 		return
 	}
-	result, err := h.svc.Create(c.Request.Context(), uid, &req)
+	result, err := h.svc.Create(c.Request.Context(), v, &req)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -206,7 +206,12 @@ func (h *Handler) ReadStatus(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	result, err := h.svc.ReadStatus(c.Request.Context(), id)
+	v, err := viewerOf(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	result, err := h.svc.ReadStatus(c.Request.Context(), v, id)
 	if err != nil {
 		response.Error(c, err)
 		return

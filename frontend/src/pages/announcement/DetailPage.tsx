@@ -40,15 +40,19 @@ const DetailPage: React.FC = () => {
         setItem({ ...a, is_read: true });
         await refresh();
       }
-      try {
-        setReads(await getAnnouncementReadStatus(id));
-      } catch {
+      if (canManage) {
+        try {
+          setReads(await getAnnouncementReadStatus(id));
+        } catch {
+          setReads(null);
+        }
+      } else {
         setReads(null);
       }
     } else {
       setReads(null);
     }
-  }, [id, refresh]);
+  }, [id, refresh, canManage]);
 
   useEffect(() => { void load(); }, [load]);
 

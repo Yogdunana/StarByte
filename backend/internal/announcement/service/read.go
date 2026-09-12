@@ -28,7 +28,10 @@ func (s *announcementService) UnreadCount(ctx context.Context, userID uuid.UUID)
 	return &dto.UnreadCountResponse{Count: n}, nil
 }
 
-func (s *announcementService) ReadStatus(ctx context.Context, id uuid.UUID) (*dto.ReadStatusResponse, error) {
+func (s *announcementService) ReadStatus(ctx context.Context, viewer Viewer, id uuid.UUID) (*dto.ReadStatusResponse, error) {
+	if !viewer.CanManage {
+		return nil, noAccess("无权查看阅读回执")
+	}
 	a, err := s.load(ctx, id)
 	if err != nil {
 		return nil, err

@@ -43,25 +43,35 @@ func viewerOf(c *gin.Context) (service.Viewer, error) {
 	if err != nil {
 		return service.Viewer{}, err
 	}
-	return service.Viewer{UserID: uid, Staff: isStaff(c)}, nil
+	return service.Viewer{
+		UserID:     uid,
+		Staff:      isStaff(c),
+		CanPublish: hasPerm(c, "announcement:publish"),
+		CanManage:  hasPerm(c, "announcement:manage"),
+	}, nil
 }
 
-func isStaff(c *gin.Context) bool {
+func hasPerm(c *gin.Context, code string) bool {
 	raw, ok := c.Get("user_permissions")
 	if !ok {
 		return false
 	}
 	perms, _ := raw.([]string)
 	for _, p := range perms {
-		switch p {
-		case "*",
-			"announcement:create",
-			"announcement:update",
-			"announcement:delete",
-			"announcement:publish",
-			"announcement:manage":
+		if p == "*" || p == code {
 			return true
 		}
+	}
+	return false
+}
+
+func isStaff(c *gin.Context) bool {
+	if hasPerm(c, "announcement:create") ||
+		hasPerm(c, "announcement:update") ||
+		hasPerm(c, "announcement:delete") ||
+		hasPerm(c, "announcement:publish") ||
+		hasPerm(c, "announcement:manage") {
+		return true
 	}
 	return false
 }

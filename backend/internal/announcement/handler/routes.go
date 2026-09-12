@@ -26,7 +26,6 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, cache rbacService.Permission
 	read.GET("", h.List)
 	read.GET("/unread-count", h.UnreadCount)
 	read.GET("/:id", h.Get)
-	read.GET("/:id/read-status", h.ReadStatus)
 	read.POST("/:id/read", h.MarkRead)
 
 	create := withPermission(g, "announcement:create", cache)
@@ -42,6 +41,7 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, cache rbacService.Permission
 	publish.POST("/:id/publish", h.Publish)
 
 	manage := withPermission(g, "announcement:manage", cache)
+	manage.GET("/:id/read-status", h.ReadStatus)
 	manage.POST("/:id/pin", h.Pin)
 	manage.POST("/:id/archive", h.Archive)
 }

@@ -16,12 +16,14 @@ type Notifier interface {
 }
 
 type Viewer struct {
-	UserID uuid.UUID
-	Staff  bool
+	UserID     uuid.UUID
+	Staff      bool
+	CanPublish bool
+	CanManage  bool
 }
 
 type Service interface {
-	Create(ctx context.Context, author uuid.UUID, req *dto.CreateAnnouncementRequest) (*dto.AnnouncementResponse, error)
+	Create(ctx context.Context, viewer Viewer, req *dto.CreateAnnouncementRequest) (*dto.AnnouncementResponse, error)
 	Update(ctx context.Context, viewer Viewer, id uuid.UUID, req *dto.UpdateAnnouncementRequest) (*dto.AnnouncementResponse, error)
 	Delete(ctx context.Context, viewer Viewer, id uuid.UUID) error
 	Get(ctx context.Context, viewer Viewer, id uuid.UUID) (*dto.AnnouncementResponse, error)
@@ -33,7 +35,7 @@ type Service interface {
 
 	MarkRead(ctx context.Context, userID, id uuid.UUID) error
 	UnreadCount(ctx context.Context, userID uuid.UUID) (*dto.UnreadCountResponse, error)
-	ReadStatus(ctx context.Context, id uuid.UUID) (*dto.ReadStatusResponse, error)
+	ReadStatus(ctx context.Context, viewer Viewer, id uuid.UUID) (*dto.ReadStatusResponse, error)
 
 	DispatchDuePublishes(ctx context.Context, payload string, logf func(string)) error
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/announcement/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/announcement/model"
@@ -11,7 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func (s *announcementService) Create(ctx context.Context, author uuid.UUID, req *dto.CreateAnnouncementRequest) (*dto.AnnouncementResponse, error) {
+func (s *announcementService) Create(ctx context.Context, viewer Viewer, req *dto.CreateAnnouncementRequest) (*dto.AnnouncementResponse, error) {
 	if req == nil {
 		return nil, response.NewError(response.CodeBadRequest, "参数错误")
 	}
@@ -32,6 +33,9 @@ func (s *announcementService) Create(ctx context.Context, author uuid.UUID, req 
 	if len(req.Content) > model.MaxContentLen {
 		return nil, response.NewError(response.CodeBadRequest, "正文过长")
 	}
+	if err := validateSchedule(req.ScheduledAt, viewer.CanPublish, s.clock()); err != nil {
+		return nil, err
+	}
 
 	now := s.clock()
 	a := &model.Announcement{
@@ -44,14 +48,14 @@ func (s *announcementService) Create(ctx context.Context, author uuid.UUID, req 
 		Required:    req.Required,
 		Status:      model.StatusDraft,
 		ScheduledAt: req.ScheduledAt,
-		AuthorID:    author,
+		AuthorID:    viewer.UserID,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
 	if err := s.rows.Create(ctx, a); err != nil {
 		return nil, fmt.Errorf("create announcement: %w", err)
 	}
-	return s.getResponse(ctx, a.ID, author)
+	return s.getResponse(ctx, a.ID, viewer.UserID)
 }
 
 func (s *announcementService) Update(ctx context.Context, viewer Viewer, id uuid.UUID, req *dto.UpdateAnnouncementRequest) (*dto.AnnouncementResponse, error) {
@@ -68,7 +72,7 @@ func (s *announcementService) Update(ctx context.Context, viewer Viewer, id uuid
 	if !canEdit(viewer, a) {
 		return nil, noAccess("无权修改该公告")
 	}
-	if err := applyUpdate(a, req); err != nil {
+	if err := applyUpdate(a, req, viewer.CanPublish, s.clock()); err != nil {
 		return nil, err
 	}
 	a.UpdatedAt = s.clock()
@@ -78,7 +82,7 @@ func (s *announcementService) Update(ctx context.Context, viewer Viewer, id uuid
 	return s.getResponse(ctx, a.ID, viewer.UserID)
 }
 
-func applyUpdate(a *model.Announcement, req *dto.UpdateAnnouncementRequest) error {
+func applyUpdate(a *model.Announcement, req *dto.UpdateAnnouncementRequest, canPublish bool, now time.Time) error {
 	if req.Title != nil {
 		title := strings.TrimSpace(*req.Title)
 		if title == "" {
@@ -112,8 +116,26 @@ func applyUpdate(a *model.Announcement, req *dto.UpdateAnnouncementRequest) erro
 	}
 	if req.ClearSched || (req.ScheduledAt != nil && a.Status != model.StatusDraft) {
 		a.ScheduledAt = nil
-	} else if req.ScheduledAt != nil {
+		return nil
+	}
+	if req.ScheduledAt != nil {
+		if err := validateSchedule(req.ScheduledAt, canPublish, now); err != nil {
+			return err
+		}
 		a.ScheduledAt = req.ScheduledAt
+	}
+	return nil
+}
+
+func validateSchedule(at *time.Time, canPublish bool, now time.Time) error {
+	if at == nil {
+		return nil
+	}
+	if !canPublish {
+		return noAccess("无权设置定时发布")
+	}
+	if !at.After(now) {
+		return response.NewError(response.CodeBadRequest, "定时发布时间必须晚于当前时间")
 	}
 	return nil
 }
