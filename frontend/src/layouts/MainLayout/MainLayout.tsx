@@ -121,7 +121,9 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
               initial="hidden"
               animate="show"
             >
-              <Outlet />
+              <div className={styles.contentPage}>
+                <Outlet />
+              </div>
             </motion.div>
           </Layout.Content>
           <footer className={styles.footer}>
