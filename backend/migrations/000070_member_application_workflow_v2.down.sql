@@ -1,4 +1,4 @@
--- Keep the member_application definition (000061 / 000069). Rolling back only
+-- Keep the member_application definition (000061 / 000070). Rolling back only
 -- unpublishes versions created as v2+ when they still match the v2 default graph.
 
 UPDATE flow_definition_versions v
