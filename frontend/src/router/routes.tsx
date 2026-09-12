@@ -345,12 +345,12 @@ const routes: AppRouteObject[] = [
       },
       {
         path: 'announcement',
-        meta: { title: '公告中心', icon: 'NotificationOutlined' },
+        meta: { title: '公告中心', icon: 'NotificationOutlined', featureFlag: 'announcement.feed' },
         children: [
           {
             path: 'list',
             element: lazyGuarded(AnnouncementListPage, 'announcement:read'),
-            meta: { title: '公告列表', permission: 'announcement:read' },
+            meta: { title: '公告列表', permission: 'announcement:read', featureFlag: 'announcement.feed' },
           },
           {
             path: ':id',

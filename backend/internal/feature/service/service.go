@@ -55,6 +55,7 @@ type flagService struct {
 	perms  PermLookup
 	mu     sync.RWMutex
 	memory map[string]model.Flag
+	loaded bool
 }
 
 func New(rows repo.Repository, store SnapshotStore, bus Broadcaster, roles RoleLookup, users UserLookup, perms PermLookup) Service {
@@ -68,7 +69,7 @@ func New(rows repo.Repository, store SnapshotStore, bus Broadcaster, roles RoleL
 }
 
 func (s *flagService) StartHotReload(ctx context.Context) error {
-	if err := s.reload(ctx); err != nil {
+	if err := s.reloadFromDB(ctx); err != nil {
 		return err
 	}
 	return s.bus.Subscribe(ctx, func(string) {
@@ -274,16 +275,17 @@ func (s *flagService) Resolve(ctx context.Context, userID uuid.UUID) (feature.Su
 	if s.roles != nil {
 		codes, err := s.roles.GetUserRoleCodes(ctx, userID)
 		if err != nil {
-			return sub, fmt.Errorf("resolve roles: %w", err)
+			// Boolean / percentage gates do not need roles; fail closed for role_dept.
+			logCacheErr("resolve-roles", err)
+		} else {
+			sub.RoleCodes = codes
 		}
-		sub.RoleCodes = codes
 	}
 	if s.users != nil {
 		dept, err := s.users.DepartmentOf(ctx, userID)
 		if err != nil {
-			return sub, fmt.Errorf("resolve dept: %w", err)
-		}
-		if dept != nil && *dept != uuid.Nil {
+			logCacheErr("resolve-dept", err)
+		} else if dept != nil && *dept != uuid.Nil {
 			sub.DepartmentIDs = []uuid.UUID{*dept}
 		}
 	}
@@ -320,19 +322,23 @@ func (s *flagService) lookup(ctx context.Context, key string) *model.Flag {
 		cp := f
 		return &cp
 	}
+	ready := s.loaded
 	s.mu.RUnlock()
-	if err := s.reload(ctx); err != nil {
-		logCacheErr("lookup-reload", err)
-	} else {
-		s.mu.RLock()
-		if f, ok := s.memory[key]; ok {
+	if !ready {
+		// Never seed from Redis here — leftover snapshot after a failed
+		// SET/DEL must not overwrite a later DB-backed view.
+		if err := s.reloadFromDB(ctx); err != nil {
+			logCacheErr("lookup-reload", err)
+		} else {
+			s.mu.RLock()
+			if f, ok := s.memory[key]; ok {
+				s.mu.RUnlock()
+				cp := f
+				return &cp
+			}
 			s.mu.RUnlock()
-			cp := f
-			return &cp
 		}
-		s.mu.RUnlock()
 	}
-	// Incomplete / stale snapshot must not hide a DB row.
 	row, err := s.rows.GetByKey(ctx, key)
 	if err != nil || row == nil {
 		return nil
@@ -390,6 +396,7 @@ func (s *flagService) replaceMemory(flags []model.Flag) {
 	}
 	s.mu.Lock()
 	s.memory = next
+	s.loaded = true
 	s.mu.Unlock()
 }
 
@@ -403,6 +410,7 @@ func (s *flagService) invalidate(ctx context.Context) {
 		}
 		s.mu.Lock()
 		s.memory = map[string]model.Flag{}
+		s.loaded = false
 		s.mu.Unlock()
 	} else if !ok {
 		// Local memory is fresh; leftover snapshot is still readable — do not

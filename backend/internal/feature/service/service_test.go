@@ -261,6 +261,77 @@ func TestReloadEmptySnapshotFallsBackToDB(t *testing.T) {
 	}
 }
 
+func TestStartHotReloadIgnoresStaleSnapshot(t *testing.T) {
+	rows := newMemRepo()
+	ctx := context.Background()
+	id := uuid.New()
+	_ = rows.Create(ctx, &model.Flag{
+		ID: id, FlagKey: model.KeyCMSPublic, Name: "CMS", FlagType: model.TypeBoolean, Enabled: true,
+	})
+	store := &stickySetSnapshot{flags: []model.Flag{{
+		ID: id, FlagKey: model.KeyCMSPublic, Name: "CMS", FlagType: model.TypeBoolean, Enabled: false,
+	}}}
+	svc := New(rows, store, NewMemoryBus(), stubRoles{}, stubUsers{}, stubPerms{}).(*flagService)
+	if err := svc.StartHotReload(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !svc.Enabled(ctx, model.KeyCMSPublic, feature.Subject{}) {
+		t.Fatal("boot must read DB, not a leftover Redis snapshot")
+	}
+}
+
+func TestUnknownKeyDoesNotRollBackFreshMemory(t *testing.T) {
+	rows := newMemRepo()
+	store := &stickySetSnapshot{
+		setErr: errors.New("redis set failed"),
+		delErr: errors.New("redis del failed"),
+	}
+	svc := New(rows, store, NewMemoryBus(), stubRoles{}, stubUsers{}, stubPerms{}).(*flagService)
+	ctx := context.Background()
+	id := uuid.New()
+	_ = rows.Create(ctx, &model.Flag{
+		ID: id, FlagKey: model.KeyCMSPublic, Name: "CMS", FlagType: model.TypeBoolean, Enabled: false,
+	})
+	store.flags = []model.Flag{{
+		ID: id, FlagKey: model.KeyCMSPublic, Name: "CMS", FlagType: model.TypeBoolean, Enabled: false,
+	}}
+	on := true
+	if _, err := svc.Toggle(ctx, uuid.New(), id, &dto.ToggleRequest{Enabled: &on}); err != nil {
+		t.Fatal(err)
+	}
+	me, err := svc.EvaluateMe(ctx, uuid.New(), []string{model.KeyCMSPublic, "unknown.probe"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !me[model.KeyCMSPublic].Enabled {
+		t.Fatal("unknown-key lookup must not reload leftover snapshot over a fresh toggle")
+	}
+}
+
+func TestBooleanEvaluateSurvivesRoleLookupError(t *testing.T) {
+	rows := newMemRepo()
+	svc := New(rows, NewMemorySnapshot(), NewMemoryBus(), failRoles{}, failUsers{}, stubPerms{})
+	ctx := context.Background()
+	_, err := svc.Create(ctx, uuid.New(), &dto.CreateFlagRequest{
+		FlagKey: model.KeyCMSPublic, Name: "CMS", FlagType: model.TypeBoolean, Enabled: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	uid := uuid.New()
+	sub, err := svc.Resolve(ctx, uid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !svc.Enabled(ctx, model.KeyCMSPublic, sub) {
+		t.Fatal("boolean gate must stay on when role/dept lookup fails")
+	}
+	me, err := svc.EvaluateMe(ctx, uid, []string{model.KeyCMSPublic})
+	if err != nil || !me[model.KeyCMSPublic].Enabled {
+		t.Fatalf("evaluate me: %+v %v", me, err)
+	}
+}
+
 func TestLookupFallsBackWhenSnapshotOmitsKey(t *testing.T) {
 	rows := newMemRepo()
 	ctx := context.Background()
@@ -457,6 +528,18 @@ func TestUserDepartmentsNil(t *testing.T) {
 	if err != nil || dept != nil {
 		t.Fatalf("%v %v", dept, err)
 	}
+}
+
+type failRoles struct{}
+
+func (failRoles) GetUserRoleCodes(context.Context, uuid.UUID) ([]string, error) {
+	return nil, errors.New("perm cache down")
+}
+
+type failUsers struct{}
+
+func (failUsers) DepartmentOf(context.Context, uuid.UUID) (*uuid.UUID, error) {
+	return nil, errors.New("user repo down")
 }
 
 func codeOf(err error) int {

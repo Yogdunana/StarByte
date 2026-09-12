@@ -85,6 +85,7 @@ function hasMenuPermission(permissions: string[], meta?: RouteMeta, flags?: Reco
 }
 
 function hasVisibleChildren(route: AppRouteObject, permissions: string[], flags?: Record<string, boolean>): boolean {
+  if (route.meta?.featureFlag && !flags?.[route.meta.featureFlag]) return false;
   if (!route.children || route.children.length === 0) return false;
   return route.children.some((child) => {
     if (child.meta?.hidden) return false;

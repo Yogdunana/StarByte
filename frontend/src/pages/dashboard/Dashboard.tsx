@@ -173,7 +173,7 @@ export default function Dashboard() {
               <Link to="/member/application"><FileTextOutlined /><span>{t('dashboard.shortcutApply')}</span><ArrowRightOutlined /></Link>
               <Link to="/interview/my"><ScheduleOutlined /><span>{t('dashboard.shortcutInterview')}</span><ArrowRightOutlined /></Link>
               <Link to="/internship/my"><TeamOutlined /><span>{t('dashboard.shortcutInternship')}</span><ArrowRightOutlined /></Link>
-              <Link to="/announcement/list"><NotificationOutlined /><span>{t('dashboard.shortcutAnnounce')}</span><ArrowRightOutlined /></Link>
+              {announcementFeed.enabled && <Link to="/announcement/list"><NotificationOutlined /><span>{t('dashboard.shortcutAnnounce')}</span><ArrowRightOutlined /></Link>}
               {canReadTasks && <Link to="/task/board"><CheckOutlined /><span>{t('dashboard.shortcutBoard')}</span><ArrowRightOutlined /></Link>}
               {canReadFiles && <Link to="/files"><FolderOutlined /><span>{t('dashboard.shortcutFiles')}</span><ArrowRightOutlined /></Link>}
             </div>
