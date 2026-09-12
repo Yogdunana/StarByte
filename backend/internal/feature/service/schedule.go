@@ -78,8 +78,12 @@ func (s *flagService) persistSchedule(ctx context.Context, id uuid.UUID, actor u
 	before := *latest
 	latest.Enabled = enabled
 	latest.UpdatedAt = now
-	if err := s.rows.Update(ctx, latest); err != nil {
+	updated, err := s.rows.UpdateScheduledState(ctx, latest.ID, before.UpdatedAt, enabled, now)
+	if err != nil {
 		logCacheErr("schedule-update", err)
+		return false
+	}
+	if !updated {
 		return false
 	}
 	s.audit(ctx, latest, actor, action, &before, latest, action)

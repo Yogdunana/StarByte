@@ -18,6 +18,7 @@ type Repository interface {
 	ListAll(ctx context.Context) ([]model.Flag, error)
 	Create(ctx context.Context, flag *model.Flag) error
 	Update(ctx context.Context, flag *model.Flag) error
+	UpdateScheduledState(ctx context.Context, id uuid.UUID, expectedUpdatedAt time.Time, enabled bool, updatedAt time.Time) (bool, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	CreateAudit(ctx context.Context, row *model.Audit) error
 	ListAudits(ctx context.Context, q dto.AuditQuery) ([]model.Audit, int64, error)
@@ -82,6 +83,15 @@ func (r *repo) Create(ctx context.Context, flag *model.Flag) error {
 
 func (r *repo) Update(ctx context.Context, flag *model.Flag) error {
 	return r.db.WithContext(ctx).Save(flag).Error
+}
+
+// UpdateScheduledState skips a schedule computed before a concurrent edit.
+// Only scheduling fields are written, never rules or administrator metadata.
+func (r *repo) UpdateScheduledState(ctx context.Context, id uuid.UUID, expectedUpdatedAt time.Time, enabled bool, updatedAt time.Time) (bool, error) {
+	result := r.db.WithContext(ctx).Model(&model.Flag{}).
+		Where("id = ? AND updated_at = ? AND enabled = ?", id, expectedUpdatedAt, !enabled).
+		UpdateColumns(map[string]interface{}{"enabled": enabled, "updated_at": updatedAt})
+	return result.RowsAffected == 1, result.Error
 }
 
 func (r *repo) Delete(ctx context.Context, id uuid.UUID) error {
