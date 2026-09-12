@@ -38,27 +38,24 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
           )}
         </AnimatePresence>
       </NavLink>
-      <AnimatePresence initial={false}>
-        {!compact && (
-          <motion.div
-            key="menu-search"
-            className={styles.menuSearch}
-            variants={fadeRight}
-            initial="hidden"
-            animate="show"
-            exit="hidden"
-          >
-            <Input
-              aria-label={t('common.searchMenu')}
-              allowClear
-              prefix={<SearchOutlined />}
-              placeholder={t('common.searchMenu')}
-              value={searchKeyword}
-              onChange={(event) => setSearchKeyword(event.target.value)}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Enter-only: exit must unmount immediately so snapped 76px sider does not keep these in flow. */}
+      {!compact && (
+        <motion.div
+          className={styles.menuSearch}
+          variants={fadeRight}
+          initial="hidden"
+          animate="show"
+        >
+          <Input
+            aria-label={t('common.searchMenu')}
+            allowClear
+            prefix={<SearchOutlined />}
+            placeholder={t('common.searchMenu')}
+            value={searchKeyword}
+            onChange={(event) => setSearchKeyword(event.target.value)}
+          />
+        </motion.div>
+      )}
       <nav aria-label={t('shell.nav')} className={styles.menuArea}>
         <Menu
           mode="inline"
@@ -71,21 +68,17 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
           style={{ border: 0 }}
         />
       </nav>
-      <AnimatePresence initial={false}>
-        {!compact && (
-          <motion.div
-            key="sidebar-footer"
-            className={styles.sidebarFooter}
-            variants={fadeRight}
-            initial="hidden"
-            animate="show"
-            exit="hidden"
-          >
-            <span>{t('shell.motto')}</span>
-            <small>{t('shell.orgEn')}</small>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {!compact && (
+        <motion.div
+          className={styles.sidebarFooter}
+          variants={fadeRight}
+          initial="hidden"
+          animate="show"
+        >
+          <span>{t('shell.motto')}</span>
+          <small>{t('shell.orgEn')}</small>
+        </motion.div>
+      )}
     </>
   );
   return (

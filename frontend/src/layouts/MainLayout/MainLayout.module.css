@@ -94,16 +94,40 @@
   letter-spacing: var(--sb-track-meta);
   margin-top: 4px;
 }
-.main { min-width: 0; background: var(--sb-bg); }
-.mainStage { display: flex; flex-direction: column; min-height: 100%; min-width: 0; flex: 1; }
-.contentStage { min-width: 0; }
-.content {
+.main {
+  min-width: 0;
+  min-height: 100dvh;
+  background: var(--sb-bg);
+}
+.mainStage {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  min-width: 0;
   flex: 1;
+}
+.content {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
   padding: var(--sb-space-5) var(--sb-space-6) var(--sb-space-7);
   width: 100%;
   max-width: 1600px;
   margin: 0 auto;
   min-width: 0;
+}
+/* Fill Layout.Content so in-layout 403/404 `height: 100%` still centers. */
+.contentStage {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+}
+.contentStage > * {
+  flex: 1 0 auto;
+  width: 100%;
 }
 .footer {
   margin: auto var(--sb-space-6) 0;
