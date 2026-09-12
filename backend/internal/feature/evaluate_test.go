@@ -194,7 +194,10 @@ func TestScheduleHelpers(t *testing.T) {
 	if ScheduleState(&model.Flag{Rules: model.Rules{EndsAt: &past}}, now) != model.ScheduleExpired {
 		t.Fatal("expired")
 	}
-	if ScheduleState(&model.Flag{Rules: model.Rules{StartsAt: &past, EndsAt: &future}}, time.Time{}) != model.ScheduleActive {
+	wall := time.Now()
+	wallStart := wall.Add(-time.Hour)
+	wallEnd := wall.Add(time.Hour)
+	if ScheduleState(&model.Flag{Rules: model.Rules{StartsAt: &wallStart, EndsAt: &wallEnd}}, time.Time{}) != model.ScheduleActive {
 		t.Fatal("active with zero now")
 	}
 	off := &model.Flag{Enabled: false, Rules: model.Rules{StartsAt: &past, EndsAt: &future}}
