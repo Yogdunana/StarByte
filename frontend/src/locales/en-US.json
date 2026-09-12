@@ -241,5 +241,30 @@
       "disconnect": "Disconnect",
       "bindFailed": "Google bind failed. Click Connect Google again."
     }
+  },
+  "smtp": {
+    "title": "SMTP mail settings",
+    "desc": "Admins can change host, port, TLS mode, and From. The password is injected only via STARBYTE_SMTP_PASSWORD and is never returned by the API.",
+    "host": "SMTP host",
+    "port": "Port",
+    "sslMode": "SSL/TLS mode",
+    "sslImplicit": "Implicit SSL/TLS (465)",
+    "sslStarttls": "STARTTLS (587)",
+    "sslNone": "No encryption",
+    "from": "From address",
+    "fromName": "From display name",
+    "username": "SMTP username",
+    "usernameHint": "Leave empty to use the From address",
+    "password": "SMTP password",
+    "passwordPlaceholder": "Set via environment only",
+    "passwordHint": "Set STARBYTE_SMTP_PASSWORD in deploy/.env on 10.100.13.17 and restart the backend container. Never commit the real password.",
+    "passwordSet": "Loaded from environment",
+    "passwordMissing": "Password not configured",
+    "save": "Save SMTP settings",
+    "saved": "SMTP settings saved",
+    "testTo": "Test recipient email",
+    "testToRequired": "Enter a test recipient",
+    "testSend": "Send test email",
+    "testOk": "Test email sent"
   }
 }

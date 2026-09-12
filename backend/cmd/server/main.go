@@ -254,10 +254,9 @@ func main() {
 
 	hub := notifService.NewHub()
 	emailLogs := notifRepo.NewEmailLogRepo(database.DB())
-	emailCh := notifService.NewEmailChannel(
-		cfg.Email.SMTPHost, cfg.Email.SMTPPort,
-		cfg.Email.Username, cfg.Email.Password, cfg.Email.From,
-	)
+	cfgRows := cfgstoreRepo.NewConfigRepo(database.DB())
+	cfgStore := configstore.New(redis.Client(), &cfgstoreRepo.BackendAdapter{Rows: cfgRows})
+	emailCh := notifService.NewEmailChannelFromConfig(cfg.Email).WithStore(cfgStore)
 	emailWorker := notifService.NewEmailWorker(
 		emailCh, emailLogs,
 		notifService.NewAttachmentLoader(database.DB(), objectStore),
@@ -328,9 +327,7 @@ func main() {
 	actH := activityHandler.NewActivityHandler(actSvc)
 
 	// 运行时业务配置（#47，复用 configs 表，不改 pkg/config YAML）
-	cfgRows := cfgstoreRepo.NewConfigRepo(database.DB())
-	cfgStore := configstore.New(redis.Client(), &cfgstoreRepo.BackendAdapter{Rows: cfgRows})
-	cfgSvc := cfgstoreService.NewConfigService(cfgRows, cfgStore)
+	cfgSvc := cfgstoreService.NewConfigService(cfgRows, cfgStore).WithSMTP(cfg.Email, emailCh)
 	cfgH := cfgstoreHandler.NewConfigHandler(cfgSvc)
 
 	// IT 实习管理

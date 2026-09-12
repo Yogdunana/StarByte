@@ -3,6 +3,10 @@ import type {
   RuntimeConfig,
   CreateRuntimeConfigParams,
   UpdateRuntimeConfigParams,
+  SMTPSettings,
+  UpdateSMTPSettingsParams,
+  TestSMTPParams,
+  TestSMTPResult,
 } from '@/types/api';
 
 export function getRuntimeConfigs(params?: {
@@ -26,4 +30,16 @@ export function updateRuntimeConfig(id: string, data: UpdateRuntimeConfigParams)
 
 export function deleteRuntimeConfig(id: string): Promise<void> {
   return request.delete(`/system/configs/${id}`);
+}
+
+export function getSMTPSettings(): Promise<SMTPSettings> {
+  return request.get('/system/smtp');
+}
+
+export function updateSMTPSettings(data: UpdateSMTPSettingsParams): Promise<SMTPSettings> {
+  return request.put('/system/smtp', data);
+}
+
+export function testSMTPSettings(data: TestSMTPParams): Promise<TestSMTPResult> {
+  return request.post('/system/smtp/test', data);
 }

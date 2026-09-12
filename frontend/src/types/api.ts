@@ -1258,6 +1258,37 @@ export interface UpdateRuntimeConfigParams {
   is_public?: boolean;
 }
 
+export type SMTPSSLMode = 'implicit' | 'starttls' | 'none';
+
+export interface SMTPSettings {
+  host: string;
+  port: number;
+  ssl_mode: SMTPSSLMode;
+  from: string;
+  from_name: string;
+  username: string;
+  password_configured: boolean;
+  password_source?: string;
+}
+
+export interface UpdateSMTPSettingsParams {
+  host: string;
+  port: number;
+  ssl_mode: SMTPSSLMode;
+  from: string;
+  from_name: string;
+  username?: string;
+}
+
+export interface TestSMTPParams {
+  to: string;
+}
+
+export interface TestSMTPResult {
+  sent: boolean;
+  to: string;
+}
+
 // ============================================================
 // 统计
 // ============================================================

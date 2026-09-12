@@ -241,5 +241,30 @@
       "disconnect": "断开",
       "bindFailed": "Google 绑定失败，请重新点「连接 Google」"
     }
+  },
+  "smtp": {
+    "title": "SMTP 发信设置",
+    "desc": "管理员可改主机、端口、加密方式和发件人。密码只通过服务器环境变量 STARBYTE_SMTP_PASSWORD 注入，接口不会回传。",
+    "host": "SMTP 主机",
+    "port": "端口",
+    "sslMode": "SSL/TLS 模式",
+    "sslImplicit": "隐式 SSL/TLS（465）",
+    "sslStarttls": "STARTTLS（587）",
+    "sslNone": "不加密",
+    "from": "发件地址",
+    "fromName": "发件显示名",
+    "username": "SMTP 用户名",
+    "usernameHint": "留空则使用发件地址",
+    "password": "SMTP 密码",
+    "passwordPlaceholder": "仅通过环境变量设置",
+    "passwordHint": "在 10.100.13.17 的 deploy/.env 写入 STARBYTE_SMTP_PASSWORD，然后重启 backend 容器。不要把真实密码提交到仓库。",
+    "passwordSet": "已从环境变量加载",
+    "passwordMissing": "未配置密码",
+    "save": "保存 SMTP 设置",
+    "saved": "SMTP 设置已保存",
+    "testTo": "测试收件人邮箱",
+    "testToRequired": "请填写测试收件人",
+    "testSend": "发送测试邮件",
+    "testOk": "测试邮件已发送"
   }
 }

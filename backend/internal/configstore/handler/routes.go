@@ -25,4 +25,9 @@ func RegisterRoutes(
 	withPermission(g, "config:create", cacheService).POST("", h.Create)
 	withPermission(g, "config:update", cacheService).PUT("/:id", h.Update)
 	withPermission(g, "config:delete", cacheService).DELETE("/:id", h.Delete)
+
+	smtp := r.Group("/system/smtp")
+	withPermission(smtp, "config:read", cacheService).GET("", h.GetSMTP)
+	withPermission(smtp, "config:update", cacheService).PUT("", h.UpdateSMTP)
+	withPermission(smtp, "config:update", cacheService).POST("/test", h.TestSMTP)
 }

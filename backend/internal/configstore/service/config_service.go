@@ -12,10 +12,16 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/configstore/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/configstore/model"
 	"github.com/Yogdunana/StarByte/backend/internal/configstore/repo"
+	"github.com/Yogdunana/StarByte/backend/pkg/config"
 	"github.com/Yogdunana/StarByte/backend/pkg/configstore"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
 )
+
+// SMTPTester sends an admin-only probe using the live mail channel.
+type SMTPTester interface {
+	SendTest(ctx context.Context, to string) error
+}
 
 var keyPattern = regexp.MustCompile(`^[a-z][a-z0-9_.]{1,99}$`)
 
@@ -25,15 +31,26 @@ type ConfigService interface {
 	Create(ctx context.Context, operator uuid.UUID, req *dto.CreateConfigRequest) (*dto.ConfigResponse, error)
 	Update(ctx context.Context, operator uuid.UUID, id uuid.UUID, req *dto.UpdateConfigRequest) (*dto.ConfigResponse, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+	GetSMTP(ctx context.Context) (*dto.SMTPSettingsResponse, error)
+	UpdateSMTP(ctx context.Context, operator uuid.UUID, req *dto.UpdateSMTPRequest) (*dto.SMTPSettingsResponse, error)
+	TestSMTP(ctx context.Context, req *dto.TestSMTPRequest) (*dto.TestSMTPResponse, error)
 }
 
 type configService struct {
-	rows  repo.ConfigRepo
-	store configstore.Store
+	rows     repo.ConfigRepo
+	store    configstore.Store
+	fallback config.EmailConfig
+	tester   SMTPTester
 }
 
-func NewConfigService(rows repo.ConfigRepo, store configstore.Store) ConfigService {
+func NewConfigService(rows repo.ConfigRepo, store configstore.Store) *configService {
 	return &configService{rows: rows, store: store}
+}
+
+func (s *configService) WithSMTP(fallback config.EmailConfig, tester SMTPTester) *configService {
+	s.fallback = fallback
+	s.tester = tester
+	return s
 }
 
 func (s *configService) List(ctx context.Context, q dto.ListQuery) ([]dto.ConfigResponse, error) {

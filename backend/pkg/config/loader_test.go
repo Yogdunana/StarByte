@@ -195,6 +195,10 @@ func TestApplyEnvOverrides(t *testing.T) {
 	t.Setenv("JWT_SECRET", "env-override-secret")
 	t.Setenv("MINIO_ACCESS_KEY", "prod-access-key")
 	t.Setenv("SMTP_HOST", "smtp.prod.com")
+	t.Setenv("STARBYTE_SMTP_PASSWORD", "from-starbyte-secret")
+	t.Setenv("SMTP_PASSWORD", "legacy-should-lose")
+	t.Setenv("STARBYTE_SMTP_FROM_NAME", "StarByte-Prod")
+	t.Setenv("SMTP_SSL_MODE", "implicit")
 	t.Setenv("LOG_LEVEL", "debug")
 	t.Setenv("CORS_ALLOWED_ORIGINS", "https://a.com,https://b.com")
 	t.Setenv("CORS_ALLOWED_METHODS", "GET,POST,PUT")
@@ -234,6 +238,15 @@ func TestApplyEnvOverrides(t *testing.T) {
 	}
 	if cfg.Email.SMTPHost != "smtp.prod.com" {
 		t.Errorf("Email.SMTPHost = %s, want smtp.prod.com", cfg.Email.SMTPHost)
+	}
+	if cfg.Email.Password != "from-starbyte-secret" {
+		t.Errorf("Email.Password = %s, want from-starbyte-secret", cfg.Email.Password)
+	}
+	if cfg.Email.FromName != "StarByte-Prod" {
+		t.Errorf("Email.FromName = %s, want StarByte-Prod", cfg.Email.FromName)
+	}
+	if cfg.Email.SSLMode != "implicit" {
+		t.Errorf("Email.SSLMode = %s, want implicit", cfg.Email.SSLMode)
 	}
 	if cfg.Logger.Level != "debug" {
 		t.Errorf("Logger.Level = %s, want debug", cfg.Logger.Level)
@@ -314,8 +327,20 @@ func TestSetDefaults(t *testing.T) {
 	}
 
 	// Email
-	if cfg.Email.SMTPPort != 587 {
-		t.Errorf("Email.SMTPPort = %d, want 587", cfg.Email.SMTPPort)
+	if cfg.Email.SMTPPort != 465 {
+		t.Errorf("Email.SMTPPort = %d, want 465", cfg.Email.SMTPPort)
+	}
+	if cfg.Email.SMTPHost != "smtp.exmail.qq.com" {
+		t.Errorf("Email.SMTPHost = %s, want smtp.exmail.qq.com", cfg.Email.SMTPHost)
+	}
+	if cfg.Email.From != "computerassociation@smbu.edu.cn" {
+		t.Errorf("Email.From = %s, want computerassociation@smbu.edu.cn", cfg.Email.From)
+	}
+	if cfg.Email.FromName != "StarByte-SMTP" {
+		t.Errorf("Email.FromName = %s, want StarByte-SMTP", cfg.Email.FromName)
+	}
+	if cfg.Email.SSLMode != "implicit" {
+		t.Errorf("Email.SSLMode = %s, want implicit", cfg.Email.SSLMode)
 	}
 
 	// CORS
