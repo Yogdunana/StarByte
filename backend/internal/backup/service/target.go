@@ -9,37 +9,66 @@ import (
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
 )
 
+// Compose service names that address the same Postgres as DB_HOST=postgres.
+var composeClusterHosts = map[string]struct{}{
+	"postgres":          {},
+	"starbyte-postgres": {},
+}
+
+var loopbackHosts = map[string]struct{}{
+	"localhost": {},
+	"127.0.0.1": {},
+	"::1":       {},
+	"[::1]":     {},
+}
+
 // ResolveDrillTarget builds a Postgres target from DSN / field overlays.
 // It refuses to point at the live application database.
+// Live user/password/ssl are reused only for the same cluster (host aliases + port)
+// with a different database name. A different host never inherits the live password.
 func ResolveDrillTarget(live config.DatabaseConfig, req *dto.DrillRequest) (config.DatabaseConfig, error) {
 	if req == nil {
 		return config.DatabaseConfig{}, errNotReady("缺少演练目标")
 	}
-	out := live
+	var over config.DatabaseConfig
+	passwordFromRequest := false
 	if dsn := strings.TrimSpace(req.TargetDSN); dsn != "" {
 		parsed, err := ParsePostgresTarget(dsn)
 		if err != nil {
 			return config.DatabaseConfig{}, err
 		}
-		out = overlayDB(out, parsed)
+		over = overlayDB(over, parsed)
+		if dsnPasswordProvided(dsn) {
+			passwordFromRequest = true
+		}
 	}
 	if v := strings.TrimSpace(req.TargetHost); v != "" {
-		out.Host = v
+		over.Host = v
 	}
 	if req.TargetPort > 0 {
-		out.Port = req.TargetPort
+		over.Port = req.TargetPort
 	}
 	if v := strings.TrimSpace(req.TargetUser); v != "" {
-		out.User = v
+		over.User = v
 	}
 	if req.TargetPassword != "" {
-		out.Password = req.TargetPassword
+		over.Password = req.TargetPassword
+		passwordFromRequest = true
 	}
 	if v := strings.TrimSpace(req.TargetDBName); v != "" {
-		out.DBName = v
+		over.DBName = v
 	}
 	if v := strings.TrimSpace(req.TargetSSLMode); v != "" {
-		out.SSLMode = v
+		over.SSLMode = v
+	}
+
+	out := config.DatabaseConfig{
+		Host:     firstNonEmpty(over.Host, live.Host),
+		Port:     firstPort(over.Port, live.Port),
+		User:     over.User,
+		Password: over.Password,
+		DBName:   over.DBName,
+		SSLMode:  over.SSLMode,
 	}
 	if strings.TrimSpace(out.DBName) == "" {
 		return config.DatabaseConfig{}, errNotReady("演练须指定 target_dbname 或 DSN 中的库名")
@@ -50,14 +79,38 @@ func ResolveDrillTarget(live config.DatabaseConfig, req *dto.DrillRequest) (conf
 	if SameDatabase(live, out) {
 		return config.DatabaseConfig{}, errInvalidState("演练目标不能是当前应用库，请换库名或主机")
 	}
+	if SameCluster(live, out) {
+		if out.User == "" {
+			out.User = live.User
+		}
+		if out.Password == "" {
+			out.Password = live.Password
+		}
+		if out.SSLMode == "" {
+			out.SSLMode = live.SSLMode
+		}
+		return out, nil
+	}
+	if !passwordFromRequest {
+		return config.DatabaseConfig{}, errNotReady("跨主机演练须提供 target_password 或 DSN 密码，不会复用生产库凭据")
+	}
+	if out.User == "" {
+		out.User = live.User
+	}
+	if out.SSLMode == "" {
+		out.SSLMode = live.SSLMode
+	}
 	return out, nil
+}
+
+// SameCluster reports whether two configs address the same Postgres instance.
+func SameCluster(a, b config.DatabaseConfig) bool {
+	return sameHost(a.Host, b.Host) && normPort(a.Port) == normPort(b.Port)
 }
 
 // SameDatabase reports whether two configs address the same Postgres database.
 func SameDatabase(a, b config.DatabaseConfig) bool {
-	return normHost(a.Host) == normHost(b.Host) &&
-		normPort(a.Port) == normPort(b.Port) &&
-		strings.TrimSpace(a.DBName) == strings.TrimSpace(b.DBName)
+	return SameCluster(a, b) && strings.TrimSpace(a.DBName) == strings.TrimSpace(b.DBName)
 }
 
 // ParsePostgresTarget accepts postgres:// URLs or libpq key=value strings.
@@ -87,8 +140,10 @@ func parsePostgresURL(raw string) (config.DatabaseConfig, error) {
 		DBName:  strings.TrimPrefix(u.Path, "/"),
 		SSLMode: u.Query().Get("sslmode"),
 	}
-	if pass, ok := u.User.Password(); ok {
-		out.Password = pass
+	if u.User != nil {
+		if pass, ok := u.User.Password(); ok {
+			out.Password = pass
+		}
 	}
 	if u.Port() != "" {
 		p, err := strconv.Atoi(u.Port())
@@ -154,14 +209,44 @@ func overlayDB(base, over config.DatabaseConfig) config.DatabaseConfig {
 	return base
 }
 
+func dsnPasswordProvided(raw string) bool {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return false
+	}
+	if strings.Contains(raw, "://") {
+		u, err := url.Parse(raw)
+		if err != nil || u.User == nil {
+			return false
+		}
+		_, ok := u.User.Password()
+		return ok
+	}
+	for _, part := range strings.Fields(raw) {
+		key, _, ok := strings.Cut(part, "=")
+		if ok && strings.EqualFold(strings.TrimSpace(key), "password") {
+			return true
+		}
+	}
+	return false
+}
+
+func sameHost(a, b string) bool {
+	x, y := normHost(a), normHost(b)
+	if x == y {
+		return true
+	}
+	_, ac := composeClusterHosts[x]
+	_, bc := composeClusterHosts[y]
+	return ac && bc
+}
+
 func normHost(h string) string {
 	h = strings.ToLower(strings.TrimSpace(h))
-	switch h {
-	case "127.0.0.1", "::1":
+	if _, ok := loopbackHosts[h]; ok {
 		return "localhost"
-	default:
-		return h
 	}
+	return h
 }
 
 func normPort(p int) int {
@@ -169,4 +254,18 @@ func normPort(p int) int {
 		return 5432
 	}
 	return p
+}
+
+func firstNonEmpty(a, b string) string {
+	if strings.TrimSpace(a) != "" {
+		return a
+	}
+	return b
+}
+
+func firstPort(over, live int) int {
+	if over > 0 {
+		return over
+	}
+	return live
 }

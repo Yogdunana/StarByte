@@ -215,7 +215,9 @@ server {
 starbyte backup create
 starbyte backup preview <id>
 # 演练到独立库（先 createdb starbyte_drill；不是 PITR）
+# 同集群换库名可省略密码；换主机须 --password 或 DSN 内密码
 starbyte backup drill <id> --dbname starbyte_drill --confirm DRILL
+starbyte backup drill <id> --dbname stolen --host other.example --password "$DRILL_PASSWORD" --confirm DRILL
 
 # backend 挂了才用明文应急
 starbyte backup emergency

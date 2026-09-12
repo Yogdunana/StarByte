@@ -54,11 +54,14 @@ type DrillRequest struct {
 }
 
 // DrillResult is a restore drill outcome. Passwords are never returned.
+// POST enqueue returns queued=true; poll GET /restore-drill for the terminal status.
 type DrillResult struct {
 	ID           string `json:"id"`
 	Filename     string `json:"filename"`
+	Queued       bool   `json:"queued"`
 	Ready        bool   `json:"ready"`
 	Restored     bool   `json:"restored"`
+	Status       string `json:"status"`
 	TargetHost   string `json:"target_host"`
 	TargetPort   int    `json:"target_port"`
 	TargetDBName string `json:"target_dbname"`

@@ -101,8 +101,10 @@ export function previewBackup(id: string, signal?: AbortSignal): Promise<BackupP
 export interface BackupDrillResult {
   id: string;
   filename: string;
+  queued?: boolean;
   ready: boolean;
   restored: boolean;
+  status?: string;
   target_host: string;
   target_port: number;
   target_dbname: string;
@@ -111,12 +113,30 @@ export interface BackupDrillResult {
 
 export function drillRestoreBackup(
   id: string,
-  data: { target_dbname: string; target_dsn?: string; confirmation?: string },
+  data: {
+    target_dbname: string;
+    target_dsn?: string;
+    target_password?: string;
+    confirmation?: string;
+  },
 ): Promise<BackupDrillResult> {
   return request.post(`/system/backups/${id}/restore-drill`, {
     confirm: true,
     confirmation: data.confirmation || 'DRILL',
     target_dbname: data.target_dbname,
     target_dsn: data.target_dsn,
-  }, { timeout: 180000 });
+    target_password: data.target_password,
+  });
+}
+
+export function getDrillRestore(id: string): Promise<BackupDrillResult> {
+  return request.get(`/system/backups/${id}/restore-drill`);
+}
+
+export function drillIsPending(out: BackupDrillResult | null | undefined): boolean {
+  if (!out) return false;
+  if (out.restored || out.error || out.status === 'restored' || out.status === 'failed') {
+    return false;
+  }
+  return !!out.queued || out.status === 'queued' || out.status === 'running';
 }

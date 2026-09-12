@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/backup/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/backup/model"
@@ -19,7 +20,7 @@ const Usage = `用法:
   starbyte-server backup list
   starbyte-server backup preview <id>
   starbyte-server backup restore <id> --confirm RESTORE
-  starbyte-server backup drill <id> --dbname <独立库> [--dsn DSN] --confirm DRILL
+  starbyte-server backup drill <id> --dbname <独立库> [--dsn DSN] [--password 跨主机密码] --confirm DRILL
 
 create / preview / restore / drill 走与 HTTP 相同的 gzip、AES-256、完整性检查与失败告警。
 drill 把 custom dump 恢复到独立 Postgres，不改生产库状态，也不是 PITR。
@@ -153,6 +154,7 @@ func runDrill(ctx context.Context, svc service.Service, args []string, stdout, s
 	host := fs.String("host", "", "目标主机（可选）")
 	port := fs.Int("port", 0, "目标端口（可选）")
 	user := fs.String("user", "", "目标用户（可选）")
+	password := fs.String("password", "", "跨主机时的目标密码（同集群换库名可省略）")
 	id, flagArgs := shiftID(args)
 	if id == "" {
 		fmt.Fprintln(stderr, "drill 需要备份 id")
@@ -167,17 +169,26 @@ func runDrill(ctx context.Context, svc service.Service, args []string, stdout, s
 		return 2
 	}
 	out, err := svc.DrillRestore(ctx, uuid.Nil, uid, &dto.DrillRequest{
-		Confirm:      true,
-		Confirmation: strings.TrimSpace(*confirm),
-		TargetDSN:    strings.TrimSpace(*dsn),
-		TargetHost:   strings.TrimSpace(*host),
-		TargetPort:   *port,
-		TargetUser:   strings.TrimSpace(*user),
-		TargetDBName: strings.TrimSpace(*dbname),
+		Confirm:        true,
+		Confirmation:   strings.TrimSpace(*confirm),
+		TargetDSN:      strings.TrimSpace(*dsn),
+		TargetHost:     strings.TrimSpace(*host),
+		TargetPort:     *port,
+		TargetUser:     strings.TrimSpace(*user),
+		TargetPassword: *password,
+		TargetDBName:   strings.TrimSpace(*dbname),
 	})
 	if err != nil {
 		fmt.Fprintln(stderr, err.Error())
 		return 1
+	}
+	if drillPending(out) {
+		fmt.Fprintf(stdout, "drill queued %s target=%s/%s\n", out.ID, out.TargetHost, out.TargetDBName)
+		out, err = waitDrill(ctx, svc, uid)
+		if err != nil {
+			fmt.Fprintln(stderr, err.Error())
+			return 1
+		}
 	}
 	fmt.Fprintf(stdout, "drill id=%s restored=%v target=%s/%s\n",
 		out.ID, out.Restored, out.TargetHost, out.TargetDBName)
@@ -188,6 +199,37 @@ func runDrill(ctx context.Context, svc service.Service, args []string, stdout, s
 		return 1
 	}
 	return 0
+}
+
+func drillPending(out *dto.DrillResult) bool {
+	if out == nil {
+		return false
+	}
+	if out.Restored || out.Error != "" || out.Status == "restored" || out.Status == "failed" {
+		return false
+	}
+	return out.Queued || out.Status == "queued" || out.Status == "running"
+}
+
+func waitDrill(ctx context.Context, svc service.Service, id uuid.UUID) (*dto.DrillResult, error) {
+	deadline := time.Now().Add(30 * time.Minute)
+	for {
+		got, err := svc.GetDrill(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if !drillPending(got) {
+			return got, nil
+		}
+		if !time.Now().Before(deadline) {
+			return nil, fmt.Errorf("演练超时")
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
 }
 
 func printRecord(w io.Writer, rec *dto.Record) {

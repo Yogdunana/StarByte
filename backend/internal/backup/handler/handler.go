@@ -208,3 +208,21 @@ func (h *Handler) DrillRestore(c *gin.Context) {
 	out, err := h.svc.DrillRestore(c.Request.Context(), uid, id, &req)
 	write(c, out, err)
 }
+
+// GetDrill 查询演练排队结果（不改生产库记录）
+// @Summary 备份恢复演练状态
+// @Tags 备份
+// @Produce json
+// @Param id path string true "备份 ID"
+// @Success 200 {object} response.Response
+// @Router /system/backups/{id}/restore-drill [get]
+// @Security BearerAuth
+func (h *Handler) GetDrill(c *gin.Context) {
+	id, err := parseID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	out, err := h.svc.GetDrill(c.Request.Context(), id)
+	write(c, out, err)
+}

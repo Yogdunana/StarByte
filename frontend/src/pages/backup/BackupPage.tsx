@@ -7,8 +7,8 @@ import type { ColumnsType } from 'antd/es/table';
 import { CloudServerOutlined, DeleteOutlined, ReloadOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import {
-  createBackup, deleteBackup, drillRestoreBackup, getBackupPolicy, getBackups, getBackupStorage,
-  previewBackup, restoreBackup, updateBackupPolicy,
+  createBackup, deleteBackup, drillIsPending, drillRestoreBackup, getBackupPolicy, getBackups,
+  getBackupStorage, getDrillRestore, previewBackup, restoreBackup, updateBackupPolicy,
   type BackupPolicy, type BackupPreview, type BackupRecord, type BackupStorageStats,
 } from '@/api/backup';
 import { usePermissions } from '@/hooks/usePermission';
@@ -49,6 +49,7 @@ const BackupPage: React.FC = () => {
   const [drillText, setDrillText] = useState('');
   const [drillDB, setDrillDB] = useState('starbyte_drill');
   const [drillDSN, setDrillDSN] = useState('');
+  const [drillPassword, setDrillPassword] = useState('');
   const [drilling, setDrilling] = useState(false);
 
   const load = useCallback(async (p = page) => {
@@ -149,15 +150,25 @@ const BackupPage: React.FC = () => {
     if (!drillDB.trim()) return;
     setDrilling(true);
     try {
-      const out = await drillRestoreBackup(drillRow.id, {
+      let out = await drillRestoreBackup(drillRow.id, {
         target_dbname: drillDB.trim(),
         target_dsn: drillDSN.trim() || undefined,
+        target_password: drillPassword || undefined,
         confirmation: t('backup.drillToken'),
       });
+      if (drillIsPending(out)) {
+        message.info(t('backup.drillQueued'));
+        const deadline = Date.now() + 180000;
+        while (Date.now() < deadline && drillIsPending(out)) {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          out = await getDrillRestore(drillRow.id);
+        }
+      }
       if (out.restored) {
         message.success(t('backup.drillOk', { db: out.target_dbname }));
         setDrillRow(null);
         setDrillText('');
+        setDrillPassword('');
       } else {
         message.error(out.error || t('backup.drillFail'));
       }
@@ -346,6 +357,7 @@ const BackupPage: React.FC = () => {
                   if (!previewRow) return;
                   setDrillDB('starbyte_drill');
                   setDrillDSN('');
+                  setDrillPassword('');
                   setDrillText('');
                   setDrillRow(previewRow);
                   closePreview();
@@ -364,7 +376,7 @@ const BackupPage: React.FC = () => {
         confirmLoading={drilling}
         okText={t('backup.drillRun')}
         okButtonProps={{ disabled: drillText.trim() !== t('backup.drillToken') || !drillDB.trim() }}
-        onCancel={() => { setDrillRow(null); setDrillText(''); }}
+        onCancel={() => { setDrillRow(null); setDrillText(''); setDrillPassword(''); }}
         onOk={() => void onDrill()}
       >
         <Alert type="info" showIcon style={{ marginBottom: 16 }} message={t('backup.drillWarn')} />
@@ -374,7 +386,13 @@ const BackupPage: React.FC = () => {
         <Input
           value={drillDSN}
           onChange={(e) => setDrillDSN(e.target.value)}
-          placeholder="postgres://user@host:5432/starbyte_drill"
+          placeholder="postgres://user:pass@host:5432/starbyte_drill"
+          style={{ marginBottom: 12 }}
+        />
+        <p>{t('backup.drillPasswordLabel')}</p>
+        <Input.Password
+          value={drillPassword}
+          onChange={(e) => setDrillPassword(e.target.value)}
           style={{ marginBottom: 12 }}
         />
         <p>{t('backup.drillConfirmLabel')}</p>

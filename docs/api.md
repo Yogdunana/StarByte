@@ -175,7 +175,8 @@ POST /api/v1/contracts
 - `GET /system/backups/:id` 备份详情（校验和 / 大小 / 状态）
 - `DELETE /system/backups/:id` 删除对象与记录（`backup:delete`）
 - `POST /system/backups/:id/restore` 恢复到**当前应用库**；请求体须 `confirm=true` 且 `confirmation=RESTORE`（`backup:restore`）。成功/已恢复/恢复失败（2/5/6）可发起。底层为 `pg_restore --single-transaction --clean --if-exists`。
-- `POST /system/backups/:id/restore-drill` 恢复演练到**独立 Postgres**（`confirmation=DRILL` + `target_dbname` 和/或 `target_dsn`）。不改生产库记录状态，拒绝指向当前应用库。**不是 PITR**。
+- `POST /system/backups/:id/restore-drill` 恢复演练到**独立 Postgres**（`confirmation=DRILL` + `target_dbname` 和/或 `target_dsn`）。立即返回 `{ queued: true }`，不改生产库记录状态。拒绝指向当前应用库（含 compose 主机别名 `postgres` / `starbyte-postgres`）。换主机须提供 `target_password` 或 DSN 密码，**不会**复用生产库密码。**不是 PITR**。
+- `GET /system/backups/:id/restore-drill` 轮询演练结果（`backup:restore`）。内存态，进程重启后需重做。
 - `GET /system/backups/:id/preview` 完整性检查（SHA-256 / 解密 / gzip / TOC），不执行恢复。
 - `GET|PUT /system/backups/policies` 保留天数 + 6 字段 cron（`backup:read` / `backup:manage`）；调度同步失败时接口报错，不假装成功。
 - `GET /system/backups/storage` 成功 / 已恢复 / 恢复失败备份条数与体积；`encryption_enabled` / `incremental_enabled=false` / `pitr_enabled=false`

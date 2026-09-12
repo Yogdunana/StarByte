@@ -30,6 +30,7 @@ type Service interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	Restore(ctx context.Context, userID uuid.UUID, id uuid.UUID, req *dto.RestoreRequest) (*dto.Record, error)
 	DrillRestore(ctx context.Context, userID uuid.UUID, id uuid.UUID, req *dto.DrillRequest) (*dto.DrillResult, error)
+	GetDrill(ctx context.Context, id uuid.UUID) (*dto.DrillResult, error)
 	Wait(ctx context.Context, id uuid.UUID) (*dto.Record, error)
 	GetPolicy(ctx context.Context) (*dto.Policy, error)
 	UpdatePolicy(ctx context.Context, userID uuid.UUID, req *dto.UpdatePolicyRequest) (*dto.Policy, error)
@@ -41,16 +42,18 @@ type Service interface {
 }
 
 type backupService struct {
-	rows   repo.Repository
-	store  ArtifactStore
-	engine Engine
-	live   config.DatabaseConfig
-	cfg    config.BackupConfig
-	alert  Alerter
-	now    func() time.Time
-	run    func(func(context.Context))
-	mu     sync.Mutex
-	busy   bool
+	rows    repo.Repository
+	store   ArtifactStore
+	engine  Engine
+	live    config.DatabaseConfig
+	cfg     config.BackupConfig
+	alert   Alerter
+	now     func() time.Time
+	run     func(func(context.Context))
+	mu      sync.Mutex
+	busy    bool
+	drillMu sync.Mutex
+	drills  map[uuid.UUID]dto.DrillResult
 }
 
 // New builds the production service. objectStore may be nil when local fallback is set.
@@ -68,6 +71,7 @@ func New(rows repo.Repository, objectStore storage.ObjectStorage, db config.Data
 		alert:  alert,
 		now:    time.Now,
 		run:    goRun,
+		drills: make(map[uuid.UUID]dto.DrillResult),
 	}
 }
 
@@ -408,13 +412,6 @@ func (s *backupService) DrillRestore(ctx context.Context, userID uuid.UUID, id u
 	if rec == nil {
 		return nil, errNotFound()
 	}
-	out := &dto.DrillResult{
-		ID:           rec.ID.String(),
-		Filename:     rec.Filename,
-		TargetHost:   target.Host,
-		TargetPort:   normPort(target.Port),
-		TargetDBName: target.DBName,
-	}
 	if rec.Status != model.StatusSuccess && rec.Status != model.StatusRestored && rec.Status != model.StatusRestoreFailed {
 		return nil, errNotReady("只能从成功或可重试的备份演练恢复")
 	}
@@ -428,28 +425,103 @@ func (s *backupService) DrillRestore(ctx context.Context, userID uuid.UUID, id u
 	if busy > 0 || !s.tryBegin() {
 		return nil, errBusy()
 	}
-	defer s.end()
+	queued := &dto.DrillResult{
+		ID:           rec.ID.String(),
+		Filename:     rec.Filename,
+		Queued:       true,
+		Status:       "queued",
+		TargetHost:   target.Host,
+		TargetPort:   normPort(target.Port),
+		TargetDBName: target.DBName,
+	}
+	s.storeDrill(queued)
+	recCopy := *rec
+	s.run(func(parent context.Context) {
+		defer s.end()
+		jobCtx, cancel := context.WithTimeout(parent, s.timeout())
+		defer cancel()
+		s.executeDrill(jobCtx, userID, &recCopy, target)
+	})
+	return s.GetDrill(ctx, rec.ID)
+}
 
-	dump, _, err := s.downloadUnwrapped(ctx, rec)
+func (s *backupService) executeDrill(ctx context.Context, userID uuid.UUID, rec *model.Record, target config.DatabaseConfig) {
+	out := &dto.DrillResult{
+		ID:           rec.ID.String(),
+		Filename:     rec.Filename,
+		Queued:       true,
+		Ready:        true,
+		Status:       "running",
+		TargetHost:   target.Host,
+		TargetPort:   normPort(target.Port),
+		TargetDBName: target.DBName,
+	}
+	s.storeDrill(out)
+
+	latest, err := s.rows.GetRecord(ctx, rec.ID)
+	if err != nil || latest == nil {
+		s.finishDrill(ctx, out, userID, "读取备份记录失败")
+		return
+	}
+	dump, _, err := s.downloadUnwrapped(ctx, latest)
 	if err != nil {
-		out.Error = err.Error()
-		s.alert.Failed(ctx, ptrUUID(userID), rec.Filename, "演练: "+err.Error())
-		return out, nil
+		s.finishDrill(ctx, out, userID, err.Error())
+		return
 	}
 	defer func() { _ = dump.Close() }()
-	out.Ready = true
 	if err := s.engine.RestoreTo(ctx, dump, target); err != nil {
-		out.Error = err.Error()
-		s.alert.Failed(ctx, ptrUUID(userID), rec.Filename, "演练: "+err.Error())
-		return out, nil
+		s.finishDrill(ctx, out, userID, err.Error())
+		return
 	}
+	out.Queued = false
 	out.Restored = true
+	out.Status = "restored"
+	s.storeDrill(out)
 	logger.Info("backup drill restore finished",
 		zap.String("id", rec.ID.String()),
 		zap.String("target_db", target.DBName),
 		zap.String("target_host", target.Host),
 	)
-	return out, nil
+}
+
+func (s *backupService) finishDrill(ctx context.Context, out *dto.DrillResult, userID uuid.UUID, msg string) {
+	out.Queued = false
+	out.Ready = false
+	out.Restored = false
+	out.Status = "failed"
+	out.Error = msg
+	s.storeDrill(out)
+	alertCtx, cancel := alertContext(ctx)
+	defer cancel()
+	s.alert.Failed(alertCtx, ptrUUID(userID), out.Filename, "演练: "+msg)
+}
+
+func (s *backupService) storeDrill(out *dto.DrillResult) {
+	if out == nil {
+		return
+	}
+	id, err := uuid.Parse(out.ID)
+	if err != nil {
+		return
+	}
+	cp := *out
+	s.drillMu.Lock()
+	if s.drills == nil {
+		s.drills = make(map[uuid.UUID]dto.DrillResult)
+	}
+	s.drills[id] = cp
+	s.drillMu.Unlock()
+}
+
+func (s *backupService) GetDrill(_ context.Context, id uuid.UUID) (*dto.DrillResult, error) {
+	s.drillMu.Lock()
+	defer s.drillMu.Unlock()
+	got, ok := s.drills[id]
+	if !ok {
+		return nil, errNotFound()
+	}
+	cp := got
+	return &cp, nil
 }
 
 func (s *backupService) Wait(ctx context.Context, id uuid.UUID) (*dto.Record, error) {

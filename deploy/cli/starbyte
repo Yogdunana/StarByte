@@ -367,7 +367,7 @@ starbyte backup create
 starbyte backup list
 starbyte backup preview <id>
 starbyte backup restore <id> --confirm RESTORE
-starbyte backup drill <id> --dbname <独立库> [--dsn DSN] --confirm DRILL
+starbyte backup drill <id> --dbname <独立库> [--dsn DSN] [--password 跨主机密码] --confirm DRILL
 starbyte backup emergency          # 主机明文 pg_dump（不加密、无预览）
 EOF
       return 0

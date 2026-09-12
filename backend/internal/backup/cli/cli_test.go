@@ -14,14 +14,15 @@ import (
 )
 
 type stub struct {
-	created  *dto.Record
-	preview  *dto.Preview
-	drill    *dto.DrillResult
-	waited   *dto.Record
-	list     []dto.Record
-	err      error
-	lastReq  *dto.DrillRequest
-	lastConf string
+	created   *dto.Record
+	preview   *dto.Preview
+	drill     *dto.DrillResult
+	waited    *dto.Record
+	list      []dto.Record
+	err       error
+	lastReq   *dto.DrillRequest
+	lastConf  string
+	drillPoll *dto.DrillResult
 }
 
 func (s *stub) List(context.Context, *dto.ListRequest) ([]dto.Record, int64, error) {
@@ -40,6 +41,12 @@ func (s *stub) Restore(_ context.Context, _ uuid.UUID, _ uuid.UUID, req *dto.Res
 }
 func (s *stub) DrillRestore(_ context.Context, _ uuid.UUID, _ uuid.UUID, req *dto.DrillRequest) (*dto.DrillResult, error) {
 	s.lastReq = req
+	return s.drill, s.err
+}
+func (s *stub) GetDrill(context.Context, uuid.UUID) (*dto.DrillResult, error) {
+	if s.drillPoll != nil {
+		return s.drillPoll, s.err
+	}
 	return s.drill, s.err
 }
 func (s *stub) Wait(context.Context, uuid.UUID) (*dto.Record, error) { return s.waited, s.err }
@@ -86,4 +93,23 @@ func TestExecuteCreatePreviewDrill(t *testing.T) {
 	assert.Equal(t, "DRILL", svc.lastReq.Confirmation)
 	assert.Equal(t, "starbyte_drill", svc.lastReq.TargetDBName)
 	assert.True(t, strings.Contains(out.String(), "restored=true"))
+}
+
+func TestExecuteDrillPollsQueued(t *testing.T) {
+	id := uuid.New()
+	svc := &stub{
+		drill: &dto.DrillResult{
+			ID: id.String(), Queued: true, Status: "queued",
+			TargetHost: "postgres", TargetDBName: "starbyte_drill",
+		},
+		drillPoll: &dto.DrillResult{
+			ID: id.String(), Restored: true, Status: "restored",
+			TargetHost: "postgres", TargetDBName: "starbyte_drill",
+		},
+	}
+	var out, errb bytes.Buffer
+	code := Execute(context.Background(), svc, []string{"drill", id.String(), "--dbname", "starbyte_drill", "--confirm", "DRILL"}, &out, &errb)
+	require.Equal(t, 0, code)
+	assert.Contains(t, out.String(), "queued")
+	assert.Contains(t, out.String(), "restored=true")
 }
