@@ -18,8 +18,6 @@ import {
 import type { Announcement, AnnouncementAttachment, AnnouncementReadStatus } from '@/api/announcement';
 import { getFileDetail } from '@/api/file';
 import { formatDateTime } from '@/utils/format';
-import { downloadFile } from '@/utils/download';
-import { getToken } from '@/utils/storage';
 import { announcementStatusMap, sanitizeAnnouncementHTML } from './meta';
 import './announcement.css';
 
@@ -77,14 +75,13 @@ const DetailPage: React.FC = () => {
 
   const handleDownload = async (file: AnnouncementAttachment) => {
     try {
+      // 鉴权取预签名地址后走顶层导航，避免 fetch blob 撞对象存储 CORS。
       const detail = await getFileDetail(file.file_id);
-      const name = file.name || detail.original_name || detail.name;
-      if (detail.url) {
-        const sameOrigin = detail.url.startsWith('/') || detail.url.startsWith(window.location.origin);
-        await downloadFile(detail.url, name, sameOrigin ? getToken() : undefined);
+      if (!detail.url) {
+        message.error(t('announcement.downloadFailed'));
         return;
       }
-      await downloadFile(`/api/v1/files/${file.file_id}/download`, name, getToken());
+      window.open(detail.url, '_blank', 'noopener,noreferrer');
     } catch {
       message.error(t('announcement.downloadFailed'));
     }
