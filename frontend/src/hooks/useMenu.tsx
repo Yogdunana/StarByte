@@ -21,6 +21,7 @@ import {
   DollarOutlined,
   AlertOutlined,
   FileProtectOutlined,
+  NotificationOutlined,
 } from '@ant-design/icons';
 
 import routes, { AppRouteObject, RouteMeta } from '@/router/routes';
@@ -66,6 +67,7 @@ const iconMap: Record<string, React.FC> = {
   DollarOutlined,
   AlertOutlined,
   FileProtectOutlined,
+  NotificationOutlined,
 };
 
 function hasMenuPermission(permissions: string[], meta?: RouteMeta): boolean {
@@ -187,7 +189,7 @@ export function useMenu(): UseMenuResult {
     const sections = [
       { title: '我的工作', keys: ['/dashboard', '/notification'] },
       { title: '成员与招新', keys: ['/member', '/interview', '/discipline'] },
-      { title: '协作与活动', keys: ['/task', '/meeting', '/internship'] },
+      { title: '协作与活动', keys: ['/task', '/meeting', '/internship', '/announcement'] },
       { title: '资源与财务', keys: ['/files', '/finance', '/contract', '/stats'] },
       { title: '组织与系统', keys: ['/user', '/workflow', '/forms', '/system'] },
     ];

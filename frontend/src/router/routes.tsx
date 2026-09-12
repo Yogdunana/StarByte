@@ -64,6 +64,8 @@ const FinancePage = lazy(() => import('@/pages/finance/FinancePage'));
 const DisciplinePage = lazy(() => import('@/pages/discipline/DisciplinePage'));
 const ContractPage = lazy(() => import('@/pages/contract/ContractPage'));
 const SchedulePage = lazy(() => import('@/pages/schedule/CalendarPage'));
+const AnnouncementListPage = lazy(() => import('@/pages/announcement/ListPage'));
+const AnnouncementDetailPage = lazy(() => import('@/pages/announcement/DetailPage'));
 const Forbidden = lazy(() => import('@/pages/error/Forbidden'));
 const NotFound = lazy(() => import('@/pages/error/NotFound'));
 
@@ -290,6 +292,22 @@ const routes: AppRouteObject[] = [
         path: 'schedule',
         element: lazyGuarded(SchedulePage, 'schedule:read'),
         meta: { title: '日程日历', icon: 'CarryOutOutlined', permission: 'schedule:read' },
+      },
+      {
+        path: 'announcement',
+        meta: { title: '公告中心', icon: 'NotificationOutlined' },
+        children: [
+          {
+            path: 'list',
+            element: lazyGuarded(AnnouncementListPage, 'announcement:read'),
+            meta: { title: '公告列表', permission: 'announcement:read' },
+          },
+          {
+            path: ':id',
+            element: lazyGuarded(AnnouncementDetailPage, 'announcement:read'),
+            meta: { title: '公告详情', permission: 'announcement:read', hidden: true },
+          },
+        ],
       },
       {
         path: 'task',

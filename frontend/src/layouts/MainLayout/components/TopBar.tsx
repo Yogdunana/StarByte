@@ -22,6 +22,7 @@ import { logout as logoutApi } from '@/api/auth';
 import { removeToken } from '@/utils/storage';
 import { useNotificationWebSocket } from '@/hooks/useNotificationWebSocket';
 import NotificationBell from '@/components/NotificationBell';
+import AnnouncementBadge from '@/components/AnnouncementBadge';
 import { useThemeLang } from '@/theme/ThemeLangContext';
 import type { AppDispatch } from '@/store';
 import styles from './TopBar.module.css';
@@ -97,6 +98,7 @@ const TopBar: React.FC<TopBarProps> = ({ mobile, onOpenMenu }) => {
         <Dropdown trigger={['click']} menu={{ items: langItems, selectedKeys: [lang] }} placement="bottomRight">
           <Button type="text" className={styles.language} aria-label={t('topbar.language')} icon={<GlobalOutlined />} />
         </Dropdown>
+        <AnnouncementBadge />
         <NotificationBell />
         <Dropdown trigger={['click']} menu={{ items: userMenuItems }} placement="bottomRight">
           <button type="button" className={styles.account} aria-label="账号菜单">

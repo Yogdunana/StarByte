@@ -39,7 +39,7 @@ func TestSeedTemplates_AtLeastFive(t *testing.T) {
 	for _, tpl := range seedTemplatesData {
 		codes[tpl.Code] = true
 	}
-	for _, need := range []string{"member_approved", "interview_invite", "meeting_notice", "discipline_notice", "task_assigned", "activity_registered", "activity_waitlist", "schedule_reminder"} {
+	for _, need := range []string{"member_approved", "interview_invite", "meeting_notice", "discipline_notice", "task_assigned", "activity_registered", "activity_waitlist", "schedule_reminder", "announcement_published"} {
 		assert.True(t, codes[need], "missing template %s", need)
 	}
 }
@@ -230,6 +230,8 @@ func TestAllSeedPermissions_IncludesOpsModules(t *testing.T) {
 		"discipline:read", "discipline:create", "discipline:approve", "discipline:revoke",
 		"contract:read", "contract:create", "contract:manage",
 		"activity:read", "activity:create", "activity:update", "activity:delete", "activity:manage",
+		"announcement:read", "announcement:create", "announcement:update", "announcement:delete",
+		"announcement:publish", "announcement:manage",
 	} {
 		assert.True(t, seen[need], "missing permission %s", need)
 	}
@@ -244,6 +246,8 @@ func TestOfficerAndMemberPerms_NonEmpty(t *testing.T) {
 	assert.Contains(t, officerPermCodes(), "discipline:read")
 	assert.Contains(t, memberPermCodes(), "activity:read")
 	assert.Contains(t, officerPermCodes(), "activity:read")
+	assert.Contains(t, memberPermCodes(), "announcement:read")
+	assert.Contains(t, officerPermCodes(), "announcement:read")
 }
 
 func TestSeedMemberProfiles_StudentNos(t *testing.T) {

@@ -1,5 +1,5 @@
 import { Alert, Button, Card, Empty, Skeleton, Tag } from 'antd';
-import { ArrowRightOutlined, CalendarOutlined, CheckOutlined, FileTextOutlined, FolderOutlined, ReloadOutlined, ScheduleOutlined, TeamOutlined } from '@ant-design/icons';
+import { ArrowRightOutlined, CalendarOutlined, CheckOutlined, FileTextOutlined, FolderOutlined, NotificationOutlined, ReloadOutlined, ScheduleOutlined, TeamOutlined } from '@ant-design/icons';
 import { useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import GlassOrb from '@/components/GlassOrb/GlassOrb';
@@ -76,6 +76,7 @@ export default function Dashboard() {
             <Link to="/member/application"><FileTextOutlined /><span>入会申请</span><ArrowRightOutlined /></Link>
             <Link to="/interview/my"><ScheduleOutlined /><span>我的面试</span><ArrowRightOutlined /></Link>
             <Link to="/internship/my"><TeamOutlined /><span>我的实习</span><ArrowRightOutlined /></Link>
+            <Link to="/announcement/list"><NotificationOutlined /><span>公告中心</span><ArrowRightOutlined /></Link>
             {canReadTasks && <Link to="/task/board"><CheckOutlined /><span>任务看板</span><ArrowRightOutlined /></Link>}
             {canReadFiles && <Link to="/files"><FolderOutlined /><span>文件资料</span><ArrowRightOutlined /></Link>}
           </div>
