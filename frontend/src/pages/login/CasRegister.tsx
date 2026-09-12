@@ -39,7 +39,7 @@ const CasRegister: React.FC = () => {
       <div className={styles.container}>
         <div className={styles.right} style={{ gridColumn: '1 / -1' }}>
           <Card className={styles.card}>
-            <p className={styles.formKicker}>CAMPUS BIND</p>
+            <p className={styles.formKicker}>{t('login.casBindKicker')}</p>
             <h2>{t('login.casBind')}</h2>
             <p className={styles.formHint}>{t('login.casBindNeedAuth')}</p>
             <Button type="primary" block onClick={() => navigate('/login', { replace: true })}>
@@ -83,7 +83,7 @@ const CasRegister: React.FC = () => {
     <div className={styles.container}>
       <div className={styles.right} style={{ gridColumn: '1 / -1' }}>
         <Card className={styles.card}>
-          <p className={styles.formKicker}>CAMPUS BIND</p>
+          <p className={styles.formKicker}>{t('login.casBindKicker')}</p>
           <h2>{t('login.casBind')}</h2>
           <p className={styles.formHint}>{t('login.casBindHint')}</p>
           <Form

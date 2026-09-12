@@ -29,11 +29,11 @@ export function useWorkspace(canReadStats: boolean) {
     ]);
     if (current !== sequence.current) return;
     const failed: string[] = [];
-    if (tasks.status === 'rejected') failed.push('我的任务');
-    if (interviews.status === 'rejected') failed.push('面试安排');
-    if (applications.status === 'rejected') failed.push('申请进度');
-    if (overview.status === 'rejected') failed.push('协会概览');
-    if (approvals.status === 'rejected') failed.push('审批待办');
+    if (tasks.status === 'rejected') failed.push('tasks');
+    if (interviews.status === 'rejected') failed.push('interviews');
+    if (applications.status === 'rejected') failed.push('applications');
+    if (overview.status === 'rejected') failed.push('overview');
+    if (approvals.status === 'rejected') failed.push('approvals');
     setState({
       approvals: approvals.status === 'fulfilled' ? approvals.value.list.slice(0, 3) : [],
       approvalTotal: approvals.status === 'fulfilled' ? approvals.value.total : null,

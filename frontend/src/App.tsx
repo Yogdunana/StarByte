@@ -9,6 +9,7 @@ import routes from './router/routes';
 import lightTheme, { darkComponents, darkTokens } from './styles/theme';
 import { ErrorBoundary } from './components';
 import { ThemeLangProvider, useThemeLang } from './theme/ThemeLangContext';
+import MotionRoot from './motion/MotionRoot';
 
 const ThemedApp: React.FC = () => {
   const element = useRoutes(routes);
@@ -36,7 +37,9 @@ const ThemedApp: React.FC = () => {
 
 const App: React.FC = () => (
   <ThemeLangProvider>
-    <ThemedApp />
+    <MotionRoot>
+      <ThemedApp />
+    </MotionRoot>
   </ThemeLangProvider>
 );
 

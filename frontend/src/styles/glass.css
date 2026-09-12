@@ -1,31 +1,45 @@
-/* Glass belongs to navigation and panel surfaces; data and input surfaces stay opaque. */
+/* Surfaces stay matte. Tokens keep the old --sb-glass aliases so list pages
+   that still reference them pick up the new palette without a rewrite. */
 .ant-card { box-shadow: var(--sb-shadow); }
 .ant-modal .ant-modal-content, .ant-drawer .ant-drawer-content {
-  background: var(--sb-surface); border: 1px solid var(--sb-glass-border);
+  background: var(--sb-surface);
+  border: 1px solid var(--sb-border);
   box-shadow: var(--sb-shadow-raised);
 }
-.ant-modal .ant-modal-content { border-radius: var(--sb-radius); }
+.ant-modal .ant-modal-content { border-radius: var(--sb-radius-lg); }
 .ant-modal .ant-modal-header, .ant-drawer .ant-drawer-header { background: transparent; }
 .ant-drawer .ant-drawer-header { padding: 22px 24px; }
 .ant-modal .ant-modal-close, .ant-drawer .ant-drawer-close { min-width: 44px; min-height: 44px; }
-.ant-table-wrapper { padding: 6px; border: 1px solid var(--sb-glass-border); border-radius: var(--sb-radius); background: var(--sb-surface); box-shadow: var(--sb-shadow); }
+.ant-table-wrapper {
+  padding: 6px;
+  border: 1px solid var(--sb-border);
+  border-radius: var(--sb-radius);
+  background: var(--sb-surface);
+  box-shadow: var(--sb-shadow);
+}
 .ant-table-wrapper .ant-table { background: var(--sb-surface); }
-.ant-table-wrapper .ant-table-container { border-radius: 15px; }
+.ant-table-wrapper .ant-table-container { border-radius: var(--sb-radius-sm); }
 .ant-table-wrapper .ant-table-cell { overflow-wrap: anywhere; }
 .ant-table-wrapper .ant-table-pagination { padding: 0 12px; }
 .ant-card .ant-table-wrapper { padding: 0; border: 0; box-shadow: none; }
-.ant-input-affix-wrapper, .ant-input, .ant-select-selector, .ant-picker { transition: border-color var(--sb-motion), box-shadow var(--sb-motion); }
-.ant-form-item-label > label { font-weight: 500; }
+.ant-input-affix-wrapper, .ant-input, .ant-select-selector, .ant-picker {
+  transition: border-color var(--sb-motion), box-shadow var(--sb-motion);
+}
+.ant-form-item-label > label { font-weight: var(--sb-weight-meta); }
 .ant-tabs-top > .ant-tabs-nav::before { border-bottom-color: var(--sb-border); }
 .ant-tabs .ant-tabs-tab { min-height: 44px; }
-.ant-tag { border-radius: 6px; }
-.ant-descriptions-bordered .ant-descriptions-view { border-radius: 12px; }
-.ant-dropdown .ant-dropdown-menu, .ant-select-dropdown { border: 1px solid var(--sb-glass-border); padding: 6px; box-shadow: var(--sb-shadow-raised); }
-html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-motion='reduced'] *::after {
-  animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important;
+.ant-tag { border-radius: var(--sb-radius-sm); }
+.ant-descriptions-bordered .ant-descriptions-view { border-radius: var(--sb-radius); }
+.ant-dropdown .ant-dropdown-menu, .ant-select-dropdown {
+  border: 1px solid var(--sb-border);
+  padding: 6px;
+  box-shadow: var(--sb-shadow-raised);
 }
-@supports not (backdrop-filter: blur(12px)) {
-  :root { --sb-glass: #f7faff; } html[data-theme='dark'] { --sb-glass: #202c40; }
+html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-motion='reduced'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }
 @media (max-width: 767px) {
   .ant-btn:not(.ant-btn-icon-only), .ant-btn-icon-only { min-height: 44px; }
@@ -35,7 +49,4 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
   .ant-input-affix-wrapper input.ant-input { min-height: 0; }
   .ant-table-wrapper { overflow-x: auto; max-width: 100%; }
   .ant-modal .ant-modal-body, .ant-drawer .ant-drawer-body { overflow-wrap: anywhere; }
-}
-@media (prefers-reduced-transparency: reduce) {
-  :root { --sb-glass: #f7faff; } html[data-theme='dark'] { --sb-glass: #202c40; }
 }

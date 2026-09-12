@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Spin } from 'antd';
 import { useDispatch, useSelector } from 'react-redux';
+import { useTranslation } from 'react-i18next';
 
 import { getToken } from '@/utils/storage';
 import { logout as logoutAction } from '@/store/slices/authSlice';
@@ -11,19 +12,24 @@ import type { AppDispatch } from '@/store';
 /**
  * 全屏加载占位
  */
-const LoadingScreen: React.FC = () => (
-  <div style={{
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: '100vh',
-    flexDirection: 'column',
-    gap: 16,
-  }}>
-    <Spin size="large" />
-    <span style={{ color: '#999', fontSize: 14 }}>正在加载用户信息...</span>
-  </div>
-);
+const LoadingScreen: React.FC = () => {
+  const { t } = useTranslation();
+  return (
+    <div style={{
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      height: '100vh',
+      flexDirection: 'column',
+      gap: 16,
+      background: 'var(--sb-bg)',
+      color: 'var(--sb-muted)',
+    }}>
+      <Spin size="large" />
+      <span style={{ fontSize: 14 }}>{t('common.loadingUser')}</span>
+    </div>
+  );
+};
 
 export interface AuthRouteProps {
   children: React.ReactNode;

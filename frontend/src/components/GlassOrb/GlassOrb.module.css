@@ -1,7 +1,0 @@
-.art { position: relative; width: 240px; height: 210px; display: grid; place-items: center; pointer-events: none; isolation: isolate; }
-.orb { width: 132px; height: 132px; border-radius: 50%; background: radial-gradient(circle at 28% 20%, var(--sb-orb-start), var(--sb-orb-end) 85%); box-shadow: inset 2px 3px 9px #ffffff9c, 18px 24px 44px #4a668926; animation: arrive 700ms var(--sb-ease) both; }
-.ring, .ringTwo { width: 214px; height: 108px; border: 1px solid var(--sb-glass-border); border-radius: 50%; position: absolute; transform: rotate(-28deg); box-shadow: 0 1px 0 #7187ad33; }
-.ringTwo { width: 178px; height: 198px; transform: rotate(32deg); border-color: var(--sb-border); }
-.spark { position: absolute; width: 18px; height: 18px; top: 28px; right: 34px; border-radius: 50%; background: var(--sb-surface); box-shadow: 0 4px 10px #4a66891c; }
-.caption { position: absolute; font-size: 12px; font-weight: 600; line-height: 1.65; letter-spacing: 2px; color: var(--sb-text); text-align: center; }
-@keyframes arrive { from { opacity: 0; transform: translateY(10px) scale(.95); } to { opacity: 1; transform: none; } }

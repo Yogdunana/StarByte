@@ -1,0 +1,80 @@
+/* StarByte design tokens — neutrals-first, ThreeUI-inspired (mono / muted).
+   Not a Three.js port. Light and dark share the same scale. */
+:root {
+  --sb-space-1: 4px;
+  --sb-space-2: 8px;
+  --sb-space-3: 12px;
+  --sb-space-4: 16px;
+  --sb-space-5: 24px;
+  --sb-space-6: 32px;
+  --sb-space-7: 48px;
+
+  --sb-radius-sm: 6px;
+  --sb-radius: 10px;
+  --sb-radius-lg: 14px;
+
+  --sb-weight-title: 600;
+  --sb-weight-body: 400;
+  --sb-weight-meta: 500;
+
+  --sb-font-title: 600 28px/1.25 "Avenir Next", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  --sb-font-body: 400 14px/1.6 "Avenir Next", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  --sb-font-meta: 500 11px/1.5 "Avenir Next", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+
+  --sb-track-tight: -0.03em;
+  --sb-track-meta: 0.14em;
+
+  --sb-motion: 180ms;
+  --sb-ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+
+  --sb-bg: #f3f2ee;
+  --sb-bg-accent: #ebe9e4;
+  --sb-surface: #fafaf7;
+  --sb-text: #1c1b18;
+  --sb-muted: #6b6860;
+  --sb-panel: #eeebe5;
+  --sb-canvas: #f3f2ee;
+  --sb-border: #ddd9d1;
+  --sb-brand: #2f3530;
+  --sb-brand-soft: #e4e7e2;
+  --sb-warm: #8a6d3b;
+  --sb-warm-soft: #f3ead8;
+  --sb-glass: #fafaf7;
+  --sb-glass-border: #ddd9d1;
+  --sb-shadow: 0 1px 0 rgba(28, 27, 24, 0.06);
+  --sb-shadow-raised: 0 8px 24px rgba(28, 27, 24, 0.06);
+  --sb-orb-start: #f4f1ea;
+  --sb-orb-end: #c8c4ba;
+  --sb-ambient: #f3f2ee;
+  --sb-scrollbar-track: transparent;
+  --sb-scrollbar-thumb: #c8c3b8;
+  --sb-scrollbar-thumb-hover: #9e998e;
+  --sb-link: #2f3530;
+  --sb-link-hover: #1c1b18;
+}
+
+html[data-theme='dark'] {
+  --sb-bg: #121211;
+  --sb-bg-accent: #181817;
+  --sb-surface: #1c1c1a;
+  --sb-text: #eceae4;
+  --sb-muted: #a8a49a;
+  --sb-panel: #222220;
+  --sb-canvas: #161615;
+  --sb-border: #33322e;
+  --sb-brand: #d4d0c8;
+  --sb-brand-soft: #2a2a26;
+  --sb-warm: #d4b27a;
+  --sb-warm-soft: #2c261c;
+  --sb-glass: #1c1c1a;
+  --sb-glass-border: #33322e;
+  --sb-shadow: 0 1px 0 rgba(0, 0, 0, 0.28);
+  --sb-shadow-raised: 0 10px 28px rgba(0, 0, 0, 0.32);
+  --sb-orb-start: #3a3934;
+  --sb-orb-end: #1f1e1b;
+  --sb-ambient: #121211;
+  --sb-scrollbar-thumb: #4a4842;
+  --sb-scrollbar-thumb-hover: #6b6860;
+  --sb-link: #d4d0c8;
+  --sb-link-hover: #eceae4;
+}

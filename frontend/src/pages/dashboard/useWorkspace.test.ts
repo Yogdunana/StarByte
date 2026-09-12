@@ -36,7 +36,7 @@ describe('workspace data', () => {
     const { result } = renderHook(() => useWorkspace(false));
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.taskTotal).toBeNull();
-    expect(result.current.failed).toEqual(['我的任务']);
+    expect(result.current.failed).toEqual(['tasks']);
     await act(async () => { await result.current.reload(); });
     expect(result.current.taskTotal).toBe(0);
     expect(result.current.failed).toEqual([]);
@@ -46,7 +46,7 @@ describe('workspace data', () => {
     const { result } = renderHook(() => useWorkspace(false));
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.approvalTotal).toBeNull();
-    expect(result.current.failed).toEqual(['审批待办']);
+    expect(result.current.failed).toEqual(['approvals']);
     await act(async () => { await result.current.reload(); });
     expect(result.current.approvalTotal).toBe(0);
     expect(result.current.failed).toEqual([]);
