@@ -5,7 +5,6 @@ import (
 	_ "embed"
 	"fmt"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/Yogdunana/StarByte/backend/internal/export/dto"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
@@ -150,15 +149,6 @@ func fitPDFText(pdf *gofpdf.Fpdf, text string, width float64) string {
 		}
 	}
 	return ""
-}
-
-func clipPDF(s string, max int) string {
-	s = strings.ReplaceAll(s, "\n", " ")
-	if utf8.RuneCountInString(s) <= max {
-		return s
-	}
-	runes := []rune(s)
-	return string(runes[:max-1]) + "…"
 }
 
 func outputPDF(pdf *gofpdf.Fpdf) ([]byte, error) {
