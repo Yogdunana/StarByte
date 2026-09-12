@@ -2,12 +2,14 @@ package service
 
 import (
 	"context"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/knowledge/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/knowledge/model"
+	"github.com/Yogdunana/StarByte/backend/internal/knowledge/repo"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -185,15 +187,16 @@ func (m *memRepo) GetDocNamedBySlug(ctx context.Context, kind, slug string) (*mo
 	return &row, nil
 }
 
-func (m *memRepo) ListDocs(_ context.Context, req *dto.ListDocRequest) ([]model.DocNamed, int64, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+func (m *memRepo) collectDocs(req *dto.ListDocRequest, scope repo.ReadableScope) []model.DocNamed {
 	if req == nil {
 		req = &dto.ListDocRequest{}
 	}
 	var all []model.DocNamed
 	for _, d := range m.docs {
 		if d.DeletedAt.Valid {
+			continue
+		}
+		if !repo.Visible(d, scope) {
 			continue
 		}
 		if req.Kind != "" && d.Kind != req.Kind {
@@ -216,65 +219,54 @@ func (m *memRepo) ListDocs(_ context.Context, req *dto.ListDocRequest) ([]model.
 		}
 		all = append(all, m.named(d))
 	}
+	sort.Slice(all, func(i, j int) bool {
+		if all[i].UpdatedAt.Equal(all[j].UpdatedAt) {
+			return all[i].Title < all[j].Title
+		}
+		return all[i].UpdatedAt.After(all[j].UpdatedAt)
+	})
+	return all
+}
+
+func pageDocs(all []model.DocNamed, page, pageSize int) ([]model.DocNamed, int64) {
 	total := int64(len(all))
-	page, pageSize := req.Page, req.PageSize
 	if page <= 0 {
 		page = 1
 	}
-	if pageSize <= 0 {
+	if pageSize < 0 {
+		return all, total
+	}
+	if pageSize == 0 {
 		pageSize = 20
 	}
 	start := (page - 1) * pageSize
 	if start >= len(all) {
-		return nil, total, nil
+		return nil, total
 	}
 	end := start + pageSize
 	if end > len(all) {
 		end = len(all)
 	}
-	return all[start:end], total, nil
+	return all[start:end], total
 }
 
-func (m *memRepo) SearchDocs(ctx context.Context, query, kind string, page, pageSize int, onlyPublic bool, allowDraftAuthor *uuid.UUID, staff bool) ([]model.DocNamed, int64, error) {
-	statusFilter := (*int16)(nil)
-	vis := ""
-	if onlyPublic {
-		pub := model.StatusPublished
-		statusFilter = &pub
-		vis = model.VisibilityPublic
+func (m *memRepo) ListDocs(_ context.Context, req *dto.ListDocRequest, scope repo.ReadableScope) ([]model.DocNamed, int64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if req == nil {
+		req = &dto.ListDocRequest{}
 	}
-	rows, _, err := m.ListDocs(ctx, &dto.ListDocRequest{
-		Page: 1, PageSize: 500, Kind: kind, Status: statusFilter, Visibility: vis, Keyword: query,
-	})
-	if err != nil {
-		return nil, 0, err
-	}
-	var filtered []model.DocNamed
-	for _, row := range rows {
-		if onlyPublic {
-			filtered = append(filtered, row)
-			continue
-		}
-		if staff || row.Status == model.StatusPublished || (allowDraftAuthor != nil && row.AuthorID == *allowDraftAuthor) {
-			filtered = append(filtered, row)
-		}
-	}
-	total := int64(len(filtered))
-	if page <= 0 {
-		page = 1
-	}
-	if pageSize <= 0 {
-		pageSize = 20
-	}
-	start := (page - 1) * pageSize
-	if start >= len(filtered) {
-		return nil, total, nil
-	}
-	end := start + pageSize
-	if end > len(filtered) {
-		end = len(filtered)
-	}
-	return filtered[start:end], total, nil
+	all := m.collectDocs(req, scope)
+	rows, total := pageDocs(all, req.Page, req.PageSize)
+	return rows, total, nil
+}
+
+func (m *memRepo) SearchDocs(_ context.Context, query, kind string, page, pageSize int, scope repo.ReadableScope) ([]model.DocNamed, int64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	all := m.collectDocs(&dto.ListDocRequest{Kind: kind, Keyword: query}, scope)
+	rows, total := pageDocs(all, page, pageSize)
+	return rows, total, nil
 }
 
 func (m *memRepo) SlugTaken(_ context.Context, kind, slug string, except *uuid.UUID) (bool, error) {

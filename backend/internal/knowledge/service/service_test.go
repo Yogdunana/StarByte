@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/knowledge/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/knowledge/model"
@@ -528,5 +529,70 @@ func TestAuthorCanDeleteOwn(t *testing.T) {
 	v := Viewer{UserID: author}
 	if err := svc.Delete(context.Background(), v, uuid.MustParse(created.ID)); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestUpdateKindChecksSlugUniqueness(t *testing.T) {
+	svc, mem := newTestSvc()
+	author := uuid.New()
+	mem.addUser(author, "a")
+	page := mustCreate(t, svc, author, model.KindPage, "same-slug", "独立页")
+	mustCreate(t, svc, author, model.KindDoc, "same-slug", "文档")
+	kind := model.KindDoc
+	_, err := svc.Update(context.Background(), editor(author), uuid.MustParse(page.ID), &dto.UpdateDocRequest{Kind: &kind})
+	if codeOf(err) != response.CodeKnowledgeConflict {
+		t.Fatalf("kind-only collision code=%d err=%v", codeOf(err), err)
+	}
+	kindPage := model.KindPage
+	if _, err := svc.Update(context.Background(), editor(author), uuid.MustParse(page.ID), &dto.UpdateDocRequest{Kind: &kindPage}); err != nil {
+		t.Fatalf("same kind should be a no-op: %v", err)
+	}
+}
+
+func TestListSearchTreePaginateKeepsPublic(t *testing.T) {
+	svc, mem := newTestSvc()
+	author := uuid.New()
+	mem.addUser(author, "a")
+	base := time.Date(2026, 9, 12, 8, 0, 0, 0, time.UTC)
+	svc.now = func() time.Time { return base }
+	public := mustCreate(t, svc, author, model.KindDoc, "charter-pub", "公开章程")
+	if _, err := svc.Publish(context.Background(), editor(author), uuid.MustParse(public.ID)); err != nil {
+		t.Fatal(err)
+	}
+	for i, slug := range []string{"draft-a", "draft-b", "draft-c"} {
+		n := i + 1
+		svc.now = func() time.Time { return base.Add(time.Duration(n) * time.Hour) }
+		mustCreate(t, svc, author, model.KindDoc, slug, "草稿"+slug)
+	}
+
+	list, total, err := svc.List(context.Background(), anon(), &dto.ListDocRequest{Page: 1, PageSize: 2})
+	if err != nil || total != 1 || len(list) != 1 || list[0].Slug != "charter-pub" {
+		t.Fatalf("list total=%d n=%d err=%v list=%+v", total, len(list), err, list)
+	}
+	found, searchTotal, err := svc.Search(context.Background(), anon(), &dto.SearchRequest{Query: "草稿", Page: 1, PageSize: 2})
+	if err != nil || searchTotal != 0 || len(found) != 0 {
+		t.Fatalf("anon search drafts total=%d n=%d err=%v", searchTotal, len(found), err)
+	}
+	hit, hitTotal, err := svc.Search(context.Background(), anon(), &dto.SearchRequest{Query: "章程", Page: 1, PageSize: 1})
+	if err != nil || hitTotal != 1 || len(hit) != 1 || hit[0].Slug != "charter-pub" {
+		t.Fatalf("search public total=%d n=%d err=%v", hitTotal, len(hit), err)
+	}
+	tree, err := svc.Tree(context.Background(), anon())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var saw bool
+	var walk func(nodes []*dto.TreeNode)
+	walk = func(nodes []*dto.TreeNode) {
+		for _, n := range nodes {
+			if n.Slug == "charter-pub" {
+				saw = true
+			}
+			walk(n.Children)
+		}
+	}
+	walk(tree)
+	if !saw {
+		t.Fatalf("public doc missing from tree: %+v", tree)
 	}
 }

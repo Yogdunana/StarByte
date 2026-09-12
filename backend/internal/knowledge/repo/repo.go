@@ -27,8 +27,8 @@ type Repository interface {
 	GetDocBySlug(ctx context.Context, kind, slug string) (*model.Doc, error)
 	GetDocNamed(ctx context.Context, id uuid.UUID) (*model.DocNamed, error)
 	GetDocNamedBySlug(ctx context.Context, kind, slug string) (*model.DocNamed, error)
-	ListDocs(ctx context.Context, req *dto.ListDocRequest) ([]model.DocNamed, int64, error)
-	SearchDocs(ctx context.Context, query, kind string, page, pageSize int, onlyPublic bool, allowDraftAuthor *uuid.UUID, staff bool) ([]model.DocNamed, int64, error)
+	ListDocs(ctx context.Context, req *dto.ListDocRequest, scope ReadableScope) ([]model.DocNamed, int64, error)
+	SearchDocs(ctx context.Context, query, kind string, page, pageSize int, scope ReadableScope) ([]model.DocNamed, int64, error)
 	SlugTaken(ctx context.Context, kind, slug string, except *uuid.UUID) (bool, error)
 
 	CreateVersion(ctx context.Context, v *model.DocVersion) error
@@ -152,11 +152,11 @@ func (r *repository) GetDocNamedBySlug(ctx context.Context, kind, slug string) (
 	return &row, err
 }
 
-func (r *repository) ListDocs(ctx context.Context, req *dto.ListDocRequest) ([]model.DocNamed, int64, error) {
+func (r *repository) ListDocs(ctx context.Context, req *dto.ListDocRequest, scope ReadableScope) ([]model.DocNamed, int64, error) {
 	if req == nil {
 		req = &dto.ListDocRequest{}
 	}
-	q := r.namedQuery(ctx)
+	q := applyReadable(r.namedQuery(ctx), scope)
 	if req.Kind != "" {
 		q = q.Where("d.kind = ?", req.Kind)
 	}
@@ -181,27 +181,23 @@ func (r *repository) ListDocs(ctx context.Context, req *dto.ListDocRequest) ([]m
 	if page <= 0 {
 		page = 1
 	}
-	if pageSize <= 0 {
+	var rows []model.DocNamed
+	q = q.Order("d.updated_at DESC")
+	if pageSize < 0 {
+		err := q.Find(&rows).Error
+		return rows, total, err
+	}
+	if pageSize == 0 {
 		pageSize = 20
 	}
-	var rows []model.DocNamed
-	err := q.Order("d.updated_at DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&rows).Error
+	err := q.Offset((page - 1) * pageSize).Limit(pageSize).Find(&rows).Error
 	return rows, total, err
 }
 
-func (r *repository) SearchDocs(ctx context.Context, query, kind string, page, pageSize int, onlyPublic bool, allowDraftAuthor *uuid.UUID, staff bool) ([]model.DocNamed, int64, error) {
-	q := r.namedQuery(ctx)
+func (r *repository) SearchDocs(ctx context.Context, query, kind string, page, pageSize int, scope ReadableScope) ([]model.DocNamed, int64, error) {
+	q := applyReadable(r.namedQuery(ctx), scope)
 	if kind != "" {
 		q = q.Where("d.kind = ?", kind)
-	}
-	if onlyPublic {
-		q = q.Where("d.status = ? AND d.visibility = ?", model.StatusPublished, model.VisibilityPublic)
-	} else if !staff {
-		if allowDraftAuthor != nil {
-			q = q.Where("d.status = ? OR d.author_id = ?", model.StatusPublished, *allowDraftAuthor)
-		} else {
-			q = q.Where("d.status = ?", model.StatusPublished)
-		}
 	}
 	kw := strings.TrimSpace(query)
 	if kw != "" {

@@ -120,8 +120,8 @@ func canRead(v Viewer, d *model.Doc) error {
 	}
 }
 
-func readableForList(v Viewer, d *model.Doc) bool {
-	return canRead(v, d) == nil
+func scopeOf(v Viewer) repo.ReadableScope {
+	return repo.ReadableScope{Staff: v.Staff(), UserID: v.UserID, Perms: v.Perms}
 }
 
 func (s *knowledgeService) snapshot(ctx context.Context, d *model.Doc, editor uuid.UUID) error {
@@ -441,31 +441,32 @@ func (s *knowledgeService) Update(ctx context.Context, viewer Viewer, id uuid.UU
 		return nil, noAccess("无权更新该文档")
 	}
 	changed := false
+	nextKind := d.Kind
 	if req.Kind != nil {
 		if !model.ValidKind(*req.Kind) {
 			return nil, response.NewError(response.CodeBadRequest, "文档类型不合法")
 		}
-		if *req.Kind != d.Kind {
-			d.Kind = *req.Kind
-			changed = true
-		}
+		nextKind = *req.Kind
 	}
+	nextSlug := d.Slug
 	if req.Slug != nil {
 		slug := strings.TrimSpace(strings.ToLower(*req.Slug))
 		if !model.ValidSlug(slug) {
 			return nil, invalidSlug()
 		}
-		if slug != d.Slug {
-			taken, err := s.rows.SlugTaken(ctx, d.Kind, slug, &d.ID)
-			if err != nil {
-				return nil, err
-			}
-			if taken {
-				return nil, slugConflict()
-			}
-			d.Slug = slug
-			changed = true
+		nextSlug = slug
+	}
+	if nextKind != d.Kind || nextSlug != d.Slug {
+		taken, err := s.rows.SlugTaken(ctx, nextKind, nextSlug, &d.ID)
+		if err != nil {
+			return nil, err
 		}
+		if taken {
+			return nil, slugConflict()
+		}
+		d.Kind = nextKind
+		d.Slug = nextSlug
+		changed = true
 	}
 	if req.Title != nil {
 		title := strings.TrimSpace(*req.Title)
@@ -602,19 +603,13 @@ func (s *knowledgeService) List(ctx context.Context, viewer Viewer, req *dto.Lis
 	if req.Visibility != "" && !model.ValidVisibility(req.Visibility) {
 		return nil, 0, invalidVis()
 	}
-	rows, total, err := s.rows.ListDocs(ctx, req)
+	rows, total, err := s.rows.ListDocs(ctx, req, scopeOf(viewer))
 	if err != nil {
 		return nil, 0, err
 	}
 	list := make([]*dto.DocResponse, 0, len(rows))
 	for i := range rows {
-		if !readableForList(viewer, &rows[i].Doc) {
-			continue
-		}
 		list = append(list, toDocResponse(&rows[i], nil, req.IncludeBody))
-	}
-	if !viewer.Staff() {
-		total = int64(len(list))
 	}
 	return list, total, nil
 }
@@ -713,24 +708,13 @@ func (s *knowledgeService) Search(ctx context.Context, viewer Viewer, req *dto.S
 	if req.Kind != "" && !model.ValidKind(req.Kind) {
 		return nil, 0, response.NewError(response.CodeBadRequest, "文档类型不合法")
 	}
-	onlyPublic := !viewer.Authenticated()
-	var author *uuid.UUID
-	if viewer.Authenticated() {
-		author = &viewer.UserID
-	}
-	rows, total, err := s.rows.SearchDocs(ctx, req.Query, req.Kind, req.Page, req.PageSize, onlyPublic, author, viewer.Staff())
+	rows, total, err := s.rows.SearchDocs(ctx, req.Query, req.Kind, req.Page, req.PageSize, scopeOf(viewer))
 	if err != nil {
 		return nil, 0, err
 	}
 	list := make([]*dto.DocResponse, 0, len(rows))
 	for i := range rows {
-		if !readableForList(viewer, &rows[i].Doc) {
-			continue
-		}
 		list = append(list, toDocResponse(&rows[i], nil, false))
-	}
-	if !viewer.Staff() {
-		total = int64(len(list))
 	}
 	return list, total, nil
 }
@@ -740,7 +724,7 @@ func (s *knowledgeService) Tree(ctx context.Context, viewer Viewer) ([]*dto.Tree
 	if err != nil {
 		return nil, err
 	}
-	docs, _, err := s.rows.ListDocs(ctx, &dto.ListDocRequest{Page: 1, PageSize: 500})
+	docs, _, err := s.rows.ListDocs(ctx, &dto.ListDocRequest{Page: 1, PageSize: -1}, scopeOf(viewer))
 	if err != nil {
 		return nil, err
 	}
@@ -755,9 +739,6 @@ func (s *knowledgeService) Tree(ctx context.Context, viewer Viewer) ([]*dto.Tree
 	}
 	uncategorized := &dto.TreeNode{ID: "uncategorized", Type: "category", Title: "未分类"}
 	for i := range docs {
-		if !readableForList(viewer, &docs[i].Doc) {
-			continue
-		}
 		node := &dto.TreeNode{
 			ID:    docs[i].ID.String(),
 			Type:  "doc",
