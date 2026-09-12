@@ -58,6 +58,8 @@
     "passwordStrength": "密码至少 8 位，需包含字母和数字",
     "kicker": "计算机协会 / Computer Association",
     "headline": "从一个想法，到一群人的作品。",
+    "headlineLine1": "从一个想法，",
+    "headlineLine2": "到一群人的作品。",
     "story": "找到志同道合的伙伴，在学习、创造与协作中，一起向前。",
     "pillars": "学习 · 创造 · 协作",
     "caption": "一起学习，一起创造。",

@@ -123,7 +123,7 @@ const Login: React.FC = () => {
             <p className={styles.kicker}>{t('login.kicker')}</p>
           </div>
           <div className={styles.message}>
-            <h1>{t('login.headline')}</h1>
+            <h1>{t('login.headlineLine1')}<br />{t('login.headlineLine2')}</h1>
             <p className={styles.story}>{t('login.story')}</p>
           </div>
           <div className={styles.visual}>
