@@ -27,6 +27,12 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, cache rbacService.Permission
 	read.GET("/policies", h.GetPolicy)
 	read.GET("/storage", h.Storage)
 	read.GET("/:id/preview", h.Preview)
+
+	restore := withPermission(g, "backup:restore", cache)
+	restore.GET("/:id/restore-drill", h.GetDrill)
+	restore.POST("/:id/restore", h.Restore)
+	restore.POST("/:id/restore-drill", h.DrillRestore)
+
 	read.GET("/:id", h.Get)
 
 	create := withPermission(g, "backup:create", cache)
@@ -34,9 +40,6 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, cache rbacService.Permission
 
 	del := withPermission(g, "backup:delete", cache)
 	del.DELETE("/:id", h.Delete)
-
-	restore := withPermission(g, "backup:restore", cache)
-	restore.POST("/:id/restore", h.Restore)
 
 	manage := withPermission(g, "backup:manage", cache)
 	manage.PUT("/policies", h.PutPolicy)

@@ -12,6 +12,7 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/backup/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/backup/model"
 	"github.com/Yogdunana/StarByte/backend/internal/backup/repo"
+	"github.com/Yogdunana/StarByte/backend/pkg/config"
 	"github.com/google/uuid"
 )
 
@@ -27,6 +28,7 @@ type memRepo struct {
 	updateCalls  int
 	updateFailN  int
 	opsIDs       []uuid.UUID
+	jobLocked    bool
 }
 
 func newMemRepo() *memRepo {
@@ -139,6 +141,24 @@ func (m *memRepo) CountBusy(context.Context) (int64, error) {
 		}
 	}
 	return n, nil
+}
+
+func (m *memRepo) TryJobLock(context.Context) (func(), bool, error) {
+	m.mu.Lock()
+	if m.jobLocked {
+		m.mu.Unlock()
+		return nil, false, nil
+	}
+	m.jobLocked = true
+	m.mu.Unlock()
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			m.mu.Lock()
+			m.jobLocked = false
+			m.mu.Unlock()
+		})
+	}, true, nil
 }
 
 func (m *memRepo) ListStale(_ context.Context, before time.Time) ([]model.Record, error) {
@@ -260,6 +280,7 @@ type fakeEngine struct {
 	restored   []byte
 	payload    []byte
 	toc        string
+	target     config.DatabaseConfig
 }
 
 func (e *fakeEngine) Dump(_ context.Context, dest io.Writer) error {
@@ -273,7 +294,12 @@ func (e *fakeEngine) Dump(_ context.Context, dest io.Writer) error {
 	return err
 }
 
-func (e *fakeEngine) Restore(_ context.Context, src io.Reader) error {
+func (e *fakeEngine) Restore(ctx context.Context, src io.Reader) error {
+	return e.RestoreTo(ctx, src, config.DatabaseConfig{})
+}
+
+func (e *fakeEngine) RestoreTo(_ context.Context, src io.Reader, target config.DatabaseConfig) error {
+	e.target = target
 	if e.restoreErr != nil {
 		return e.restoreErr
 	}

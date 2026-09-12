@@ -130,3 +130,10 @@ func validateRestoreConfirm(req *dto.RestoreRequest) error {
 	}
 	return nil
 }
+
+func validateDrillConfirm(req *dto.DrillRequest) error {
+	if req == nil || !req.Confirm || strings.TrimSpace(req.Confirmation) != model.DrillConfirmToken {
+		return errDrillConfirm()
+	}
+	return nil
+}

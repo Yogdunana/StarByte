@@ -29,10 +29,12 @@ func newTestSvc() (*backupService, *memRepo, *memStore, *fakeEngine, *recAlerter
 		rows:   rows,
 		store:  store,
 		engine: eng,
+		live:   config.DatabaseConfig{Host: "postgres", Port: 5432, User: "starbyte", DBName: "starbyte"},
 		cfg:    withBackupDefaults(config.BackupConfig{Prefix: "backups", TimeoutSec: 30, Bucket: "starbyte"}),
 		alert:  alert,
 		now:    testNow,
 		run:    func(fn func(context.Context)) { fn(context.Background()) },
+		drills: make(map[uuid.UUID]dto.DrillResult),
 	}
 	return svc, rows, store, eng, alert
 }
@@ -118,6 +120,158 @@ func TestRestore_RequiresTypedConfirmation(t *testing.T) {
 	_, err = svc.Restore(context.Background(), uuid.New(), id, &dto.RestoreRequest{Confirm: true, Confirmation: "YES"})
 	require.Error(t, err)
 	assert.Equal(t, response.CodeBackupConfirmRequired, err.(*response.AppError).Code)
+}
+
+func TestDrillRestore_IndependentDB(t *testing.T) {
+	svc, _, _, eng, alert := newTestSvc()
+	created, err := svc.Create(context.Background(), uuid.New(), nil)
+	require.NoError(t, err)
+	id := uuid.MustParse(created.ID)
+
+	_, err = svc.DrillRestore(context.Background(), uuid.New(), id, &dto.DrillRequest{
+		Confirm: true, Confirmation: "RESTORE", TargetDBName: "starbyte_drill",
+	})
+	require.Error(t, err)
+
+	_, err = svc.DrillRestore(context.Background(), uuid.New(), id, &dto.DrillRequest{
+		Confirm: true, Confirmation: model.DrillConfirmToken, TargetDBName: "starbyte",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "不能是当前应用库")
+
+	out, err := svc.DrillRestore(context.Background(), uuid.New(), id, &dto.DrillRequest{
+		Confirm: true, Confirmation: model.DrillConfirmToken, TargetDBName: "starbyte_drill",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, out)
+	assert.True(t, out.Restored)
+	assert.Equal(t, "restored", out.Status)
+	assert.False(t, out.Queued)
+	assert.Equal(t, "starbyte_drill", out.TargetDBName)
+	assert.Equal(t, "starbyte_drill", eng.target.DBName)
+	assert.Equal(t, "postgres", eng.target.Host)
+	got, err := svc.Get(context.Background(), id)
+	require.NoError(t, err)
+	assert.Equal(t, model.StatusSuccess, got.Status)
+	assert.Equal(t, 0, alert.n)
+	polled, err := svc.GetDrill(context.Background(), id)
+	require.NoError(t, err)
+	assert.True(t, polled.Restored)
+	assert.Equal(t, "restored", polled.Status)
+}
+
+func TestDrillRestore_FailureAlertsWithoutFlippingRecord(t *testing.T) {
+	svc, _, _, eng, alert := newTestSvc()
+	created, err := svc.Create(context.Background(), uuid.New(), nil)
+	require.NoError(t, err)
+	eng.restoreErr = errors.New("pg_restore boom")
+	out, err := svc.DrillRestore(context.Background(), uuid.New(), uuid.MustParse(created.ID), &dto.DrillRequest{
+		Confirm: true, Confirmation: "DRILL", TargetDBName: "starbyte_drill",
+	})
+	require.NoError(t, err)
+	assert.False(t, out.Restored)
+	assert.Equal(t, "failed", out.Status)
+	assert.Contains(t, out.Error, "pg_restore")
+	assert.Equal(t, 1, alert.n)
+	got, err := svc.Get(context.Background(), uuid.MustParse(created.ID))
+	require.NoError(t, err)
+	assert.Equal(t, model.StatusSuccess, got.Status)
+}
+
+func TestDrillRestore_QueuesWhenAsync(t *testing.T) {
+	svc, _, _, _, _ := newTestSvc()
+	created, err := svc.Create(context.Background(), uuid.New(), nil)
+	require.NoError(t, err)
+	id := uuid.MustParse(created.ID)
+
+	started := make(chan struct{})
+	unblock := make(chan struct{})
+	svc.run = func(fn func(context.Context)) {
+		go func() {
+			close(started)
+			<-unblock
+			fn(context.Background())
+		}()
+	}
+
+	out, err := svc.DrillRestore(context.Background(), uuid.New(), id, &dto.DrillRequest{
+		Confirm: true, Confirmation: model.DrillConfirmToken, TargetDBName: "starbyte_drill",
+	})
+	require.NoError(t, err)
+	assert.True(t, out.Queued)
+	assert.False(t, out.Restored)
+	assert.Equal(t, "queued", out.Status)
+
+	<-started
+	polled, err := svc.GetDrill(context.Background(), id)
+	require.NoError(t, err)
+	assert.True(t, polled.Queued)
+	assert.False(t, polled.Restored)
+
+	close(unblock)
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		polled, err = svc.GetDrill(context.Background(), id)
+		require.NoError(t, err)
+		if polled.Restored || polled.Error != "" {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	assert.True(t, polled.Restored)
+	assert.Equal(t, "restored", polled.Status)
+	assert.False(t, polled.Queued)
+	got, err := svc.Get(context.Background(), id)
+	require.NoError(t, err)
+	assert.Equal(t, model.StatusSuccess, got.Status)
+}
+
+func TestGetDrill_Missing(t *testing.T) {
+	svc, _, _, _, _ := newTestSvc()
+	_, err := svc.GetDrill(context.Background(), uuid.New())
+	require.Error(t, err)
+	assert.Equal(t, response.CodeBackupNotFound, err.(*response.AppError).Code)
+}
+
+func TestDrillRestore_HoldsCrossProcessLock(t *testing.T) {
+	svc, rows, store, eng, alert := newTestSvc()
+	created, err := svc.Create(context.Background(), uuid.New(), nil)
+	require.NoError(t, err)
+	id := uuid.MustParse(created.ID)
+
+	other := &backupService{
+		rows: rows, store: store, engine: eng, live: svc.live, cfg: svc.cfg, alert: alert,
+		now: testNow, run: func(fn func(context.Context)) { fn(context.Background()) },
+		drills: make(map[uuid.UUID]dto.DrillResult),
+	}
+
+	started := make(chan struct{})
+	unblock := make(chan struct{})
+	svc.run = func(fn func(context.Context)) {
+		go func() {
+			close(started)
+			<-unblock
+			fn(context.Background())
+		}()
+	}
+	_, err = svc.DrillRestore(context.Background(), uuid.New(), id, &dto.DrillRequest{
+		Confirm: true, Confirmation: model.DrillConfirmToken, TargetDBName: "starbyte_drill",
+	})
+	require.NoError(t, err)
+	<-started
+	_, err = other.Create(context.Background(), uuid.New(), nil)
+	require.Error(t, err)
+	assert.Equal(t, response.CodeBackupBusy, err.(*response.AppError).Code)
+	close(unblock)
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		got, err := svc.GetDrill(context.Background(), id)
+		require.NoError(t, err)
+		if got.Restored || got.Error != "" {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }
 
 func TestRestore_Success(t *testing.T) {

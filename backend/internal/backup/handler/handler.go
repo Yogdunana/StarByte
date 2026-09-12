@@ -180,3 +180,49 @@ func (h *Handler) Preview(c *gin.Context) {
 	out, err := h.svc.Preview(c.Request.Context(), id)
 	write(c, out, err)
 }
+
+// DrillRestore 恢复到独立 Postgres（不改生产库、不是 PITR）
+// @Summary 备份恢复演练
+// @Tags 备份
+// @Accept json
+// @Param id path string true "备份 ID"
+// @Success 200 {object} response.Response
+// @Router /system/backups/{id}/restore-drill [post]
+// @Security BearerAuth
+func (h *Handler) DrillRestore(c *gin.Context) {
+	id, err := parseID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	uid, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	var req dto.DrillRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+	out, err := h.svc.DrillRestore(c.Request.Context(), uid, id, &req)
+	write(c, out, err)
+}
+
+// GetDrill 查询演练排队结果（不改生产库记录）
+// @Summary 备份恢复演练状态
+// @Tags 备份
+// @Produce json
+// @Param id path string true "备份 ID"
+// @Success 200 {object} response.Response
+// @Router /system/backups/{id}/restore-drill [get]
+// @Security BearerAuth
+func (h *Handler) GetDrill(c *gin.Context) {
+	id, err := parseID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	out, err := h.svc.GetDrill(c.Request.Context(), id)
+	write(c, out, err)
+}

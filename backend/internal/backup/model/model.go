@@ -25,6 +25,7 @@ const (
 	DefaultCronExpr      = "0 30 2 * * *"
 	DefaultTimezone      = "Asia/Shanghai"
 	RestoreConfirmToken  = "RESTORE"
+	DrillConfirmToken    = "DRILL"
 
 	ScheduledTaskCode = "backup_scheduled_full"
 	CleanupTaskCode   = "backup_retention_cleanup"

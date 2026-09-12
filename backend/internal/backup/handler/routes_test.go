@@ -51,6 +51,22 @@ func TestRegisterRoutes_RequiresBackupRead(t *testing.T) {
 	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/system/backups/"+uuid.New().String()+"/preview", nil))
 	assert.Equal(t, http.StatusOK, w.Code)
 
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/system/backups/"+uuid.New().String()+"/restore-drill", nil))
+	assert.Equal(t, http.StatusForbidden, w.Code)
+
+	okRestore := gin.New()
+	okRestore.Use(func(c *gin.Context) {
+		c.Set(auth.ContextKeyUserID, uid.String())
+		c.Next()
+	})
+	RegisterRoutes(okRestore.Group("/api/v1"), New(&stubSvc{
+		drill: &dto.DrillResult{Status: "queued", Queued: true},
+	}), stubCache{perms: []string{"backup:restore"}})
+	w = httptest.NewRecorder()
+	okRestore.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/system/backups/"+uuid.New().String()+"/restore-drill", nil))
+	assert.Equal(t, http.StatusOK, w.Code)
+
 	denied := gin.New()
 	denied.Use(func(c *gin.Context) {
 		c.Set(auth.ContextKeyUserID, uid.String())

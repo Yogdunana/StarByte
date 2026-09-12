@@ -204,6 +204,15 @@ func TestSanitizeResponseBody_BinaryOmitted(t *testing.T) {
 	assert.Contains(t, sanitizeResponseBody(`{"ok":true}`), "ok")
 }
 
+func TestSanitizeRequestBody_RestoreDrillRedacted(t *testing.T) {
+	id := "11111111-1111-1111-1111-111111111111"
+	body := `{"confirmation":"DRILL","target_password":"cross-host-secret","target_dsn":"postgres://u:p@db/x"}`
+	result := sanitizeRequestBody("/api/v1/system/backups/"+id+"/restore-drill", body)
+	assert.Equal(t, "[redacted: restore drill credentials]", result)
+	assert.NotContains(t, result, "cross-host-secret")
+	assert.NotContains(t, result, "postgres://")
+}
+
 func TestSanitizeRequestBody_MultipleSensitiveFields(t *testing.T) {
 	body := `{"old_password":"old123","new_password":"new456","secret":"abc"}`
 	result := sanitizeRequestBody("/api/v1/user/profile", body)

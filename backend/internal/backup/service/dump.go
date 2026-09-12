@@ -17,6 +17,8 @@ import (
 type Engine interface {
 	Dump(ctx context.Context, dest io.Writer) error
 	Restore(ctx context.Context, src io.Reader) error
+	// RestoreTo loads a custom dump into target (drill / independent DB).
+	RestoreTo(ctx context.Context, src io.Reader, target config.DatabaseConfig) error
 	// List returns the custom-format TOC (pg_restore --list). No DB connection.
 	List(ctx context.Context, src io.Reader) (string, error)
 }
@@ -56,9 +58,20 @@ func (e *pgEngine) Dump(ctx context.Context, dest io.Writer) error {
 }
 
 func (e *pgEngine) Restore(ctx context.Context, src io.Reader) error {
+	return e.RestoreTo(ctx, src, e.db)
+}
+
+func (e *pgEngine) RestoreTo(ctx context.Context, src io.Reader, target config.DatabaseConfig) error {
+	if strings.TrimSpace(target.DBName) == "" {
+		return errRestore("恢复目标库名为空")
+	}
+	if err := validateDiscreteTarget(target); err != nil {
+		return err
+	}
+	tmp := *e
+	tmp.db = target
 	// Custom-format dump + --single-transaction: DROP/reload share one txn and roll back together.
-	// If restore still fails outside that txn, the record becomes restore_failed so the same artifact can be retried.
-	args := e.connArgs()
+	args := tmp.connArgs()
 	args = append(args,
 		"--single-transaction",
 		"--clean",
@@ -66,8 +79,8 @@ func (e *pgEngine) Restore(ctx context.Context, src io.Reader) error {
 		"--no-owner",
 		"--no-acl",
 	)
-	cmd := exec.CommandContext(ctx, e.restoreBin, args...)
-	cmd.Env = e.childEnv()
+	cmd := exec.CommandContext(ctx, tmp.restoreBin, args...)
+	cmd.Env = tmp.childEnv()
 	cmd.Stdin = src
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
