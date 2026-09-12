@@ -1,0 +1,29 @@
+.leave-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.leave-hero h2 {
+  margin: 0 0 4px;
+}
+
+.leave-hero p {
+  margin: 0;
+  color: #64748b;
+}
+
+.leave-balance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.leave-balance-card .days {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.2;
+}

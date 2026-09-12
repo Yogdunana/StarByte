@@ -66,6 +66,8 @@ const ContractPage = lazy(() => import('@/pages/contract/ContractPage'));
 const SchedulePage = lazy(() => import('@/pages/schedule/CalendarPage'));
 const AnnouncementListPage = lazy(() => import('@/pages/announcement/ListPage'));
 const AnnouncementDetailPage = lazy(() => import('@/pages/announcement/DetailPage'));
+const LeaveMyPage = lazy(() => import('@/pages/leave/MyPage'));
+const LeaveListPage = lazy(() => import('@/pages/leave/ListPage'));
 const Forbidden = lazy(() => import('@/pages/error/Forbidden'));
 const NotFound = lazy(() => import('@/pages/error/NotFound'));
 
@@ -353,6 +355,22 @@ const routes: AppRouteObject[] = [
             path: 'todo',
             element: lazyWrap(WorkflowTodo),
             meta: { title: '我的待办' },
+          },
+        ],
+      },
+      {
+        path: 'leave',
+        meta: { title: '请假管理', icon: 'FieldTimeOutlined' },
+        children: [
+          {
+            path: 'my',
+            element: lazyWrap(LeaveMyPage),
+            meta: { title: '我的请假' },
+          },
+          {
+            path: 'list',
+            element: lazyGuarded(LeaveListPage, 'leave:read'),
+            meta: { title: '请假审批', permission: 'leave:read' },
           },
         ],
       },

@@ -48,6 +48,9 @@ import (
 	interviewHandler "github.com/Yogdunana/StarByte/backend/internal/interview/handler"
 	interviewRepo "github.com/Yogdunana/StarByte/backend/internal/interview/repo"
 	interviewService "github.com/Yogdunana/StarByte/backend/internal/interview/service"
+	leaveHandler "github.com/Yogdunana/StarByte/backend/internal/leave/handler"
+	leaveRepo "github.com/Yogdunana/StarByte/backend/internal/leave/repo"
+	leaveService "github.com/Yogdunana/StarByte/backend/internal/leave/service"
 	meetingHandler "github.com/Yogdunana/StarByte/backend/internal/meeting/handler"
 	meetingRepo "github.com/Yogdunana/StarByte/backend/internal/meeting/repo"
 	meetingService "github.com/Yogdunana/StarByte/backend/internal/meeting/service"
@@ -337,6 +340,9 @@ func main() {
 	annH := announcementHandler.New(annSvc)
 	schedService.RegisterHandler("announcement_scheduled_publish", "扫描并发布到期定时公告", annSvc.DispatchDuePublishes)
 
+	// 请假管理（/leave，#56 phase-1，领域规则来自 #162）
+	leaveH := leaveHandler.New(leaveService.New(leaveRepo.New(database.DB())))
+
 	// 运行时业务配置（#47，复用 configs 表，不改 pkg/config YAML）
 	cfgSvc := cfgstoreService.NewConfigService(cfgRows, cfgStore).WithSMTP(cfg.Email, emailCh)
 	cfgH := cfgstoreHandler.NewConfigHandler(cfgSvc)
@@ -463,6 +469,9 @@ func main() {
 
 		// 公告中心（/announcements，#77）
 		announcementHandler.RegisterRoutes(protected, annH, cacheService)
+
+		// 请假管理（/leave，#56）
+		leaveHandler.RegisterRoutes(protected, leaveH, cacheService, database.DB(), deptRepo)
 
 		// 任务流转（/tasks，不与 /workflow/tasks 冲突）
 		taskHandler.RegisterRoutes(protected, tkH, cacheService, database.DB(), deptRepo)

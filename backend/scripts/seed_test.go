@@ -232,6 +232,7 @@ func TestAllSeedPermissions_IncludesOpsModules(t *testing.T) {
 		"activity:read", "activity:create", "activity:update", "activity:delete", "activity:manage",
 		"announcement:read", "announcement:create", "announcement:update", "announcement:delete",
 		"announcement:publish", "announcement:manage",
+		"leave:read", "leave:approve",
 	} {
 		assert.True(t, seen[need], "missing permission %s", need)
 	}
@@ -248,6 +249,8 @@ func TestOfficerAndMemberPerms_NonEmpty(t *testing.T) {
 	assert.Contains(t, officerPermCodes(), "activity:read")
 	assert.Contains(t, memberPermCodes(), "announcement:read")
 	assert.Contains(t, officerPermCodes(), "announcement:read")
+	assert.Contains(t, officerPermCodes(), "leave:read")
+	assert.NotContains(t, memberPermCodes(), "leave:read")
 }
 
 func TestSeedMemberProfiles_StudentNos(t *testing.T) {

@@ -121,6 +121,9 @@
     "/workflow/designer": "Designer",
     "/workflow/instances": "Instances",
     "/workflow/todo": "My todos",
+    "/leave": "Leave",
+    "/leave/my": "My leave",
+    "/leave/list": "Leave approvals",
     "/internship": "Internships",
     "/internship/list": "Records",
     "/internship/my": "My internships",
@@ -315,6 +318,38 @@
       "0": "Draft",
       "1": "Published",
       "2": "Archived"
+    }
+  },
+  "leave": {
+    "myTitle": "My leave",
+    "myHint": "Submitting deducts quota immediately; rejection restores it. Duration counts weekdays only.",
+    "listTitle": "Leave approvals",
+    "listHint": "{{total}} records, {{pending}} pending",
+    "apply": "Apply for leave",
+    "submitted": "Leave request submitted",
+    "typeLabel": "Leave type",
+    "range": "Period",
+    "days": "Days",
+    "reason": "Reason",
+    "statusLabel": "Status",
+    "applicant": "Applicant",
+    "approve": "Approve",
+    "reject": "Reject",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "remark": "Approval remark",
+    "deductible": "deducts quota",
+    "balanceHint": "Used {{used}} / total {{total}}",
+    "status": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "type": {
+      "annual": "Annual",
+      "compensatory": "Compensatory",
+      "personal": "Personal",
+      "sick": "Sick"
     }
   }
 }
