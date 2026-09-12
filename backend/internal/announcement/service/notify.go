@@ -32,7 +32,8 @@ func (a *notificationAdapter) Send(ctx context.Context, userIDs []uuid.UUID, tem
 		UserIDs:      userIDs,
 		TemplateCode: template,
 		Variables:    vars,
-		Channels:     []string{"in_app", "websocket"},
+		// 复用 #4/#49：站内 + WS + 邮件。SMTP 未配置时 email 渠道自动跳过。
+		Channels: []string{"in_app", "websocket", "email"},
 	})
 }
 
@@ -40,7 +41,7 @@ func (s *announcementService) notifyPublished(ctx context.Context, a *model.Anno
 	if s.notify == nil || a == nil {
 		return
 	}
-	ids, err := s.rows.ListActiveUserIDs(ctx)
+	ids, err := s.recipients(ctx, a)
 	if err != nil {
 		logger.Warn("list announcement recipients failed", zap.Error(err))
 		return

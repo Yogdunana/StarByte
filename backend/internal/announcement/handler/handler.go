@@ -138,7 +138,7 @@ func (h *Handler) Pin(c *gin.Context) {
 	}
 	var req dto.PinRequest
 	_ = c.ShouldBindJSON(&req)
-	result, err := h.svc.Pin(c.Request.Context(), v, id, req.Pinned)
+	result, err := h.svc.Pin(c.Request.Context(), v, id, req.Pinned, req.SortOrder)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -171,12 +171,18 @@ func (h *Handler) MarkRead(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	uid, err := getUserID(c)
+	v, err := viewerOf(c)
 	if err != nil {
 		response.Error(c, err)
 		return
 	}
-	if err := h.svc.MarkRead(c.Request.Context(), uid, id); err != nil {
+	var req dto.MarkReadRequest
+	_ = c.ShouldBindJSON(&req)
+	duration := 0
+	if req.DurationSeconds != nil && *req.DurationSeconds > 0 {
+		duration = *req.DurationSeconds
+	}
+	if err := h.svc.MarkRead(c.Request.Context(), v, id, duration); err != nil {
 		response.Error(c, err)
 		return
 	}

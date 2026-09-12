@@ -121,7 +121,8 @@ func (c *EmailChannel) SendTest(ctx context.Context, to string) error {
 
 func (c *EmailChannel) Send(ctx context.Context, msg *NotificationMessage) error {
 	if msg.Email == "" {
-		return fmt.Errorf("email address is empty for user %s", msg.UserID)
+		// 模板推送常只带 user_id；无邮箱时跳过邮件渠道，不阻断站内/WS。
+		return nil
 	}
 	job := MailJob{
 		To: []string{msg.Email}, Subject: msg.Title, Body: msg.Content, UserID: &msg.UserID,

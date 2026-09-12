@@ -91,6 +91,45 @@ func (m *memRepo) GetByIDNamed(_ context.Context, id, viewer uuid.UUID) (*model.
 	return &named, nil
 }
 
+func (m *memRepo) inAudience(a *model.Announcement, viewer uuid.UUID) bool {
+	switch model.NormalizeAudience(a.AudienceType) {
+	case model.AudienceAll:
+		return true
+	case model.AudienceUsers:
+		for _, id := range a.AudienceIDs {
+			if id == viewer.String() {
+				return true
+			}
+		}
+		return false
+	case model.AudienceDepartment:
+		u, ok := m.users[viewer]
+		if !ok || u.DepartmentID == nil {
+			return false
+		}
+		for _, id := range a.AudienceIDs {
+			if id == u.DepartmentID.String() {
+				return true
+			}
+		}
+		return false
+	case model.AudienceRole:
+		u := m.users[viewer]
+		roleSet := map[string]struct{}{}
+		for _, rid := range u.RoleIDs {
+			roleSet[rid.String()] = struct{}{}
+		}
+		for _, id := range a.AudienceIDs {
+			if _, ok := roleSet[id]; ok {
+				return true
+			}
+		}
+		return false
+	default:
+		return false
+	}
+}
+
 func (m *memRepo) List(_ context.Context, viewer uuid.UUID, staff, manage bool, req *dto.ListAnnouncementRequest) ([]model.AnnouncementNamed, int64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -127,13 +166,21 @@ func (m *memRepo) List(_ context.Context, viewer uuid.UUID, staff, manage bool, 
 			if *req.Status == model.StatusDraft && !manage && a.AuthorID != viewer {
 				continue
 			}
+			if !manage && *req.Status != model.StatusDraft && !m.inAudience(a, viewer) && a.AuthorID != viewer {
+				continue
+			}
 		} else if manage {
 			// all statuses
 		} else if staff {
 			if a.Status != model.StatusPublished && a.Status != model.StatusArchived && a.AuthorID != viewer {
 				continue
 			}
+			if (a.Status == model.StatusPublished || a.Status == model.StatusArchived) && !m.inAudience(a, viewer) && a.AuthorID != viewer {
+				continue
+			}
 		} else if a.Status != model.StatusPublished && a.Status != model.StatusArchived {
+			continue
+		} else if !m.inAudience(a, viewer) {
 			continue
 		}
 		out = append(out, m.named(a, viewer))
@@ -157,18 +204,42 @@ func (m *memRepo) ListDueDrafts(_ context.Context, now time.Time, _ int) ([]mode
 	return out, nil
 }
 
-func (m *memRepo) MarkRead(_ context.Context, announcementID, userID uuid.UUID, at time.Time) error {
+func (m *memRepo) ListExpiredPublished(_ context.Context, now time.Time, _ int) ([]model.Announcement, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []model.Announcement
+	for _, a := range m.items {
+		if a.DeletedAt.Valid || a.Status != model.StatusPublished || a.ExpiresAt == nil {
+			continue
+		}
+		if !a.ExpiresAt.After(now) {
+			cp := *a
+			out = append(out, cp)
+		}
+	}
+	return out, nil
+}
+
+func (m *memRepo) MarkRead(_ context.Context, announcementID, userID uuid.UUID, at time.Time, duration int) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	key := announcementID.String() + "/" + userID.String()
-	if _, ok := m.reads[key]; ok {
+	if prev, ok := m.reads[key]; ok {
+		if duration > prev.DurationSeconds {
+			prev.DurationSeconds = duration
+			m.reads[key] = prev
+		}
 		return nil
 	}
+	if duration < 0 {
+		duration = 0
+	}
 	m.reads[key] = model.AnnouncementRead{
-		ID:             uuid.New(),
-		AnnouncementID: announcementID,
-		UserID:         userID,
-		ReadAt:         at,
+		ID:              uuid.New(),
+		AnnouncementID:  announcementID,
+		UserID:          userID,
+		ReadAt:          at,
+		DurationSeconds: duration,
 	}
 	return nil
 }
@@ -179,6 +250,9 @@ func (m *memRepo) UnreadCount(_ context.Context, userID uuid.UUID) (int64, error
 	var n int64
 	for _, a := range m.items {
 		if a.DeletedAt.Valid || a.Status != model.StatusPublished {
+			continue
+		}
+		if !m.inAudience(a, userID) {
 			continue
 		}
 		if _, ok := m.reads[a.ID.String()+"/"+userID.String()]; !ok {
@@ -202,10 +276,11 @@ func (m *memRepo) ListReaders(_ context.Context, announcementID uuid.UUID) ([]mo
 			name = u.RealName
 		}
 		out = append(out, model.ReaderNamed{
-			UserID:   rd.UserID,
-			RealName: name,
-			Username: name,
-			ReadAt:   rd.ReadAt,
+			UserID:          rd.UserID,
+			RealName:        name,
+			Username:        name,
+			ReadAt:          rd.ReadAt,
+			DurationSeconds: rd.DurationSeconds,
 		})
 	}
 	return out, nil
@@ -222,6 +297,81 @@ func (m *memRepo) ListActiveUserIDs(_ context.Context) ([]uuid.UUID, error) {
 	defer m.mu.Unlock()
 	out := append([]uuid.UUID{}, m.activeIDs...)
 	return out, nil
+}
+
+func (m *memRepo) ListNamedUsers(_ context.Context, ids []uuid.UUID) ([]model.NamedUser, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []model.NamedUser
+	for _, id := range ids {
+		if u, ok := m.users[id]; ok {
+			out = append(out, u)
+			continue
+		}
+		out = append(out, model.NamedUser{ID: id, RealName: id.String()[:8], Username: "user"})
+	}
+	return out, nil
+}
+
+func (m *memRepo) ListActiveUserIDsAmong(_ context.Context, ids []uuid.UUID) ([]uuid.UUID, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	allow := map[uuid.UUID]struct{}{}
+	for _, id := range m.activeIDs {
+		allow[id] = struct{}{}
+	}
+	var out []uuid.UUID
+	for _, id := range ids {
+		if _, ok := allow[id]; ok {
+			out = append(out, id)
+		}
+	}
+	return out, nil
+}
+
+func (m *memRepo) ListActiveUserIDsByDepartments(_ context.Context, deptIDs []uuid.UUID) ([]uuid.UUID, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	want := map[uuid.UUID]struct{}{}
+	for _, id := range deptIDs {
+		want[id] = struct{}{}
+	}
+	var out []uuid.UUID
+	for _, id := range m.activeIDs {
+		u := m.users[id]
+		if u.DepartmentID != nil {
+			if _, ok := want[*u.DepartmentID]; ok {
+				out = append(out, id)
+			}
+		}
+	}
+	return out, nil
+}
+
+func (m *memRepo) ListActiveUserIDsByRoles(_ context.Context, roleIDs []uuid.UUID) ([]uuid.UUID, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	want := map[uuid.UUID]struct{}{}
+	for _, id := range roleIDs {
+		want[id] = struct{}{}
+	}
+	var out []uuid.UUID
+	for _, id := range m.activeIDs {
+		u := m.users[id]
+		for _, rid := range u.RoleIDs {
+			if _, ok := want[rid]; ok {
+				out = append(out, id)
+				break
+			}
+		}
+	}
+	return out, nil
+}
+
+func (m *memRepo) UserInAudience(_ context.Context, userID uuid.UUID, audienceType string, audienceIDs []string) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.inAudience(&model.Announcement{AudienceType: audienceType, AudienceIDs: audienceIDs}, userID), nil
 }
 
 func (m *memRepo) GetUser(_ context.Context, id uuid.UUID) (*model.NamedUser, error) {

@@ -293,6 +293,7 @@ const (
 	CodeAnnouncementInvalidState = 28002 // 公告状态不允许该操作
 	CodeAnnouncementNoAccess     = 28003 // 无权操作该公告
 	CodeAnnouncementInvalidCat   = 28004 // 公告分类不合法
+	CodeAnnouncementInvalidAud   = 28005 // 公告受众不合法
 
 	// ===== Schedule / calendar (#78, 29000-29999) =====
 	// Issue #78 listed 10500-10999; that range is the internship module.

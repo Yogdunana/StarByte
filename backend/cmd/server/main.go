@@ -345,6 +345,7 @@ func main() {
 	)
 	annH := announcementHandler.New(annSvc)
 	schedService.RegisterHandler("announcement_scheduled_publish", "扫描并发布到期定时公告", annSvc.DispatchDuePublishes)
+	schedService.RegisterHandler("announcement_auto_unpublish", "扫描并归档到期公告", annSvc.DispatchExpired)
 
 	// 请假管理（/leave，#56 phase-1，领域规则来自 #162）
 	leaveH := leaveHandler.New(leaveService.New(leaveRepo.New(database.DB())))

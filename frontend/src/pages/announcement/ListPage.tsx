@@ -174,6 +174,9 @@ const ListPage: React.FC = () => {
           onChange={(v) => { setStatus(v); setPage(1); }}
           options={Object.entries(statusMap).map(([k, v]) => ({ value: Number(k), label: v.text }))}
         />
+        {canCreate && (
+          <Button onClick={() => { setStatus(0); setPage(1); }}>{t('announcement.draftBox')}</Button>
+        )}
         <Select
           allowClear
           placeholder={t('announcement.unreadFilter')}
@@ -194,28 +197,31 @@ const ListPage: React.FC = () => {
         open={open}
         editing={editing}
         canSchedule={canPublish}
+        canManage={canManage}
         onCancel={() => setOpen(false)}
         onSubmit={async (values) => {
+          const payload = {
+            title: values.title as string,
+            content: (values.content as string) || '',
+            content_type: values.content_type as CreateAnnouncementParams['content_type'],
+            category: values.category as CreateAnnouncementParams['category'],
+            required: values.required as boolean,
+            sort_order: values.sort_order as number | undefined,
+            scheduled_at: values.scheduled_at as string | undefined,
+            expires_at: values.expires_at as string | undefined,
+            audience_type: values.audience_type as CreateAnnouncementParams['audience_type'],
+            audience_ids: values.audience_ids as string[] | undefined,
+            attachments: values.attachments as CreateAnnouncementParams['attachments'],
+          };
           if (editing) {
             await updateAnnouncement(editing.id, {
-              title: values.title as string,
-              content: values.content as string,
-              content_type: values.content_type as CreateAnnouncementParams['content_type'],
-              category: values.category as CreateAnnouncementParams['category'],
-              required: values.required as boolean,
-              scheduled_at: values.scheduled_at as string | undefined,
+              ...payload,
               clear_scheduled_at: values.clear_scheduled_at as boolean,
+              clear_expires_at: values.clear_expires_at as boolean,
             });
             message.success(t('common.saved'));
           } else {
-            await createAnnouncement({
-              title: values.title as string,
-              content: (values.content as string) || '',
-              content_type: values.content_type as CreateAnnouncementParams['content_type'],
-              category: values.category as CreateAnnouncementParams['category'],
-              required: values.required as boolean,
-              scheduled_at: values.scheduled_at as string | undefined,
-            });
+            await createAnnouncement(payload);
             message.success(t('announcement.created'));
           }
           setOpen(false);

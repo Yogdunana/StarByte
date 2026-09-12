@@ -16,7 +16,7 @@ export default function Dashboard() {
   const canReadStats = usePermission('stats:read');
   const canReadFiles = usePermission('file:read');
   const canReadTasks = usePermission('task:read');
-  const { tasks, taskTotal, approvals, approvalTotal, interviews, applications, overview, loading, failed, reload } = useWorkspace(canReadStats);
+  const { tasks, taskTotal, approvals, approvalTotal, interviews, applications, announcements, overview, loading, failed, reload } = useWorkspace(canReadStats);
   const date = new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' }).format(new Date());
   const name = user?.real_name || user?.username || '同学';
   const applicationStates: Record<number, string> = { 0: '待初审', 1: '审核中', 2: '面试中', 3: '已通过', 4: '未通过', 5: '待补材料' };
@@ -71,6 +71,19 @@ export default function Dashboard() {
         </Card>
       </section>
       <aside className={styles.aside}>
+        <section className={styles.feed} aria-labelledby="announcement-feed-title">
+          <span className={styles.eyebrow}>NOTICE</span>
+          <h2 id="announcement-feed-title">最新公告</h2>
+          {loading ? <Skeleton active paragraph={{ rows: 2 }} /> : announcements.length === 0 ?
+            <p>暂无公告，协会动态会显示在这里。</p> :
+            announcements.map((item) => (
+              <Link key={item.id} className={styles.feedRow} to={`/announcement/${item.id}`}>
+                <span>{item.pinned ? '置顶 · ' : ''}{item.title}</span>
+                <ArrowRightOutlined />
+              </Link>
+            ))}
+          <Link to="/announcement/list">查看公告中心 <ArrowRightOutlined /></Link>
+        </section>
         <section className={styles.quickAccess}><span className={styles.eyebrow}>SHORTCUTS</span><h2>常用入口</h2>
           <div className={styles.shortcuts}>
             <Link to="/member/application"><FileTextOutlined /><span>入会申请</span><ArrowRightOutlined /></Link>
