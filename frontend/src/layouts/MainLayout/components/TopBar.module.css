@@ -1,10 +1,54 @@
-.header { height: 64px; padding: 0 28px; margin: 0 12px; border-radius: 18px; display: flex; align-items: center; justify-content: space-between; background: var(--sb-glass); border: 1px solid var(--sb-glass-border); box-shadow: var(--sb-shadow); backdrop-filter: blur(12px); line-height: 1.5; gap: 12px; }
-.leading, .actions { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.header {
+  height: 64px;
+  padding: 0 var(--sb-space-5);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--sb-surface);
+  border-bottom: 1px solid var(--sb-border);
+  line-height: 1.5;
+  gap: var(--sb-space-3);
+}
+.leading, .actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sb-space-3);
+  min-width: 0;
+}
 .leading { flex: 1; }
-.account { display: flex; align-items: center; gap: 10px; background: none; color: var(--sb-text); border: 0; padding: 6px; cursor: pointer; min-height: 44px; }
-.accountText { font-size: 13px; display: flex; flex-direction: column; line-height: 1.4; text-align: left; }
+.account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  color: var(--sb-text);
+  border: 0;
+  padding: 6px;
+  cursor: pointer;
+  min-height: 44px;
+}
+.accountText {
+  font-size: 13px;
+  font-weight: var(--sb-weight-meta);
+  display: flex;
+  flex-direction: column;
+  line-height: 1.4;
+  text-align: left;
+}
+.studentNo {
+  font-size: 12px;
+  font-weight: var(--sb-weight-body);
+  color: var(--sb-muted);
+}
 .actions > button, .leading > button { min-width: 44px; min-height: 44px; }
 .breadcrumb { min-width: 0; }
 .breadcrumb :global(ol) { flex-wrap: wrap; }
-@media (max-width: 991px) { .header { padding: 0 16px; height: 64px; margin: 10px 12px 0; } }
-@media (max-width: 575px) { .header { padding: 0 8px; margin: 8px 8px 0; backdrop-filter: none; background: var(--sb-surface); } .actions { gap: 2px; } .accountText, .language { display: none; } .breadcrumb { font-size: 12px; } }
+@media (max-width: 991px) {
+  .header { padding: 0 var(--sb-space-4); }
+}
+@media (max-width: 575px) {
+  .header { padding: 0 var(--sb-space-2); }
+  .actions { gap: 2px; }
+  .accountText, .language { display: none; }
+  .breadcrumb { font-size: 12px; }
+}

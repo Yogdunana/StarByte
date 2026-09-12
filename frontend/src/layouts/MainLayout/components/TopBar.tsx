@@ -68,7 +68,11 @@ const TopBar: React.FC<TopBarProps> = ({ mobile, onOpenMenu }) => {
     { key: 'dark', label: t('topbar.themeDark'), onClick: () => setPreference('dark') },
     { key: 'system', label: t('topbar.themeSystem'), onClick: () => setPreference('system') },
     { type: 'divider' as const },
-    { key: 'motion', label: reduceMotion ? '恢复视觉动效（遵循系统设置）' : '减少视觉动效', onClick: () => setReduceMotion(!reduceMotion) },
+    {
+      key: 'motion',
+      label: reduceMotion ? t('topbar.restoreMotion') : t('topbar.reduceMotion'),
+      onClick: () => setReduceMotion(!reduceMotion),
+    },
   ];
 
   const langItems = [
@@ -79,15 +83,20 @@ const TopBar: React.FC<TopBarProps> = ({ mobile, onOpenMenu }) => {
   const paths = location.pathname.split('/').filter(Boolean);
   const crumbs = paths.map((_, idx) => {
     const full = `/${paths.slice(0, idx + 1).join('/')}`;
-    return { title: t(`menu.${full}`, { defaultValue: /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(paths[idx]) ? '详情' : paths[idx] }) };
+    return { title: t(`menu.${full}`, { defaultValue: /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(paths[idx]) ? t('shell.detail') : paths[idx] }) };
   });
+
+  const menuLabel = mobile ? t('shell.openNav') : collapsed ? t('shell.expandNav') : t('shell.collapseNav');
 
   return (
     <AntHeader className={styles.header}>
       <div className={styles.leading}>
-        <Button type="text" aria-label={mobile ? '打开导航' : collapsed ? '展开导航' : '收起导航'}
+        <Button
+          type="text"
+          aria-label={menuLabel}
           icon={collapsed || mobile ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-          onClick={() => mobile ? onOpenMenu?.() : dispatch(toggleCollapsed())} />
+          onClick={() => (mobile ? onOpenMenu?.() : dispatch(toggleCollapsed()))}
+        />
         <Breadcrumb className={styles.breadcrumb} items={crumbs} />
       </div>
 
@@ -101,12 +110,12 @@ const TopBar: React.FC<TopBarProps> = ({ mobile, onOpenMenu }) => {
         <AnnouncementBadge />
         <NotificationBell />
         <Dropdown trigger={['click']} menu={{ items: userMenuItems }} placement="bottomRight">
-          <button type="button" className={styles.account} aria-label="账号菜单">
+          <button type="button" className={styles.account} aria-label={t('shell.accountMenu')}>
             <Avatar size="small" src={currentUser?.avatar_url} icon={!currentUser?.avatar_url && <UserOutlined />} />
             <span className={styles.accountText}>
               <span>{currentUser?.real_name || currentUser?.username || t('common.user')}</span>
               {currentUser?.student_no ? (
-                <span style={{ fontSize: 12, color: token.colorTextSecondary }}>{currentUser.student_no}</span>
+                <span className={styles.studentNo} style={{ color: token.colorTextSecondary }}>{currentUser.student_no}</span>
               ) : null}
             </span>
           </button>

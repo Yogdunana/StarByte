@@ -1,41 +1,75 @@
 import type { ThemeConfig } from 'antd';
 
+const fontFamily = '"Avenir Next", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif';
+
 const lightTheme: ThemeConfig = {
   token: {
-    colorPrimary: '#405cac', colorInfo: '#405cac', colorSuccess: '#28764e',
-    colorWarning: '#b77826', colorError: '#c34c40',
-    colorText: '#253550', colorTextSecondary: '#586b86',
-    colorBgLayout: '#edf1f8', colorBgContainer: '#fcfdff',
-    colorBorder: '#d4deed', colorBorderSecondary: '#e3e9f3',
-    borderRadius: 10, fontSize: 14, controlHeight: 40,
-    fontFamily: '"Avenir Next", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif',
+    colorPrimary: '#2f3530',
+    colorInfo: '#2f3530',
+    colorSuccess: '#3d6b4f',
+    colorWarning: '#9a7040',
+    colorError: '#a54a42',
+    colorText: '#1c1b18',
+    colorTextSecondary: '#6b6860',
+    colorBgLayout: '#f3f2ee',
+    colorBgContainer: '#fafaf7',
+    colorBorder: '#ddd9d1',
+    colorBorderSecondary: '#eeebe5',
+    borderRadius: 10,
+    fontSize: 14,
+    controlHeight: 40,
+    fontFamily,
+    boxShadow: '0 1px 0 rgba(28, 27, 24, 0.06)',
+    boxShadowSecondary: '0 8px 24px rgba(28, 27, 24, 0.06)',
   },
   components: {
-    Layout: { headerBg: '#edf1f8', headerHeight: 72, siderBg: 'transparent', bodyBg: '#edf1f8' },
+    Layout: { headerBg: '#fafaf7', headerHeight: 64, siderBg: '#fafaf7', bodyBg: '#f3f2ee' },
     Menu: {
-      itemBg: 'transparent', subMenuItemBg: 'transparent', itemColor: '#586b86',
-      itemSelectedBg: '#e0e9fb', itemSelectedColor: '#334f99', itemHoverBg: '#edf2fc',
-      itemBorderRadius: 10, itemHeight: 44, itemMarginInline: 10,
+      itemBg: 'transparent',
+      subMenuItemBg: 'transparent',
+      itemColor: '#6b6860',
+      itemSelectedBg: '#e4e7e2',
+      itemSelectedColor: '#1c1b18',
+      itemHoverBg: '#eeebe5',
+      itemBorderRadius: 8,
+      itemHeight: 40,
+      itemMarginInline: 8,
     },
-    Table: { headerBg: '#edf2fa', headerColor: '#536782', borderColor: '#e3e9f3', cellPaddingBlock: 14 },
-    Card: { borderRadiusLG: 20, headerFontSize: 16 },
-    Button: { primaryShadow: '0 4px 12px rgba(64,92,172,.18)' },
+    Table: { headerBg: '#eeebe5', headerColor: '#6b6860', borderColor: '#eeebe5', cellPaddingBlock: 14 },
+    Card: { borderRadiusLG: 14, headerFontSize: 16 },
+    Button: { primaryShadow: 'none' },
   },
 };
+
 export const darkComponents: ThemeConfig['components'] = {
   ...lightTheme.components,
-  Layout: { headerBg: '#151d2c', headerHeight: 72, siderBg: 'transparent', bodyBg: '#151d2c' },
+  Layout: { headerBg: '#1c1c1a', headerHeight: 64, siderBg: '#1c1c1a', bodyBg: '#121211' },
   Menu: {
-    itemBg: 'transparent', subMenuItemBg: 'transparent', itemColor: '#b4c2d7',
-    itemSelectedBg: '#304469', itemSelectedColor: '#d2dfff', itemHoverBg: '#2b3b54',
-    itemBorderRadius: 10, itemHeight: 44, itemMarginInline: 10,
+    itemBg: 'transparent',
+    subMenuItemBg: 'transparent',
+    itemColor: '#a8a49a',
+    itemSelectedBg: '#2a2a26',
+    itemSelectedColor: '#eceae4',
+    itemHoverBg: '#222220',
+    itemBorderRadius: 8,
+    itemHeight: 40,
+    itemMarginInline: 8,
   },
-  Table: { headerBg: '#29364c', headerColor: '#c3d0e4', borderColor: '#34465f', cellPaddingBlock: 14 },
+  Table: { headerBg: '#222220', headerColor: '#a8a49a', borderColor: '#33322e', cellPaddingBlock: 14 },
 };
+
 export const darkTokens: ThemeConfig['token'] = {
-  ...lightTheme.token, colorPrimary: '#adc4ff', colorInfo: '#adc4ff',
-  colorText: '#e4ebf8', colorTextSecondary: '#aabbd3',
-  colorBgLayout: '#151d2c', colorBgContainer: '#202c40',
-  colorBorder: '#465773', colorBorderSecondary: '#34465f',
+  ...lightTheme.token,
+  colorPrimary: '#d4d0c8',
+  colorInfo: '#d4d0c8',
+  colorText: '#eceae4',
+  colorTextSecondary: '#a8a49a',
+  colorBgLayout: '#121211',
+  colorBgContainer: '#1c1c1a',
+  colorBorder: '#33322e',
+  colorBorderSecondary: '#222220',
+  boxShadow: '0 1px 0 rgba(0, 0, 0, 0.28)',
+  boxShadowSecondary: '0 10px 28px rgba(0, 0, 0, 0.32)',
 };
+
 export default lightTheme;

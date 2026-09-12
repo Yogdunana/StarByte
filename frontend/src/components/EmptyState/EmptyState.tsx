@@ -1,46 +1,31 @@
 import React from 'react';
-import { Empty } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
+import styles from './EmptyState.module.css';
 
 export interface EmptyStateProps {
   image?: React.ReactNode;
+  icon?: React.ReactNode;
   title: string;
   description?: string;
   action?: React.ReactNode;
 }
 
-/**
- * 空状态组件 — 自定义图片、标题、描述和操作
- */
 const EmptyState: React.FC<EmptyStateProps> = ({
   image,
+  icon,
   title,
   description,
   action,
 }) => {
+  const mark = icon ?? image;
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '40px 0',
-      }}
-    >
-      {image || <InboxOutlined style={{ fontSize: 48, color: '#bfbfbf', marginBottom: 16 }} />}
-      <Empty
-        description={
-          <div>
-            <div style={{ fontSize: 16, color: '#333', fontWeight: 500 }}>{title}</div>
-            {description && (
-              <div style={{ color: '#999', fontSize: 13, marginTop: 4 }}>{description}</div>
-            )}
-          </div>
-        }
-      >
-        {action && <div style={{ marginTop: 8 }}>{action}</div>}
-      </Empty>
+    <div className={styles.wrap}>
+      <div className={styles.icon} aria-hidden="true">
+        {mark || <InboxOutlined />}
+      </div>
+      <p className={styles.title}>{title}</p>
+      {description && <p className={styles.description}>{description}</p>}
+      {action && <div className={styles.action}>{action}</div>}
     </div>
   );
 };

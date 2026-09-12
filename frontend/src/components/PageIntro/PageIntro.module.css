@@ -1,6 +1,39 @@
-.header { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 20px; margin-bottom: 24px; padding: 8px 2px 18px; border-bottom: 1px solid var(--sb-glass-border); }
-.eyebrow { display: block; font-size: 10px; letter-spacing: 2px; color: var(--sb-brand); margin-bottom: 8px; font-weight: 600; }
-.header h1 { font-size: 28px; line-height: 1.4; font-weight: 600; letter-spacing: -1px; color: var(--sb-text); }
-.header p { font-size: 13px; color: var(--sb-muted); margin-top: 8px; max-width: 680px; }
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: var(--sb-space-5);
+  margin-bottom: var(--sb-space-5);
+  padding: var(--sb-space-2) 0 var(--sb-space-4);
+  border-bottom: 1px solid var(--sb-border);
+}
+.eyebrow {
+  display: block;
+  font-size: 11px;
+  letter-spacing: var(--sb-track-meta);
+  text-transform: uppercase;
+  color: var(--sb-muted);
+  margin-bottom: 8px;
+  font-weight: var(--sb-weight-meta);
+}
+.header h1 {
+  font-size: 26px;
+  line-height: 1.25;
+  font-weight: var(--sb-weight-title);
+  letter-spacing: var(--sb-track-tight);
+  color: var(--sb-text);
+}
+.header p {
+  font-size: 13px;
+  font-weight: var(--sb-weight-body);
+  color: var(--sb-muted);
+  margin-top: 8px;
+  max-width: 640px;
+  line-height: 1.65;
+}
 .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-@media (max-width: 575px) { .header { margin-bottom: 20px; gap: 14px; } .header h1 { font-size: 23px; } .header p { font-size: 13px; } }
+@media (max-width: 575px) {
+  .header { margin-bottom: var(--sb-space-4); gap: 14px; }
+  .header h1 { font-size: 22px; }
+}

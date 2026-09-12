@@ -9,7 +9,6 @@ import { fetchCurrentUser } from '@/store/slices/userSlice';
 import { getCasLoginURL, getCasStatus, register } from '@/api/auth';
 import { AppDispatch } from '@/store';
 import styles from './Login.module.css';
-import GlassOrb from '@/components/GlassOrb/GlassOrb';
 import { useTranslation } from 'react-i18next';
 
 interface LocationFromState {
@@ -121,18 +120,18 @@ const Login: React.FC = () => {
         <div className={styles.brand}>
           <div className={styles.identity}>
             <div className={styles.wordmark}>StarByte<span>.</span></div>
-            <p className={styles.kicker}>COMPUTER ASSOCIATION / 计算机协会</p>
+            <p className={styles.kicker}>{t('login.kicker')}</p>
           </div>
           <div className={styles.message}>
-            <h1>从一个想法，<br />到一群人的作品。</h1>
-            <p className={styles.story}>找到志同道合的伙伴，在学习、创造与协作中，一起向前。</p>
+            <h1>{t('login.headline')}</h1>
+            <p className={styles.story}>{t('login.story')}</p>
           </div>
           <div className={styles.visual}>
             <div className={styles.connections}>
-              <GlassOrb />
-              <span>学习 · 创造 · 协作</span>
+              <span className={styles.mark} aria-hidden="true"><i /><i /><i /><i /></span>
+              <span>{t('login.pillars')}</span>
             </div>
-            <p className={styles.caption}>一起学习，一起创造。 / BUILT TOGETHER</p>
+            <p className={styles.caption}>{t('login.caption')}</p>
           </div>
         </div>
       </div>
@@ -140,10 +139,10 @@ const Login: React.FC = () => {
         <div className={styles.mobileBrand}>StarByte.</div>
         <Card className={styles.card}>
           <header className={styles.cardHeader}>
-            <p className={styles.formKicker}>YOUR NEXT CHAPTER</p>
-            <h2>{activeTab === 'login' ? '欢迎回来' : '从这里，加入我们'}</h2>
+            <p className={styles.formKicker}>{t('login.formKicker')}</p>
+            <h2>{activeTab === 'login' ? t('login.welcomeBack') : t('login.joinUs')}</h2>
             <p className={styles.formHint}>
-              {activeTab === 'login' ? '登录你的账号，继续今天的协作。' : '创建账号后，即可填写入会申请。'}
+              {activeTab === 'login' ? t('login.formHintLogin') : t('login.formHintRegister')}
             </p>
           </header>
           <Tabs
