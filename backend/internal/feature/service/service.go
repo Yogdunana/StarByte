@@ -379,6 +379,9 @@ func (s *flagService) lookup(ctx context.Context, key string) *model.Flag {
 			s.mu.RUnlock()
 		}
 	}
+	// Incomplete / stale snapshot must not hide a DB row. A finished load
+	// still does GetByKey so a partial Redis generation cannot fail-close
+	// cms.public; unknown keys do not trigger another full snapshot reload.
 	row, err := s.rows.GetByKey(ctx, key)
 	if err != nil || row == nil {
 		return nil

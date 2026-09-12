@@ -597,6 +597,9 @@ func TestLookupFallsBackWhenSnapshotOmitsKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	svc := New(rows, store, NewMemoryBus(), stubRoles{}, stubUsers{}, stubPerms{}).(*flagService)
+	if err := svc.reload(ctx); err != nil {
+		t.Fatal(err)
+	}
 	if !svc.Enabled(ctx, model.KeyCMSPublic, feature.Subject{}) {
 		t.Fatal("omitted snapshot key should read db")
 	}
