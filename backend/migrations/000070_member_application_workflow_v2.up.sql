@@ -1,12 +1,27 @@
 -- Membership approval template v2 (#64):
 -- 干事审批 → 部长审批 → 社长审批，可转交；会员申请跳过干事，无部门跳过部长。
 -- Only replace the published version when it is still the phase-1 default
--- (4 nodes, allowTransfer=false). Designer-published graphs are left alone.
+-- (exact JSONB match of the 000061 seed). Preserve every customized graph,
+-- including graphs that only change roles, signing policy, edges or layout.
 
 DO $migration$
 DECLARE
   target_definition_id uuid;
   next_version integer;
+  phase1_graph jsonb := $phase1${
+    "nodes": [
+      {"id": "start", "type": "start", "position": {"x": 280, "y": 20}, "data": {"label": "干事申请", "config": {}}},
+      {"id": "minister", "type": "approval", "position": {"x": 280, "y": 160}, "data": {"label": "部长审批", "config": {"assigneeStrategy": "role", "roleCode": "minister", "approvalType": "any", "departmentScope": true, "allowReject": true, "allowTransfer": false, "allowRollback": false}}},
+      {"id": "president", "type": "approval", "position": {"x": 280, "y": 300}, "data": {"label": "社长审批", "config": {"assigneeStrategy": "role", "roleCode": "president", "approvalType": "any", "allowReject": true, "allowTransfer": false, "allowRollback": false}}},
+      {"id": "end", "type": "end", "position": {"x": 280, "y": 440}, "data": {"label": "结束", "config": {}}}
+    ],
+    "edges": [
+      {"id": "start-minister", "source": "start", "target": "minister"},
+      {"id": "minister-president", "source": "minister", "target": "president"},
+      {"id": "president-end", "source": "president", "target": "end"}
+    ],
+    "viewport": {"x": 0, "y": 0, "zoom": 1}
+  }$phase1$::jsonb;
   graph jsonb := $json${
     "nodes": [
       {"id": "start", "type": "start", "position": {"x": 280, "y": 20}, "data": {"label": "提交申请", "config": {}}},
@@ -44,8 +59,7 @@ BEGIN
   IF EXISTS (
     SELECT 1 FROM flow_definition_versions v
     WHERE v.definition_id = target_definition_id AND v.status = 1
-      AND jsonb_array_length(v.bpmn_data->'nodes') = 4
-      AND COALESCE((v.bpmn_data #>> '{nodes,1,data,config,allowTransfer}')::boolean, false) = false
+      AND v.bpmn_data = phase1_graph
   ) THEN
     SELECT COALESCE(MAX(version), 0) + 1 INTO next_version
     FROM flow_definition_versions WHERE definition_id = target_definition_id;
