@@ -290,8 +290,9 @@ func (s *taskService) finishSignedHandover(ctx context.Context, t *model.Task, r
 	request.CompletedAt = &now
 	t.AssigneeID = &request.ToUserID
 	if request.TargetDepartmentID != uuid.Nil {
-		dept := request.TargetDepartmentID
-		t.DepartmentID = &dept
+		if err := applyTaskDepartment(t, request.TargetDepartmentID); err != nil {
+			return err
+		}
 	}
 	t.WorkflowRevision++
 	t.UpdatedAt = now

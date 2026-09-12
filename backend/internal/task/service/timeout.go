@@ -134,9 +134,11 @@ func (s *taskService) pickEscalationTarget(ctx context.Context, t *model.Task, e
 			return uuid.Nil, err
 		}
 		if parsed.Mode != "" {
-			policy = parsed
+			policy.Mode = parsed.Mode
+			policy.RoleID = parsed.RoleID
 		}
 	}
+	policy.DepartmentID = *t.DepartmentID
 	excluded := append([]uuid.UUID{}, extra...)
 	for _, id := range []*uuid.UUID{t.ReviewerID, t.AcceptorID, t.AssigneeID} {
 		if id != nil {

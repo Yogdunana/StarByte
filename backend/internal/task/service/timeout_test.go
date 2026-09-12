@@ -103,3 +103,20 @@ func TestEscalateOverdueReviewFallsBackToCreator(t *testing.T) {
 		t.Fatalf("review not escalated to creator: %v", tasks.items[id].ReviewerID)
 	}
 }
+
+func TestPickEscalationTargetUsesLiveDepartment(t *testing.T) {
+	svc, _, _, ids := workflowFixture(t)
+	src, dst := uuid.New(), uuid.New()
+	next := uuid.New()
+	stub := &assignmentStub{picked: &model.NamedUser{ID: next}}
+	svc.assignments = stub
+	encoded := `{"mode":"department","department_id":"` + src.String() + `"}`
+	task := &model.Task{DepartmentID: &dst, AssignmentPolicy: encoded, ReviewerID: &ids[2], AcceptorID: &ids[3]}
+	got, err := svc.pickEscalationTarget(context.Background(), task, nil)
+	if err != nil || got != next {
+		t.Fatalf("pick: %s %v", got, err)
+	}
+	if stub.policy.DepartmentID != dst || stub.policy.Mode != "department" {
+		t.Fatalf("stale assignment department used: %+v", stub.policy)
+	}
+}

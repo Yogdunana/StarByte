@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -549,6 +551,11 @@ func TestCompletedHandoverMovesDepartmentAndKeepsSignerAccess(t *testing.T) {
 		t.Fatal(err)
 	}
 	id := uuid.MustParse(row.ID)
+	stale, err := json.Marshal(model.AssignmentPolicy{Mode: "department", DepartmentID: src})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tasks.items[id].AssignmentPolicy = string(stale)
 	created, err := svc.RequestHandover(ctx, id, ids[1], &dto.HandoverRequest{TargetID: peer.String(), Reason: "跨组接手", Revision: 1})
 	if err != nil {
 		t.Fatal(err)
@@ -564,6 +571,25 @@ func TestCompletedHandoverMovesDepartmentAndKeepsSignerAccess(t *testing.T) {
 	if tasks.items[id].DepartmentID == nil || *tasks.items[id].DepartmentID != dst {
 		t.Fatalf("task stayed in source department: %v", tasks.items[id].DepartmentID)
 	}
+	policy := model.AssignmentPolicy{}
+	if err := json.Unmarshal([]byte(tasks.items[id].AssignmentPolicy), &policy); err != nil || policy.DepartmentID != dst {
+		t.Fatalf("assignment policy stayed on source department: %+v %v", policy, err)
+	}
+	picked := uuid.New()
+	tasks.users[picked] = &model.NamedUser{ID: picked, Username: "escalated", DepartmentID: &dst}
+	store.actors[picked] = &model.TransferActor{ID: picked, DepartmentID: &dst}
+	assign := &assignmentStub{picked: &model.NamedUser{ID: picked}}
+	svc.assignments = assign
+	stub.overdue = []engine.OverdueCollaborationTodo{{
+		InstanceID: *tasks.items[id].WorkflowInstanceID, BusinessKey: id.String(), Stage: "execution",
+		AssigneeID: &peer, DueDate: time.Now().Add(-time.Hour),
+	}}
+	if n, err := svc.EscalateOverdueWorkflows(ctx); err != nil || n != 1 {
+		t.Fatalf("escalate after transfer: n=%d err=%v", n, err)
+	}
+	if assign.policy.DepartmentID != dst {
+		t.Fatalf("timeout still picked from source department: %+v", assign.policy)
+	}
 	transferID := uuid.MustParse(created.ID)
 	for _, signer := range []uuid.UUID{minister, otherMinister} {
 		got, err := svc.GetTransfer(ctx, transferID, signer)
@@ -571,7 +597,7 @@ func TestCompletedHandoverMovesDepartmentAndKeepsSignerAccess(t *testing.T) {
 			t.Fatalf("signer lost completed transfer: actor=%s err=%v %+v", signer, err, got)
 		}
 	}
-	sameTeam, err := svc.RequestHandover(ctx, id, peer, &dto.HandoverRequest{TargetID: teammate.String(), Reason: "同组再交", Revision: tasks.items[id].WorkflowRevision})
+	sameTeam, err := svc.RequestHandover(ctx, id, picked, &dto.HandoverRequest{TargetID: teammate.String(), Reason: "同组再交", Revision: tasks.items[id].WorkflowRevision})
 	if err != nil || sameTeam.Kind != "internal" || sameTeam.Status != "completed" {
 		t.Fatalf("same-team after transfer still required signatures: %v %+v", err, sameTeam)
 	}
