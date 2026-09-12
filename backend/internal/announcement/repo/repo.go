@@ -142,7 +142,7 @@ func applyListFilters(q *gorm.DB, viewer uuid.UUID, staff, manage bool, req *dto
 			q = q.Where("a.author_id = ?", viewer)
 		}
 		if !manage && *req.Status != model.StatusDraft {
-			q = q.Where(audienceVisibleSQL(), viewer, viewer, viewer)
+			q = q.Where("("+audienceVisibleSQL()+") OR a.author_id = ?", viewer, viewer, viewer, viewer)
 		}
 		return q
 	}
@@ -158,22 +158,22 @@ func applyListFilters(q *gorm.DB, viewer uuid.UUID, staff, manage bool, req *dto
 	return q.Where(visible, args...)
 }
 
-// audienceVisibleSQL 绑定 3 个 viewer：指定用户 / 部门 / 角色。
+// audienceVisibleSQL 绑定 3 个 viewer。用 jsonb_exists，避免 GORM 把 JSONB `?` 当成占位符。
 func audienceVisibleSQL() string {
 	return `(
 		COALESCE(a.audience_type, 'all') = 'all'
-		OR (a.audience_type = 'users' AND a.audience_ids ? ?::text)
+		OR (a.audience_type = 'users' AND jsonb_exists(a.audience_ids, ?::text))
 		OR (a.audience_type = 'department' AND EXISTS (
 			SELECT 1 FROM users u
 			WHERE u.id = ? AND u.deleted_at IS NULL AND u.department_id IS NOT NULL
-			  AND a.audience_ids ? u.department_id::text
+			  AND jsonb_exists(a.audience_ids, u.department_id::text)
 		))
 		OR (a.audience_type = 'role' AND EXISTS (
 			SELECT 1 FROM user_roles ur
 			JOIN roles r ON r.id = ur.role_id
 			WHERE ur.user_id = ? AND r.status = 0
 			  AND (ur.expired_at IS NULL OR ur.expired_at > NOW())
-			  AND a.audience_ids ? ur.role_id::text
+			  AND jsonb_exists(a.audience_ids, ur.role_id::text)
 		))
 	)`
 }

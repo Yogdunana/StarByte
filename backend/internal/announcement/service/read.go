@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func (s *announcementService) MarkRead(ctx context.Context, userID, id uuid.UUID, duration int) error {
+func (s *announcementService) MarkRead(ctx context.Context, viewer Viewer, id uuid.UUID, duration int) error {
 	a, err := s.load(ctx, id)
 	if err != nil {
 		return err
@@ -17,7 +17,14 @@ func (s *announcementService) MarkRead(ctx context.Context, userID, id uuid.UUID
 	if a.Status != model.StatusPublished && a.Status != model.StatusArchived {
 		return invalidState("草稿不能标记已读")
 	}
-	return s.rows.MarkRead(ctx, id, userID, s.clock(), duration)
+	ok, err := s.canViewPublished(ctx, viewer, a)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return noAccess("无权阅读该公告")
+	}
+	return s.rows.MarkRead(ctx, id, viewer.UserID, s.clock(), duration)
 }
 
 func (s *announcementService) UnreadCount(ctx context.Context, userID uuid.UUID) (*dto.UnreadCountResponse, error) {
@@ -44,11 +51,18 @@ func (s *announcementService) ReadStatus(ctx context.Context, viewer Viewer, id 
 	if err != nil {
 		return nil, fmt.Errorf("list recipients: %w", err)
 	}
+	targetSet := map[uuid.UUID]struct{}{}
+	for _, uid := range targets {
+		targetSet[uid] = struct{}{}
+	}
 	readSet := map[uuid.UUID]struct{}{}
 	var durationSum int
 	var durationN int
 	outReaders := make([]dto.ReaderResponse, 0, len(readers))
 	for _, r := range readers {
+		if _, ok := targetSet[r.UserID]; !ok {
+			continue
+		}
 		readSet[r.UserID] = struct{}{}
 		if r.DurationSeconds > 0 {
 			durationSum += r.DurationSeconds
@@ -82,9 +96,9 @@ func (s *announcementService) ReadStatus(ctx context.Context, viewer Viewer, id 
 		}
 		unreadPeople = append(unreadPeople, dto.Person{ID: u.ID.String(), Name: name})
 	}
-	readCount := int64(len(readers))
+	readCount := int64(len(outReaders))
 	total := int64(len(targets))
-	unread := total - readCount
+	unread := int64(len(unreadPeople))
 	if unread < 0 {
 		unread = 0
 	}

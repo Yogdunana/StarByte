@@ -171,7 +171,7 @@ func (h *Handler) MarkRead(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	uid, err := getUserID(c)
+	v, err := viewerOf(c)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -182,7 +182,7 @@ func (h *Handler) MarkRead(c *gin.Context) {
 	if req.DurationSeconds != nil && *req.DurationSeconds > 0 {
 		duration = *req.DurationSeconds
 	}
-	if err := h.svc.MarkRead(c.Request.Context(), uid, id, duration); err != nil {
+	if err := h.svc.MarkRead(c.Request.Context(), v, id, duration); err != nil {
 		response.Error(c, err)
 		return
 	}

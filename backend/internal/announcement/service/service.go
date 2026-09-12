@@ -33,7 +33,7 @@ type Service interface {
 	Pin(ctx context.Context, viewer Viewer, id uuid.UUID, pinned *bool, sortOrder *int) (*dto.AnnouncementResponse, error)
 	Archive(ctx context.Context, viewer Viewer, id uuid.UUID) (*dto.AnnouncementResponse, error)
 
-	MarkRead(ctx context.Context, userID, id uuid.UUID, duration int) error
+	MarkRead(ctx context.Context, viewer Viewer, id uuid.UUID, duration int) error
 	UnreadCount(ctx context.Context, userID uuid.UUID) (*dto.UnreadCountResponse, error)
 	ReadStatus(ctx context.Context, viewer Viewer, id uuid.UUID) (*dto.ReadStatusResponse, error)
 

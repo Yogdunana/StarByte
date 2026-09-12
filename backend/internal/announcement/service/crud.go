@@ -165,6 +165,18 @@ func applyUpdate(a *model.Announcement, req *dto.UpdateAnnouncementRequest, view
 		}
 		a.Attachments = atts
 	}
+	// 先落定时发布，再用最终 ScheduledAt 校验下架时间（与 Create 一致）。
+	scheduleTouched := req.ClearSched || req.ScheduledAt != nil
+	if req.ClearSched || (req.ScheduledAt != nil && a.Status != model.StatusDraft) {
+		if canPublish {
+			a.ScheduledAt = nil
+		}
+	} else if req.ScheduledAt != nil {
+		if err := validateSchedule(req.ScheduledAt, canPublish, now); err != nil {
+			return err
+		}
+		a.ScheduledAt = req.ScheduledAt
+	}
 	if req.ClearExpires {
 		a.ExpiresAt = nil
 	} else if req.ExpiresAt != nil {
@@ -172,19 +184,10 @@ func applyUpdate(a *model.Announcement, req *dto.UpdateAnnouncementRequest, view
 			return err
 		}
 		a.ExpiresAt = req.ExpiresAt
-	}
-	if req.ClearSched || (req.ScheduledAt != nil && a.Status != model.StatusDraft) {
-		if !canPublish {
-			return nil
-		}
-		a.ScheduledAt = nil
-		return nil
-	}
-	if req.ScheduledAt != nil {
-		if err := validateSchedule(req.ScheduledAt, canPublish, now); err != nil {
+	} else if scheduleTouched && a.ExpiresAt != nil {
+		if err := validateExpireOrder(a.ExpiresAt, a.ScheduledAt); err != nil {
 			return err
 		}
-		a.ScheduledAt = req.ScheduledAt
 	}
 	return nil
 }
@@ -208,6 +211,13 @@ func validateExpire(at, scheduled *time.Time, now time.Time) error {
 	}
 	if !at.After(now) {
 		return response.NewError(response.CodeBadRequest, "下架时间必须晚于当前时间")
+	}
+	return validateExpireOrder(at, scheduled)
+}
+
+func validateExpireOrder(at, scheduled *time.Time) error {
+	if at == nil {
+		return nil
 	}
 	if scheduled != nil && !at.After(*scheduled) {
 		return response.NewError(response.CodeBadRequest, "下架时间必须晚于定时发布时间")

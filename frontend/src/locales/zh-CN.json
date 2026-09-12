@@ -297,6 +297,7 @@
     "attachments": "附件",
     "upload": "上传附件",
     "uploadFailed": "附件上传失败",
+    "downloadFailed": "附件下载失败",
     "fileTooLarge": "单个附件不能超过 20MB",
     "audience": "推送范围",
     "audienceIds": "指定对象",

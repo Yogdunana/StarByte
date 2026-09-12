@@ -190,10 +190,10 @@ func TestPublish_NotifyAndReadFlow(t *testing.T) {
 	if err != nil || unread.Count != 1 {
 		t.Fatalf("unread = %+v err=%v", unread, err)
 	}
-	if err := svc.MarkRead(context.Background(), reader, id, 12); err != nil {
+	if err := svc.MarkRead(context.Background(), Viewer{UserID: reader}, id, 12); err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.MarkRead(context.Background(), reader, id, 30); err != nil {
+	if err := svc.MarkRead(context.Background(), Viewer{UserID: reader}, id, 30); err != nil {
 		t.Fatal(err)
 	}
 	unread, err = svc.UnreadCount(context.Background(), reader)
@@ -234,7 +234,7 @@ func TestMarkRead_DraftForbidden(t *testing.T) {
 	svc, _, _ := newTestSvc()
 	author := uuid.New()
 	resp := mustCreate(t, svc, author, "草稿", model.CategorySystem)
-	err := svc.MarkRead(context.Background(), author, parseID(t, resp.ID), 0)
+	err := svc.MarkRead(context.Background(), Viewer{UserID: author}, parseID(t, resp.ID), 0)
 	if codeOf(err) != response.CodeAnnouncementInvalidState {
 		t.Fatalf("code = %d, err=%v", codeOf(err), err)
 	}
@@ -716,6 +716,129 @@ func TestPin_SortOrder(t *testing.T) {
 	got, err := svc.Pin(context.Background(), asManager(author), parseID(t, created.ID), &pinned, &order)
 	if err != nil || !got.Pinned || got.SortOrder != 3 {
 		t.Fatalf("pin sort: %+v err=%v", got, err)
+	}
+}
+
+func TestMarkRead_OutsiderForbidden(t *testing.T) {
+	svc, repo, _ := newTestSvc()
+	author := uuid.New()
+	outsider := uuid.New()
+	roleID := uuid.New()
+	repo.addUser(author, "作者")
+	repo.addUser(outsider, "外人")
+	created, err := svc.Create(context.Background(), asPublisher(author), &dto.CreateAnnouncementRequest{
+		Title: "定向", Category: model.CategorySystem,
+		AudienceType: model.AudienceRole, AudienceIDs: []string{roleID.String()},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := parseID(t, created.ID)
+	if _, err := svc.Publish(context.Background(), asPublisher(author), id); err != nil {
+		t.Fatal(err)
+	}
+	err = svc.MarkRead(context.Background(), Viewer{UserID: outsider}, id, 5)
+	if codeOf(err) != response.CodeAnnouncementNoAccess {
+		t.Fatalf("outsider mark-read: code=%d err=%v", codeOf(err), err)
+	}
+}
+
+func TestList_AuthorSeesOwnTargetedWhenFilteredPublished(t *testing.T) {
+	svc, repo, _ := newTestSvc()
+	author := uuid.New()
+	roleID := uuid.New()
+	repo.addUser(author, "作者")
+	created, err := svc.Create(context.Background(), asPublisher(author), &dto.CreateAnnouncementRequest{
+		Title: "作者定向", Category: model.CategorySystem,
+		AudienceType: model.AudienceRole, AudienceIDs: []string{roleID.String()},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := parseID(t, created.ID)
+	if _, err := svc.Publish(context.Background(), asPublisher(author), id); err != nil {
+		t.Fatal(err)
+	}
+	status := model.StatusPublished
+	list, total, err := svc.List(context.Background(), Viewer{UserID: author, Staff: true}, &dto.ListAnnouncementRequest{
+		Status: &status,
+	})
+	if err != nil || total != 1 || len(list) != 1 || list[0].ID != created.ID {
+		t.Fatalf("author published filter: total=%d list=%+v err=%v", total, list, err)
+	}
+}
+
+func TestUpdate_ScheduleAndExpireTogether(t *testing.T) {
+	svc, _, _ := newTestSvc()
+	author := uuid.New()
+	oldSched := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
+	oldExpire := time.Date(2026, 9, 12, 18, 0, 0, 0, time.UTC)
+	created, err := svc.Create(context.Background(), asPublisher(author), &dto.CreateAnnouncementRequest{
+		Title: "一起改", Category: model.CategorySystem, ScheduledAt: &oldSched, ExpiresAt: &oldExpire,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := parseID(t, created.ID)
+	newSched := time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC)
+	tooSoon := time.Date(2026, 9, 13, 11, 0, 0, 0, time.UTC)
+	_, err = svc.Update(context.Background(), asPublisher(author), id, &dto.UpdateAnnouncementRequest{
+		ScheduledAt: &newSched,
+		ExpiresAt:   &tooSoon,
+	})
+	if codeOf(err) != response.CodeBadRequest {
+		t.Fatalf("expire before new schedule: code=%d err=%v", codeOf(err), err)
+	}
+	okExpire := time.Date(2026, 9, 13, 18, 0, 0, 0, time.UTC)
+	updated, err := svc.Update(context.Background(), asPublisher(author), id, &dto.UpdateAnnouncementRequest{
+		ScheduledAt: &newSched,
+		ExpiresAt:   &okExpire,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.ScheduledAt == "" || updated.ExpiresAt == "" {
+		t.Fatalf("updated times missing: %+v", updated)
+	}
+}
+
+func TestReadStatus_IgnoresOutsiderReads(t *testing.T) {
+	svc, repo, _ := newTestSvc()
+	author := uuid.New()
+	inRole := uuid.New()
+	outsider := uuid.New()
+	roleID := uuid.New()
+	repo.addUser(author, "作者")
+	repo.users[inRole] = model.NamedUser{ID: inRole, RealName: "部员", Username: "in", RoleIDs: []uuid.UUID{roleID}}
+	repo.activeIDs = append(repo.activeIDs, inRole)
+	repo.addUser(outsider, "外人")
+
+	created, err := svc.Create(context.Background(), asPublisher(author), &dto.CreateAnnouncementRequest{
+		Title: "回执", Category: model.CategorySystem,
+		AudienceType: model.AudienceRole, AudienceIDs: []string{roleID.String()},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := parseID(t, created.ID)
+	if _, err := svc.Publish(context.Background(), asPublisher(author), id); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.MarkRead(context.Background(), Viewer{UserID: inRole}, id, 8); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.MarkRead(context.Background(), id, outsider, time.Date(2026, 9, 12, 11, 0, 0, 0, time.UTC), 99); err != nil {
+		t.Fatal(err)
+	}
+	st, err := svc.ReadStatus(context.Background(), asManager(author), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.ReadCount != 1 || len(st.Readers) != 1 || st.Readers[0].User.ID != inRole.String() {
+		t.Fatalf("read status should ignore outsider: %+v", st)
+	}
+	if st.UnreadCount != 1 || len(st.UnreadUsers) != 1 || st.UnreadUsers[0].ID != author.String() {
+		t.Fatalf("unread should be author only: %+v", st)
 	}
 }
 

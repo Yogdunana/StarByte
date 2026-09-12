@@ -297,6 +297,7 @@
     "attachments": "Attachments",
     "upload": "Upload file",
     "uploadFailed": "Attachment upload failed",
+    "downloadFailed": "Attachment download failed",
     "fileTooLarge": "Each attachment must be under 20MB",
     "audience": "Audience",
     "audienceIds": "Targets",

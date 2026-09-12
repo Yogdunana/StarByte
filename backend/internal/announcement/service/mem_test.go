@@ -166,7 +166,7 @@ func (m *memRepo) List(_ context.Context, viewer uuid.UUID, staff, manage bool, 
 			if *req.Status == model.StatusDraft && !manage && a.AuthorID != viewer {
 				continue
 			}
-			if !manage && *req.Status != model.StatusDraft && !m.inAudience(a, viewer) {
+			if !manage && *req.Status != model.StatusDraft && !m.inAudience(a, viewer) && a.AuthorID != viewer {
 				continue
 			}
 		} else if manage {

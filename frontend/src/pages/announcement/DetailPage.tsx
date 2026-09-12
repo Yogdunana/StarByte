@@ -15,8 +15,11 @@ import {
   pinAnnouncement,
   publishAnnouncement,
 } from '@/api/announcement';
-import type { Announcement, AnnouncementReadStatus } from '@/api/announcement';
+import type { Announcement, AnnouncementAttachment, AnnouncementReadStatus } from '@/api/announcement';
+import { getFileDetail } from '@/api/file';
 import { formatDateTime } from '@/utils/format';
+import { downloadFile } from '@/utils/download';
+import { getToken } from '@/utils/storage';
 import { announcementStatusMap, sanitizeAnnouncementHTML } from './meta';
 import './announcement.css';
 
@@ -31,10 +34,14 @@ const DetailPage: React.FC = () => {
   const [item, setItem] = useState<Announcement | null>(null);
   const [reads, setReads] = useState<AnnouncementReadStatus | null>(null);
   const openedAt = useRef(Date.now());
+  const reportForID = useRef('');
 
   const load = useCallback(async () => {
     if (!id) return;
     const a = await getAnnouncementDetail(id);
+    if (a.status === 1 || a.status === 2) {
+      reportForID.current = id;
+    }
     setItem(a);
     if (a.status === 1 || a.status === 2) {
       if (!a.is_read) {
@@ -60,12 +67,28 @@ const DetailPage: React.FC = () => {
 
   useEffect(() => {
     openedAt.current = Date.now();
+    const watching = id;
     return () => {
-      if (!id) return;
+      if (!watching || reportForID.current !== watching) return;
       const seconds = Math.round((Date.now() - openedAt.current) / 1000);
-      if (seconds > 0) void markAnnouncementRead(id, seconds);
+      if (seconds > 0) void markAnnouncementRead(watching, seconds);
     };
   }, [id]);
+
+  const handleDownload = async (file: AnnouncementAttachment) => {
+    try {
+      const detail = await getFileDetail(file.file_id);
+      const name = file.name || detail.original_name || detail.name;
+      if (detail.url) {
+        const sameOrigin = detail.url.startsWith('/') || detail.url.startsWith(window.location.origin);
+        await downloadFile(detail.url, name, sameOrigin ? getToken() : undefined);
+        return;
+      }
+      await downloadFile(`/api/v1/files/${file.file_id}/download`, name, getToken());
+    } catch {
+      message.error(t('announcement.downloadFailed'));
+    }
+  };
 
   if (!item) return <Card loading />;
 
@@ -141,10 +164,9 @@ const DetailPage: React.FC = () => {
             <ul>
               {item.attachments.map((file) => (
                 <li key={file.file_id}>
-                  <PaperClipOutlined />
-                  <a href={`/api/v1/files/${file.file_id}/download`} target="_blank" rel="noreferrer">
+                  <Button type="link" icon={<PaperClipOutlined />} onClick={() => void handleDownload(file)}>
                     {file.name}
-                  </a>
+                  </Button>
                 </li>
               ))}
             </ul>
