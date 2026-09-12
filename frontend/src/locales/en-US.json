@@ -813,7 +813,8 @@
       "status": {
         "pending": "Waiting for signatures",
         "completed": "Handover completed",
-        "rejected": "Rejected"
+        "rejected": "Rejected",
+        "cancelled": "Cancelled"
       },
       "requirement": {
         "supervisor": "Department lead",

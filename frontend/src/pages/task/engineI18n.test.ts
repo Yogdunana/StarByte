@@ -24,7 +24,7 @@ function pick(obj: Record<string, unknown>, path: string): unknown {
 const handoverKeys = [
   'title', 'delegateTitle', 'target', 'reason', 'submit', 'comment',
   'kind.internal', 'kind.department', 'kind.center',
-  'status.pending', 'requirement.source_minister',
+  'status.pending', 'status.cancelled', 'requirement.source_minister',
 ] as const;
 
 describe('task engine i18n', () => {

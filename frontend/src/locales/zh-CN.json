@@ -813,7 +813,8 @@
       "status": {
         "pending": "待负责人签字",
         "completed": "已完成交接",
-        "rejected": "已拒绝"
+        "rejected": "已拒绝",
+        "cancelled": "已取消"
       },
       "requirement": {
         "supervisor": "部门负责人",

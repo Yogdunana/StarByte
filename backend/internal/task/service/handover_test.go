@@ -87,10 +87,12 @@ func TestSameDepartmentDelegateTransfersExecution(t *testing.T) {
 	svc, tasks, stub, ids := workflowFixture(t)
 	store := newMemTransfers()
 	svc.transfers = store
+	dept := uuid.New()
+	store.depts[dept] = &model.TransferDepartment{ID: dept, Name: "同组"}
 	peer := uuid.New()
-	tasks.users[peer] = &model.NamedUser{ID: peer, Username: "peer"}
+	tasks.users[peer] = &model.NamedUser{ID: peer, Username: "peer", DepartmentID: &dept}
 	ctx := context.Background()
-	row, err := svc.Create(ctx, ids[0], &dto.CreateTaskRequest{Title: "Delegate", AssigneeID: ids[1].String(), Workflow: &dto.WorkflowConfig{ReviewerID: ids[2].String(), AcceptorID: ids[3].String()}})
+	row, err := svc.Create(ctx, ids[0], &dto.CreateTaskRequest{Title: "Delegate", AssigneeID: ids[1].String(), DepartmentID: dept.String(), Workflow: &dto.WorkflowConfig{ReviewerID: ids[2].String(), AcceptorID: ids[3].String()}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -230,6 +232,12 @@ func TestClassifyHandoverKinds(t *testing.T) {
 	if err != nil || kind != "center" {
 		t.Fatalf("center: %s %v", kind, err)
 	}
+	if _, _, _, _, _, _, err = svc.classifyHandover(context.Background(), task, &model.NamedUser{ID: uuid.New()}); err == nil {
+		t.Fatal("missing target department treated as internal")
+	}
+	if _, _, _, _, _, _, err = svc.classifyHandover(context.Background(), &model.Task{AssigneeID: &ids[1]}, &model.NamedUser{ID: uuid.New(), DepartmentID: &src}); err == nil {
+		t.Fatal("missing source department treated as internal")
+	}
 }
 
 func TestGetAndDecideTransferByID(t *testing.T) {
@@ -315,11 +323,14 @@ func TestTransferApproverRejectsMismatchedBusiness(t *testing.T) {
 
 func TestWorkflowTransferUsesHandoverInsteadOfSilentBlock(t *testing.T) {
 	svc, tasks, _, ids := workflowFixture(t)
-	svc.transfers = newMemTransfers()
+	store := newMemTransfers()
+	svc.transfers = store
+	dept := uuid.New()
+	store.depts[dept] = &model.TransferDepartment{ID: dept, Name: "同组"}
 	peer := uuid.New()
-	tasks.users[peer] = &model.NamedUser{ID: peer, Username: "peer"}
+	tasks.users[peer] = &model.NamedUser{ID: peer, Username: "peer", DepartmentID: &dept}
 	ctx := context.Background()
-	row, err := svc.Create(ctx, ids[0], &dto.CreateTaskRequest{Title: "Transfer API", AssigneeID: ids[1].String(), Workflow: &dto.WorkflowConfig{ReviewerID: ids[2].String(), AcceptorID: ids[3].String()}})
+	row, err := svc.Create(ctx, ids[0], &dto.CreateTaskRequest{Title: "Transfer API", AssigneeID: ids[1].String(), DepartmentID: dept.String(), Workflow: &dto.WorkflowConfig{ReviewerID: ids[2].String(), AcceptorID: ids[3].String()}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -330,5 +341,173 @@ func TestWorkflowTransferUsesHandoverInsteadOfSilentBlock(t *testing.T) {
 	}
 	if out.Assignee == nil || out.Assignee.ID != peer.String() {
 		t.Fatalf("transfer API did not delegate: %+v", out)
+	}
+}
+
+type handoverNotifyCapture struct{ templates []string }
+
+func (c *handoverNotifyCapture) Send(_ context.Context, _ []uuid.UUID, template string, _ map[string]interface{}) error {
+	c.templates = append(c.templates, template)
+	return nil
+}
+
+func TestPendingHandoverBlocksSubmitAndIgnoresStaleTransferID(t *testing.T) {
+	svc, tasks, _, ids := workflowFixture(t)
+	store := newMemTransfers()
+	svc.transfers = store
+	src, dst, center := uuid.New(), uuid.New(), uuid.New()
+	store.depts[src] = &model.TransferDepartment{ID: src, ParentID: &center, Name: "A"}
+	store.depts[dst] = &model.TransferDepartment{ID: dst, ParentID: &center, Name: "B"}
+	peer, minister := uuid.New(), uuid.New()
+	tasks.users[peer] = &model.NamedUser{ID: peer, Username: "peer", DepartmentID: &dst}
+	store.actors[minister] = &model.TransferActor{ID: minister, DepartmentID: &src, Roles: []string{"minister"}}
+	ctx := context.Background()
+	row, err := svc.Create(ctx, ids[0], &dto.CreateTaskRequest{
+		Title: "PendingSubmit", AssigneeID: ids[1].String(), DepartmentID: src.String(),
+		Workflow: &dto.WorkflowConfig{ReviewerID: ids[2].String(), AcceptorID: ids[3].String()},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.MustParse(row.ID)
+	if _, err := svc.ActWorkflow(ctx, id, ids[1], &dto.WorkflowActionRequest{Action: "start", Comment: "开始", Revision: 1}); err != nil {
+		t.Fatal(err)
+	}
+	created, err := svc.RequestHandover(ctx, id, ids[1], &dto.HandoverRequest{TargetID: peer.String(), Reason: "跨组", Revision: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	state, err := svc.GetWorkflow(ctx, id, ids[1])
+	if err != nil || state.CanSubmit || state.CanStart || state.CanDelegate {
+		t.Fatalf("pending handover still executable: %+v %v", state, err)
+	}
+	if _, err := svc.ActWorkflow(ctx, id, ids[1], &dto.WorkflowActionRequest{Action: "submit", Comment: "交付说明", Revision: state.Revision}); err == nil {
+		t.Fatal("submit accepted during pending handover")
+	}
+	oldID := uuid.MustParse(created.ID)
+	if _, err := svc.DecideTransfer(ctx, oldID, minister, &dto.HandoverDecision{Requirement: "source_minister", Decision: "reject", Comment: "先拒", Revision: 1}); err != nil {
+		t.Fatal(err)
+	}
+	next, err := svc.RequestHandover(ctx, id, ids[1], &dto.HandoverRequest{TargetID: peer.String(), Reason: "再转一次", Revision: tasks.items[id].WorkflowRevision})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.DecideTransfer(ctx, oldID, minister, &dto.HandoverDecision{Requirement: "source_minister", Decision: "approve", Comment: "旧单仍想签", Revision: 1}); err == nil {
+		t.Fatal("stale transfer id signed the later handover")
+	}
+	pending, err := store.Pending(ctx, id)
+	if err != nil || pending == nil || pending.ID.String() != next.ID {
+		t.Fatalf("later handover lost: %v %+v", err, pending)
+	}
+}
+
+func TestHandoverRequestDoesNotNotifyAsTransferred(t *testing.T) {
+	svc, tasks, stub, ids := workflowFixture(t)
+	store := newMemTransfers()
+	svc.transfers = store
+	capture := &handoverNotifyCapture{}
+	svc.notify = capture
+	flushNotify := func() {
+		if svc.afterCommit == nil {
+			return
+		}
+		pending := *svc.afterCommit
+		*svc.afterCommit = nil
+		for _, fn := range pending {
+			fn()
+		}
+	}
+	src, dst, center := uuid.New(), uuid.New(), uuid.New()
+	store.depts[src] = &model.TransferDepartment{ID: src, ParentID: &center, Name: "A"}
+	store.depts[dst] = &model.TransferDepartment{ID: dst, ParentID: &center, Name: "B"}
+	peer, minister, other := uuid.New(), uuid.New(), uuid.New()
+	tasks.users[peer] = &model.NamedUser{ID: peer, Username: "peer", DepartmentID: &dst}
+	store.actors[minister] = &model.TransferActor{ID: minister, DepartmentID: &src, Roles: []string{"minister"}}
+	store.actors[other] = &model.TransferActor{ID: other, DepartmentID: &dst, Roles: []string{"minister"}}
+	ctx := context.Background()
+	row, err := svc.Create(ctx, ids[0], &dto.CreateTaskRequest{
+		Title: "Notify", AssigneeID: ids[1].String(), DepartmentID: src.String(),
+		Workflow: &dto.WorkflowConfig{ReviewerID: ids[2].String(), AcceptorID: ids[3].String()},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.MustParse(row.ID)
+	if _, err := svc.RequestHandover(ctx, id, ids[1], &dto.HandoverRequest{TargetID: peer.String(), Reason: "跨组", Revision: 1}); err != nil {
+		t.Fatal(err)
+	}
+	flushNotify()
+	for _, tpl := range capture.templates {
+		if tpl == tplTaskTransferred {
+			t.Fatal("request notified as already transferred")
+		}
+	}
+	if _, err := svc.DecideHandover(ctx, id, minister, &dto.HandoverDecision{Requirement: "source_minister", Decision: "approve", Comment: "同意转出", Revision: 1}); err != nil {
+		t.Fatal(err)
+	}
+	stub.done = true
+	if _, err := svc.DecideHandover(ctx, id, other, &dto.HandoverDecision{Requirement: "target_minister", Decision: "approve", Comment: "同意转入", Revision: 2}); err != nil {
+		t.Fatal(err)
+	}
+	flushNotify()
+	found := false
+	for _, tpl := range capture.templates {
+		if tpl == tplTaskTransferred {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("completed handover did not notify transfer")
+	}
+}
+
+func TestSignedHandoverCancelsWhenExecutionAlreadyLeft(t *testing.T) {
+	svc, tasks, stub, ids := workflowFixture(t)
+	store := newMemTransfers()
+	svc.transfers = store
+	src, dst, center := uuid.New(), uuid.New(), uuid.New()
+	store.depts[src] = &model.TransferDepartment{ID: src, ParentID: &center, Name: "A"}
+	store.depts[dst] = &model.TransferDepartment{ID: dst, ParentID: &center, Name: "B"}
+	peer, minister := uuid.New(), uuid.New()
+	tasks.users[peer] = &model.NamedUser{ID: peer, Username: "peer", DepartmentID: &dst}
+	store.actors[minister] = &model.TransferActor{ID: minister, DepartmentID: &src, Roles: []string{"minister"}}
+	ctx := context.Background()
+	row, err := svc.Create(ctx, ids[0], &dto.CreateTaskRequest{
+		Title: "LeftExecution", AssigneeID: ids[1].String(), DepartmentID: src.String(),
+		Workflow: &dto.WorkflowConfig{ReviewerID: ids[2].String(), AcceptorID: ids[3].String()},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := uuid.MustParse(row.ID)
+	if _, err := svc.RequestHandover(ctx, id, ids[1], &dto.HandoverRequest{TargetID: peer.String(), Reason: "跨组", Revision: 1}); err != nil {
+		t.Fatal(err)
+	}
+	tasks.items[id].WorkflowStage = "review"
+	stub.done = true
+	out, err := svc.DecideHandover(ctx, id, minister, &dto.HandoverDecision{Requirement: "source_minister", Decision: "approve", Comment: "最后一签", Revision: 1})
+	if err != nil || out.Status != "cancelled" || *tasks.items[id].AssigneeID != ids[1] {
+		t.Fatalf("expected cancel not stuck complete: %v %+v assignee=%v", err, out, tasks.items[id].AssigneeID)
+	}
+	if pending, _ := store.Pending(ctx, id); pending != nil {
+		t.Fatal("cancelled handover still pending")
+	}
+}
+
+func TestMissingDepartmentCannotSkipSignatures(t *testing.T) {
+	svc, tasks, _, ids := workflowFixture(t)
+	svc.transfers = newMemTransfers()
+	peer := uuid.New()
+	tasks.users[peer] = &model.NamedUser{ID: peer, Username: "peer"}
+	ctx := context.Background()
+	row, err := svc.Create(ctx, ids[0], &dto.CreateTaskRequest{Title: "NoDept", AssigneeID: ids[1].String(), Workflow: &dto.WorkflowConfig{ReviewerID: ids[2].String(), AcceptorID: ids[3].String()}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.RequestHandover(ctx, uuid.MustParse(row.ID), ids[1], &dto.HandoverRequest{TargetID: peer.String(), Reason: "无部门仍想直接交", Revision: 1}); err == nil {
+		t.Fatal("missing departments skipped signatures")
+	}
+	if tasks.items[uuid.MustParse(row.ID)].AssigneeID == nil || *tasks.items[uuid.MustParse(row.ID)].AssigneeID != ids[1] {
+		t.Fatal("assignee changed without signatures")
 	}
 }

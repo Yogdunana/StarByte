@@ -74,7 +74,20 @@ func (s *taskService) DecideTransfer(ctx context.Context, transferID, actor uuid
 	if request == nil {
 		return nil, response.NewError(response.CodeTaskNotFound, "转办请求不存在")
 	}
-	return s.DecideHandover(ctx, request.TaskID, actor, req)
+	return taskMutation(ctx, s, request.TaskID, func(b *taskService) (*dto.HandoverResponse, error) {
+		t, _, err := b.handoverVisible(ctx, request.TaskID, actor)
+		if err != nil {
+			return nil, err
+		}
+		current, err := b.transfers.Lock(ctx, transferID)
+		if err != nil {
+			return nil, err
+		}
+		if current == nil || current.TaskID != request.TaskID {
+			return nil, response.NewError(response.CodeTaskNotFound, "转办请求不存在")
+		}
+		return b.decideHandover(ctx, t, current, actor, req)
+	})
 }
 
 func (s *taskService) requestHandover(ctx context.Context, t *model.Task, actor uuid.UUID, req *dto.HandoverRequest) (*dto.HandoverResponse, error) {
@@ -146,7 +159,6 @@ func (s *taskService) requestHandover(ctx context.Context, t *model.Task, actor 
 	if err := s.addLog(ctx, t.ID, actor, "workflow_handover", actor.String(), target.ID.String(), row.Reason); err != nil {
 		return nil, err
 	}
-	s.notifyUsers(ctx, []uuid.UUID{target.ID, t.CreatorID}, tplTaskTransferred, t, row.Reason)
 	return s.handoverSnapshot(ctx, t, row, actor)
 }
 
@@ -246,27 +258,47 @@ func (s *taskService) decideHandover(ctx context.Context, t *model.Task, request
 		return nil, err
 	}
 	if done {
-		if err := s.flow.ReassignTaskExecution(ctx, *t.WorkflowInstanceID, request.FromUserID, request.ToUserID, actor, request.Reason); err != nil {
+		if err := s.finishSignedHandover(ctx, t, request, actor); err != nil {
 			return nil, err
 		}
-		now := time.Now()
-		request.Status = "completed"
-		request.CompletedAt = &now
-		t.AssigneeID = &request.ToUserID
-		t.WorkflowRevision++
-		t.UpdatedAt = now
-		if err := s.tasks.Update(ctx, t); err != nil {
-			return nil, err
-		}
-		if err := s.addLog(ctx, t.ID, actor, "workflow_handover_approve", request.FromUserID.String(), request.ToUserID.String(), request.Reason); err != nil {
-			return nil, err
-		}
-		s.notifyUsers(ctx, []uuid.UUID{request.ToUserID, t.CreatorID}, tplTaskTransferred, t, request.Reason)
 	}
 	if err := s.transfers.Save(ctx, request); err != nil {
 		return nil, err
 	}
 	return s.handoverSnapshot(ctx, t, request, actor)
+}
+
+func (s *taskService) finishSignedHandover(ctx context.Context, t *model.Task, request *model.TaskTransfer, actor uuid.UUID) error {
+	now := time.Now()
+	if t.WorkflowStage != "execution" || t.AssigneeID == nil || *t.AssigneeID != request.FromUserID {
+		if err := s.flow.Terminate(ctx, *request.WorkflowInstanceID, actor, "任务已离开执行环节，转办无法完成交接"); err != nil {
+			return err
+		}
+		request.Status = "cancelled"
+		request.CompletedAt = &now
+		t.WorkflowRevision++
+		t.UpdatedAt = now
+		if err := s.tasks.Update(ctx, t); err != nil {
+			return err
+		}
+		return s.addLog(ctx, t.ID, actor, "workflow_handover_cancel", request.FromUserID.String(), request.ToUserID.String(), "任务已离开执行环节，转办取消")
+	}
+	if err := s.flow.ReassignTaskExecution(ctx, *t.WorkflowInstanceID, request.FromUserID, request.ToUserID, actor, request.Reason); err != nil {
+		return err
+	}
+	request.Status = "completed"
+	request.CompletedAt = &now
+	t.AssigneeID = &request.ToUserID
+	t.WorkflowRevision++
+	t.UpdatedAt = now
+	if err := s.tasks.Update(ctx, t); err != nil {
+		return err
+	}
+	if err := s.addLog(ctx, t.ID, actor, "workflow_handover_approve", request.FromUserID.String(), request.ToUserID.String(), request.Reason); err != nil {
+		return err
+	}
+	s.notifyUsers(ctx, []uuid.UUID{request.ToUserID, t.CreatorID}, tplTaskTransferred, t, request.Reason)
+	return nil
 }
 
 func (s *taskService) classifyHandover(ctx context.Context, t *model.Task, target *model.NamedUser) (kind string, sourceDept, targetDept, sourceCenter, targetCenter uuid.UUID, supervisor string, err error) {
@@ -279,11 +311,8 @@ func (s *taskService) classifyHandover(ctx context.Context, t *model.Task, targe
 		}
 	}
 	destination := target.DepartmentID
-	if destination == nil {
-		destination = source
-	}
 	if source == nil || destination == nil || *source == uuid.Nil || *destination == uuid.Nil {
-		return "internal", uuid.Nil, uuid.Nil, uuid.Nil, uuid.Nil, "minister", nil
+		return "", uuid.Nil, uuid.Nil, uuid.Nil, uuid.Nil, "", response.NewError(response.CodeConflict, "转办双方须有明确部门，无法按同部门直接委托")
 	}
 	src, err := s.transfers.Department(ctx, *source)
 	if err != nil {
@@ -312,6 +341,13 @@ func (s *taskService) classifyHandover(ctx context.Context, t *model.Task, targe
 	return "center", src.ID, dst.ID, srcCenter, dstCenter, "president", nil
 }
 
+func (s *taskService) pendingTransfer(ctx context.Context, id uuid.UUID) (*model.TaskTransfer, error) {
+	if s.transfers == nil {
+		return nil, nil
+	}
+	return s.transfers.Pending(ctx, id)
+}
+
 func (s *taskService) handoverVisible(ctx context.Context, id, actor uuid.UUID) (*model.Task, *model.TaskTransfer, error) {
 	t, err := s.tasks.GetByID(ctx, id)
 	if err != nil {
@@ -320,12 +356,9 @@ func (s *taskService) handoverVisible(ctx context.Context, id, actor uuid.UUID) 
 	if t == nil {
 		return nil, nil, response.NewError(response.CodeTaskNotFound, "任务不存在")
 	}
-	var request *model.TaskTransfer
-	if s.transfers != nil {
-		request, err = s.transfers.Pending(ctx, id)
-		if err != nil {
-			return nil, nil, err
-		}
+	request, err := s.pendingTransfer(ctx, id)
+	if err != nil {
+		return nil, nil, err
 	}
 	if workflowParticipant(t, actor) {
 		return t, request, nil
