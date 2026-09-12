@@ -440,6 +440,8 @@ func main() {
 	schedEng := schedService.NewEngine(schedR, redis.Client(), schedService.NewNotifAlerter(notifSvc))
 	schedSvc := schedService.NewService(schedR, schedEng)
 
+	monitorSvc := monitorService.New(database.DB(), redis.Client())
+
 	// 10. API 路由组
 	api := r.Group("/api/v1")
 	// API 组限流：全局 1000 req/s（#14 固定窗口）+ 令牌桶 IP/接口 + 熔断（#75）
@@ -533,8 +535,8 @@ func main() {
 		cacheAdminH := cacheadminHandler.NewCacheHandler(cacheAdminSvc)
 		cacheadminHandler.RegisterRoutes(protected, cacheAdminH, cacheService)
 
-		// 运维监控仪表盘（/monitor，#87 phase-1）
-		monitorH := monitorHandler.New(monitorService.New(database.DB(), redis.Client()))
+		// 运维监控仪表盘（/monitor，#87）
+		monitorH := monitorHandler.New(monitorSvc)
 		monitorHandler.RegisterRoutes(protected, monitorH, cacheService)
 
 		// 数据备份与恢复（/system/backups，#88 phase-1）
@@ -574,6 +576,7 @@ func main() {
 
 	// WebSocket 路由（独立于 API 组，JWT 认证在 handler 内部完成）
 	notifHandler.RegisterWSRoute(r, wsHandler)
+	monitorHandler.RegisterWSRoute(r, monitorHandler.NewWSHandler(monitorSvc, &cfg.JWT, cacheService, cfg.CORS.AllowedOrigins).WithRedis(redis.Client()))
 
 	// 11. 404 处理
 	r.NoRoute(func(c *gin.Context) {

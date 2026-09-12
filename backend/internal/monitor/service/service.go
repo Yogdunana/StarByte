@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/monitor/dto"
+	"github.com/Yogdunana/StarByte/backend/internal/monitor/repo"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
@@ -17,6 +18,8 @@ type Service interface {
 	Database(ctx context.Context) (*dto.DatabaseStatus, error)
 	Redis(ctx context.Context) (*dto.RedisStatus, error)
 	APIStats(ctx context.Context) (*dto.APIStats, error)
+	SlowQueries(ctx context.Context) (*dto.SlowQueries, error)
+	Snapshot(ctx context.Context) *dto.LiveSnapshot
 }
 
 type monitorService struct {
@@ -24,6 +27,7 @@ type monitorService struct {
 	rdb      *redis.Client
 	host     HostSampler
 	gatherer prometheus.Gatherer
+	slow     repo.SlowQueryRepo
 	now      func() time.Time
 }
 
@@ -34,6 +38,7 @@ func New(db *gorm.DB, rdb *redis.Client) Service {
 		rdb:      rdb,
 		host:     newGopsutilHost(),
 		gatherer: prometheus.DefaultGatherer,
+		slow:     repo.NewSlowQueryRepo(db),
 		now:      time.Now,
 	}
 }
@@ -60,4 +65,55 @@ func (s *monitorService) Redis(ctx context.Context) (*dto.RedisStatus, error) {
 
 func (s *monitorService) APIStats(context.Context) (*dto.APIStats, error) {
 	return collectAPIStats(s.gatherer, s.now()), nil
+}
+
+func (s *monitorService) SlowQueries(ctx context.Context) (*dto.SlowQueries, error) {
+	limit := 20
+	var out *dto.SlowQueries
+	if s.slow != nil {
+		out = s.slow.List(ctx, limit)
+	} else {
+		out = &dto.SlowQueries{
+			Available:   true,
+			Source:      "in_memory",
+			Note:        "慢查询仓库未配置",
+			Queries:     []dto.SlowQuery{},
+			CollectedAt: s.now().UTC().Format(time.RFC3339),
+		}
+	}
+	out.RedisCommands = collectRedisSlow(ctx, s.rdb, s.now(), 16)
+	if out.Queries == nil {
+		out.Queries = []dto.SlowQuery{}
+	}
+	return out, nil
+}
+
+func (s *monitorService) Snapshot(ctx context.Context) *dto.LiveSnapshot {
+	out := &dto.LiveSnapshot{}
+	if v, err := s.Server(ctx); err == nil {
+		out.Server = v
+	} else {
+		out.Errors = append(out.Errors, "server")
+	}
+	if v, err := s.App(ctx); err == nil {
+		out.App = v
+	} else {
+		out.Errors = append(out.Errors, "app")
+	}
+	if v, err := s.Database(ctx); err == nil {
+		out.Database = v
+	} else {
+		out.Errors = append(out.Errors, "database")
+	}
+	if v, err := s.Redis(ctx); err == nil {
+		out.Redis = v
+	} else {
+		out.Errors = append(out.Errors, "redis")
+	}
+	if v, err := s.APIStats(ctx); err == nil {
+		out.API = v
+	} else {
+		out.Errors = append(out.Errors, "api")
+	}
+	return out
 }

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Button, Card, Col, Row, Space, Statistic, Switch, Typography } from 'antd';
+import { Alert, Button, Card, Col, Row, Space, Statistic, Switch, Table, Tag, Typography } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import ChartCard from '@/components/Chart/ChartCard';
@@ -9,19 +9,28 @@ import {
   getMonitorDatabase,
   getMonitorRedis,
   getMonitorServer,
+  getMonitorSlowQueries,
+  type MonitorLiveSnapshot,
+  type MonitorSlowQueries,
+  type MonitorSlowQuery,
 } from '@/api/monitor';
+import { isCanceledError } from '@/api/error';
+import { getToken } from '@/utils/storage';
 import { gaugeOption, sparkOption } from './charts';
-import { formatBytes, formatDuration, formatPercent, pushSample } from './format';
+import { formatBytes, formatDuration, formatPercent, formatSeconds, pushSample } from './format';
 import {
   SNAPSHOT_KEYS,
+  applyLiveSnapshot,
   applySettledIfCurrent,
   createPollSession,
   type Snapshot,
   type SnapshotKey,
 } from './load';
+import { buildMonitorWSUrl, parseMonitorWSFrame } from './ws';
 import './monitor.css';
 
 const POLL_MS = 8000;
+const SLOW_POLL_MS = 15000;
 
 const MonitorPage: React.FC = () => {
   const { t } = useTranslation();
@@ -33,9 +42,14 @@ const MonitorPage: React.FC = () => {
   const [updatedAt, setUpdatedAt] = useState<string>();
   const [cpuHist, setCpuHist] = useState<number[]>([]);
   const [labels, setLabels] = useState<string[]>([]);
+  const [live, setLive] = useState(false);
+  const [slow, setSlow] = useState<MonitorSlowQueries>();
+  const [slowFailed, setSlowFailed] = useState(false);
   const dataRef = useRef<Snapshot>({});
   const pollRef = useRef(createPollSession());
+  const liveRef = useRef(false);
   dataRef.current = data;
+  liveRef.current = live;
 
   const sectionTitle = useCallback((key: SnapshotKey) => {
     const map: Record<SnapshotKey, string> = {
@@ -80,17 +94,104 @@ const MonitorPage: React.FC = () => {
     setLoading(false);
   }, [t]);
 
+  const loadSlow = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const next = await getMonitorSlowQueries(signal);
+      setSlow(next);
+      setSlowFailed(false);
+    } catch (err) {
+      if (isCanceledError(err)) return;
+      setSlowFailed(true);
+    }
+  }, []);
+
+  const applyLive = useCallback((incoming: MonitorLiveSnapshot) => {
+    const merged = applyLiveSnapshot(dataRef.current, incoming);
+    setData(merged.next);
+    setFailed(merged.failed);
+    if (merged.succeeded.includes('server') && merged.next.server) {
+      const stamp = new Date().toLocaleTimeString();
+      setUpdatedAt(stamp);
+      setCpuHist((hist) => pushSample(hist, formatPercent(merged.next.server?.cpu_percent)));
+      setLabels((prevLabels) => pushSample(prevLabels, stamp));
+    } else if (merged.succeeded.length > 0) {
+      setUpdatedAt(new Date().toLocaleTimeString());
+    }
+    setError(merged.failed.length ? t('monitor.loadFail') : undefined);
+    setLoading(false);
+  }, [t]);
+
   useEffect(() => {
     const session = pollRef.current;
     void load();
+    void loadSlow();
     return () => { session.invalidate(); };
-  }, [load]);
+  }, [load, loadSlow]);
 
   useEffect(() => {
     if (!auto) return undefined;
-    const id = window.setInterval(() => { void load(); }, POLL_MS);
+    const id = window.setInterval(() => {
+      if (!liveRef.current) void load();
+    }, POLL_MS);
     return () => window.clearInterval(id);
   }, [auto, load]);
+
+  useEffect(() => {
+    if (!auto) return undefined;
+    const id = window.setInterval(() => { void loadSlow(); }, SLOW_POLL_MS);
+    return () => window.clearInterval(id);
+  }, [auto, loadSlow]);
+
+  useEffect(() => {
+    if (!auto) {
+      setLive(false);
+      return undefined;
+    }
+    const token = getToken();
+    if (!token) return undefined;
+    let disposed = false;
+    let socket: WebSocket | null = null;
+    let reconnect: ReturnType<typeof setTimeout> | undefined;
+    let attempt = 0;
+    const connect = () => {
+      const currentToken = getToken();
+      if (disposed || !currentToken) return;
+      const current = new WebSocket(buildMonitorWSUrl(currentToken));
+      socket = current;
+      current.onopen = () => {
+        if (disposed) { current.close(); return; }
+        attempt = 0;
+        setLive(true);
+      };
+      current.onmessage = (event) => {
+        if (disposed) return;
+        const frame = parseMonitorWSFrame(String(event.data));
+        if (frame?.type === 'snapshot' && frame.data && typeof frame.data === 'object') {
+          applyLive(frame.data as MonitorLiveSnapshot);
+        }
+      };
+      current.onclose = () => {
+        if (disposed) return;
+        setLive(false);
+        reconnect = setTimeout(connect, Math.min(30000, 2000 * 2 ** Math.min(attempt++, 4)));
+      };
+      current.onerror = () => { if (!disposed) setLive(false); };
+    };
+    connect();
+    const heartbeat = window.setInterval(() => {
+      if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'ping' }));
+    }, 30000);
+    return () => {
+      disposed = true;
+      window.clearInterval(heartbeat);
+      clearTimeout(reconnect);
+      if (socket) {
+        socket.onopen = socket.onclose = socket.onmessage = socket.onerror = null;
+        socket.close(1000, 'page disconnected');
+      }
+      setLive(false);
+    };
+  }, [applyLive, auto]);
 
   const server = data.server;
   const gauges = useMemo(() => ([
@@ -110,9 +211,10 @@ const MonitorPage: React.FC = () => {
           <p className="monitor-meta">{t('monitor.hint')}</p>
         </div>
         <Space wrap>
+          <Tag color={live ? 'success' : 'default'}>{live ? t('monitor.liveOn') : t('monitor.liveOff')}</Tag>
           <span>{t('monitor.autoRefresh')}</span>
           <Switch checked={auto} onChange={setAuto} />
-          <Button size="large" icon={<ReloadOutlined />} onClick={() => void load()}>
+          <Button size="large" icon={<ReloadOutlined />} onClick={() => { void load(); void loadSlow(); }}>
             {t('monitor.refresh')}
           </Button>
         </Space>
@@ -256,13 +358,56 @@ const MonitorPage: React.FC = () => {
                   <Col span={8}><Statistic title={t('monitor.apiTotal')} value={data.api?.request_total ?? 0} /></Col>
                   <Col span={8}><Statistic title={t('monitor.apiErrors')} value={data.api?.error_total ?? 0} /></Col>
                   <Col span={8}><Statistic title={t('monitor.apiErrorRate')} value={data.api?.error_rate ?? 0} suffix="%" /></Col>
+                  <Col span={8}><Statistic title={t('monitor.apiP50')} value={formatSeconds(data.api?.p50_seconds)} /></Col>
+                  <Col span={8}><Statistic title={t('monitor.apiP95')} value={formatSeconds(data.api?.p95_seconds)} /></Col>
+                  <Col span={8}><Statistic title={t('monitor.apiP99')} value={formatSeconds(data.api?.p99_seconds)} /></Col>
                 </Row>
-                <p className="monitor-note">{t('monitor.apiNote')}</p>
+                <p className="monitor-note">{data.api?.percentiles_note || t('monitor.apiNote')}</p>
               </>
             )}
           </Card>
         </Col>
       </Row>
+
+      <Card title={t('monitor.slowQueries')} className="monitor-section">
+        {slowFailed && !slow ? (
+          <Alert type="warning" message={t('monitor.cardUnavailable')} />
+        ) : (
+          <>
+            <p className="monitor-note">{slow?.note || t('monitor.slowEmpty')}</p>
+            <Table<MonitorSlowQuery>
+              size="small"
+              rowKey={(row, i) => `${row.source}-${row.query}-${i}`}
+              pagination={false}
+              dataSource={slow?.queries || []}
+              locale={{ emptyText: t('monitor.slowEmpty') }}
+              columns={[
+                { title: t('monitor.slowQuery'), dataIndex: 'query', ellipsis: true },
+                { title: t('monitor.slowSource'), dataIndex: 'source', width: 160 },
+                { title: t('monitor.slowCalls'), dataIndex: 'calls', width: 80 },
+                { title: t('monitor.slowMean'), dataIndex: 'mean_time_ms', width: 110, render: (v: number) => `${Number(v || 0).toFixed(1)} ms` },
+                { title: t('monitor.slowMax'), dataIndex: 'max_time_ms', width: 110, render: (v: number) => `${Number(v || 0).toFixed(1)} ms` },
+                { title: t('monitor.slowRows'), dataIndex: 'rows', width: 80 },
+              ]}
+            />
+            {(slow?.redis_commands || []).length > 0 ? (
+              <>
+                <p className="monitor-note">{t('monitor.redisSlow')}</p>
+                <Table<MonitorSlowQuery>
+                  size="small"
+                  rowKey={(row, i) => `redis-${row.query}-${i}`}
+                  pagination={false}
+                  dataSource={slow?.redis_commands || []}
+                  columns={[
+                    { title: t('monitor.slowQuery'), dataIndex: 'query', ellipsis: true },
+                    { title: t('monitor.slowMean'), dataIndex: 'mean_time_ms', width: 110, render: (v: number) => `${Number(v || 0).toFixed(1)} ms` },
+                  ]}
+                />
+              </>
+            ) : null}
+          </>
+        )}
+      </Card>
     </div>
   );
 };

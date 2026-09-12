@@ -251,7 +251,10 @@ func TestHttpStatusFromCode(t *testing.T) {
 		{CodeSuccess, http.StatusOK},
 		{CodeBadRequest, http.StatusBadRequest},
 		{CodeUnauthorized, http.StatusUnauthorized},
+		{CodeMonitorWSAuthFail, http.StatusUnauthorized},
+		{CodeNotificationWSAuthFail, http.StatusUnauthorized},
 		{CodeForbidden, http.StatusForbidden},
+		{CodeMonitorWSForbidden, http.StatusForbidden},
 		{CodeWorkflowTaskNoAccess, http.StatusForbidden},
 		{CodeVoteNoAccess, http.StatusForbidden},
 		{CodeVoteResultPending, http.StatusForbidden},
@@ -429,6 +432,8 @@ func TestModuleRanges(t *testing.T) {
 	assert.Equal(t, 31001, CodeMonitorCollectFail)
 	assert.Equal(t, 31002, CodeMonitorRedisDown)
 	assert.Equal(t, 31003, CodeMonitorDBDown)
+	assert.Equal(t, 31004, CodeMonitorWSAuthFail)
+	assert.Equal(t, 31005, CodeMonitorWSForbidden)
 	assert.True(t, r[0] > ModuleRanges["leave"][1], "monitor must not collide with leave 30000-30999")
 
 	r, ok = ModuleRanges["backup"]

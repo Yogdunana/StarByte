@@ -22,6 +22,7 @@ type stubSvc struct {
 	db     *dto.DatabaseStatus
 	redis  *dto.RedisStatus
 	api    *dto.APIStats
+	slow   *dto.SlowQueries
 	err    error
 }
 
@@ -30,6 +31,10 @@ func (s *stubSvc) App(context.Context) (*dto.AppHealth, error)           { retur
 func (s *stubSvc) Database(context.Context) (*dto.DatabaseStatus, error) { return s.db, s.err }
 func (s *stubSvc) Redis(context.Context) (*dto.RedisStatus, error)       { return s.redis, s.err }
 func (s *stubSvc) APIStats(context.Context) (*dto.APIStats, error)       { return s.api, s.err }
+func (s *stubSvc) SlowQueries(context.Context) (*dto.SlowQueries, error) { return s.slow, s.err }
+func (s *stubSvc) Snapshot(context.Context) *dto.LiveSnapshot {
+	return &dto.LiveSnapshot{Server: s.server, App: s.app, Database: s.db, Redis: s.redis, API: s.api}
+}
 
 func doGET(h gin.HandlerFunc, path string) *httptest.ResponseRecorder {
 	w := httptest.NewRecorder()
@@ -47,6 +52,7 @@ func TestHandlerOK(t *testing.T) {
 		db:     &dto.DatabaseStatus{Available: true},
 		redis:  &dto.RedisStatus{Available: true},
 		api:    &dto.APIStats{Available: true, RequestTotal: 3},
+		slow:   &dto.SlowQueries{Available: true, Source: "in_memory"},
 	})
 	cases := []struct {
 		fn   gin.HandlerFunc
@@ -57,6 +63,7 @@ func TestHandlerOK(t *testing.T) {
 		{h.Database, "/api/v1/monitor/database"},
 		{h.Redis, "/api/v1/monitor/redis"},
 		{h.APIStats, "/api/v1/monitor/api-stats"},
+		{h.SlowQueries, "/api/v1/monitor/slow-queries"},
 	}
 	for _, tc := range cases {
 		w := doGET(tc.fn, tc.path)

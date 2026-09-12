@@ -33,3 +33,11 @@ export function pushSample<T>(list: T[], item: T, max = 20): T[] {
   const next = [...list, item];
   return next.length > max ? next.slice(next.length - max) : next;
 }
+
+export function formatSeconds(n: number | null | undefined): string {
+  if (n == null || Number.isNaN(Number(n))) return '—';
+  const ms = Number(n) * 1000;
+  if (ms < 1) return `${ms.toFixed(2)} ms`;
+  if (ms < 1000) return `${ms.toFixed(1)} ms`;
+  return `${(ms / 1000).toFixed(2)} s`;
+}

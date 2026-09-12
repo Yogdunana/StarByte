@@ -149,6 +149,9 @@ db1:keys=2,expires=0,avg_ttl=0
 }
 
 func TestCollectAPIStats(t *testing.T) {
+	metrics.ResetRecentHTTPLatenciesForTest()
+	t.Cleanup(metrics.ResetRecentHTTPLatenciesForTest)
+
 	reg := prometheus.NewRegistry()
 	c := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "starbyte_http_requests_total",
@@ -164,10 +167,22 @@ func TestCollectAPIStats(t *testing.T) {
 	assert.Equal(t, 2.0, out.ErrorTotal)
 	assert.Equal(t, 16.67, out.ErrorRate)
 	assert.Nil(t, out.P50Seconds)
-	assert.Contains(t, out.PercentilesNote, "TODO")
+	assert.Contains(t, out.PercentilesNote, "尚无请求样本")
 
 	empty := collectAPIStats(nil, time.Now())
 	assert.False(t, empty.Available)
+}
+
+func TestCollectAPIStatsRecentPercentiles(t *testing.T) {
+	metrics.ResetRecentHTTPLatenciesForTest()
+	t.Cleanup(metrics.ResetRecentHTTPLatenciesForTest)
+	for i := 0; i < 20; i++ {
+		metrics.RecordHTTPLatency(0.02)
+	}
+	out := collectAPIStats(nil, time.Now())
+	require.NotNil(t, out.P50Seconds)
+	assert.InDelta(t, 0.02, *out.P50Seconds, 0.0001)
+	assert.Contains(t, out.Source, "recent_requests")
 }
 
 func TestLiveHostAndNilDeps(t *testing.T) {
@@ -191,6 +206,17 @@ func TestLiveHostAndNilDeps(t *testing.T) {
 	redisOut, err := svc.Redis(ctx)
 	require.NoError(t, err)
 	assert.False(t, redisOut.Available)
+
+	slow, err := svc.SlowQueries(ctx)
+	require.NoError(t, err)
+	assert.True(t, slow.Available)
+	assert.Equal(t, "in_memory", slow.Source)
+	assert.Empty(t, slow.RedisCommands)
+
+	snap := svc.Snapshot(ctx)
+	require.NotNil(t, snap.Server)
+	require.NotNil(t, snap.App)
+	assert.Contains(t, snap.Errors, "database")
 }
 
 func TestServiceAppAndAPIStats(t *testing.T) {
@@ -211,6 +237,10 @@ func TestServiceAppAndAPIStats(t *testing.T) {
 	server, err := svc.Server(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, "/", server.DiskPath)
+
+	slow, err := svc.SlowQueries(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, "in_memory", slow.Source)
 }
 
 func TestRound2(t *testing.T) {
@@ -221,5 +251,43 @@ func TestRound2(t *testing.T) {
 func TestDTOShapeHasNoSecrets(t *testing.T) {
 	raw := dto.RedisStatus{Version: "7"}
 	assert.Empty(t, raw.Version[:0])
-	assert.False(t, strings.Contains(strings.ToLower(apiStatsTODO), "password"))
+	assert.False(t, strings.Contains(strings.ToLower(dto.SlowQuery{Query: "SELECT 1"}.Query), "password"))
+}
+
+func TestQuantileFromHistogram(t *testing.T) {
+	reg := prometheus.NewRegistry()
+	h := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "starbyte_http_request_duration_seconds",
+		Help:    "t",
+		Buckets: []float64{0.01, 0.05, 0.1, 0.5, 1},
+	}, []string{"method", "path"})
+	require.NoError(t, reg.Register(h))
+	for i := 0; i < 90; i++ {
+		h.WithLabelValues("GET", "/a").Observe(0.02)
+	}
+	for i := 0; i < 10; i++ {
+		h.WithLabelValues("GET", "/a").Observe(0.4)
+	}
+	metrics.ResetRecentHTTPLatenciesForTest()
+	t.Cleanup(metrics.ResetRecentHTTPLatenciesForTest)
+	p50, p95, p99, src, note := resolvePercentiles(reg)
+	require.NotNil(t, p50)
+	require.NotNil(t, p95)
+	require.NotNil(t, p99)
+	assert.Equal(t, "prometheus_histogram", src)
+	assert.Contains(t, note, "直方图")
+	assert.Greater(t, *p95, *p50)
+}
+
+func TestMapRedisSlow(t *testing.T) {
+	entries := []redis.SlowLog{{
+		Args:     []string{"GET", "session:1"},
+		Duration: 1500 * time.Microsecond,
+	}}
+	got := mapRedisSlow(entries, time.Date(2026, 9, 12, 8, 0, 0, 0, time.UTC))
+	require.Len(t, got, 1)
+	assert.Equal(t, "GET session:1", got[0].Query)
+	assert.Equal(t, "redis_slowlog", got[0].Source)
+	assert.InDelta(t, 1.5, got[0].MeanTimeMs, 0.01)
+	assert.Empty(t, collectRedisSlow(context.Background(), nil, time.Now(), 0))
 }

@@ -57,4 +57,16 @@ func TestRegisterRoutes_RequiresMonitorRead(t *testing.T) {
 	w = httptest.NewRecorder()
 	denied.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/monitor/app", nil))
 	assert.Equal(t, http.StatusForbidden, w.Code)
+
+	ok := gin.New()
+	ok.Use(func(c *gin.Context) {
+		c.Set(auth.ContextKeyUserID, uid.String())
+		c.Next()
+	})
+	RegisterRoutes(ok.Group("/api/v1"), New(&stubSvc{slow: &dto.SlowQueries{Available: true}}), stubCache{
+		perms: []string{"monitor:read"},
+	})
+	w = httptest.NewRecorder()
+	ok.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/monitor/slow-queries", nil))
+	assert.Equal(t, http.StatusOK, w.Code)
 }

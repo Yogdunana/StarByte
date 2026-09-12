@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/Yogdunana/StarByte/backend/pkg/metrics"
 	"github.com/gin-gonic/gin"
@@ -45,4 +46,27 @@ func TestMetrics_RecordsPanicAs500(t *testing.T) {
 
 	after := testutil.ToFloat64(metrics.HTTPRequestsTotal.WithLabelValues("GET", "/boom", "500"))
 	assert.Equal(t, before+1, after)
+}
+
+func TestMetrics_SkipsWebsocketDuration(t *testing.T) {
+	metrics.ResetRecentHTTPLatenciesForTest()
+	t.Cleanup(metrics.ResetRecentHTTPLatenciesForTest)
+
+	r := gin.New()
+	gin.SetMode(gin.TestMode)
+	r.Use(Metrics())
+	r.GET("/ws/monitor", func(c *gin.Context) {
+		time.Sleep(20 * time.Millisecond)
+		c.Status(http.StatusSwitchingProtocols)
+	})
+
+	before := testutil.ToFloat64(metrics.HTTPRequestsTotal.WithLabelValues("GET", "/ws/monitor", "101"))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/ws/monitor", nil))
+	assert.Equal(t, http.StatusSwitchingProtocols, w.Code)
+	after := testutil.ToFloat64(metrics.HTTPRequestsTotal.WithLabelValues("GET", "/ws/monitor", "101"))
+	assert.Equal(t, before+1, after)
+
+	_, _, _, ok := metrics.RecentHTTPPercentiles()
+	assert.False(t, ok)
 }
