@@ -180,7 +180,11 @@ func applyUpdate(a *model.Announcement, req *dto.UpdateAnnouncementRequest, view
 	if req.ClearExpires {
 		a.ExpiresAt = nil
 	} else if req.ExpiresAt != nil {
-		if err := validateExpire(req.ExpiresAt, a.ScheduledAt, now); err != nil {
+		if sameInstant(a.ExpiresAt, req.ExpiresAt) {
+			if err := validateExpireOrder(req.ExpiresAt, a.ScheduledAt); err != nil {
+				return err
+			}
+		} else if err := validateExpire(req.ExpiresAt, a.ScheduledAt, now); err != nil {
 			return err
 		}
 		a.ExpiresAt = req.ExpiresAt
@@ -223,6 +227,13 @@ func validateExpireOrder(at, scheduled *time.Time) error {
 		return response.NewError(response.CodeBadRequest, "下架时间必须晚于定时发布时间")
 	}
 	return nil
+}
+
+func sameInstant(a, b *time.Time) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.Unix() == b.Unix()
 }
 
 func (s *announcementService) Delete(ctx context.Context, viewer Viewer, id uuid.UUID) error {

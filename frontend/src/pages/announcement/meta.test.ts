@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { sanitizeAnnouncementHTML } from './meta';
+import { describe, expect, it, vi } from 'vitest';
+import { collectPagedItems, expireUpdateFields, sanitizeAnnouncementHTML } from './meta';
 
 describe('sanitizeAnnouncementHTML', () => {
   it('keeps safe markup and strips event handlers', () => {
@@ -24,6 +24,33 @@ describe('sanitizeAnnouncementHTML', () => {
     const clean = sanitizeAnnouncementHTML(dirty);
     expect(clean).toContain('https://cdn.example/a.png');
     expect(clean.toLowerCase()).not.toContain('javascript:');
+  });
+
+  it('collects every page until total is reached', async () => {
+    const fetchPage = vi.fn(async (page: number) => {
+      if (page === 1) return { list: [{ id: 'a' }, { id: 'b' }], total: 3 };
+      return { list: [{ id: 'c' }], total: 3 };
+    });
+    await expect(collectPagedItems(fetchPage, 2)).resolves.toEqual([
+      { id: 'a' }, { id: 'b' }, { id: 'c' },
+    ]);
+    expect(fetchPage).toHaveBeenCalledTimes(2);
+  });
+
+  it('omits unchanged expires_at so past unpublish does not block edits', () => {
+    const prev = '2026-09-12T09:00:00.000Z';
+    expect(expireUpdateFields(prev, '2026-09-12T09:00:00.000Z')).toEqual({
+      expires_at: undefined,
+      clear_expires_at: false,
+    });
+    expect(expireUpdateFields(prev, '2026-09-13T09:00:00.000Z')).toEqual({
+      expires_at: '2026-09-13T09:00:00.000Z',
+      clear_expires_at: false,
+    });
+    expect(expireUpdateFields(prev, undefined)).toEqual({
+      expires_at: undefined,
+      clear_expires_at: true,
+    });
   });
 
   it('strips javascript: URLs', () => {

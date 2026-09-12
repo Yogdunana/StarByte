@@ -768,6 +768,41 @@ func TestList_AuthorSeesOwnTargetedWhenFilteredPublished(t *testing.T) {
 	}
 }
 
+func TestUpdate_UnchangedPastExpireAllowsTitleEdit(t *testing.T) {
+	svc, _, _ := newTestSvc()
+	author := uuid.New()
+	when := time.Date(2026, 9, 12, 11, 0, 0, 0, time.UTC)
+	created, err := svc.Create(context.Background(), asPublisher(author), &dto.CreateAnnouncementRequest{
+		Title: "将过期", Category: model.CategorySystem, ExpiresAt: &when,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := parseID(t, created.ID)
+	if _, err := svc.Publish(context.Background(), asPublisher(author), id); err != nil {
+		t.Fatal(err)
+	}
+	svc.now = func() time.Time { return time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC) }
+	title := "过期后改标题"
+	updated, err := svc.Update(context.Background(), asPublisher(author), id, &dto.UpdateAnnouncementRequest{
+		Title:     &title,
+		ExpiresAt: &when,
+	})
+	if err != nil {
+		t.Fatalf("resending the same past expires_at must not block edits: %v", err)
+	}
+	if updated.Title != title {
+		t.Fatalf("title = %q", updated.Title)
+	}
+	newPast := time.Date(2026, 9, 12, 11, 30, 0, 0, time.UTC)
+	_, err = svc.Update(context.Background(), asPublisher(author), id, &dto.UpdateAnnouncementRequest{
+		ExpiresAt: &newPast,
+	})
+	if codeOf(err) != response.CodeBadRequest {
+		t.Fatalf("new past expires_at should fail: code=%d err=%v", codeOf(err), err)
+	}
+}
+
 func TestUpdate_ScheduleAndExpireTogether(t *testing.T) {
 	svc, _, _ := newTestSvc()
 	author := uuid.New()

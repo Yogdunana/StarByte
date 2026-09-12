@@ -10,6 +10,34 @@ export function announcementStatusMap(t: TFunction): StatusMap {
   };
 }
 
+export async function collectPagedItems<T>(
+  fetchPage: (page: number, pageSize: number) => Promise<{ list?: T[]; total?: number }>,
+  pageSize = 100,
+  maxPages = 50,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let page = 1; page <= maxPages; page += 1) {
+    const res = await fetchPage(page, pageSize);
+    const list = res.list ?? [];
+    out.push(...list);
+    if (list.length < pageSize || out.length >= (res.total ?? 0)) break;
+  }
+  return out;
+}
+
+export function expireUpdateFields(
+  previous: string | undefined,
+  nextISO: string | undefined,
+): { expires_at?: string; clear_expires_at: boolean } {
+  if (!nextISO) {
+    return { expires_at: undefined, clear_expires_at: Boolean(previous) };
+  }
+  if (previous && Date.parse(previous) === Date.parse(nextISO)) {
+    return { expires_at: undefined, clear_expires_at: false };
+  }
+  return { expires_at: nextISO, clear_expires_at: false };
+}
+
 export const AnnouncementCategories: { value: AnnouncementCategory; labelKey: string }[] = [
   { value: 'association', labelKey: 'announcement.category.association' },
   { value: 'activity', labelKey: 'announcement.category.activity' },

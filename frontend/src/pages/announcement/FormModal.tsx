@@ -10,7 +10,7 @@ import { getDepartmentTree } from '@/api/department';
 import { getUserList } from '@/api/user';
 import type { Announcement, AnnouncementAttachment, AnnouncementAudience } from '@/api/announcement';
 import type { Department } from '@/types/api';
-import { AnnouncementCategories } from './meta';
+import { AnnouncementCategories, collectPagedItems, expireUpdateFields } from './meta';
 
 interface Props {
   open: boolean;
@@ -42,16 +42,16 @@ const FormModal: React.FC<Props> = ({ open, editing, canSchedule, canManage, onC
 
   useEffect(() => {
     if (!open) return;
-    void getRoleList({ page: 1, page_size: 100 }).then((res) => {
-      setRoleOpts(res.list.map((item) => ({ value: item.id, label: item.name || item.code })));
-    }).catch(() => setRoleOpts([]));
+    void collectPagedItems((page, pageSize) => getRoleList({ page, page_size: pageSize }))
+      .then((list) => setRoleOpts(list.map((item) => ({ value: item.id, label: item.name || item.code }))))
+      .catch(() => setRoleOpts([]));
     void getDepartmentTree().then((tree) => setDeptOpts(flattenDepartments(tree))).catch(() => setDeptOpts([]));
-    void getUserList({ page: 1, page_size: 100, status: 0 }).then((res) => {
-      setUserOpts(res.list.map((item) => ({
+    void collectPagedItems((page, pageSize) => getUserList({ page, page_size: pageSize, status: 0 }))
+      .then((list) => setUserOpts(list.map((item) => ({
         value: item.id,
         label: item.real_name || item.username,
-      })));
-    }).catch(() => setUserOpts([]));
+      }))))
+      .catch(() => setUserOpts([]));
   }, [open]);
 
   useEffect(() => {
@@ -121,9 +121,10 @@ const FormModal: React.FC<Props> = ({ open, editing, canSchedule, canManage, onC
           const scheduled = canSchedule && values.scheduled_at
             ? (values.scheduled_at as dayjs.Dayjs).toISOString()
             : undefined;
-          const expires = values.expires_at
-            ? (values.expires_at as dayjs.Dayjs).toISOString()
-            : undefined;
+          const expireFields = expireUpdateFields(
+            editing?.expires_at,
+            values.expires_at ? (values.expires_at as dayjs.Dayjs).toISOString() : undefined,
+          );
           let attachments: AnnouncementAttachment[] = [];
           try {
             attachments = await collectAttachments();
@@ -145,8 +146,8 @@ const FormModal: React.FC<Props> = ({ open, editing, canSchedule, canManage, onC
                 editing &&
                 (editing.status !== 0 || (!scheduled && editing.scheduled_at)),
             ),
-            expires_at: expires,
-            clear_expires_at: Boolean(editing && !expires && editing.expires_at),
+            expires_at: expireFields.expires_at,
+            clear_expires_at: expireFields.clear_expires_at,
             audience_type: audience,
             audience_ids: audience === 'all' ? [] : (values.audience_ids as string[]) || [],
             attachments,
@@ -202,6 +203,7 @@ const FormModal: React.FC<Props> = ({ open, editing, canSchedule, canManage, onC
               { value: 'department', label: t('announcement.audienceDept') },
               { value: 'users', label: t('announcement.audienceUsers') },
             ]}
+            onChange={() => form.setFieldValue('audience_ids', [])}
           />
         </Form.Item>
         {audienceType && audienceType !== 'all' && (
