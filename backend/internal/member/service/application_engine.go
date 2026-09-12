@@ -136,7 +136,7 @@ func engineDelegationGate(delegated bool, comment string, entered, now time.Time
 	if !delegated {
 		return nil
 	}
-	if now.Before(entered.Add(24 * time.Hour)) || (requireComment && strings.TrimSpace(comment) == "") {
+	if now.Before(entered.Add(24*time.Hour)) || (requireComment && strings.TrimSpace(comment) == "") {
 		return admissionDenied("超时24小时后上级才可代签，并须填写原因")
 	}
 	return nil
