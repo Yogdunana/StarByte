@@ -55,6 +55,8 @@ func (s *taskService) GetWorkflow(ctx context.Context, id, actor uuid.UUID) (*dt
 	out.CanSubmit = t.WorkflowStage == "execution" && t.Status == model.StatusDoing && t.AssigneeID != nil && *t.AssigneeID == actor
 	out.CanApprove = !model.IsClosed(t.Status) && ((t.WorkflowStage == "review" && t.ReviewerID != nil && *t.ReviewerID == actor) || (t.WorkflowStage == "acceptance" && t.AcceptorID != nil && *t.AcceptorID == actor))
 	out.CanReturn = out.CanApprove
+	out.CanReject = out.CanApprove
+	out.CanClaim = t.WorkflowStage == "assignment" && t.AssigneeID == nil && !model.IsClosed(t.Status) && validateWorkflowAssignee(t, &actor) == nil
 	logs, err := s.logs.ListByTask(ctx, id)
 	if err != nil {
 		return nil, err

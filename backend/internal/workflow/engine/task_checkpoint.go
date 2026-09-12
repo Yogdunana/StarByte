@@ -21,6 +21,26 @@ func (e *FlowEngine) TaskCheckpoint(ctx context.Context, id uuid.UUID, stage str
 	switch action {
 	case "approve":
 		return e.CompleteTask(ctx, task.ID, actor, ActionApprove, "任务业务确认（"+stage+"）", nil)
+	case "reject":
+		// TODO(#65): timeout escalate/reassign — nodes already carry dueDays, but
+		// there is no scheduler hook to auto-upgrade or reassign overdue todos.
+		if stage != "review" && stage != "acceptance" {
+			return response.NewError(response.CodeBadRequest, "该环节不能拒绝任务")
+		}
+		if strings.TrimSpace(comment) == "" {
+			return response.NewError(response.CodeBadRequest, "拒绝须填写原因")
+		}
+		if err := e.CompleteTask(ctx, task.ID, actor, ActionReject, comment, nil); err != nil {
+			return err
+		}
+		fresh, err := e.instRepo.GetByID(ctx, id)
+		if err != nil {
+			return err
+		}
+		if fresh != nil && fresh.Status == 0 {
+			return e.Terminate(ctx, id, actor, "任务审批拒绝："+comment)
+		}
+		return nil
 	case "return":
 		if stage != "review" && stage != "acceptance" {
 			return response.NewError(response.CodeBadRequest, "该环节不能退回执行")

@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/Yogdunana/StarByte/backend/internal/workflow/engine"
 	wfmodel "github.com/Yogdunana/StarByte/backend/internal/workflow/model"
 )
 
@@ -16,6 +17,9 @@ type TaskWorkflowRuntime interface {
 
 	Start(context.Context, string, string, string, uuid.UUID, map[string]interface{}) (*wfmodel.FlowInstance, error)
 	TaskCheckpoint(context.Context, uuid.UUID, string, uuid.UUID, string, string) error
+	CompleteTaskApproval(context.Context, uuid.UUID, uuid.UUID, engine.TaskAction, string) error
+	ClaimTaskAssignment(context.Context, uuid.UUID, uuid.UUID, string) error
+	InstanceTerminated(context.Context, uuid.UUID) (bool, error)
 	BusinessStage(context.Context, uuid.UUID) (string, bool, error)
 	Terminate(context.Context, uuid.UUID, uuid.UUID, string) error
 }

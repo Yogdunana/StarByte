@@ -135,7 +135,7 @@ POST /api/v1/contracts
 - 入会：`/member/applications`、审核 approve/reject/supplement（新申请走 `member_application` 流程实例）、`/member/profiles`
 - 面试：`/interviews`、sessions、evaluations、stats
 - 会议：`/meetings`、attendees、agendas、votes
-- 任务：`/tasks`、指派/转交/评论/附件、`/tasks/my/*`
+- 任务：`/tasks`、指派/转交/评论/附件、`/tasks/my/*`；开启审核验收的新任务走 `task_lifecycle` 流程实例（`GET|POST /tasks/:id/workflow`，拒绝终止实例）
 - 实习：`/internships`、complete/report、stats
 - 请假：`GET|POST /leave`、`GET /leave/my`、`GET /leave/types`、`GET /leave/balance`、`GET /leave/stats`、`PUT /leave/:id/approve|reject`
 

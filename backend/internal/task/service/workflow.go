@@ -62,6 +62,17 @@ func (s *taskService) projectWorkflow(ctx context.Context, t *model.Task) error 
 	if s.flow == nil || t.WorkflowInstanceID == nil {
 		return response.NewError(response.CodeConflict, "任务缺少关联流程")
 	}
+	if terminated, err := s.flow.InstanceTerminated(ctx, *t.WorkflowInstanceID); err != nil {
+		return err
+	} else if terminated {
+		if t.WorkflowStage != "cancelled" {
+			t.WorkflowStage = "rejected"
+		}
+		t.Status = model.StatusCancelled
+		t.WorkflowRevision++
+		t.UpdatedAt = time.Now()
+		return s.tasks.Update(ctx, t)
+	}
 	stage, done, err := s.flow.BusinessStage(ctx, *t.WorkflowInstanceID)
 	if err != nil {
 		return err
@@ -92,12 +103,19 @@ func (s *taskService) workflowTask(ctx context.Context, id, actor uuid.UUID) (*m
 	if t.WorkflowInstanceID == nil {
 		return nil, response.NewError(response.CodeConflict, "该任务未启用审核验收流程")
 	}
-	// This panel is for explicitly designated participants; broad task management
-	// permission alone must never grant a signature on their behalf.
-	if !workflowParticipant(t, actor) {
-		return nil, response.NewError(response.CodeForbidden, "仅任务参与人可查看或处理审批")
+	if workflowParticipant(t, actor) {
+		return t, nil
 	}
-	return t, nil
+	// Unassigned assignment-stage tasks can be claimed by anyone who can already view them.
+	if t.WorkflowStage == "assignment" && t.AssigneeID == nil {
+		if viewer, ok := model.ViewerFromContext(ctx); ok && canViewTask(t, actor, viewer.Scope) {
+			return t, nil
+		}
+		if canViewTask(t, actor, nil) {
+			return t, nil
+		}
+	}
+	return nil, response.NewError(response.CodeForbidden, "仅任务参与人可查看或处理审批")
 }
 func (s *taskService) ActWorkflow(ctx context.Context, id, actor uuid.UUID, req *dto.WorkflowActionRequest) (*dto.WorkflowResponse, error) {
 	if req == nil || strings.TrimSpace(req.Comment) == "" || utf8.RuneCountInString(req.Comment) > 5000 {
@@ -154,6 +172,34 @@ func (s *taskService) ActWorkflow(ctx context.Context, id, actor uuid.UUID, req 
 			if err := b.tasks.Update(ctx, t); err != nil {
 				return err
 			}
+		case "claim":
+			if stage != "assignment" || t.AssigneeID != nil {
+				return response.NewError(response.CodeConflict, "只有待认领的任务可以认领")
+			}
+			if err := validateWorkflowAssignee(t, &actor); err != nil {
+				return err
+			}
+			t.AssigneeID = &actor
+			if err := b.tasks.Update(ctx, t); err != nil {
+				return err
+			}
+			if err := b.flow.ClaimTaskAssignment(ctx, *t.WorkflowInstanceID, actor, req.Comment); err != nil {
+				return err
+			}
+			action = ""
+		case "reject":
+			if stage != "review" && stage != "acceptance" {
+				return response.NewError(response.CodeConflict, "当前不是审核或验收环节")
+			}
+			if (stage == "review" && (t.ReviewerID == nil || *t.ReviewerID != actor)) || (stage == "acceptance" && (t.AcceptorID == nil || *t.AcceptorID != actor)) {
+				return response.NewError(response.CodeForbidden, "只有该环节的指定处理人可以拒绝")
+			}
+			if err := b.flow.CompleteTaskApproval(ctx, *t.WorkflowInstanceID, actor, engine.ActionReject, req.Comment); err != nil {
+				return err
+			}
+			t.Status = model.StatusCancelled
+			t.WorkflowStage = "rejected"
+			action = ""
 		case "approve", "return":
 			if stage != "review" && stage != "acceptance" {
 				return response.NewError(response.CodeConflict, "当前不是审核或验收环节")
@@ -172,7 +218,13 @@ func (s *taskService) ActWorkflow(ctx context.Context, id, actor uuid.UUID, req 
 		if stage == "review" && req.Action == "approve" {
 			t.Progress = 90
 		}
-		if err := b.projectWorkflow(ctx, t); err != nil {
+		if req.Action == "reject" {
+			t.WorkflowRevision++
+			t.UpdatedAt = time.Now()
+			if err := b.tasks.Update(ctx, t); err != nil {
+				return err
+			}
+		} else if err := b.projectWorkflow(ctx, t); err != nil {
 			return err
 		}
 		if err := b.addLog(ctx, id, actor, "workflow_"+req.Action, stage, t.WorkflowStage, req.Comment); err != nil {
