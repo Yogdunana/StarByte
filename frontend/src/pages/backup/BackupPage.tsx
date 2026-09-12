@@ -14,7 +14,7 @@ import {
 import { usePermissions } from '@/hooks/usePermission';
 import { isCanceledError } from '@/api/error';
 import { canRetryRestore, formatBytes, isActiveStatus } from './format';
-import { applyPreviewIfCurrent, canContinueRestore, createPreviewSession } from './preview';
+import { applyPreviewIfCurrent, canContinueRestore, createPreviewSession, failedPreview, previewErrorMessage } from './preview';
 import './backup.css';
 
 const statusColor: Record<number, string> = {
@@ -120,6 +120,7 @@ const BackupPage: React.FC = () => {
       setPreview(next);
     } catch (err) {
       if (isCanceledError(err) || !previewSession.isCurrent(ticket.gen)) return;
+      setPreview(failedPreview(row, previewErrorMessage(err)));
     } finally {
       if (previewSession.isCurrent(ticket.gen)) setPreviewing(false);
     }

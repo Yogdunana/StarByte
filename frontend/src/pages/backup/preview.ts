@@ -50,3 +50,29 @@ export function canContinueRestore(
 ): boolean {
   return !!row && !!preview && preview.ready && preview.id === row.id;
 }
+
+export function previewErrorMessage(err: unknown): string {
+  if (err instanceof Error && err.message) return err.message;
+  return '完整性检查失败';
+}
+
+/** Network / timeout failure still belongs to the selected backup, never ready. */
+export function failedPreview(
+  row: { id: string; filename?: string; size_bytes?: number; encrypted?: boolean },
+  message: string,
+): BackupPreview {
+  return {
+    id: row.id,
+    filename: row.filename || '',
+    size_bytes: row.size_bytes || 0,
+    checksum_ok: false,
+    encrypted: !!row.encrypted,
+    decrypt_ok: false,
+    gzip_ok: false,
+    toc_valid: false,
+    ready: false,
+    compression: 'gzip',
+    encryption_configured: false,
+    error: message,
+  };
+}

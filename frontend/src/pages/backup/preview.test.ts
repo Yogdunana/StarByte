@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { BackupPreview } from '@/api/backup';
-import { applyPreviewIfCurrent, canContinueRestore, createPreviewSession } from './preview';
+import { applyPreviewIfCurrent, canContinueRestore, createPreviewSession, failedPreview } from './preview';
 
 function preview(id: string, ready = true): BackupPreview {
   return {
@@ -45,6 +45,16 @@ describe('preview session rejects stale overwrite', () => {
     session.invalidate();
     expect(ticket.signal.aborted).toBe(true);
     expect(applyPreviewIfCurrent(session, ticket, preview('backup-a'))).toBeNull();
+  });
+});
+
+describe('failedPreview', () => {
+  it('keeps the selected backup id and is never ready', () => {
+    const next = failedPreview({ id: 'backup-b', filename: 'b.dump.gz' }, 'timeout of 180000ms exceeded');
+    expect(next.id).toBe('backup-b');
+    expect(next.ready).toBe(false);
+    expect(next.error).toContain('timeout');
+    expect(canContinueRestore({ id: 'backup-b' }, next)).toBe(false);
   });
 });
 

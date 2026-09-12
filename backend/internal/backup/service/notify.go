@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	notifdto "github.com/Yogdunana/StarByte/backend/internal/notification/dto"
 	notifsvc "github.com/Yogdunana/StarByte/backend/internal/notification/service"
@@ -9,6 +10,12 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
+
+const alertTimeout = 15 * time.Second
+
+func alertContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithoutCancel(ctx), alertTimeout)
+}
 
 const tplBackupFailed = "backup_failed"
 
@@ -22,6 +29,10 @@ type Alerter interface {
 	Failed(ctx context.Context, userID *uuid.UUID, filename, errText string)
 }
 
+type notificationSender interface {
+	Send(ctx context.Context, req *notifdto.SendNotificationRequest) error
+}
+
 func NewNotifier(inner notifsvc.NotificationService, lookup RecipientLookup) Alerter {
 	if inner == nil {
 		return noopAlerter{}
@@ -30,7 +41,7 @@ func NewNotifier(inner notifsvc.NotificationService, lookup RecipientLookup) Ale
 }
 
 type notifAlerter struct {
-	inner  notifsvc.NotificationService
+	inner  notificationSender
 	lookup RecipientLookup
 }
 
@@ -57,6 +68,8 @@ func collectAlertUserIDs(created *uuid.UUID, ops []uuid.UUID) []uuid.UUID {
 }
 
 func (a *notifAlerter) Failed(ctx context.Context, userID *uuid.UUID, filename, errText string) {
+	ctx, cancel := alertContext(ctx)
+	defer cancel()
 	var ops []uuid.UUID
 	if a.lookup != nil {
 		extra, err := a.lookup.ListOpsUserIDs(ctx)
