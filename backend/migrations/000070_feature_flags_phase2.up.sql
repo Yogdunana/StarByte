@@ -1,6 +1,7 @@
 -- ============================================================
--- 000067_feature_flags_phase2.up.sql
+-- 000070_feature_flags_phase2.up.sql
 -- Issue #98 remaining: AB 类型、曝光分析、定时/环境规则已落在 rules JSONB
+-- 号段：065 #176、066 #181、067 #183 leave、068 #185 task、069 #184 member，本迁移用 000070
 -- ============================================================
 
 ALTER TABLE feature_flags DROP CONSTRAINT IF EXISTS chk_feature_flags_type;
