@@ -871,3 +871,7 @@ func TestLogin_SuperAdminRoles(t *testing.T) {
 	assert.Equal(t, []string{"super_admin"}, result.User.Roles)
 	assert.Equal(t, []string{"*"}, result.User.Permissions)
 }
+
+func (m *mockUserRepo) UpdateProfile(ctx context.Context, id uuid.UUID, changes map[string]interface{}) error {
+	return m.Called(ctx, id, changes).Error(0)
+}

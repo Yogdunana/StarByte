@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/user/dto"
@@ -307,23 +308,30 @@ func (s *userService) UpdateProfile(ctx context.Context, userID string, req *dto
 		return response.NewError(response.CodeNotFound, "用户不存在")
 	}
 
+	changes := map[string]interface{}{}
 	if req.RealName != "" {
-		user.RealName = req.RealName
+		name := strings.TrimSpace(req.RealName)
+		if name == "" {
+			return response.NewError(response.CodeBadRequest, "姓名不能为空")
+		}
+		changes["real_name"] = name
 	}
 	if req.AvatarURL != "" {
-		user.AvatarURL = req.AvatarURL
+		changes["avatar_url"] = req.AvatarURL
 	}
-	if req.Email != "" {
-		user.Email = req.Email
+	if req.Email != nil {
+		changes["email"] = strings.TrimSpace(*req.Email)
 	}
-	if req.Phone != "" {
-		user.Phone = req.Phone
+	if req.Phone != nil {
+		changes["phone"] = strings.TrimSpace(*req.Phone)
 	}
 	if req.Gender != nil {
-		user.Gender = *req.Gender
+		changes["gender"] = *req.Gender
 	}
-
-	return s.userRepo.Update(ctx, nil, user)
+	if len(changes) == 0 {
+		return nil
+	}
+	return s.userRepo.UpdateProfile(ctx, uid, changes)
 }
 
 // ========== 工具函数 ==========

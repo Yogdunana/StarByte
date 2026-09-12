@@ -42,3 +42,38 @@ export function assignRolePermissions(roleId: string, permissionIds: string[]): 
 export function getPermissionTree(): Promise<Permission[]> {
   return request.get('/system/permissions');
 }
+
+export type PermissionInput = {
+  name: string;
+  code?: string;
+  type?: Permission['type'];
+  parent_id?: string;
+  description?: string;
+  path?: string;
+  icon?: string;
+  resource?: string;
+  action?: string;
+  api_method?: string;
+  api_path?: string;
+  status?: number;
+  sort_order?: number;
+};
+export const createPermission = (data: PermissionInput): Promise<Permission> =>
+  request.post('/system/permissions', data);
+export const updatePermission = (id: string, data: PermissionInput): Promise<Permission> =>
+  request.put(`/system/permissions/${id}`, data);
+export const deletePermission = (id: string): Promise<void> =>
+  request.delete(`/system/permissions/${id}`);
+
+export interface RoleMember {
+  id: string;
+  username: string;
+  real_name: string;
+  status: number;
+}
+export const getRoleMembers = (id: string, page: number): Promise<PageResponse<RoleMember>> =>
+  request.get(`/system/roles/${id}/users`, { params: { page, page_size: 20 } });
+export const addRoleMember = (id: string, userId: string): Promise<void> =>
+  request.put(`/system/roles/${id}/users/${userId}`);
+export const removeRoleMember = (id: string, userId: string): Promise<void> =>
+  request.delete(`/system/roles/${id}/users/${userId}`);

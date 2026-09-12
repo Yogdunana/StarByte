@@ -13,11 +13,11 @@ type RegisterRequest struct {
 
 // UpdateProfileRequest 更新个人信息请求
 type UpdateProfileRequest struct {
-	RealName  string `json:"real_name" binding:"omitempty,max=50"`
-	AvatarURL string `json:"avatar_url" binding:"omitempty,max=500"`
-	Email     string `json:"email" binding:"omitempty,email"`
-	Phone     string `json:"phone" binding:"omitempty,max=20"`
-	Gender    *int   `json:"gender" binding:"omitempty,oneof=0 1 2"`
+	RealName  string  `json:"real_name" binding:"omitempty,max=50"`
+	AvatarURL string  `json:"avatar_url" binding:"omitempty,max=500"`
+	Email     *string `json:"email" binding:"omitempty,max=100,email|eq="`
+	Phone     *string `json:"phone" binding:"omitempty,max=20"`
+	Gender    *int    `json:"gender" binding:"omitempty,oneof=0 1 2"`
 }
 
 // ChangePasswordRequest 修改密码请求

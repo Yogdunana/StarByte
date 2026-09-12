@@ -203,10 +203,12 @@ export interface Role {
   id: string;
   name: string;
   code: string;
-  sort: number;
+  sort_order: number;
   status: number;
+  is_system: boolean;
+  parent_id?: string | null;
   description?: string;
-  permissions: string[];
+  permission_ids?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -215,30 +217,36 @@ export interface Permission {
   id: string;
   name: string;
   code: string;
-  type: number; // 1=菜单 2=按钮 3=接口
-  parent_id?: string;
-  sort: number;
+  type: 'menu' | 'button' | 'api';
+  parent_id?: string | null;
+  sort_order: number;
   icon?: string;
   path?: string;
+  resource?: string;
+  action?: string;
+  api_method?: string;
+  api_path?: string;
+  description?: string;
+  is_system: boolean;
+  status: number;
+  children?: Permission[];
   created_at: string;
 }
 
 export interface CreateRoleParams {
   name: string;
   code: string;
-  sort?: number;
-  status?: number;
+  parent_id?: string;
+  sort_order?: number;
   description?: string;
-  permission_ids?: string[];
 }
 
 export interface UpdateRoleParams {
   name?: string;
   code?: string;
-  sort?: number;
+  parent_id?: string;
   status?: number;
   description?: string;
-  permission_ids?: string[];
 }
 
 export interface ListRoleParams extends ListParams {
@@ -832,7 +840,11 @@ export interface TaskStats {
 }
 
 export interface CreateTaskParams {
-  workflow?: { reviewer_id: string; acceptor_id: string; assignment?: { mode: string; role_id?: string } };
+  workflow?: {
+    reviewer_id: string;
+    acceptor_id: string;
+    assignment?: { mode: string; role_id?: string };
+  };
   title: string;
   description?: string;
   priority?: TaskPriority;
@@ -983,12 +995,7 @@ export type NotificationPriority = 'low' | 'normal' | 'high' | 'urgent';
 
 /** 通知分类 */
 export type NotificationCategory =
-  | 'system'
-  | 'task'
-  | 'meeting'
-  | 'approval'
-  | 'interview'
-  | 'other';
+  'system' | 'task' | 'meeting' | 'approval' | 'interview' | 'other';
 
 /** 通知发送者信息 */
 export interface NotificationSender {
@@ -1580,5 +1587,3 @@ export interface SearchQueryBody {
   cursor?: string;
   aggregations?: SearchAggRequest[];
 }
-
-

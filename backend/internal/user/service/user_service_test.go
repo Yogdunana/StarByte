@@ -217,3 +217,22 @@ func TestGetCurrentUser_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "alice", result.Username)
 }
+
+func (m *mockUserRepo) UpdateProfile(ctx context.Context, id uuid.UUID, changes map[string]interface{}) error {
+	return m.Called(ctx, id, changes).Error(0)
+}
+
+func TestUpdateProfileOnlyWritesEditableFields(t *testing.T) {
+	r := &mockUserRepo{}
+	svc := newTestUserService(r)
+	id := uuid.New()
+	blank := ""
+	original := &model.User{ID: id, Username: "stable-login", RealName: "Old", Status: 2}
+	r.On("GetByID", mock.Anything, id).Return(original, nil)
+	r.On("UpdateProfile", mock.Anything, id, map[string]interface{}{"real_name": "New", "phone": ""}).Return(nil)
+	requireErr := svc.UpdateProfile(context.Background(), id.String(), &dto.UpdateProfileRequest{RealName: "New", Phone: &blank})
+	assert.NoError(t, requireErr)
+	assert.Equal(t, 2, original.Status)
+	assert.Equal(t, "Old", original.RealName)
+	r.AssertExpectations(t)
+}

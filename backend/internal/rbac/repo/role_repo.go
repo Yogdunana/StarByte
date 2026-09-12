@@ -6,6 +6,7 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // RoleRepo 角色数据访问接口
@@ -134,6 +135,18 @@ func (r *roleRepo) Delete(ctx context.Context, id uuid.UUID) error {
 // dataScope 指定数据权限范围，为空时默认使用 department
 func (r *roleRepo) AssignPermissions(ctx context.Context, tx *gorm.DB, roleID uuid.UUID, permissionIDs []uuid.UUID, dataScope string) error {
 	db := r.getDB(tx).WithContext(ctx)
+	// An omitted scope means edit the permission selection only. Keep retained
+	// grants (including custom department bindings) instead of resetting them.
+	if dataScope == "" && len(permissionIDs) > 0 {
+		if err := db.Where("role_id = ? AND permission_id NOT IN ?", roleID, permissionIDs).Delete(&model.RolePermission{}).Error; err != nil {
+			return err
+		}
+		grants := make([]model.RolePermission, 0, len(permissionIDs))
+		for _, id := range permissionIDs {
+			grants = append(grants, model.RolePermission{ID: uuid.New(), RoleID: roleID, PermissionID: id, DataScope: model.DataScopeDepartment})
+		}
+		return db.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "role_id"}, {Name: "permission_id"}}, DoNothing: true}).Create(&grants).Error
+	}
 
 	// 删除现有角色-权限关联
 	if err := db.Where("role_id = ?", roleID).Delete(&model.RolePermission{}).Error; err != nil {

@@ -47,6 +47,8 @@ func RegisterRoutes(
 			withPermission(roles, "role:update", cacheService).PUT("/:id", roleHandler.Update)
 			withPermission(roles, "role:delete", cacheService).DELETE("/:id", roleHandler.Delete)
 			withPermission(roles, "role:assign", cacheService).PUT("/:id/permissions", roleHandler.AssignPermissions)
+			withPermission(roles, "role:assign", cacheService).PUT("/:id/users/:user_id", roleMembership(db, cacheService, true))
+			withPermission(roles, "role:assign", cacheService).DELETE("/:id/users/:user_id", roleMembership(db, cacheService, false))
 		}
 		// 角色用户列表：查询用户数据，需应用数据权限
 		roleUsers := system.Group("/roles")
