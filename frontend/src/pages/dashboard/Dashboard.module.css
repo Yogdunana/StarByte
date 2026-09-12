@@ -2,6 +2,8 @@
 .date { font-size: 12px; font-weight: var(--sb-weight-meta); color: var(--sb-muted); margin-right: 8px; }
 .alert { margin-bottom: var(--sb-space-5); }
 .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sb-space-4); margin-bottom: var(--sb-space-6); }
+.metricCell { min-width: 0; }
+.metricCell .metric { height: 100%; }
 .approvalCard { margin-bottom: var(--sb-space-6); }
 .approvalCard :global(.ant-card-body) { padding: 8px 24px; }
 .approvalCard a { color: var(--sb-text); }

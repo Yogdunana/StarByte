@@ -64,7 +64,6 @@ html[data-theme='dark'] .container::before {
   letter-spacing: var(--sb-track-tight);
   font-weight: var(--sb-weight-title);
   margin: 0 0 var(--sb-space-3);
-  animation: rise 640ms var(--sb-ease) both;
 }
 .story {
   max-width: 380px;
@@ -198,10 +197,6 @@ html[data-theme='dark'] .container::before {
   gap: 0 12px;
 }
 .mobileBrand { display: none; }
-@keyframes rise {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: none; }
-}
 @media (max-width: 1000px) {
   .container { padding: var(--sb-space-4); gap: var(--sb-space-3); }
   .left { padding: var(--sb-space-5) var(--sb-space-3); justify-content: center; }
@@ -242,5 +237,4 @@ html[data-theme='dark'] .container::before {
   .card h2 { font-size: 24px; }
   .formHint { margin-bottom: 14px; }
   .fieldRow { grid-template-columns: 1fr; }
-  .brand h1 { animation: none; }
 }

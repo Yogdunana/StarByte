@@ -8,7 +8,9 @@ import { login, selectIsAuthenticated } from '@/store/slices/authSlice';
 import { fetchCurrentUser } from '@/store/slices/userSlice';
 import { getCasLoginURL, getCasStatus, register } from '@/api/auth';
 import { AppDispatch } from '@/store';
+import { motion } from 'motion/react';
 import styles from './Login.module.css';
+import { fadeUp, staggerEnter } from '@/motion/tokens';
 import { useTranslation } from 'react-i18next';
 
 interface LocationFromState {
@@ -117,25 +119,25 @@ const Login: React.FC = () => {
   return (
     <div className={styles.container}>
       <div className={styles.left}>
-        <div className={styles.brand}>
-          <div className={styles.identity}>
+        <motion.div className={styles.brand} variants={staggerEnter} initial="hidden" animate="show">
+          <motion.div className={styles.identity} variants={fadeUp}>
             <div className={styles.wordmark}>StarByte<span>.</span></div>
             <p className={styles.kicker}>{t('login.kicker')}</p>
-          </div>
-          <div className={styles.message}>
+          </motion.div>
+          <motion.div className={styles.message} variants={fadeUp}>
             <h1>{t('login.headlineLine1')}<br />{t('login.headlineLine2')}</h1>
             <p className={styles.story}>{t('login.story')}</p>
-          </div>
-          <div className={styles.visual}>
+          </motion.div>
+          <motion.div className={styles.visual} variants={fadeUp}>
             <div className={styles.connections}>
               <span className={styles.mark} aria-hidden="true"><i /><i /><i /><i /></span>
               <span>{t('login.pillars')}</span>
             </div>
             <p className={styles.caption}>{t('login.caption')}</p>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       </div>
-      <div className={styles.right}>
+      <motion.div className={styles.right} variants={fadeUp} initial="hidden" animate="show">
         <div className={styles.mobileBrand}>StarByte.</div>
         <Card className={styles.card}>
           <header className={styles.cardHeader}>
@@ -303,7 +305,7 @@ const Login: React.FC = () => {
             </Form>
           )}
         </Card>
-      </div>
+      </motion.div>
     </div>
   );
 };

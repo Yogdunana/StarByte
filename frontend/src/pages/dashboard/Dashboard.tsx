@@ -7,6 +7,8 @@ import EmptyState from '@/components/EmptyState/EmptyState';
 import { usePermission } from '@/hooks/usePermission';
 import { selectCurrentUser } from '@/store/slices/userSlice';
 import { selectUnreadCount } from '@/store/slices/notificationSlice';
+import { motion } from 'motion/react';
+import { fadeUp, staggerEnter } from '@/motion/tokens';
 import { formatDateTime } from '@/utils/format';
 import { useWorkspace } from './useWorkspace';
 import styles from './Dashboard.module.css';
@@ -40,8 +42,8 @@ export default function Dashboard() {
   ];
   const failedLabels = FAIL_KEYS.filter((key) => failed.includes(key)).map((key) => t(`dashboard.failed.${key}`));
   return (
-    <div className={styles.page}>
-      <section className={styles.hero} aria-labelledby="workspace-greeting">
+    <motion.div className={styles.page} variants={staggerEnter} initial="hidden" animate="show">
+      <motion.section className={styles.hero} aria-labelledby="workspace-greeting" variants={fadeUp}>
         <div className={styles.heroCopy}>
           <span className={styles.eyebrow}>{t('dashboard.eyebrow')}</span>
           <h1 id="workspace-greeting">{t('dashboard.greeting', { name })}</h1>
@@ -52,13 +54,16 @@ export default function Dashboard() {
             <span className={styles.date}>{date}</span>
           </div>
         </div>
-      </section>
+      </motion.section>
       {failedLabels.length > 0 && (
-        <Alert className={styles.alert} showIcon type="warning" message={t('dashboard.loadPartial', { parts: failedLabels.join(t('dashboard.partSep')) })} />
+        <motion.div variants={fadeUp}>
+          <Alert className={styles.alert} showIcon type="warning" message={t('dashboard.loadPartial', { parts: failedLabels.join(t('dashboard.partSep')) })} />
+        </motion.div>
       )}
-      <div className={styles.metrics}>
+      <motion.div className={styles.metrics} variants={staggerEnter}>
         {metrics.map((item, index) => (
-          <Link key={item.label} to={item.path} className={styles.metric}>
+          <motion.div key={item.label} className={styles.metricCell} variants={fadeUp}>
+          <Link to={item.path} className={styles.metric}>
             <div className={styles.metricTop}>
               <span>{item.label}</span>
               <span className={styles.metricNumber}>0{index + 1}</span>
@@ -66,10 +71,11 @@ export default function Dashboard() {
             {loading ? <Skeleton.Input active size="small" /> : <strong>{item.value ?? '—'}<span> {t('dashboard.unit')}</span></strong>}
             <div className={styles.metricBottom}><span>{item.caption}</span><ArrowRightOutlined /></div>
           </Link>
+          </motion.div>
         ))}
-      </div>
-      <div className={styles.workspace}>
-        <section className={styles.queue} aria-labelledby="queue-title">
+      </motion.div>
+      <motion.div className={styles.workspace} variants={staggerEnter}>
+        <motion.section className={styles.queue} aria-labelledby="queue-title" variants={fadeUp}>
           <div className={styles.sectionHeader}>
             <div><span className={styles.eyebrow}>{t('dashboard.reviewEyebrow')}</span><h2>{t('dashboard.reviewTitle')}</h2></div>
             <Link to="/workflow/todo">{t('dashboard.allApprovals')} <ArrowRightOutlined /></Link>
@@ -141,8 +147,8 @@ export default function Dashboard() {
               </div>
             ))}
           </Card>
-        </section>
-        <aside className={styles.aside}>
+        </motion.section>
+        <motion.aside className={styles.aside} variants={fadeUp}>
           <section className={styles.feed} aria-labelledby="announcement-feed-title">
             <span className={styles.eyebrow}>{t('dashboard.feedEyebrow')}</span>
             <h2 id="announcement-feed-title">{t('dashboard.feedTitle')}</h2>
@@ -181,17 +187,17 @@ export default function Dashboard() {
             )) : <p>{t('dashboard.journeyEmpty')}</p>}
             <Link to="/member/application">{applications.length ? t('dashboard.viewApplication') : t('dashboard.startApplication')} <ArrowRightOutlined /></Link>
           </section>
-        </aside>
-      </div>
+        </motion.aside>
+      </motion.div>
       {canReadStats && overview && (
-        <section className={styles.overview}>
+        <motion.section className={styles.overview} variants={fadeUp}>
           <div><span className={styles.eyebrow}>{t('dashboard.assocEyebrow')}</span><h2>{t('dashboard.assocTitle')}</h2></div>
           <div><strong>{overview.total_members}</strong><span>{t('dashboard.members')}</span></div>
           <div><strong>{overview.total_tasks_in_progress}</strong><span>{t('dashboard.inProgress')}</span></div>
           <div><strong>{overview.total_meetings_this_month}</strong><span>{t('dashboard.meetings')}</span></div>
           <Link to="/stats/overview">{t('dashboard.viewStats')} <ArrowRightOutlined /></Link>
-        </section>
+        </motion.section>
       )}
-    </div>
+    </motion.div>
   );
 }

@@ -3,8 +3,10 @@ import { Drawer, Grid, Input, Layout, Menu } from 'antd';
 import { AppstoreOutlined, BellOutlined, CheckCircleOutlined, SearchOutlined, UserOutlined } from '@ant-design/icons';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { AnimatePresence, motion } from 'motion/react';
 import TopBar from './components/TopBar';
 import { useMenu } from '@/hooks/useMenu';
+import { fadeRight, fadeUp, shellTransition } from '@/motion/tokens';
 import styles from './MainLayout.module.css';
 
 export interface MainLayoutProps { children?: React.ReactNode }
@@ -20,25 +22,43 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
     <>
       <NavLink to="/dashboard" className={styles.brand} onClick={() => setDrawerOpen(false)} aria-label={t('shell.brandAria')}>
         <span className={styles.brandMark} aria-hidden="true"><span /><span /><span /><span /></span>
-        {!compact && (
-          <span>
-            <strong>StarByte<span className={styles.brandDot}>.</span></strong>
-            <small>{t('shell.subtitle')}</small>
-          </span>
-        )}
+        <AnimatePresence initial={false}>
+          {!compact && (
+            <motion.span
+              key="brand-copy"
+              className={styles.brandCopy}
+              variants={fadeRight}
+              initial="hidden"
+              animate="show"
+              exit="hidden"
+            >
+              <strong>StarByte<span className={styles.brandDot}>.</span></strong>
+              <small>{t('shell.subtitle')}</small>
+            </motion.span>
+          )}
+        </AnimatePresence>
       </NavLink>
-      {!compact && (
-        <div className={styles.menuSearch}>
-          <Input
-            aria-label={t('common.searchMenu')}
-            allowClear
-            prefix={<SearchOutlined />}
-            placeholder={t('common.searchMenu')}
-            value={searchKeyword}
-            onChange={(event) => setSearchKeyword(event.target.value)}
-          />
-        </div>
-      )}
+      <AnimatePresence initial={false}>
+        {!compact && (
+          <motion.div
+            key="menu-search"
+            className={styles.menuSearch}
+            variants={fadeRight}
+            initial="hidden"
+            animate="show"
+            exit="hidden"
+          >
+            <Input
+              aria-label={t('common.searchMenu')}
+              allowClear
+              prefix={<SearchOutlined />}
+              placeholder={t('common.searchMenu')}
+              value={searchKeyword}
+              onChange={(event) => setSearchKeyword(event.target.value)}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
       <nav aria-label={t('shell.nav')} className={styles.menuArea}>
         <Menu
           mode="inline"
@@ -51,12 +71,21 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
           style={{ border: 0 }}
         />
       </nav>
-      {!compact && (
-        <div className={styles.sidebarFooter}>
-          <span>{t('shell.motto')}</span>
-          <small>{t('shell.orgEn')}</small>
-        </div>
-      )}
+      <AnimatePresence initial={false}>
+        {!compact && (
+          <motion.div
+            key="sidebar-footer"
+            className={styles.sidebarFooter}
+            variants={fadeRight}
+            initial="hidden"
+            animate="show"
+            exit="hidden"
+          >
+            <span>{t('shell.motto')}</span>
+            <small>{t('shell.orgEn')}</small>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
   return (
@@ -85,12 +114,28 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
         {navigation}
       </Drawer>
       <Layout className={styles.main}>
-        <TopBar mobile={mobile} onOpenMenu={() => setDrawerOpen(true)} />
-        <Layout.Content id="main-content" tabIndex={-1} className={styles.content}><Outlet /></Layout.Content>
-        <footer className={styles.footer}>
-          <span>{t('shell.footerTag')}</span>
-          <span>{t('shell.footerName')}</span>
-        </footer>
+        <motion.div
+          className={styles.mainStage}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={shellTransition}
+        >
+          <TopBar mobile={mobile} onOpenMenu={() => setDrawerOpen(true)} />
+          <Layout.Content id="main-content" tabIndex={-1} className={styles.content}>
+            <motion.div
+              className={styles.contentStage}
+              variants={fadeUp}
+              initial="hidden"
+              animate="show"
+            >
+              <Outlet />
+            </motion.div>
+          </Layout.Content>
+          <footer className={styles.footer}>
+            <span>{t('shell.footerTag')}</span>
+            <span>{t('shell.footerName')}</span>
+          </footer>
+        </motion.div>
       </Layout>
       {mobile && (
         <nav className={styles.mobileNav} aria-label={t('shell.quickNav')}>

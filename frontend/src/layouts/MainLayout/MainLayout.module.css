@@ -6,7 +6,10 @@
   border-right: 1px solid var(--sb-border) !important;
   background: var(--sb-surface) !important;
   align-self: stretch;
+  /* Snap width; labels fade with Motion (transform/opacity only). */
+  transition: none !important;
 }
+.shell :global(.ant-layout-sider) { transition: none !important; }
 .sidebar :global(.ant-layout-sider-children) {
   height: 100dvh;
   display: flex;
@@ -20,7 +23,9 @@
   flex: 0 0 72px;
   padding: 0 var(--sb-space-5);
   color: var(--sb-text);
+  overflow: hidden;
 }
+.brandCopy { min-width: 0; display: block; }
 .brand strong {
   font-family: 'Avenir Next', sans-serif;
   font-size: 20px;
@@ -86,7 +91,10 @@
   margin-top: 4px;
 }
 .main { min-width: 0; background: var(--sb-bg); }
+.mainStage { display: flex; flex-direction: column; min-height: 100%; min-width: 0; flex: 1; }
+.contentStage { min-width: 0; }
 .content {
+  flex: 1;
   padding: var(--sb-space-5) var(--sb-space-6) var(--sb-space-7);
   width: 100%;
   max-width: 1600px;
