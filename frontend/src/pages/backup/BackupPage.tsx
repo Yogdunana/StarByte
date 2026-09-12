@@ -158,7 +158,7 @@ const BackupPage: React.FC = () => {
       });
       if (drillIsPending(out)) {
         message.info(t('backup.drillQueued'));
-        const deadline = Date.now() + 180000;
+        const deadline = Date.now() + 30 * 60 * 1000;
         while (Date.now() < deadline && drillIsPending(out)) {
           await new Promise((resolve) => setTimeout(resolve, 2000));
           out = await getDrillRestore(drillRow.id);
@@ -169,6 +169,8 @@ const BackupPage: React.FC = () => {
         setDrillRow(null);
         setDrillText('');
         setDrillPassword('');
+      } else if (drillIsPending(out)) {
+        message.warning(t('backup.drillStillRunning', { db: out.target_dbname }));
       } else {
         message.error(out.error || t('backup.drillFail'));
       }

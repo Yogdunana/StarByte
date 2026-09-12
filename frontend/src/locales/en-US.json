@@ -664,6 +664,7 @@
     "drillToken": "DRILL",
     "drillRun": "Run drill",
     "drillQueued": "Drill queued; writing to the independent database…",
+    "drillStillRunning": "Drill is still writing to {{db}}. Keep this dialog open to check again, or refresh later.",
     "drillOk": "Restored into {{db}}",
     "drillFail": "Drill failed",
     "encrypted": "Encrypted",

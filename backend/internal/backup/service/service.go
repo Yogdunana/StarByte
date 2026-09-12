@@ -31,6 +31,7 @@ type Service interface {
 	Restore(ctx context.Context, userID uuid.UUID, id uuid.UUID, req *dto.RestoreRequest) (*dto.Record, error)
 	DrillRestore(ctx context.Context, userID uuid.UUID, id uuid.UUID, req *dto.DrillRequest) (*dto.DrillResult, error)
 	GetDrill(ctx context.Context, id uuid.UUID) (*dto.DrillResult, error)
+	WaitDrill(ctx context.Context, id uuid.UUID) (*dto.DrillResult, error)
 	Wait(ctx context.Context, id uuid.UUID) (*dto.Record, error)
 	GetPolicy(ctx context.Context) (*dto.Policy, error)
 	UpdatePolicy(ctx context.Context, userID uuid.UUID, req *dto.UpdatePolicyRequest) (*dto.Policy, error)
@@ -115,6 +116,31 @@ func (s *backupService) end() {
 	s.mu.Unlock()
 }
 
+func (s *backupService) beginJob(ctx context.Context) (func(), error) {
+	busy, err := s.rows.CountBusy(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if busy > 0 || !s.tryBegin() {
+		return nil, errBusy()
+	}
+	release, ok, err := s.rows.TryJobLock(ctx)
+	if err != nil {
+		s.end()
+		return nil, err
+	}
+	if !ok {
+		s.end()
+		return nil, errBusy()
+	}
+	return func() {
+		if release != nil {
+			release()
+		}
+		s.end()
+	}, nil
+}
+
 func (s *backupService) List(ctx context.Context, req *dto.ListRequest) ([]dto.Record, int64, error) {
 	if req == nil {
 		req = &dto.ListRequest{}
@@ -142,12 +168,9 @@ func (s *backupService) Create(ctx context.Context, userID uuid.UUID, _ *dto.Cre
 }
 
 func (s *backupService) startBackup(ctx context.Context, userID uuid.UUID, trigger string) (*dto.Record, error) {
-	busy, err := s.rows.CountBusy(ctx)
+	done, err := s.beginJob(ctx)
 	if err != nil {
 		return nil, err
-	}
-	if busy > 0 || !s.tryBegin() {
-		return nil, errBusy()
 	}
 	now := s.now()
 	rec := &model.Record{
@@ -159,12 +182,12 @@ func (s *backupService) startBackup(ctx context.Context, userID uuid.UUID, trigg
 		UpdatedAt:     now,
 	}
 	if err := s.rows.CreateRecord(ctx, rec); err != nil {
-		s.end()
+		done()
 		return nil, err
 	}
 	id := rec.ID
 	s.run(func(parent context.Context) {
-		defer s.end()
+		defer done()
 		jobCtx, cancel := context.WithTimeout(parent, s.timeout())
 		defer cancel()
 		s.executeDump(jobCtx, id)
@@ -345,24 +368,21 @@ func (s *backupService) Restore(ctx context.Context, _ uuid.UUID, id uuid.UUID, 
 	if rec.ObjectKey == "" || rec.ChecksumSHA256 == "" {
 		return nil, errNotReady("备份产物不完整")
 	}
-	busy, err := s.rows.CountBusy(ctx)
+	done, err := s.beginJob(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if busy > 0 || !s.tryBegin() {
-		return nil, errBusy()
-	}
 	if err := applyTransition(rec, model.StatusRestoring, s.now(), ""); err != nil {
-		s.end()
+		done()
 		return nil, err
 	}
 	if err := s.rows.UpdateRecord(ctx, rec); err != nil {
-		s.end()
+		done()
 		return nil, err
 	}
 	idCopy := rec.ID
 	s.run(func(parent context.Context) {
-		defer s.end()
+		defer done()
 		jobCtx, cancel := context.WithTimeout(parent, s.timeout())
 		defer cancel()
 		s.executeRestore(jobCtx, idCopy)
@@ -418,12 +438,9 @@ func (s *backupService) DrillRestore(ctx context.Context, userID uuid.UUID, id u
 	if rec.ObjectKey == "" || rec.ChecksumSHA256 == "" {
 		return nil, errNotReady("备份产物不完整")
 	}
-	busy, err := s.rows.CountBusy(ctx)
+	done, err := s.beginJob(ctx)
 	if err != nil {
 		return nil, err
-	}
-	if busy > 0 || !s.tryBegin() {
-		return nil, errBusy()
 	}
 	queued := &dto.DrillResult{
 		ID:           rec.ID.String(),
@@ -437,7 +454,7 @@ func (s *backupService) DrillRestore(ctx context.Context, userID uuid.UUID, id u
 	s.storeDrill(queued)
 	recCopy := *rec
 	s.run(func(parent context.Context) {
-		defer s.end()
+		defer done()
 		jobCtx, cancel := context.WithTimeout(parent, s.timeout())
 		defer cancel()
 		s.executeDrill(jobCtx, userID, &recCopy, target)
@@ -522,6 +539,39 @@ func (s *backupService) GetDrill(_ context.Context, id uuid.UUID) (*dto.DrillRes
 	}
 	cp := got
 	return &cp, nil
+}
+
+func (s *backupService) WaitDrill(ctx context.Context, id uuid.UUID) (*dto.DrillResult, error) {
+	deadline := time.Now().Add(s.timeout() + 2*time.Second)
+	var last *dto.DrillResult
+	for {
+		got, err := s.GetDrill(ctx, id)
+		if err != nil {
+			return last, err
+		}
+		last = got
+		if !drillJobPending(got) {
+			return got, nil
+		}
+		if !time.Now().Before(deadline) {
+			return got, errNotReady("演练仍在执行")
+		}
+		select {
+		case <-ctx.Done():
+			return got, ctx.Err()
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+}
+
+func drillJobPending(out *dto.DrillResult) bool {
+	if out == nil {
+		return false
+	}
+	if out.Restored || out.Error != "" || out.Status == "restored" || out.Status == "failed" {
+		return false
+	}
+	return out.Queued || out.Status == "queued" || out.Status == "running"
 }
 
 func (s *backupService) Wait(ctx context.Context, id uuid.UUID) (*dto.Record, error) {

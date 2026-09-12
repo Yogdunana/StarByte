@@ -664,6 +664,7 @@
     "drillToken": "DRILL",
     "drillRun": "开始演练",
     "drillQueued": "演练已排队，正在写入独立库…",
+    "drillStillRunning": "演练仍在写入 {{db}}，可保持弹窗再次确认或稍后刷新",
     "drillOk": "已恢复到 {{db}}",
     "drillFail": "演练失败",
     "encrypted": "已加密",

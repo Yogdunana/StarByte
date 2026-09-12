@@ -49,6 +49,9 @@ func (s *stub) GetDrill(context.Context, uuid.UUID) (*dto.DrillResult, error) {
 	}
 	return s.drill, s.err
 }
+func (s *stub) WaitDrill(ctx context.Context, id uuid.UUID) (*dto.DrillResult, error) {
+	return s.GetDrill(ctx, id)
+}
 func (s *stub) Wait(context.Context, uuid.UUID) (*dto.Record, error) { return s.waited, s.err }
 func (s *stub) GetPolicy(context.Context) (*dto.Policy, error)       { return &dto.Policy{}, s.err }
 func (s *stub) UpdatePolicy(context.Context, uuid.UUID, *dto.UpdatePolicyRequest) (*dto.Policy, error) {

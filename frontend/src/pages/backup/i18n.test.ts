@@ -10,7 +10,7 @@ const keys = [
   'policySaved', 'checksum', 'size', 'filename', 'empty', 'statusLabel', 'triggerLabel', 'finished',
   'preview', 'previewTitle', 'previewReady', 'previewNotReady', 'previewChecksum', 'previewDecrypt',
   'previewGzip', 'previewTOC', 'previewContinue', 'drill', 'drillTitle', 'drillWarn',
-  'drillDBLabel', 'drillDSNLabel', 'drillPasswordLabel', 'drillConfirmLabel', 'drillToken', 'drillRun', 'drillQueued', 'drillOk', 'drillFail',
+  'drillDBLabel', 'drillDSNLabel', 'drillPasswordLabel', 'drillConfirmLabel', 'drillToken', 'drillRun', 'drillQueued', 'drillStillRunning', 'drillOk', 'drillFail',
   'encrypted', 'unencrypted', 'encryptionOn',
   'encryptionOff', 'compression', 'walGap',
   'status.0', 'status.1', 'status.2', 'status.3', 'status.4', 'status.5', 'status.6',

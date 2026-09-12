@@ -233,6 +233,47 @@ func TestGetDrill_Missing(t *testing.T) {
 	assert.Equal(t, response.CodeBackupNotFound, err.(*response.AppError).Code)
 }
 
+func TestDrillRestore_HoldsCrossProcessLock(t *testing.T) {
+	svc, rows, store, eng, alert := newTestSvc()
+	created, err := svc.Create(context.Background(), uuid.New(), nil)
+	require.NoError(t, err)
+	id := uuid.MustParse(created.ID)
+
+	other := &backupService{
+		rows: rows, store: store, engine: eng, live: svc.live, cfg: svc.cfg, alert: alert,
+		now: testNow, run: func(fn func(context.Context)) { fn(context.Background()) },
+		drills: make(map[uuid.UUID]dto.DrillResult),
+	}
+
+	started := make(chan struct{})
+	unblock := make(chan struct{})
+	svc.run = func(fn func(context.Context)) {
+		go func() {
+			close(started)
+			<-unblock
+			fn(context.Background())
+		}()
+	}
+	_, err = svc.DrillRestore(context.Background(), uuid.New(), id, &dto.DrillRequest{
+		Confirm: true, Confirmation: model.DrillConfirmToken, TargetDBName: "starbyte_drill",
+	})
+	require.NoError(t, err)
+	<-started
+	_, err = other.Create(context.Background(), uuid.New(), nil)
+	require.Error(t, err)
+	assert.Equal(t, response.CodeBackupBusy, err.(*response.AppError).Code)
+	close(unblock)
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		got, err := svc.GetDrill(context.Background(), id)
+		require.NoError(t, err)
+		if got.Restored || got.Error != "" {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
 func TestRestore_Success(t *testing.T) {
 	svc, _, _, eng, _ := newTestSvc()
 	created, err := svc.Create(context.Background(), uuid.New(), nil)

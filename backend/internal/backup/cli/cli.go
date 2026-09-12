@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/backup/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/backup/model"
@@ -184,9 +183,12 @@ func runDrill(ctx context.Context, svc service.Service, args []string, stdout, s
 	}
 	if drillPending(out) {
 		fmt.Fprintf(stdout, "drill queued %s target=%s/%s\n", out.ID, out.TargetHost, out.TargetDBName)
-		out, err = waitDrill(ctx, svc, uid)
+		out, err = svc.WaitDrill(ctx, uid)
 		if err != nil {
 			fmt.Fprintln(stderr, err.Error())
+			if out != nil && drillPending(out) {
+				return 2
+			}
 			return 1
 		}
 	}
@@ -209,27 +211,6 @@ func drillPending(out *dto.DrillResult) bool {
 		return false
 	}
 	return out.Queued || out.Status == "queued" || out.Status == "running"
-}
-
-func waitDrill(ctx context.Context, svc service.Service, id uuid.UUID) (*dto.DrillResult, error) {
-	deadline := time.Now().Add(30 * time.Minute)
-	for {
-		got, err := svc.GetDrill(ctx, id)
-		if err != nil {
-			return nil, err
-		}
-		if !drillPending(got) {
-			return got, nil
-		}
-		if !time.Now().Before(deadline) {
-			return nil, fmt.Errorf("演练超时")
-		}
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(200 * time.Millisecond):
-		}
-	}
 }
 
 func printRecord(w io.Writer, rec *dto.Record) {

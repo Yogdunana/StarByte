@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/backup/dto"
@@ -9,6 +10,12 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+)
+
+// JobLockClass / JobLockID are the pg_advisory_lock key for backup dump/restore/drill.
+const (
+	JobLockClass int32 = 739201
+	JobLockID    int32 = 88
 )
 
 // ScheduledTaskSpec upserts the managed scheduler row for full backups.
@@ -30,6 +37,7 @@ type Repository interface {
 	GetRecord(ctx context.Context, id uuid.UUID) (*model.Record, error)
 	ListRecords(ctx context.Context, req *dto.ListRequest) ([]model.Record, int64, error)
 	CountBusy(ctx context.Context) (int64, error)
+	TryJobLock(ctx context.Context) (release func(), ok bool, err error)
 	ListStale(ctx context.Context, before time.Time) ([]model.Record, error)
 	ListExpired(ctx context.Context, before time.Time) ([]model.Record, error)
 	StorageStats(ctx context.Context) (count int64, size int64, err error)
@@ -111,6 +119,33 @@ func (r *repository) CountBusy(ctx context.Context) (int64, error) {
 		Where("status IN ?", []int16{model.StatusPending, model.StatusRunning, model.StatusRestoring}).
 		Count(&n).Error
 	return n, err
+}
+
+func (r *repository) TryJobLock(ctx context.Context) (func(), bool, error) {
+	sqlDB, err := r.db.DB()
+	if err != nil {
+		return nil, false, err
+	}
+	conn, err := sqlDB.Conn(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	var locked bool
+	if err := conn.QueryRowContext(ctx, "SELECT pg_try_advisory_lock($1, $2)", JobLockClass, JobLockID).Scan(&locked); err != nil {
+		_ = conn.Close()
+		return nil, false, err
+	}
+	if !locked {
+		_ = conn.Close()
+		return nil, false, nil
+	}
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			_, _ = conn.ExecContext(context.Background(), "SELECT pg_advisory_unlock($1, $2)", JobLockClass, JobLockID)
+			_ = conn.Close()
+		})
+	}, true, nil
 }
 
 func (r *repository) ListStale(ctx context.Context, before time.Time) ([]model.Record, error) {

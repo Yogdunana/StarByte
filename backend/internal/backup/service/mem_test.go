@@ -28,6 +28,7 @@ type memRepo struct {
 	updateCalls  int
 	updateFailN  int
 	opsIDs       []uuid.UUID
+	jobLocked    bool
 }
 
 func newMemRepo() *memRepo {
@@ -140,6 +141,24 @@ func (m *memRepo) CountBusy(context.Context) (int64, error) {
 		}
 	}
 	return n, nil
+}
+
+func (m *memRepo) TryJobLock(context.Context) (func(), bool, error) {
+	m.mu.Lock()
+	if m.jobLocked {
+		m.mu.Unlock()
+		return nil, false, nil
+	}
+	m.jobLocked = true
+	m.mu.Unlock()
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			m.mu.Lock()
+			m.jobLocked = false
+			m.mu.Unlock()
+		})
+	}, true, nil
 }
 
 func (m *memRepo) ListStale(_ context.Context, before time.Time) ([]model.Record, error) {

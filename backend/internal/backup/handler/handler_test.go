@@ -53,6 +53,9 @@ func (s *stubSvc) GetDrill(context.Context, uuid.UUID) (*dto.DrillResult, error)
 	}
 	return &dto.DrillResult{Status: "restored", Restored: true, TargetDBName: "starbyte_drill"}, s.err
 }
+func (s *stubSvc) WaitDrill(ctx context.Context, id uuid.UUID) (*dto.DrillResult, error) {
+	return s.GetDrill(ctx, id)
+}
 func (s *stubSvc) Wait(context.Context, uuid.UUID) (*dto.Record, error) { return s.rec, s.err }
 func (s *stubSvc) GetPolicy(context.Context) (*dto.Policy, error)       { return s.policy, s.err }
 func (s *stubSvc) UpdatePolicy(context.Context, uuid.UUID, *dto.UpdatePolicyRequest) (*dto.Policy, error) {
