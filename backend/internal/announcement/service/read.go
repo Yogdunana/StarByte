@@ -65,9 +65,9 @@ func (s *announcementService) ReadStatus(ctx context.Context, viewer Viewer, id 
 		})
 	}
 	unreadIDs := make([]uuid.UUID, 0)
-	for _, id := range targets {
-		if _, ok := readSet[id]; !ok {
-			unreadIDs = append(unreadIDs, id)
+	for _, uid := range targets {
+		if _, ok := readSet[uid]; !ok {
+			unreadIDs = append(unreadIDs, uid)
 		}
 	}
 	unreadUsers, err := s.rows.ListNamedUsers(ctx, unreadIDs)

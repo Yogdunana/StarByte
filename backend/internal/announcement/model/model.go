@@ -9,11 +9,11 @@ import (
 
 // Announcement 公告
 type Announcement struct {
-	ID          uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
-	Title       string         `gorm:"type:varchar(200);not null" json:"title"`
-	Content     string         `gorm:"type:text;not null;default:''" json:"content"`
-	ContentType string         `gorm:"type:varchar(16);not null;default:markdown" json:"content_type"`
-	Category    string         `gorm:"type:varchar(32);not null" json:"category"`
+	ID           uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
+	Title        string         `gorm:"type:varchar(200);not null" json:"title"`
+	Content      string         `gorm:"type:text;not null;default:''" json:"content"`
+	ContentType  string         `gorm:"type:varchar(16);not null;default:markdown" json:"content_type"`
+	Category     string         `gorm:"type:varchar(32);not null" json:"category"`
 	Pinned       bool           `gorm:"not null;default:false" json:"pinned"`
 	Required     bool           `gorm:"not null;default:false" json:"required"`
 	Status       int16          `gorm:"type:smallint;not null;default:0" json:"status"`
@@ -25,9 +25,9 @@ type Announcement struct {
 	AudienceIDs  IDList         `gorm:"type:jsonb;not null;default:'[]'" json:"audience_ids"`
 	Attachments  AttachmentList `gorm:"type:jsonb;not null;default:'[]'" json:"attachments"`
 	AuthorID     uuid.UUID      `gorm:"type:uuid;not null" json:"author_id"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 func (Announcement) TableName() string { return "announcements" }
@@ -41,7 +41,7 @@ type AnnouncementNamed struct {
 
 // AnnouncementRead 阅读回执
 type AnnouncementRead struct {
-	ID             uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
+	ID              uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
 	AnnouncementID  uuid.UUID `gorm:"type:uuid;not null" json:"announcement_id"`
 	UserID          uuid.UUID `gorm:"type:uuid;not null" json:"user_id"`
 	ReadAt          time.Time `json:"read_at"`

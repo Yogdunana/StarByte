@@ -71,8 +71,5 @@ func scanJSON[T any](value interface{}, dest *T, empty func() T) error {
 	if err := json.Unmarshal(raw, dest); err != nil {
 		return err
 	}
-	if dest == nil {
-		*dest = empty()
-	}
 	return nil
 }
