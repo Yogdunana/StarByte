@@ -11,6 +11,7 @@ import (
 
 // UserRepo 用户数据访问接口
 type UserRepo interface {
+	UpdateProfile(ctx context.Context, id uuid.UUID, changes map[string]interface{}) error
 	Create(ctx context.Context, tx *gorm.DB, user *model.User) error
 	GetByID(ctx context.Context, id uuid.UUID) (*model.User, error)
 	GetByUsername(ctx context.Context, username string) (*model.User, error)
@@ -139,4 +140,19 @@ func (r *userRepo) CreateIdentity(ctx context.Context, ident *model.UserIdentity
 		ident.ID = uuid.New()
 	}
 	return r.db.WithContext(ctx).Create(ident).Error
+}
+
+// UpdateProfile writes only self-editable fields and keeps the displayed member name in sync.
+func (r *userRepo) UpdateProfile(ctx context.Context, id uuid.UUID, changes map[string]interface{}) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.User{}).Where("id = ?", id).Updates(changes).Error; err != nil {
+			return err
+		}
+		if name, ok := changes["real_name"]; ok {
+			if err := tx.Table("member_profiles").Where("user_id = ?", id).Updates(map[string]interface{}{"real_name": name}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }

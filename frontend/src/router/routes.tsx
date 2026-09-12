@@ -10,7 +10,6 @@ import PublicLayout from '@/layouts/PublicLayout';
 // 路由守卫
 import AuthRoute from '@/router/guards/AuthRoute';
 import PermissionRoute from '@/router/guards/PermissionRoute';
-import ComingSoon from '@/pages/error/ComingSoon';
 
 // 页面组件
 const Login = lazy(() => import('@/pages/login/Login'));
@@ -19,6 +18,8 @@ const CasRegister = lazy(() => import('@/pages/login/CasRegister'));
 const Dashboard = lazy(() => import('@/pages/dashboard/Dashboard'));
 const BigScreenPage = lazy(() => import('@/pages/dashboard/bigscreen/BigScreenPage'));
 const UserList = lazy(() => import('@/pages/user/UserList'));
+const RolePage = lazy(() => import('@/pages/system/role/RolePage'));
+const PermissionPage = lazy(() => import('@/pages/system/permission/PermissionPage'));
 const ProfileMePage = lazy(() => import('@/pages/user/ProfileMePage'));
 const AccountSettingsPage = lazy(() => import('@/pages/user/AccountSettingsPage'));
 const NotificationList = lazy(() => import('@/pages/notification/NotificationList'));
@@ -83,9 +84,7 @@ const NotFound = lazy(() => import('@/pages/error/NotFound'));
 
 const LoadingFallback: React.FC = () => {
   const { t } = useTranslation();
-  return (
-    <div style={{ padding: 24, textAlign: 'center' }}>{t('common.loading')}</div>
-  );
+  return <div style={{ padding: 24, textAlign: 'center' }}>{t('common.loading')}</div>;
 };
 
 // 懒加载包装器（无权限守卫）
@@ -96,21 +95,16 @@ const lazyWrap = (Component: React.LazyExoticComponent<React.FC>) => (
 );
 
 // 带权限守卫的懒加载包装器
-const lazyGuarded = (
-  Component: React.LazyExoticComponent<React.FC>,
-  permission?: string,
-) => {
+const lazyGuarded = (Component: React.LazyExoticComponent<React.FC>, permission?: string) => {
   const element = lazyWrap(Component);
   return permission ? (
     <PermissionRoute permission={permission}>{element}</PermissionRoute>
-  ) : element;
+  ) : (
+    element
+  );
 };
 
 // 带权限守卫的内联元素包装器
-const guarded = (element: React.ReactNode, permission?: string) =>
-  permission ? (
-    <PermissionRoute permission={permission}>{element}</PermissionRoute>
-  ) : element;
 
 // 路由元信息类型
 export interface RouteMeta {
@@ -176,15 +170,15 @@ const routes: AppRouteObject[] = [
   },
   {
     path: '/dashboard/bigscreen',
-    element: (
-      <AuthRoute>
-        {lazyGuarded(BigScreenPage, 'stats:read')}
-      </AuthRoute>
-    ),
+    element: <AuthRoute>{lazyGuarded(BigScreenPage, 'stats:read')}</AuthRoute>,
     meta: { title: '数据大屏', hidden: true, permission: 'stats:read' },
   },
   {
-    element: <AuthRoute><MainLayout /></AuthRoute>,
+    element: (
+      <AuthRoute>
+        <MainLayout />
+      </AuthRoute>
+    ),
     children: [
       {
         path: '403',
@@ -238,7 +232,11 @@ const routes: AppRouteObject[] = [
         path: 'member',
         meta: { title: '会员管理', icon: 'TeamOutlined' },
         children: [
-          { path: 'applications', element: <Navigate to="/member/application" replace />, meta: { hidden: true } },
+          {
+            path: 'applications',
+            element: <Navigate to="/member/application" replace />,
+            meta: { hidden: true },
+          },
           {
             path: 'application',
             element: lazyWrap(ApplicationPage),
@@ -351,7 +349,11 @@ const routes: AppRouteObject[] = [
           {
             path: 'list',
             element: lazyGuarded(AnnouncementListPage, 'announcement:read'),
-            meta: { title: '公告列表', permission: 'announcement:read', featureFlag: 'announcement.feed' },
+            meta: {
+              title: '公告列表',
+              permission: 'announcement:read',
+              featureFlag: 'announcement.feed',
+            },
           },
           {
             path: ':id',
@@ -527,12 +529,12 @@ const routes: AppRouteObject[] = [
         children: [
           {
             path: 'role',
-            element: guarded(<ComingSoon i18nKey="placeholder.roles" />, 'role:read'),
+            element: lazyGuarded(RolePage, 'role:read'),
             meta: { title: '角色管理', permission: 'role:read' },
           },
           {
             path: 'permission',
-            element: guarded(<ComingSoon i18nKey="placeholder.permissions" />, 'permission:read'),
+            element: lazyGuarded(PermissionPage, 'permission:read'),
             meta: { title: '权限管理', permission: 'permission:read' },
           },
           {

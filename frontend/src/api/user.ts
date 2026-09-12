@@ -75,3 +75,13 @@ export function deleteUser(id: string): Promise<void> {
 export function resetUserPassword(id: string, newPassword: string): Promise<void> {
   return request.post(`/users/${id}/reset-password`, { new_password: newPassword });
 }
+
+export interface ProfileUpdate {
+  real_name?: string;
+  email?: string;
+  phone?: string;
+  gender?: number;
+  avatar_url?: string;
+}
+export const updateMyProfile = (data: ProfileUpdate): Promise<void> =>
+  request.put('/user/profile', data);

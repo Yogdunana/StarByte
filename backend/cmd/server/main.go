@@ -524,7 +524,7 @@ func main() {
 		authHandler.RegisterRoutes(nil, protected, authH, nil, cacheService)
 
 		// 用户模块
-		handler.RegisterUserRoutes(protected, userHandler)
+		handler.RegisterUserRoutes(protected, userHandler, cacheService)
 
 		// RBAC 系统管理模块
 		// 权限校验和数据权限中间件在 RegisterRoutes 内部按正确顺序注册
