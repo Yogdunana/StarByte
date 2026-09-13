@@ -8,6 +8,7 @@ const (
 )
 
 const (
+	VisibilityRole          = "role"
 	VisibilityPublic        = "public"
 	VisibilityAuthenticated = "authenticated"
 	VisibilityPermission    = "permission"
@@ -31,7 +32,7 @@ func ValidKind(v string) bool {
 
 func ValidVisibility(v string) bool {
 	switch v {
-	case VisibilityPublic, VisibilityAuthenticated, VisibilityPermission:
+	case VisibilityPublic, VisibilityAuthenticated, VisibilityPermission, VisibilityRole:
 		return true
 	default:
 		return false

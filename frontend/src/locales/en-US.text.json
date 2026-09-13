@@ -1580,5 +1580,10 @@
   "允许文件类型": "Allowed file types",
   "链接标识": "URL identifier",
   "任务参数": "Task parameters",
-  "失败": "Failed"
+  "失败": "Failed",
+  "协会章程": "Association charter",
+  "指定角色可读": "Selected roles",
+  "可阅读角色": "Roles allowed to read",
+  "可选择多个角色；自定义角色填写其编码": "Select multiple roles; enter the code for a custom role",
+  "请选择可阅读角色": "Select roles allowed to read"
 }

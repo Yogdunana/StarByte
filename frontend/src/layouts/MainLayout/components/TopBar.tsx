@@ -22,6 +22,7 @@ import { clearNotifications } from '@/store/slices/notificationSlice';
 import { logout as logoutApi } from '@/api/auth';
 import { removeToken } from '@/utils/storage';
 import { useNotificationWebSocket } from '@/hooks/useNotificationWebSocket';
+import { isRegisteredOnly } from '@/utils/registeredUser';
 import NotificationBell from '@/components/NotificationBell';
 import AnnouncementBadge from '@/components/AnnouncementBadge';
 import { useThemeLang } from '@/theme/ThemeLangContext';
@@ -47,7 +48,7 @@ const TopBar: React.FC<TopBarProps> = ({ mobile, onOpenMenu }) => {
   const { setLang, setPreference, preference, lang, reduceMotion, setReduceMotion } =
     useThemeLang();
 
-  useNotificationWebSocket();
+  useNotificationWebSocket(!isRegisteredOnly(currentUser?.roles));
 
   const handleLogout = async () => {
     try {
@@ -148,7 +149,7 @@ const TopBar: React.FC<TopBarProps> = ({ mobile, onOpenMenu }) => {
           />
         </Dropdown>
         <AnnouncementBadge />
-        <NotificationBell />
+        {!isRegisteredOnly(currentUser?.roles) && <NotificationBell />}
         <Dropdown trigger={['click']} menu={{ items: userMenuItems }} placement="bottomRight">
           <button type="button" className={styles.account} aria-label={t('shell.accountMenu')}>
             <Avatar

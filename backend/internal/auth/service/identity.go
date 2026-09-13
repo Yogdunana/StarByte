@@ -129,6 +129,21 @@ func (s *authService) resolveLoginUser(ctx context.Context, identifier string) (
 }
 
 func (s *authService) buildUserInfo(ctx context.Context, user *model.User, roles, permissions []string) *dto.UserInfo {
+	registeredOnly := true
+	for _, role := range roles {
+		if role != "user" {
+			registeredOnly = false
+		}
+	}
+	if registeredOnly {
+		permissions = []string{"announcement:read"}
+	}
+	if roles == nil {
+		roles = []string{}
+	}
+	if permissions == nil {
+		permissions = []string{}
+	}
 	info := &dto.UserInfo{
 		ID:          user.ID.String(),
 		Username:    user.Username,

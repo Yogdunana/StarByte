@@ -16,6 +16,7 @@ func formatTime(t time.Time) string {
 
 func toDocResponse(row *model.DocNamed, attachments []model.AttachmentNamed, includeBody bool) *dto.DocResponse {
 	resp := &dto.DocResponse{
+		AllowedRoles:   append([]string{}, row.AllowedRoles...),
 		ID:             row.ID.String(),
 		Kind:           row.Kind,
 		Slug:           row.Slug,

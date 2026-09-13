@@ -44,3 +44,21 @@ it('saves only editable fields then refreshes the current user', async () => {
   await screen.findByText('新姓名');
   expect(store.getState().user.currentUser?.real_name).toBe('新姓名');
 });
+
+it('renders a newly registered account with null roles and permissions', async () => {
+  vi.mocked(getCurrentUser).mockResolvedValue({
+    id: 'new-user',
+    username: 'new-user',
+    roles: null,
+    permissions: null,
+  } as unknown as Awaited<ReturnType<typeof getCurrentUser>>);
+  const store = configureStore({ reducer: { user: reducer } });
+  render(
+    <Provider store={store}>
+      <ProfileMePage />
+    </Provider>,
+  );
+  await screen.findByText('new-user');
+  expect(store.getState().user.currentUser?.roles).toEqual([]);
+  expect(store.getState().user.permissions).toEqual([]);
+});

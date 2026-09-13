@@ -25,6 +25,7 @@ func withPermission(group *gin.RouterGroup, permCode string, cache rbacService.P
 func RegisterPublicRoutes(r *gin.RouterGroup, h *Handler, jwtCfg *config.JWTConfig, rdb *redis.Client, cache rbacService.PermissionCacheService) {
 	g := r.Group("/knowledge/public")
 	g.Use(authmiddleware.OptionalJWT(jwtCfg, rdb))
+	g.Use(middleware.AttachCurrentRoles(cache))
 	g.Use(middleware.AttachPermissions(cache))
 	g.GET("/pages/:slug", h.PublicPage)
 	g.GET("/docs", h.PublicDocs)
@@ -36,6 +37,7 @@ func RegisterPublicRoutes(r *gin.RouterGroup, h *Handler, jwtCfg *config.JWTConf
 // RegisterRoutes 注册 /api/v1/knowledge。静态路径须在 /:id 之前。
 func RegisterRoutes(r *gin.RouterGroup, h *Handler, cache rbacService.PermissionCacheService) {
 	g := r.Group("/knowledge")
+	g.Use(middleware.AttachCurrentRoles(cache))
 
 	read := withPermission(g, "doc:read", cache)
 	read.GET("/docs", h.List)

@@ -23,6 +23,7 @@ type CategoryResponse struct {
 }
 
 type DocResponse struct {
+	AllowedRoles   []string             `json:"allowed_roles"`
 	ID             string               `json:"id"`
 	Kind           string               `json:"kind"`
 	Slug           string               `json:"slug"`
@@ -79,26 +80,28 @@ type UpdateCategoryRequest struct {
 }
 
 type CreateDocRequest struct {
-	Kind           string  `json:"kind" binding:"required"`
-	Slug           string  `json:"slug" binding:"required,max=80"`
-	Title          string  `json:"title" binding:"required,max=200"`
-	Summary        string  `json:"summary" binding:"omitempty,max=500"`
-	Content        string  `json:"content"`
-	CategoryID     *string `json:"category_id"`
-	Visibility     string  `json:"visibility"`
-	PermissionCode string  `json:"permission_code"`
+	AllowedRoles   []string `json:"allowed_roles"`
+	Kind           string   `json:"kind" binding:"required"`
+	Slug           string   `json:"slug" binding:"required,max=80"`
+	Title          string   `json:"title" binding:"required,max=200"`
+	Summary        string   `json:"summary" binding:"omitempty,max=500"`
+	Content        string   `json:"content"`
+	CategoryID     *string  `json:"category_id"`
+	Visibility     string   `json:"visibility"`
+	PermissionCode string   `json:"permission_code"`
 }
 
 type UpdateDocRequest struct {
-	Slug           *string `json:"slug"`
-	Title          *string `json:"title"`
-	Summary        *string `json:"summary"`
-	Content        *string `json:"content"`
-	CategoryID     *string `json:"category_id"`
-	ClearCategory  bool    `json:"clear_category"`
-	Visibility     *string `json:"visibility"`
-	PermissionCode *string `json:"permission_code"`
-	Kind           *string `json:"kind"`
+	AllowedRoles   *[]string `json:"allowed_roles"`
+	Slug           *string   `json:"slug"`
+	Title          *string   `json:"title"`
+	Summary        *string   `json:"summary"`
+	Content        *string   `json:"content"`
+	CategoryID     *string   `json:"category_id"`
+	ClearCategory  bool      `json:"clear_category"`
+	Visibility     *string   `json:"visibility"`
+	PermissionCode *string   `json:"permission_code"`
+	Kind           *string   `json:"kind"`
 }
 
 type ListDocRequest struct {

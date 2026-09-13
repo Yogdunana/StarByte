@@ -14,6 +14,7 @@ import (
 )
 
 type Viewer struct {
+	Roles      []string
 	UserID     uuid.UUID
 	Perms      []string
 	CanCreate  bool
@@ -100,6 +101,18 @@ func canRead(v Viewer, d *model.Doc) error {
 		return notFound()
 	}
 	switch d.Visibility {
+	case model.VisibilityRole:
+		if !v.Authenticated() {
+			return loginRequired()
+		}
+		for _, role := range v.Roles {
+			for _, allowed := range d.AllowedRoles {
+				if role == allowed {
+					return nil
+				}
+			}
+		}
+		return noAccess("无权阅读该文档")
 	case model.VisibilityPublic:
 		return nil
 	case model.VisibilityAuthenticated:
@@ -121,7 +134,7 @@ func canRead(v Viewer, d *model.Doc) error {
 }
 
 func scopeOf(v Viewer) repo.ReadableScope {
-	return repo.ReadableScope{Staff: v.Staff(), UserID: v.UserID, Perms: v.Perms}
+	return repo.ReadableScope{Staff: v.Staff(), UserID: v.UserID, Perms: v.Perms, Roles: v.Roles}
 }
 
 func (s *knowledgeService) snapshot(ctx context.Context, d *model.Doc, editor uuid.UUID) error {
@@ -384,6 +397,9 @@ func (s *knowledgeService) Create(ctx context.Context, viewer Viewer, req *dto.C
 	if !model.ValidVisibility(vis) {
 		return nil, invalidVis()
 	}
+	if err := validateRoleAudience(vis, req.AllowedRoles); err != nil {
+		return nil, err
+	}
 	if vis == model.VisibilityPermission && strings.TrimSpace(req.PermissionCode) == "" {
 		return nil, response.NewError(response.CodeBadRequest, "权限可见性必须填写权限码")
 	}
@@ -395,6 +411,7 @@ func (s *knowledgeService) Create(ctx context.Context, viewer Viewer, req *dto.C
 		Title:          title,
 		Summary:        strings.TrimSpace(req.Summary),
 		Content:        req.Content,
+		AllowedRoles:   append([]string{}, req.AllowedRoles...),
 		Visibility:     vis,
 		PermissionCode: strings.TrimSpace(req.PermissionCode),
 		Status:         model.StatusDraft,
@@ -513,6 +530,16 @@ func (s *knowledgeService) Update(ctx context.Context, viewer Viewer, id uuid.UU
 			d.PermissionCode = code
 			changed = true
 		}
+	}
+	if req.AllowedRoles != nil {
+		if d.Status == model.StatusPublished && !viewer.CanPublish {
+			return nil, noAccess("已发布文档的阅读权限需发布权限")
+		}
+		d.AllowedRoles = append([]string{}, (*req.AllowedRoles)...)
+		changed = true
+	}
+	if err := validateRoleAudience(d.Visibility, d.AllowedRoles); err != nil {
+		return nil, err
 	}
 	if d.Visibility == model.VisibilityPermission && d.PermissionCode == "" {
 		return nil, response.NewError(response.CodeBadRequest, "权限可见性必须填写权限码")
@@ -812,4 +839,16 @@ func (s *knowledgeService) Detach(ctx context.Context, viewer Viewer, id, fileID
 		return err
 	}
 	return s.rows.RemoveAttachment(ctx, id, fileID)
+}
+
+func validateRoleAudience(visibility string, roles []string) error {
+	if len(roles) > 100 || (visibility == model.VisibilityRole && len(roles) == 0) {
+		return response.NewError(response.CodeBadRequest, "请选择可阅读角色")
+	}
+	for _, role := range roles {
+		if len(role) == 0 || len(role) > 50 || strings.TrimSpace(role) != role {
+			return response.NewError(response.CodeBadRequest, "请选择可阅读角色")
+		}
+	}
+	return nil
 }

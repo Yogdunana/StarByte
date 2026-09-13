@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	rbacmodel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/user/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/user/model"
 	"github.com/Yogdunana/StarByte/backend/internal/user/repo"
@@ -75,12 +76,16 @@ func (s *userService) Register(ctx context.Context, req *dto.RegisterRequest) (*
 		Status:       0,
 	}
 
-	// 创建用户（默认分配 member 角色，这里简化处理）
+	// Registration grants the non-member User role in the same transaction.
 	err = s.db.Transaction(func(tx *gorm.DB) error {
 		if err := s.userRepo.Create(ctx, tx, user); err != nil {
 			return fmt.Errorf("create user: %w", err)
 		}
-		return nil
+		var role rbacmodel.Role
+		if err := tx.WithContext(ctx).Where("code = ? AND status = 0", "user").First(&role).Error; err != nil {
+			return fmt.Errorf("registration role unavailable: %w", err)
+		}
+		return tx.WithContext(ctx).Create(&rbacmodel.UserRole{ID: uuid.New(), UserID: user.ID, RoleID: role.ID}).Error
 	})
 
 	if err != nil {

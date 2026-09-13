@@ -21,6 +21,7 @@ type Category struct {
 func (Category) TableName() string { return "knowledge_categories" }
 
 type Doc struct {
+	AllowedRoles   []string       `gorm:"serializer:json;type:jsonb;not null;default:'[]'" json:"allowed_roles"`
 	ID             uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
 	Kind           string         `gorm:"type:varchar(16);not null" json:"kind"`
 	Slug           string         `gorm:"type:varchar(80);not null" json:"slug"`

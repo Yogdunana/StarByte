@@ -518,6 +518,7 @@ func main() {
 	protected := api.Group("")
 	protected.Use(middleware.AuditLog(database.DB()))
 	protected.Use(authmiddleware.JWTAuth(&cfg.JWT, redis.Client()))
+	protected.Use(middleware.AttachCurrentRoles(cacheService), middleware.RegisteredUserAccess())
 	applyProtectedTraffic(protected, redis.Client(), trafficCfg, circuitbreaker.New(circuitbreaker.DefaultSettings()))
 	{
 		// 认证路由（登出、当前用户、修改密码、在线会话 #50）

@@ -60,7 +60,7 @@ cas:
   frontend_url: ""
   # 校园网流程：未知 CAS 用户必须注册绑定，学号不得自动当作 username。
   allow_auto_provision: false
-  default_role: member
+  default_role: user
 
 # CORS
 cors:

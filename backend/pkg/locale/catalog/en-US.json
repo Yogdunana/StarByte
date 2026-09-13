@@ -2257,5 +2257,6 @@
   "请配置有效的 STARBYTE_CONFIG_ENCRYPTION_KEY（Base64 编码的 32 字节密钥）": "Configure STARBYTE_CONFIG_ENCRYPTION_KEY as a Base64-encoded 32-byte key",
   "无法生成 SMTP 密码加密随机数": "Unable to generate SMTP encryption randomness",
   "SMTP 密码密文无效，请重新保存密码": "Invalid encrypted SMTP password; save the password again",
-  "SMTP 密码无法解密，请检查配置密钥或重新保存密码": "Cannot decrypt SMTP password; check the encryption key or save the password again"
+  "SMTP 密码无法解密，请检查配置密钥或重新保存密码": "Cannot decrypt SMTP password; check the encryption key or save the password again",
+  "请选择可阅读角色": "Select roles allowed to read"
 }

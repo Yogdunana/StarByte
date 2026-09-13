@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"strings"
 
 	rbacmodel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	rbacrepo "github.com/Yogdunana/StarByte/backend/internal/rbac/repo"
@@ -24,10 +23,7 @@ type roleAssigner struct {
 
 // NewRoleAssigner assigns roleCode (e.g. member) on first CAS login. Nil-safe if db/repo missing.
 func NewRoleAssigner(db *gorm.DB, roles rbacrepo.RoleRepo, roleCode string) RoleAssigner {
-	code := strings.TrimSpace(roleCode)
-	if code == "" {
-		code = "member"
-	}
+	code := "user" // Identity verification does not confer association membership.
 	return &roleAssigner{db: db, repo: roles, code: code}
 }
 
