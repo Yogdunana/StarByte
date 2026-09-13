@@ -222,17 +222,6 @@ func fetchUserDataScopes(ctx context.Context, db *gorm.DB, userID uuid.UUID, res
 	return scopes, nil
 }
 
-// fetchUserDepartmentID 返回用户所属部门 ID，未分配部门时返回 nil
-func fetchUserDepartmentID(ctx context.Context, db *gorm.DB, userID uuid.UUID) (*uuid.UUID, error) {
-	var row struct {
-		DepartmentID *uuid.UUID
-	}
-	if err := db.WithContext(ctx).Raw(`SELECT department_id FROM users WHERE id = ?`, userID).Scan(&row).Error; err != nil {
-		return nil, err
-	}
-	return row.DepartmentID, nil
-}
-
 // fetchCustomDepartmentIDs 返回用户通过 custom 数据权限授予的自定义部门 ID 列表
 // 关联 role_data_scopes -> role_permissions -> user_roles -> roles -> permissions
 // 过滤条件：角色未过期、角色已启用、权限已启用
