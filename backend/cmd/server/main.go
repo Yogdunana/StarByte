@@ -78,6 +78,9 @@ import (
 	rbacHandler "github.com/Yogdunana/StarByte/backend/internal/rbac/handler"
 	rbacRepo "github.com/Yogdunana/StarByte/backend/internal/rbac/repo"
 	rbacService "github.com/Yogdunana/StarByte/backend/internal/rbac/service"
+	reportHandler "github.com/Yogdunana/StarByte/backend/internal/report/handler"
+	reportRepo "github.com/Yogdunana/StarByte/backend/internal/report/repo"
+	reportService "github.com/Yogdunana/StarByte/backend/internal/report/service"
 	scheduleHandler "github.com/Yogdunana/StarByte/backend/internal/schedule/handler"
 	scheduleRepo "github.com/Yogdunana/StarByte/backend/internal/schedule/repo"
 	scheduleService "github.com/Yogdunana/StarByte/backend/internal/schedule/service"
@@ -385,6 +388,9 @@ func main() {
 	}
 	leaveH := leaveHandler.New(leaveSvc)
 
+	// 工作汇报（/reports，#57 phase-1 列表）
+	reportH := reportHandler.New(reportService.New(reportRepo.NewReportRepo(database.DB())))
+
 	// 数据备份与恢复（/system/backups，#88 phase-1）
 	backupMinioCfg := cfg.MinIO
 	if bucket := strings.TrimSpace(cfg.Backup.Bucket); bucket != "" {
@@ -565,6 +571,9 @@ func main() {
 
 		// 请假管理（/leave，#56）
 		leaveHandler.RegisterRoutes(protected, leaveH, cacheService, database.DB(), deptRepo)
+
+		// 工作汇报（/reports，#57 phase-1 列表）
+		reportHandler.RegisterRoutes(protected, reportH, cacheService, database.DB(), deptRepo)
 
 		// 任务流转（/tasks，不与 /workflow/tasks 冲突）
 		taskHandler.RegisterRoutes(protected, tkH, cacheService, database.DB(), deptRepo)
