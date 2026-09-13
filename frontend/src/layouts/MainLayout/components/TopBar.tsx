@@ -63,7 +63,14 @@ const TopBar: React.FC<TopBarProps> = ({ mobile, onOpenMenu }) => {
     navigate('/', { replace: true });
   };
 
+  const langItems = [
+    { key: 'zh-CN', label: tx('简体中文'), onClick: () => setLang('zh-CN') },
+    { key: 'en-US', label: 'English', onClick: () => setLang('en-US') },
+    { key: 'ru-RU', label: 'Русский', onClick: () => setLang('ru-RU') },
+  ];
+
   const userMenuItems = [
+    { key: 'language', icon: <GlobalOutlined />, label: t('topbar.language'), children: langItems },
     {
       key: 'profile',
       icon: <ProfileOutlined />,
@@ -90,12 +97,6 @@ const TopBar: React.FC<TopBarProps> = ({ mobile, onOpenMenu }) => {
       label: reduceMotion ? t('topbar.restoreMotion') : t('topbar.reduceMotion'),
       onClick: () => setReduceMotion(!reduceMotion),
     },
-  ];
-
-  const langItems = [
-    { key: 'zh-CN', label: tx('简体中文'), onClick: () => setLang('zh-CN') },
-    { key: 'en-US', label: 'English', onClick: () => setLang('en-US') },
-    { key: 'ru-RU', label: 'Русский', onClick: () => setLang('ru-RU') },
   ];
 
   const paths = location.pathname.split('/').filter(Boolean);

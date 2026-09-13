@@ -1,8 +1,9 @@
-.page { width: 100%; }
+.page { width: 100%; min-width: 0; }
 .bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
   margin-bottom: var(--sb-space-4);
   gap: var(--sb-space-3);
 }
@@ -15,6 +16,7 @@
 .sep { margin: 0 4px; }
 .title {
   margin: 0;
+  overflow-wrap: anywhere;
   font-size: 20px;
   font-weight: var(--sb-weight-title);
   letter-spacing: var(--sb-track-tight);

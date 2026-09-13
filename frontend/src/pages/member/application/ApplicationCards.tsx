@@ -36,7 +36,7 @@ export default function ApplicationCards({ rows, loading, review, mine, onOpen }
           <strong className={styles.stage}>
             {row.historical_review_required
               ? tx('历史待核验')
-              : row.current_stage || ApplicationStatusMap[row.status]?.text}
+              : tx(row.current_stage || '') || ApplicationStatusMap[row.status]?.text}
           </strong>
           <p className={styles.date}>
             {tx('提交于')}

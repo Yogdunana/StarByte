@@ -1,3 +1,4 @@
+import { roleDisplayName } from '@/utils/roleDisplayName';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Modal, Popconfirm, Select, Space, Table } from 'antd';
 import { tx, useLocale } from '@/i18n/text';
@@ -83,7 +84,7 @@ export default function RoleMembers({ role, onClose }: { role: Role; onClose: ()
   return (
     <Modal
       open
-      title={`${t('rbac.members', '角色成员')} · ${role.name}`}
+      title={`${t('rbac.members', '角色成员')} · ${roleDisplayName(role)}`}
       onCancel={onClose}
       footer={null}
       width={720}
@@ -100,7 +101,7 @@ export default function RoleMembers({ role, onClose }: { role: Role; onClose: ()
             onChange={setUserId}
             onSearch={(value) => void search(value).catch(() => undefined)}
             onFocus={() => void search('').catch(() => undefined)}
-            style={{ minWidth: 260 }}
+            style={{ width: 'min(260px, calc(100vw - 96px))' }}
           />
           {scoped && (
             <Select
@@ -110,14 +111,15 @@ export default function RoleMembers({ role, onClose }: { role: Role; onClose: ()
               value={departmentIds}
               onChange={setDepartmentIds}
               options={departments}
-              style={{ minWidth: 240, maxWidth: '100%' }}
+              style={{ width: 'min(300px, calc(100vw - 96px))' }}
             />
           )}
           <Button
             loading={busy}
             disabled={
               !userId ||
-              (['minister', 'center_director', 'vice_president'].includes(role.code) && departmentIds.length === 0)
+              (['minister', 'center_director', 'vice_president'].includes(role.code) &&
+                departmentIds.length === 0)
             }
             onClick={() => void add().catch(() => undefined)}
           >
@@ -127,6 +129,7 @@ export default function RoleMembers({ role, onClose }: { role: Role; onClose: ()
       )}
       <Table<RoleMember>
         rowKey="id"
+        scroll={{ x: 760 }}
         dataSource={rows}
         pagination={{
           current: page,

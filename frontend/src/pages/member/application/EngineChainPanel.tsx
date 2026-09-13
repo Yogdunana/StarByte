@@ -1,5 +1,6 @@
+import { tx, useLocale } from '@/i18n/text';
 import { useEffect, useState } from 'react';
-import { Button, Form, Input, Select, Space, Steps, message } from 'antd';
+import { Alert, Button, Form, Input, Select, Space, Steps, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import {
@@ -26,7 +27,9 @@ interface Props {
 }
 
 export default function EngineChainPanel({ record, editable, onChanged }: Props) {
+  useLocale();
   const { t } = useTranslation();
+  const [retry, setRetry] = useState(0);
   const [form] = Form.useForm<{ comment?: string; target?: string }>();
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<ApplicationProgress | null>(null);
@@ -47,7 +50,7 @@ export default function EngineChainPanel({ record, editable, onChanged }: Props)
     return () => {
       active = false;
     };
-  }, [record.id, record.status, record.current_stage, record.updated_at]);
+  }, [record.id, record.status, record.current_stage, record.updated_at, retry]);
 
   useEffect(() => {
     if (!editable || closed) return;
@@ -80,13 +83,23 @@ export default function EngineChainPanel({ record, editable, onChanged }: Props)
       <div className={styles.heading}>
         <h3>{t('member.engine.title')}</h3>
       </div>
+      {!progress && (
+        <Alert
+          type="warning"
+          showIcon
+          message={tx('审批进度暂不可用')}
+          action={<Button onClick={() => setRetry((value) => value + 1)}>{tx('重试')}</Button>}
+        />
+      )}
       <Steps
         direction="vertical"
         size="small"
         current={currentStepIndex(steps)}
-        status={rejected ? 'error' : record.status === 3 || progress?.completed ? 'finish' : 'process'}
+        status={
+          rejected ? 'error' : record.status === 3 || progress?.completed ? 'finish' : 'process'
+        }
         items={steps.map((step) => ({
-          title: step.label,
+          title: tx(step.label),
           description:
             step.state === 'skipped'
               ? t('member.engine.skipped')
@@ -100,7 +113,9 @@ export default function EngineChainPanel({ record, editable, onChanged }: Props)
       />
       {record.flow_instance_id && (
         <p>
-          <Link to={`/workflow/instances?instance_id=${encodeURIComponent(record.flow_instance_id)}`}>
+          <Link
+            to={`/workflow/instances?instance_id=${encodeURIComponent(record.flow_instance_id)}`}
+          >
             {t('member.engine.viewFlow')}
           </Link>
           {' · '}
@@ -109,7 +124,7 @@ export default function EngineChainPanel({ record, editable, onChanged }: Props)
       )}
       <p className={styles.hint}>{t('member.engine.hint')}</p>
       {record.status === 5 && <p className={styles.hint}>{t('member.engine.supplementHint')}</p>}
-      {editable && !closed && (
+      {editable && !!progress && !closed && (
         <Form form={form} layout="vertical" className={styles.form}>
           <Form.Item name="comment" label={t('member.engine.comment')} rules={[{ max: 1000 }]}>
             <Input.TextArea rows={3} maxLength={1000} />
@@ -123,7 +138,9 @@ export default function EngineChainPanel({ record, editable, onChanged }: Props)
                 placeholder={t('member.engine.transferPlaceholder')}
                 options={candidates.map((item) => ({
                   value: item.id,
-                  label: item.department_name ? `${item.name}（${item.department_name}）` : item.name,
+                  label: item.department_name
+                    ? `${item.name}（${item.department_name}）`
+                    : item.name,
                 }))}
               />
             </Form.Item>
@@ -149,10 +166,15 @@ export default function EngineChainPanel({ record, editable, onChanged }: Props)
                   const values = await form.validateFields();
                   const comment = (values.comment || '').trim();
                   if (!comment) {
-                    form.setFields([{ name: 'comment', errors: [t('member.engine.commentRequired')] }]);
+                    form.setFields([
+                      { name: 'comment', errors: [t('member.engine.commentRequired')] },
+                    ]);
                     return;
                   }
-                  await run(() => rejectApplication(record.id, comment), t('member.engine.rejected'));
+                  await run(
+                    () => rejectApplication(record.id, comment),
+                    t('member.engine.rejected'),
+                  );
                 })();
               }}
             >
@@ -166,7 +188,9 @@ export default function EngineChainPanel({ record, editable, onChanged }: Props)
                     const values = await form.validateFields();
                     const target = (values.target || '').trim();
                     if (!target) {
-                      form.setFields([{ name: 'target', errors: [t('member.engine.transferRequired')] }]);
+                      form.setFields([
+                        { name: 'target', errors: [t('member.engine.transferRequired')] },
+                      ]);
                       return;
                     }
                     await run(

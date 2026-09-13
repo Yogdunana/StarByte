@@ -1,3 +1,4 @@
+import { roleDisplayName } from '@/utils/roleDisplayName';
 import RoleMembers from './RoleMembers';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -138,6 +139,7 @@ const RolePage: React.FC = () => {
       />
       <Table<Role>
         rowKey="id"
+        scroll={{ x: 960 }}
         dataSource={rows}
         loading={loading}
         pagination={{
@@ -148,12 +150,17 @@ const RolePage: React.FC = () => {
           showSizeChanger: false,
         }}
         columns={[
-          { title: t('common.name', '名称'), dataIndex: 'name' },
-          { title: t('rbac.code', '编码'), dataIndex: 'code' },
+          {
+            title: t('common.name', '名称'),
+            width: 180,
+            render: (_, role) => roleDisplayName(role),
+          },
+          { title: t('rbac.code', '编码'), dataIndex: 'code', width: 220 },
           {
             title: t('common.status', '状态'),
+            width: 160,
             render: (_, row) => (
-              <Space>
+              <Space wrap>
                 <Tag>
                   {row.status === 0 ? t('common.enabled', '启用') : t('common.disabled', '禁用')}
                 </Tag>
@@ -163,8 +170,9 @@ const RolePage: React.FC = () => {
           },
           {
             title: t('common.actions', '操作'),
+            width: 400,
             render: (_, row) => (
-              <Space>
+              <Space wrap>
                 <Button onClick={() => setMembers(row)}>{t('rbac.members', '角色成员')}</Button>
                 {canUpdate && (
                   <Button onClick={() => void edit(row).catch(() => undefined)}>

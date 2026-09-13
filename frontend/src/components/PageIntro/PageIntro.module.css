@@ -18,6 +18,7 @@
   font-weight: var(--sb-weight-meta);
 }
 .header h1 {
+  overflow-wrap: anywhere;
   font-size: 26px;
   line-height: 1.25;
   font-weight: var(--sb-weight-title);
@@ -37,3 +38,5 @@
   .header { margin-bottom: var(--sb-space-4); gap: 14px; }
   .header h1 { font-size: 22px; }
 }
+
+.header > div { min-width: 0; max-width: 100%; }

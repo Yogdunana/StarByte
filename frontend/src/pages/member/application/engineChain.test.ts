@@ -23,7 +23,13 @@ describe('progress helpers', () => {
     const steps = [
       { id: 'start', label: '提交申请', type: 'start', state: 'done' },
       { id: 'officer', label: '干事审批', type: 'approval', state: 'skipped' },
-      { id: 'minister', label: '部长审批', type: 'approval', state: 'current', allow_transfer: true },
+      {
+        id: 'minister',
+        label: '部长审批',
+        type: 'approval',
+        state: 'current',
+        allow_transfer: true,
+      },
       { id: 'president', label: '社长审批', type: 'approval', state: 'pending' },
     ];
     expect(currentStepIndex(steps)).toBe(2);
@@ -33,11 +39,12 @@ describe('progress helpers', () => {
     expect(currentAllowsTransfer({ steps } as ApplicationProgress)).toBe(true);
   });
 
-  it('builds fallback steps from application status', () => {
+  it('does not invent approval history when progress cannot be loaded', () => {
     const record = { status: 1, current_stage: '社长审批' } as MemberApplication;
     const steps = fallbackSteps(record);
-    expect(steps).toHaveLength(5);
-    expect(steps[3].state).toBe('current');
-    expect(steps[4].state).toBe('pending');
+    expect(steps).toHaveLength(1);
+    expect(steps[0].state).toBe('pending');
+    expect(steps[0].allow_transfer).toBe(false);
+    expect(currentAllowsTransfer(null)).toBe(false);
   });
 });

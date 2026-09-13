@@ -18,7 +18,7 @@ export interface DataTableProps<T> {
     debounce?: number; // 防抖毫秒数，默认 300；设为 0 则仅回车搜索
   };
   toolbar?: React.ReactNode;
-  scroll?: { x?: number; y?: number };
+  scroll?: { x?: number | 'max-content'; y?: number };
 }
 
 /**
@@ -99,6 +99,8 @@ function DataTable<T extends Record<string, unknown>>({
             justifyContent: 'space-between',
             alignItems: 'center',
             marginBottom: 16,
+            flexWrap: 'wrap',
+            gap: 12,
           }}
         >
           {search ? (
@@ -109,12 +111,12 @@ function DataTable<T extends Record<string, unknown>>({
               value={searchValue}
               onChange={handleSearchChange}
               onPressEnter={handleSearchEnter}
-              style={{ width: 240 }}
+              style={{ width: 240, maxWidth: '100%' }}
             />
           ) : (
             <div />
           )}
-          {toolbar && <Space>{toolbar}</Space>}
+          {toolbar && <Space wrap>{toolbar}</Space>}
         </div>
       )}
       <Table<T>
@@ -123,7 +125,7 @@ function DataTable<T extends Record<string, unknown>>({
         rowKey={rowKey}
         loading={loading}
         pagination={paginationConfig}
-        scroll={scroll}
+        scroll={{ x: 'max-content', ...scroll }}
       />
     </Card>
   );
