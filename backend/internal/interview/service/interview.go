@@ -82,7 +82,11 @@ func (s *interviewService) resolveApplicant(ctx context.Context, req *dto.Create
 		if app.DepartmentID != nil && (session.DepartmentID == nil || *app.DepartmentID != *session.DepartmentID) {
 			return uuid.Nil, nil, response.NewError(response.CodeForbidden, "申请部门与面试场次部门不一致")
 		}
-		if app.AdmissionVersion >= 2 && app.AdmissionStage != fmt.Sprintf("round%d", session.Round) {
+		stageMatches := app.AdmissionStage == fmt.Sprintf("round%d", session.Round)
+		if app.CharterPolicy {
+			stageMatches = app.AdmissionStage == "engine" && (session.Round == 1 && app.CurrentStage == "部门初审" || session.Round == 2 && app.CurrentStage == "中心复审")
+		}
+		if app.AdmissionVersion >= 2 && !stageMatches {
 			return uuid.Nil, nil, response.NewError(response.CodeMemberAppInvalid, "该申请尚未进入本轮面试")
 		}
 		return app.UserID, &appID, nil

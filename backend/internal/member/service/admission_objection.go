@@ -72,6 +72,14 @@ func (s *admissionService) Objection(ctx context.Context, viewer, id uuid.UUID, 
 					if err := store.SaveApplication(ctx, app); err != nil {
 						return err
 					}
+					if app.CharterPolicy {
+						if err := tx.Exec("DELETE FROM user_roles WHERE user_id=? AND role_id IN (SELECT id FROM roles WHERE code='probationary')", app.UserID).Error; err != nil {
+							return err
+						}
+						if err := repo.NewAdmissionJobsRepo(tx).QueuePermissionRefresh(ctx, app.UserID); err != nil {
+							return err
+						}
+					}
 					if err := repo.NewAdmissionProfileRepo(tx).Restore(ctx, app.ID, app.UserID, now); err != nil {
 						return err
 					}

@@ -96,7 +96,7 @@ func TestLeaveApprovalRejectsUnassignedReviewer(t *testing.T) {
 	require.Equal(t, "minister", nodeID)
 }
 
-func TestLeaveApprovalRejectsSameReviewerSecondStage(t *testing.T) {
+func TestLeaveApprovalAllowsConcurrentOfficesSeparately(t *testing.T) {
 	minister, applicant := uuid.New(), uuid.New()
 	tasks := newMockTaskRepo()
 	e, _ := leaveApprovalEngine(t, tasks)
@@ -113,10 +113,10 @@ func TestLeaveApprovalRejectsSameReviewerSecondStage(t *testing.T) {
 
 	addApprovalTask(tasks, inst.ID, "president", minister)
 	err = e.CompleteLeaveApproval(context.Background(), inst.ID, minister, ActionApprove, "org ok")
-	require.Error(t, err)
+	require.NoError(t, err)
 
 	nodeID, done, err = e.RunningApprovalNode(context.Background(), inst.ID)
 	require.NoError(t, err)
-	require.False(t, done)
-	require.Equal(t, "president", nodeID)
+	require.True(t, done)
+	require.Empty(t, nodeID)
 }

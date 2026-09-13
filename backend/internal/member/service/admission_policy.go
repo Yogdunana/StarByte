@@ -31,10 +31,18 @@ func admissionRoleAuthority(actor *model.AdmissionActor, app *model.MemberApplic
 		return false, false
 	}
 	president := hasAdmissionRole(actor, "president")
-	minister := hasAdmissionRole(actor, "minister") && sameDepartment(actor.DepartmentID, app.DepartmentID)
-	officer := hasAdmissionRole(actor, "officer") && sameDepartment(actor.DepartmentID, app.DepartmentID)
-	center := (hasAdmissionRole(actor, "vice_president") || hasAdmissionRole(actor, "center_director")) && sameDepartment(actor.DepartmentID, parent)
+	department := app.DepartmentID
+	if app.CharterPolicy {
+		department = app.ReviewDepartmentID
+	}
+	minister := hasAdmissionRole(actor, "minister") && roleDepartment(actor, "minister", department)
+	officer := hasAdmissionRole(actor, "officer") && roleDepartment(actor, "officer", department)
+	center := hasAdmissionRole(actor, "vice_president") && roleDepartment(actor, "vice_president", parent) || hasAdmissionRole(actor, "center_director") && roleDepartment(actor, "center_director", parent)
 	switch role {
+	case "standing_committee":
+		return president || hasAdmissionRole(actor, "minister") || hasAdmissionRole(actor, "vice_president") || hasAdmissionRole(actor, "center_director"), false
+	case "center_director":
+		return center || president, !center
 	case "materials":
 		return president || minister || center, false
 	case "officer":
@@ -47,7 +55,7 @@ func admissionRoleAuthority(actor *model.AdmissionActor, app *model.MemberApplic
 		return president, false
 	default:
 		holds := hasAdmissionRole(actor, role)
-		if holds && (!departmentScope || sameDepartment(actor.DepartmentID, app.DepartmentID)) {
+		if holds && (!departmentScope || roleDepartment(actor, role, department)) {
 			return true, false
 		}
 		if president {
@@ -99,4 +107,26 @@ func calendarMonthLater(now time.Time) time.Time {
 		day = last
 	}
 	return first.AddDate(0, 0, day-1)
+}
+
+func roleDepartment(actor *model.AdmissionActor, role string, department *uuid.UUID) bool {
+	if department == nil {
+		return false
+	}
+	if scopes, ok := actor.RoleDepartments[role]; ok {
+		for _, id := range scopes {
+			if id == *department {
+				return true
+			}
+		}
+		return false
+	}
+	return sameDepartment(actor.DepartmentID, department)
+}
+
+func approvalDepartment(app *model.MemberApplication) *uuid.UUID {
+	if app.CharterPolicy {
+		return app.ReviewDepartmentID
+	}
+	return app.DepartmentID
 }

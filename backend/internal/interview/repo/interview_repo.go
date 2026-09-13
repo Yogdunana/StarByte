@@ -210,7 +210,7 @@ func (r *interviewRepo) GetUser(ctx context.Context, id uuid.UUID) (*model.Named
 func (r *interviewRepo) GetApplication(ctx context.Context, id uuid.UUID) (*model.ApplicationBrief, error) {
 	var a model.ApplicationBrief
 	err := r.db.WithContext(ctx).Table("member_applications").
-		Select("id, user_id, real_name, student_no, department_id, status, admission_version, admission_stage").
+		Select("id, user_id, real_name, student_no, department_id, status, admission_version, admission_stage, charter_policy, current_stage").
 		Where("id = ?", id).First(&a).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil

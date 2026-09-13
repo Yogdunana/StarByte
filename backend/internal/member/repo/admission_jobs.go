@@ -2,8 +2,11 @@ package repo
 
 import (
 	"context"
+	"crypto/md5"
+	"fmt"
 	"time"
 
+	rbacrepo "github.com/Yogdunana/StarByte/backend/internal/rbac/repo"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -44,8 +47,8 @@ func (r *admissionJobsRepo) CompletePermissionRefresh(ctx context.Context, item 
 }
 func (r *admissionJobsRepo) OverdueApplications(ctx context.Context, before time.Time) ([]uuid.UUID, error) {
 	var ids []uuid.UUID
-	err := r.db.WithContext(ctx).Table("member_applications a").Where(`a.historical_review_required=false AND a.admission_stage IN ? AND a.stage_entered_at<=?
- AND NOT EXISTS (SELECT 1 FROM admission_reminders r WHERE r.application_id=a.id AND r.revision=a.admission_revision AND r.stage=a.admission_stage)`, []string{model.AdmissionMaterials, model.AdmissionRound1, model.AdmissionRound2, model.AdmissionPresident}, before).Order("a.stage_entered_at,a.id").Limit(100).Pluck("a.id", &ids).Error
+	err := r.db.WithContext(ctx).Table("member_applications a").Where(`a.historical_review_required=false AND (a.admission_stage IN ? OR (a.charter_policy AND (a.admission_stage='engine' OR (a.admission_stage='probation' AND a.probation_until<=?)))) AND a.stage_entered_at<=?
+ AND NOT EXISTS (SELECT 1 FROM admission_reminders r WHERE r.application_id=a.id AND r.revision=a.admission_revision AND r.stage=CASE WHEN a.admission_stage='engine' THEN 'engine:'||md5(a.current_stage) ELSE a.admission_stage END)`, []string{model.AdmissionMaterials, model.AdmissionRound1, model.AdmissionRound2, model.AdmissionPresident}, before.Add(24*time.Hour), before).Order("a.stage_entered_at,a.id").Limit(100).Pluck("a.id", &ids).Error
 	return ids, err
 }
 func (r *admissionJobsRepo) Reviewers(ctx context.Context) ([]model.AdmissionActor, error) {
@@ -69,6 +72,13 @@ func (r *admissionJobsRepo) Reviewers(ctx context.Context) ([]model.AdmissionAct
 		}
 		result[index].Roles = append(result[index].Roles, row.Code)
 	}
+	for i := range result {
+		scopes, err := rbacrepo.LoadRoleDepartments(ctx, r.db, result[i].ID)
+		if err != nil {
+			return nil, err
+		}
+		result[i].RoleDepartments = scopes
+	}
 	return result, nil
 }
 func (r *admissionJobsRepo) Notify(ctx context.Context, user uuid.UUID, key, title, content string, now time.Time) error {
@@ -76,7 +86,7 @@ func (r *admissionJobsRepo) Notify(ctx context.Context, user uuid.UUID, key, tit
 	return r.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&item).Error
 }
 func (r *admissionJobsRepo) MarkReminded(ctx context.Context, app *model.MemberApplication) error {
-	return r.db.WithContext(ctx).Exec("INSERT INTO admission_reminders(application_id,revision,stage) VALUES (?,?,?) ON CONFLICT DO NOTHING", app.ID, app.AdmissionRevision, app.AdmissionStage).Error
+	return r.db.WithContext(ctx).Exec("INSERT INTO admission_reminders(application_id,revision,stage) VALUES (?,?,?) ON CONFLICT DO NOTHING", app.ID, app.AdmissionRevision, ReminderStage(app)).Error
 }
 
 func (r *admissionJobsRepo) LockApplicant(ctx context.Context, id uuid.UUID) error {
@@ -87,4 +97,11 @@ func (r *admissionJobsRepo) ValidDepartment(ctx context.Context, id uuid.UUID) (
 	var count int64
 	err := r.db.WithContext(ctx).Table("departments").Where("id=? AND status=0 AND parent_id IS NOT NULL", id).Count(&count).Error
 	return count == 1, err
+}
+
+func ReminderStage(app *model.MemberApplication) string {
+	if app.AdmissionStage == model.AdmissionEngine {
+		return fmt.Sprintf("engine:%x", md5.Sum([]byte(app.CurrentStage)))
+	}
+	return app.AdmissionStage
 }

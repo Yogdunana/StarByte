@@ -55,14 +55,11 @@ export function useAllPermissions(permissionCodes: string[]): boolean {
 
 /**
  * 检查当前用户是否拥有指定角色。
- * super_admin 视为拥有全部角色。
+ * 协会职务按实际任命判断。
  */
 export function useHasRole(roleCode: string): boolean {
   const roles = useSelector(selectRoles);
   return useMemo(() => {
-    if (roles.includes('super_admin')) {
-      return true;
-    }
     return roles.includes(roleCode);
   }, [roles, roleCode]);
 }

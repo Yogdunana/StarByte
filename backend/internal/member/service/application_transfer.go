@@ -180,7 +180,7 @@ func (s *admissionService) canViewEngineProgress(ctx context.Context, store repo
 		return nil
 	}
 	// scope 来自进度路由上的可选 member 数据范围中间件（不强制 member:read）。
-	if canAccessRecord(scope, app.UserID, app.DepartmentID, viewer) {
+	if canAccessRecord(scope, app.UserID, approvalDepartment(app), viewer) {
 		return nil
 	}
 	actor, err := store.Actor(ctx, viewer)
@@ -191,8 +191,8 @@ func (s *admissionService) canViewEngineProgress(ctx context.Context, store repo
 		return admissionDenied("无权查看该申请审批进度")
 	}
 	var parent *uuid.UUID
-	if app.DepartmentID != nil {
-		parent, err = store.ParentDepartment(ctx, *app.DepartmentID)
+	if dept := approvalDepartment(app); dept != nil {
+		parent, err = store.ParentDepartment(ctx, *dept)
 		if err != nil {
 			return err
 		}

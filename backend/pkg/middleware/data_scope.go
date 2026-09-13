@@ -163,40 +163,15 @@ func buildDataScopeCondition(ctx context.Context, db *gorm.DB, deptRepo rbacRepo
 		// 仅本人：Query 保持 "1 = 0" 以免无 created_by 的表直接拼 SQL；IsSelf 供业务改写。
 		return &rbacModel.DataScopeCondition{Query: "1 = 0", IsSelf: true}, nil
 
-	case rbacModel.DataScopeDepartment:
-		deptID, err := fetchUserDepartmentID(ctx, db, userID)
+	case rbacModel.DataScopeDepartment, rbacModel.DataScopeDepartmentAndSub:
+		ids, err := officeResourceDepartments(ctx, db, deptRepo, userID, resource)
 		if err != nil {
-			return nil, fmt.Errorf("fetch user department: %w", err)
+			return nil, err
 		}
-		if deptID == nil {
-			// 缺少部门信息时默认拒绝访问（fail-closed 策略）
+		if len(ids) == 0 {
 			return &rbacModel.DataScopeCondition{Query: "1 = 0"}, nil
 		}
-		return &rbacModel.DataScopeCondition{
-			Query: "department_id = ?",
-			Args:  []interface{}{*deptID},
-		}, nil
-
-	case rbacModel.DataScopeDepartmentAndSub:
-		deptID, err := fetchUserDepartmentID(ctx, db, userID)
-		if err != nil {
-			return nil, fmt.Errorf("fetch user department: %w", err)
-		}
-		if deptID == nil {
-			// 缺少部门信息时默认拒绝访问（fail-closed 策略）
-			return &rbacModel.DataScopeCondition{Query: "1 = 0"}, nil
-		}
-		deptIDs, err := deptRepo.GetDepartmentAndSubIDs(ctx, *deptID)
-		if err != nil {
-			return nil, fmt.Errorf("get department and sub ids: %w", err)
-		}
-		if len(deptIDs) == 0 {
-			return &rbacModel.DataScopeCondition{Query: "1 = 0"}, nil
-		}
-		return &rbacModel.DataScopeCondition{
-			Query: "department_id IN ?",
-			Args:  []interface{}{deptIDs},
-		}, nil
+		return &rbacModel.DataScopeCondition{Query: "department_id IN ?", Args: []interface{}{ids}}, nil
 
 	case rbacModel.DataScopeCustom:
 		customDeptIDs, err := fetchCustomDepartmentIDs(ctx, db, userID, resource)
@@ -245,17 +220,6 @@ func fetchUserDataScopes(ctx context.Context, db *gorm.DB, userID uuid.UUID, res
 		scopes = append(scopes, r.DataScope)
 	}
 	return scopes, nil
-}
-
-// fetchUserDepartmentID 返回用户所属部门 ID，未分配部门时返回 nil
-func fetchUserDepartmentID(ctx context.Context, db *gorm.DB, userID uuid.UUID) (*uuid.UUID, error) {
-	var row struct {
-		DepartmentID *uuid.UUID
-	}
-	if err := db.WithContext(ctx).Raw(`SELECT department_id FROM users WHERE id = ?`, userID).Scan(&row).Error; err != nil {
-		return nil, err
-	}
-	return row.DepartmentID, nil
 }
 
 // fetchCustomDepartmentIDs 返回用户通过 custom 数据权限授予的自定义部门 ID 列表
@@ -321,4 +285,42 @@ func mostPermissiveScope(scopes []string) string {
 		}
 	}
 	return best
+}
+
+// Each role contributes only its own resource grants and appointment scope.
+func officeResourceDepartments(ctx context.Context, db *gorm.DB, depts rbacRepo.DepartmentRepo, user uuid.UUID, resource string) ([]uuid.UUID, error) {
+	var rows []struct {
+		DepartmentID *uuid.UUID
+		DataScope    string
+	}
+	err := db.WithContext(ctx).Raw(`SELECT DISTINCT CASE WHEN s.user_role_id IS NULL THEN u.department_id ELSE d.id END AS department_id,rp.data_scope
+ FROM user_roles ur JOIN users u ON u.id=ur.user_id JOIN roles r ON r.id=ur.role_id
+ JOIN role_permissions rp ON rp.role_id=r.id JOIN permissions p ON p.id=rp.permission_id
+ LEFT JOIN user_role_departments s ON s.user_role_id=ur.id LEFT JOIN departments d ON d.id=s.department_id AND d.status=0
+ WHERE ur.user_id=? AND r.status=0 AND p.status=0 AND (ur.expired_at IS NULL OR ur.expired_at>NOW())
+ AND (p.resource=? OR p.code=?) AND rp.data_scope IN ('department','department_and_sub')`, user, resource, resource).Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	seen := map[uuid.UUID]bool{}
+	out := []uuid.UUID{}
+	for _, row := range rows {
+		if row.DepartmentID == nil {
+			continue
+		}
+		ids := []uuid.UUID{*row.DepartmentID}
+		if row.DataScope == rbacModel.DataScopeDepartmentAndSub {
+			ids, err = depts.GetDepartmentAndSubIDs(ctx, *row.DepartmentID)
+			if err != nil {
+				return nil, err
+			}
+		}
+		for _, id := range ids {
+			if !seen[id] {
+				seen[id] = true
+				out = append(out, id)
+			}
+		}
+	}
+	return out, nil
 }

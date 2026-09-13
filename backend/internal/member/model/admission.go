@@ -37,9 +37,10 @@ type AdmissionSignature struct {
 func (AdmissionSignature) TableName() string { return "admission_signatures" }
 
 type AdmissionActor struct {
-	ID           uuid.UUID
-	DepartmentID *uuid.UUID
-	Roles        []string `gorm:"-"`
+	RoleDepartments map[string][]uuid.UUID `gorm:"-"`
+	ID              uuid.UUID
+	DepartmentID    *uuid.UUID
+	Roles           []string `gorm:"-"`
 }
 
 type AdmissionObjection struct {

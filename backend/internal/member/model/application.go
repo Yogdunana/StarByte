@@ -24,6 +24,8 @@ const (
 
 // MemberApplication 入会申请。type 列沿用 000010，API 对外叫 applicant_type。
 type MemberApplication struct {
+	CharterPolicy            bool        `json:"charter_policy"`
+	ReviewDepartmentID       *uuid.UUID  `gorm:"type:uuid" json:"review_department_id"`
 	AdmissionRevision        int         `gorm:"not null;default:1" json:"admission_revision"`
 	AdmissionVersion         int16       `gorm:"not null;default:2" json:"admission_version"`
 	AdmissionStage           string      `gorm:"size:40;not null;default:materials" json:"admission_stage"`

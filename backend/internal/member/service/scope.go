@@ -75,3 +75,16 @@ func deptInArgs(args []interface{}, deptID uuid.UUID) bool {
 	}
 	return false
 }
+
+func applicationListScope(scope *rbacModel.DataScopeCondition, viewer uuid.UUID) *rbacModel.DataScopeCondition {
+	out := rewriteScope(scope, "a", viewer)
+	if scope == nil || viewer == uuid.Nil || out.IsEmpty() {
+		return out
+	}
+	query := strings.ReplaceAll(out.Query, "a.department_id", "CASE WHEN a.charter_policy THEN a.review_department_id ELSE a.department_id END")
+	// Committee readers must currently hold a committee office and have an assigned committee task.
+	query = "(" + query + ") OR (a.charter_policy AND EXISTS (SELECT 1 FROM flow_tasks ft JOIN user_roles ur ON ur.user_id=ft.assignee_id JOIN roles r ON r.id=ur.role_id WHERE ft.instance_id=a.flow_instance_id AND ft.node_id='committee' AND ft.assignee_id=? AND r.status=0 AND r.code IN ('president','vice_president','center_director','minister') AND (ur.expired_at IS NULL OR ur.expired_at>NOW())))"
+	args := append([]interface{}{}, out.Args...)
+	args = append(args, viewer)
+	return &rbacModel.DataScopeCondition{Query: query, Args: args}
+}

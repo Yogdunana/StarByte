@@ -72,7 +72,7 @@ jobs:
         run: migrate -path migrations -database "$TEST_DATABASE_URL" up
 
       - name: Test
-        run: go test -v -race -count=1 ./...
+        run: go test -v -race -count=1 -p 1 ./...
 
       - name: Coverage gate
         run: bash scripts/check-coverage.sh

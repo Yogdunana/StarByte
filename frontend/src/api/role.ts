@@ -66,6 +66,7 @@ export const deletePermission = (id: string): Promise<void> =>
   request.delete(`/system/permissions/${id}`);
 
 export interface RoleMember {
+  department_ids?: string[];
   id: string;
   username: string;
   real_name: string;
@@ -73,7 +74,11 @@ export interface RoleMember {
 }
 export const getRoleMembers = (id: string, page: number): Promise<PageResponse<RoleMember>> =>
   request.get(`/system/roles/${id}/users`, { params: { page, page_size: 20 } });
-export const addRoleMember = (id: string, userId: string): Promise<void> =>
-  request.put(`/system/roles/${id}/users/${userId}`);
+export const addRoleMember = (
+  id: string,
+  userId: string,
+  departmentIds: string[] = [],
+): Promise<void> =>
+  request.put(`/system/roles/${id}/users/${userId}`, { department_ids: departmentIds });
 export const removeRoleMember = (id: string, userId: string): Promise<void> =>
   request.delete(`/system/roles/${id}/users/${userId}`);

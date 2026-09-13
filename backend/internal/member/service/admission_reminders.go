@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/Yogdunana/StarByte/backend/internal/member/model"
 	"github.com/Yogdunana/StarByte/backend/internal/member/repo"
 )
 
@@ -51,12 +52,37 @@ func (s *admissionService) remindApplication(ctx context.Context, id uuid.UUID) 
 		if err != nil {
 			return err
 		}
-		if app == nil || app.HistoricalReviewRequired || s.now().Before(app.StageEnteredAt.Add(24*time.Hour)) || len(requiredAdmissionRoles(app.AdmissionStage)) == 0 {
+		if app == nil || app.HistoricalReviewRequired || s.now().Before(app.StageEnteredAt.Add(24*time.Hour)) {
+			return nil
+		}
+		roles := requiredAdmissionRoles(app.AdmissionStage)
+		if app.CharterPolicy && app.AdmissionStage == model.AdmissionEngine && app.FlowInstanceID != nil && s.flow != nil {
+			flow, _, err := s.flow.BindTransaction(tx)
+			if err != nil {
+				return err
+			}
+			node, done, err := flow.RunningApprovalNode(ctx, *app.FlowInstanceID)
+			if err != nil {
+				return err
+			}
+			if done {
+				return nil
+			}
+			role, _, err := flow.ApprovalPolicy(ctx, *app.FlowInstanceID, node)
+			if err != nil {
+				return err
+			}
+			roles = []string{role}
+		}
+		if app.CharterPolicy && app.AdmissionStage == model.AdmissionProbation && app.ProbationUntil != nil && !s.now().Before(*app.ProbationUntil) {
+			roles = []string{"minister"}
+		}
+		if len(roles) == 0 {
 			return nil
 		}
 		var parent *uuid.UUID
-		if app.DepartmentID != nil {
-			parent, err = store.ParentDepartment(ctx, *app.DepartmentID)
+		if dept := approvalDepartment(app); dept != nil {
+			parent, err = store.ParentDepartment(ctx, *dept)
 			if err != nil {
 				return err
 			}
@@ -69,11 +95,11 @@ func (s *admissionService) remindApplication(ctx context.Context, id uuid.UUID) 
 		if err != nil {
 			return err
 		}
-		key := fmt.Sprintf("overdue:%s:%d:%s", id, app.AdmissionRevision, app.AdmissionStage)
+		key := fmt.Sprintf("overdue:%s:%d:%s", id, app.AdmissionRevision, repo.ReminderStage(app))
 		recipients := 0
 		for _, actor := range actors {
 			allowed := false
-			for _, role := range requiredAdmissionRoles(app.AdmissionStage) {
+			for _, role := range roles {
 				if signedAdmissionRole(signatures, app, role) {
 					continue
 				}

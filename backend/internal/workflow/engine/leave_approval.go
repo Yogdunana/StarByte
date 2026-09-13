@@ -35,9 +35,6 @@ func (e *FlowEngine) CompleteLeaveApproval(ctx context.Context, instanceID, revi
 	if err != nil {
 		return err
 	}
-	if err := e.leaveReviewerCompletedOtherStage(ctx, instanceID, nodeID, reviewer); err != nil {
-		return err
-	}
 	selected, err := e.selectAssignedApprovalTask(ctx, instanceID, nodeID, reviewer)
 	if err != nil {
 		return err
@@ -85,26 +82,4 @@ func (e *FlowEngine) selectAssignedApprovalTask(ctx context.Context, instanceID 
 		return nil, response.NewError(response.CodeWorkflowTaskNoAccess, "当前请假审批环节未指派该审批人")
 	}
 	return selected, nil
-}
-
-// leaveReviewerCompletedOtherStage enforces segregation of duties: the same
-// person cannot approve both minister and president on one application.
-func (e *FlowEngine) leaveReviewerCompletedOtherStage(ctx context.Context, instanceID uuid.UUID, currentNodeID string, reviewer uuid.UUID) error {
-	tasks, err := e.taskRepo.ListTasksByInstance(ctx, instanceID)
-	if err != nil {
-		return err
-	}
-	for i := range tasks {
-		task := &tasks[i]
-		if task.NodeID == currentNodeID || task.TaskType != "approval" {
-			continue
-		}
-		if task.Status != 1 && task.Status != 2 {
-			continue
-		}
-		if task.AssigneeID != nil && *task.AssigneeID == reviewer {
-			return response.NewError(response.CodeForbidden, "同一审批人不能连续完成部长与社长两个环节")
-		}
-	}
-	return nil
 }

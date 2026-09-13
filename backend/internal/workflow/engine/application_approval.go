@@ -37,7 +37,16 @@ func (e *FlowEngine) CompleteApplicationApproval(ctx context.Context, instanceID
 	if err != nil {
 		return err
 	}
-	selected, err := e.selectApprovalTask(ctx, instanceID, nodeID, reviewer)
+	role, _, err := e.ApprovalPolicy(ctx, instanceID, nodeID)
+	if err != nil {
+		return err
+	}
+	var selected *model.FlowTask
+	if role == "standing_committee" {
+		selected, err = e.selectAssignedApprovalTask(ctx, instanceID, nodeID, reviewer)
+	} else {
+		selected, err = e.selectApprovalTask(ctx, instanceID, nodeID, reviewer)
+	}
 	if err != nil {
 		return err
 	}

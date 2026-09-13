@@ -58,6 +58,9 @@ func (n *ApprovalNode) OnEnter(ctx context.Context, inst *model.FlowInstance, no
 	unique := []uuid.UUID{}
 	seen := map[uuid.UUID]bool{}
 	for _, id := range assignees {
+		if inst.BusinessType == "member_application" && id == inst.InitiatorID {
+			continue
+		}
 		if id != uuid.Nil && !seen[id] {
 			seen[id] = true
 			unique = append(unique, id)
