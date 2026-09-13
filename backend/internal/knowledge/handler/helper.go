@@ -72,6 +72,7 @@ func viewerOf(c *gin.Context) (service.Viewer, error) {
 	return service.Viewer{
 		UserID:     uid,
 		Perms:      permsOf(c),
+		Roles:      rolesOf(c),
 		CanCreate:  hasPerm(c, "doc:create"),
 		CanUpdate:  hasPerm(c, "doc:update"),
 		CanDelete:  hasPerm(c, "doc:delete"),
@@ -91,9 +92,16 @@ func optionalViewer(c *gin.Context) service.Viewer {
 	return service.Viewer{
 		UserID:     uid,
 		Perms:      permsOf(c),
+		Roles:      rolesOf(c),
 		CanCreate:  hasPerm(c, "doc:create"),
 		CanUpdate:  hasPerm(c, "doc:update"),
 		CanDelete:  hasPerm(c, "doc:delete"),
 		CanPublish: hasPerm(c, "doc:publish"),
 	}
+}
+
+func rolesOf(c *gin.Context) []string {
+	raw, _ := c.Get("current_roles")
+	roles, _ := raw.([]string)
+	return roles
 }

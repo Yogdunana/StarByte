@@ -3,7 +3,7 @@ import request from './request';
 import type { PageResponse } from '@/types/api';
 
 export type KnowledgeKind = 'page' | 'doc';
-export type KnowledgeVisibility = 'public' | 'authenticated' | 'permission';
+export type KnowledgeVisibility = 'public' | 'authenticated' | 'permission' | 'role';
 export type KnowledgeStatus = 0 | 1;
 
 export interface KnowledgePerson {
@@ -30,6 +30,7 @@ export interface KnowledgeDoc {
   category_id?: string;
   category_name?: string;
   visibility: KnowledgeVisibility;
+  allowed_roles?: string[];
   permission_code?: string;
   status: KnowledgeStatus;
   version: number;

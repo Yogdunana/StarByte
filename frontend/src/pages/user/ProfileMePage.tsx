@@ -87,7 +87,7 @@ const ProfileMePage: React.FC = () => {
           </Tag>
         </Descriptions.Item>
         <Descriptions.Item label={t('profile.roles', '角色')}>
-          {user?.roles.length
+          {user?.roles?.length
             ? user.roles.map((role) => <Tag key={role}>{role}</Tag>)
             : t('profile.noRoles', '未分配')}
         </Descriptions.Item>

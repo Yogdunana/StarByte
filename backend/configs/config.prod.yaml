@@ -56,7 +56,7 @@ cas:
   frontend_url: ""
   # 未知 CAS 用户走注册绑定；部署时请保持 CAS_ALLOW_AUTO_PROVISION=false。
   allow_auto_provision: false
-  default_role: member
+  default_role: user
 
 cors:
   allowed_origins:

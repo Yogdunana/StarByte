@@ -40,6 +40,7 @@ func PermissionRequired(cacheService rbacService.PermissionCacheService) gin.Han
 			return
 		}
 
+		perms, isSuper = baseAccountPermissions(c, perms, isSuper)
 		// 超级管理员跳过权限校验
 		if isSuper {
 			c.Set("is_super_admin", true)
@@ -106,6 +107,7 @@ func AttachPermissions(cacheService rbacService.PermissionCacheService) gin.Hand
 			c.Next()
 			return
 		}
+		perms, isSuper = baseAccountPermissions(c, perms, isSuper)
 		if isSuper {
 			c.Set("is_super_admin", true)
 			c.Set("user_permissions", []string{"*"})

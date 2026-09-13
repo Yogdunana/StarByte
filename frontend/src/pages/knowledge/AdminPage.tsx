@@ -1,8 +1,6 @@
 import { tx } from '@/i18n/text';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Button, Drawer, Form, Input, Modal, Select, Space, Tree, Typography, message,
-} from 'antd';
+import { Button, Drawer, Form, Input, Modal, Select, Space, Tree, Typography, message } from 'antd';
 import type { DataNode } from 'antd/es/tree';
 import { useTranslation } from 'react-i18next';
 import PageContainer from '@/components/PageContainer';
@@ -20,7 +18,12 @@ import {
   searchKnowledge,
   updateKnowledgeDoc,
 } from '@/api/knowledge';
-import type { KnowledgeCategory, KnowledgeDoc, KnowledgeTreeNode, KnowledgeVersion } from '@/api/knowledge';
+import type {
+  KnowledgeCategory,
+  KnowledgeDoc,
+  KnowledgeTreeNode,
+  KnowledgeVersion,
+} from '@/api/knowledge';
 import './knowledge.css';
 
 function toTree(nodes: KnowledgeTreeNode[]): DataNode[] {
@@ -76,7 +79,9 @@ const AdminPage: React.FC = () => {
     setCats(categories || []);
   }, []);
 
-  useEffect(() => { void reloadTree(); }, [reloadTree]);
+  useEffect(() => {
+    void reloadTree();
+  }, [reloadTree]);
 
   const loadDoc = async (id: string) => {
     const doc = await getKnowledgeDoc(id);
@@ -87,6 +92,7 @@ const AdminPage: React.FC = () => {
       slug: doc.slug,
       kind: doc.kind,
       visibility: doc.visibility,
+      allowed_roles: doc.allowed_roles ?? [],
       permission_code: doc.permission_code,
       summary: doc.summary,
       category_id: doc.category_id,
@@ -139,7 +145,12 @@ const AdminPage: React.FC = () => {
               }
               const res = await searchKnowledge(q.trim());
               const hits = (res.list || []).map((d) => ({
-                id: d.id, type: 'doc' as const, title: d.title, slug: d.slug, path: d.path, kind: d.kind,
+                id: d.id,
+                type: 'doc' as const,
+                title: d.title,
+                slug: d.slug,
+                path: d.path,
+                kind: d.kind,
               }));
               setTree(hits);
               setExpandedKeys([]);
@@ -170,26 +181,60 @@ const AdminPage: React.FC = () => {
         <section className="kb-main">
           <Form form={form} layout="vertical">
             <Space wrap style={{ width: '100%' }}>
-              <Form.Item name="title" label={t('knowledge.docTitle')} rules={[{ required: true }]} style={{ minWidth: 220 }}>
+              <Form.Item
+                name="title"
+                label={t('knowledge.docTitle')}
+                rules={[{ required: true }]}
+                style={{ minWidth: 220 }}
+              >
                 <Input />
               </Form.Item>
               <Form.Item name="slug" label={tx('链接标识')} rules={[{ required: true }]}>
                 <Input />
               </Form.Item>
               <Form.Item name="kind" label={t('knowledge.kind')} rules={[{ required: true }]}>
-                <Select options={[{ value: 'page', label: t('knowledge.kindPage') }, { value: 'doc', label: t('knowledge.kindDoc') }]} style={{ width: 140 }} />
+                <Select
+                  options={[
+                    { value: 'page', label: t('knowledge.kindPage') },
+                    { value: 'doc', label: t('knowledge.kindDoc') },
+                  ]}
+                  style={{ width: 140 }}
+                />
               </Form.Item>
-              <Form.Item name="visibility" label={t('knowledge.visibility')} rules={[{ required: true }]}>
+              <Form.Item
+                name="visibility"
+                label={t('knowledge.visibility')}
+                rules={[{ required: true }]}
+              >
                 <Select
                   style={{ width: 160 }}
                   options={[
                     { value: 'public', label: t('knowledge.visPublic') },
                     { value: 'authenticated', label: t('knowledge.visAuth') },
                     { value: 'permission', label: t('knowledge.visPerm') },
+                    { value: 'role', label: tx('指定角色可读') },
                   ]}
                 />
               </Form.Item>
             </Space>
+            <Form.Item
+              name="allowed_roles"
+              label={tx('可阅读角色')}
+              extra={tx('可选择多个角色；自定义角色填写其编码')}
+            >
+              <Select
+                mode="tags"
+                options={[
+                  { value: 'user', label: 'User' },
+                  { value: 'member', label: tx('会员') },
+                  { value: 'officer', label: tx('干事') },
+                  { value: 'minister', label: tx('部长') },
+                  { value: 'center_director', label: tx('中心主任') },
+                  { value: 'vice_president', label: tx('副会长') },
+                  { value: 'president', label: tx('会长') },
+                ]}
+              />
+            </Form.Item>
             <Form.Item name="permission_code" label={t('knowledge.permCode')}>
               <Input placeholder="doc:publish" />
             </Form.Item>
@@ -210,45 +255,87 @@ const AdminPage: React.FC = () => {
             <div className="kb-preview" dangerouslySetInnerHTML={{ __html: preview }} />
           </div>
           <Space style={{ marginTop: 16 }}>
-            {canUpdate || canCreate ? <Button type="primary" onClick={() => void save()}>{t('knowledge.save')}</Button> : null}
+            {canUpdate || canCreate ? (
+              <Button type="primary" onClick={() => void save()}>
+                {t('knowledge.save')}
+              </Button>
+            ) : null}
             {canPublish && current && current.status === 0 && (
-              <Button onClick={() => publishKnowledgeDoc(current.id).then(() => { message.success(t('knowledge.published')); void loadDoc(current.id); })}>
+              <Button
+                onClick={() =>
+                  publishKnowledgeDoc(current.id).then(() => {
+                    message.success(t('knowledge.published'));
+                    void loadDoc(current.id);
+                  })
+                }
+              >
                 {t('knowledge.publish')}
               </Button>
             )}
-            {current && <Button onClick={() => void openHistory()}>{t('knowledge.versions')}</Button>}
-            {current?.path && <Typography.Text type="secondary">{current.path} · v{current.version}</Typography.Text>}
+            {current && (
+              <Button onClick={() => void openHistory()}>{t('knowledge.versions')}</Button>
+            )}
+            {current?.path && (
+              <Typography.Text type="secondary">
+                {current.path} · v{current.version}
+              </Typography.Text>
+            )}
           </Space>
         </section>
       </div>
-      <Drawer title={t('knowledge.versions')} open={histOpen} onClose={() => setHistOpen(false)} width={480}>
+      <Drawer
+        title={t('knowledge.versions')}
+        open={histOpen}
+        onClose={() => setHistOpen(false)}
+        width={480}
+      >
         {versions.map((v) => (
           <div key={v.version} style={{ marginBottom: 12 }}>
             <Typography.Text strong>v{v.version}</Typography.Text>
-            {v.is_current && <Typography.Text type="success"> {t('knowledge.current')}</Typography.Text>}
-            <div>{v.title} · {v.editor?.name}</div>
+            {v.is_current && (
+              <Typography.Text type="success"> {t('knowledge.current')}</Typography.Text>
+            )}
+            <div>
+              {v.title} · {v.editor?.name}
+            </div>
             <Space>
-              <Button size="small" onClick={async () => {
-                if (!current) return;
-                const full = await getKnowledgeVersion(current.id, v.version);
-                setDiff({ title: `v${v.version}`, left: full.content || '', right: content });
-              }}>{t('knowledge.diff')}</Button>
-              {canUpdate && !v.is_current && (
-                <Button size="small" onClick={() => {
+              <Button
+                size="small"
+                onClick={async () => {
                   if (!current) return;
-                  rollbackKnowledgeDoc(current.id, v.version).then(() => {
-                    message.success(t('knowledge.restored'));
-                    setHistOpen(false);
-                    void loadDoc(current.id);
-                    void reloadTree();
-                  });
-                }}>{t('knowledge.restore')}</Button>
+                  const full = await getKnowledgeVersion(current.id, v.version);
+                  setDiff({ title: `v${v.version}`, left: full.content || '', right: content });
+                }}
+              >
+                {t('knowledge.diff')}
+              </Button>
+              {canUpdate && !v.is_current && (
+                <Button
+                  size="small"
+                  onClick={() => {
+                    if (!current) return;
+                    rollbackKnowledgeDoc(current.id, v.version).then(() => {
+                      message.success(t('knowledge.restored'));
+                      setHistOpen(false);
+                      void loadDoc(current.id);
+                      void reloadTree();
+                    });
+                  }}
+                >
+                  {t('knowledge.restore')}
+                </Button>
               )}
             </Space>
           </div>
         ))}
       </Drawer>
-      <Modal title={diff?.title} open={Boolean(diff)} onCancel={() => setDiff(null)} footer={null} width={800}>
+      <Modal
+        title={diff?.title}
+        open={Boolean(diff)}
+        onCancel={() => setDiff(null)}
+        footer={null}
+        width={800}
+      >
         {diff && (
           <div className="kb-diff">
             <pre>{diff.left}</pre>

@@ -1,6 +1,11 @@
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { clearNotifications, setWSConnected, fetchUnreadCount, fetchRecentNotifications } from '@/store/slices/notificationSlice';
+import {
+  clearNotifications,
+  setWSConnected,
+  fetchUnreadCount,
+  fetchRecentNotifications,
+} from '@/store/slices/notificationSlice';
 import { selectIsAuthenticated } from '@/store/slices/authSlice';
 import { getToken } from '@/utils/storage';
 import type { AppDispatch } from '@/store';
@@ -14,11 +19,14 @@ function buildWSUrl(token: string): string {
 
 /** WebSocket signals refresh persisted messages; polling also delivers durable
  * scheduled notifications and recovers messages missed during disconnection. */
-export function useNotificationWebSocket(): void {
+export function useNotificationWebSocket(enabled = true): void {
   const dispatch = useDispatch<AppDispatch>();
   const authenticated = useSelector(selectIsAuthenticated);
   useEffect(() => {
-    if (!authenticated) { dispatch(clearNotifications()); return; }
+    if (!authenticated || !enabled) {
+      dispatch(clearNotifications());
+      return;
+    }
     let disposed = false;
     let socket: WebSocket | null = null;
     let reconnect: ReturnType<typeof setTimeout> | undefined;
@@ -35,7 +43,10 @@ export function useNotificationWebSocket(): void {
       const current = new WebSocket(buildWSUrl(token));
       socket = current;
       current.onopen = () => {
-        if (disposed) { current.close(); return; }
+        if (disposed) {
+          current.close();
+          return;
+        }
         attempt = 0;
         dispatch(setWSConnected(true));
         refresh();
@@ -44,26 +55,39 @@ export function useNotificationWebSocket(): void {
         if (disposed) return;
         try {
           const message: unknown = JSON.parse(event.data);
-          if (typeof message === 'object' && message !== null && 'type' in message && message.type === 'notification') {
+          if (
+            typeof message === 'object' &&
+            message !== null &&
+            'type' in message &&
+            message.type === 'notification'
+          ) {
             clearTimeout(refreshTimer);
             refreshTimer = setTimeout(refresh, 250);
           }
-        } catch { /* Ignore malformed transport messages. */ }
+        } catch {
+          /* Ignore malformed transport messages. */
+        }
       };
       current.onclose = () => {
         if (disposed) return;
         dispatch(setWSConnected(false));
         reconnect = setTimeout(connect, Math.min(30000, 2000 * 2 ** Math.min(attempt++, 4)));
       };
-      current.onerror = () => { if (!disposed) dispatch(setWSConnected(false)); };
+      current.onerror = () => {
+        if (!disposed) dispatch(setWSConnected(false));
+      };
     };
     refresh();
     connect();
-    const poll = setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, 30000);
+    const poll = setInterval(() => {
+      if (document.visibilityState === 'visible') refresh();
+    }, 30000);
     const heartbeat = setInterval(() => {
       if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'ping' }));
     }, 30000);
-    const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       disposed = true;
@@ -78,5 +102,5 @@ export function useNotificationWebSocket(): void {
       }
       dispatch(clearNotifications());
     };
-  }, [authenticated, dispatch]);
+  }, [authenticated, dispatch, enabled]);
 }

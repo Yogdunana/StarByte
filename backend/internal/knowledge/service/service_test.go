@@ -596,3 +596,33 @@ func TestListSearchTreePaginateKeepsPublic(t *testing.T) {
 		t.Fatalf("public doc missing from tree: %+v", tree)
 	}
 }
+
+func TestRoleAudienceAndRevocation(t *testing.T) {
+	svc, mem := newTestSvc()
+	author := uuid.New()
+	mem.addUser(author, "editor")
+	ctx := context.Background()
+	doc, err := svc.Create(ctx, editor(author), &dto.CreateDocRequest{Kind: "doc", Slug: "role-notice", Title: "Role notice", Visibility: model.VisibilityRole, AllowedRoles: []string{"member"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = svc.Publish(ctx, editor(author), uuid.MustParse(doc.ID)); err != nil {
+		t.Fatal(err)
+	}
+	user := Viewer{UserID: uuid.New(), Roles: []string{"user"}}
+	if _, err = svc.Get(ctx, user, uuid.MustParse(doc.ID)); err == nil {
+		t.Fatal("User read a member-only document")
+	}
+	rows, total, err := svc.List(ctx, user, &dto.ListDocRequest{})
+	if err != nil || total != 0 || len(rows) != 0 {
+		t.Fatal("member-only document leaked through list", err)
+	}
+	user.Roles = append(user.Roles, "member")
+	if _, err = svc.Get(ctx, user, uuid.MustParse(doc.ID)); err != nil {
+		t.Fatal(err)
+	}
+	none := []string{}
+	if _, err = svc.Update(ctx, editor(author), uuid.MustParse(doc.ID), &dto.UpdateDocRequest{AllowedRoles: &none}); err == nil {
+		t.Fatal("empty role audience accepted")
+	}
+}

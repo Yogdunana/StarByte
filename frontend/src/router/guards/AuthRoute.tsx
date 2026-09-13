@@ -1,3 +1,4 @@
+import { isRegisteredOnly, registeredPageAllowed } from '@/utils/registeredUser';
 import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Spin } from 'antd';
@@ -7,7 +8,13 @@ import { useTranslation } from 'react-i18next';
 import { getToken } from '@/utils/storage';
 import { loginPath } from '@/utils/nextPath';
 import { logout as logoutAction } from '@/store/slices/authSlice';
-import { fetchCurrentUser, selectCurrentUser, selectUserLoading, selectUserError, clearUser } from '@/store/slices/userSlice';
+import {
+  fetchCurrentUser,
+  selectCurrentUser,
+  selectUserLoading,
+  selectUserError,
+  clearUser,
+} from '@/store/slices/userSlice';
 import type { AppDispatch } from '@/store';
 
 /**
@@ -16,16 +23,18 @@ import type { AppDispatch } from '@/store';
 const LoadingScreen: React.FC = () => {
   const { t } = useTranslation();
   return (
-    <div style={{
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      height: '100vh',
-      flexDirection: 'column',
-      gap: 16,
-      background: 'var(--sb-bg)',
-      color: 'var(--sb-muted)',
-    }}>
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        flexDirection: 'column',
+        gap: 16,
+        background: 'var(--sb-bg)',
+        color: 'var(--sb-muted)',
+      }}
+    >
       <Spin size="large" />
       <span style={{ fontSize: 14 }}>{t('common.loadingUser')}</span>
     </div>
@@ -70,7 +79,13 @@ const AuthRoute: React.FC<AuthRouteProps> = ({ children }) => {
 
   // 无 token → 登录门脸，带回跳
   if (!token) {
-    return <Navigate to={loginPath(location.pathname + location.search)} replace state={{ from: location }} />;
+    return (
+      <Navigate
+        to={loginPath(location.pathname + location.search)}
+        replace
+        state={{ from: location }}
+      />
+    );
   }
 
   // token 存在但用户信息获取失败 → 重定向登录页（dispatch 在上方 effect 中执行）
@@ -83,6 +98,13 @@ const AuthRoute: React.FC<AuthRouteProps> = ({ children }) => {
     return <LoadingScreen />;
   }
 
+  if (
+    currentUser &&
+    isRegisteredOnly(currentUser.roles) &&
+    !registeredPageAllowed(location.pathname)
+  ) {
+    return <Navigate to="/member/applications" replace />;
+  }
   // 认证通过 → 渲染子节点
   return <>{children}</>;
 };

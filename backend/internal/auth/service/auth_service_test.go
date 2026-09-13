@@ -291,7 +291,7 @@ func TestLogin_Success(t *testing.T) {
 	assert.Equal(t, int64(7200), result.ExpiresIn)
 	assert.NotNil(t, result.User)
 	assert.Equal(t, "testuser", result.User.Username)
-	assert.Equal(t, []string{"user:read"}, result.User.Permissions)
+	assert.Equal(t, []string{"announcement:read"}, result.User.Permissions)
 	assert.Equal(t, []string{"user"}, result.User.Roles)
 }
 
@@ -593,7 +593,7 @@ func TestGetCurrentUser_Success(t *testing.T) {
 	assert.NotNil(t, result)
 	assert.Equal(t, "testuser", result.Username)
 	assert.Equal(t, "Test User", result.RealName)
-	assert.Equal(t, []string{"user:read", "user:write"}, result.Permissions)
+	assert.Equal(t, []string{"announcement:read"}, result.Permissions)
 	assert.Equal(t, []string{"user"}, result.Roles)
 }
 

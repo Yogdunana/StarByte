@@ -30,7 +30,8 @@ import {
 
 import routes, { AppRouteObject, RouteMeta } from '@/router/routes';
 import { selectCollapsed } from '@/store/slices/appSlice';
-import { selectPermissions } from '@/store/slices/userSlice';
+import { isRegisteredOnly, registeredPageAllowed } from '@/utils/registeredUser';
+import { selectPermissions, selectRoles } from '@/store/slices/userSlice';
 import { useFeatureFlags } from '@/hooks/useFeature';
 import { useTranslation } from 'react-i18next';
 
@@ -187,6 +188,8 @@ export function useMenu(): UseMenuResult {
   const location = useLocation();
   const collapsed = useSelector(selectCollapsed);
   const permissions = useSelector(selectPermissions);
+  const roles = useSelector(selectRoles);
+  const registeredOnly = isRegisteredOnly(roles);
   const { flags } = useFeatureFlags();
   const { t } = useTranslation();
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -200,10 +203,17 @@ export function useMenu(): UseMenuResult {
     );
     const labelOf = (path: string, fallback: string) =>
       t(`menu.${path}`, { defaultValue: fallback });
-    return layoutRoute?.children
+    const nodes = layoutRoute?.children
       ? buildMenuNodes(layoutRoute.children, permissions, '', labelOf, flags)
       : [];
-  }, [permissions, flags, t, uiLanguage]);
+    if (!registeredOnly) return nodes;
+    const filter = (items: MenuNode[]): MenuNode[] =>
+      items.flatMap((node) => {
+        const children = node.children ? filter(node.children) : undefined;
+        return children?.length || registeredPageAllowed(node.key) ? [{ ...node, children }] : [];
+      });
+    return [...filter(nodes), { key: '/charter', label: tx('协会章程'), icon: <ReadOutlined /> }];
+  }, [permissions, flags, t, uiLanguage, registeredOnly]);
 
   const visibleNodes = useMemo(() => {
     void uiLanguage;

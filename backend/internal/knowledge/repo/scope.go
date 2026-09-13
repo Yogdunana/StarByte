@@ -12,6 +12,7 @@ type ReadableScope struct {
 	Staff  bool
 	UserID uuid.UUID
 	Perms  []string
+	Roles  []string
 }
 
 func (s ReadableScope) hasStar() bool {
@@ -45,6 +46,18 @@ func Visible(d *model.Doc, scope ReadableScope) bool {
 		return false
 	}
 	switch d.Visibility {
+	case model.VisibilityRole:
+		if scope.UserID == uuid.Nil {
+			return false
+		}
+		for _, role := range scope.Roles {
+			for _, allowed := range d.AllowedRoles {
+				if role == allowed {
+					return true
+				}
+			}
+		}
+		return false
 	case model.VisibilityPublic:
 		return true
 	case model.VisibilityAuthenticated:
@@ -74,22 +87,28 @@ func applyReadable(q *gorm.DB, scope ReadableScope) *gorm.DB {
 	if scope.UserID == uuid.Nil {
 		return q.Where("d.status = ? AND d.visibility = ?", model.StatusPublished, model.VisibilityPublic)
 	}
+	roleClause := ""
+	roleArgs := []any{}
+	if len(scope.Roles) > 0 {
+		roleClause = " OR (d.status = 1 AND d.visibility = 'role' AND EXISTS (SELECT 1 FROM jsonb_array_elements_text(d.allowed_roles) AS allowed(code) WHERE allowed.code IN ?))"
+		roleArgs = append(roleArgs, scope.Roles)
+	}
 	publishedOpen := "(d.status = ? AND d.visibility IN (?, ?))"
 	args := []any{scope.UserID, model.StatusPublished, model.VisibilityPublic, model.VisibilityAuthenticated}
 	if scope.hasStar() {
 		return q.Where(
-			"d.author_id = ? OR "+publishedOpen+" OR (d.status = ? AND d.visibility = ?)",
-			append(args, model.StatusPublished, model.VisibilityPermission)...,
+			"d.author_id = ? OR "+publishedOpen+" OR (d.status = ? AND d.visibility = ?)"+roleClause,
+			append(append(args, model.StatusPublished, model.VisibilityPermission), roleArgs...)...,
 		)
 	}
 	if codes := scope.permCodes(); len(codes) > 0 {
 		return q.Where(
-			"d.author_id = ? OR "+publishedOpen+" OR (d.status = ? AND d.visibility = ? AND (d.permission_code = '' OR d.permission_code IN ?))",
-			append(args, model.StatusPublished, model.VisibilityPermission, codes)...,
+			"d.author_id = ? OR "+publishedOpen+" OR (d.status = ? AND d.visibility = ? AND (d.permission_code = '' OR d.permission_code IN ?))"+roleClause,
+			append(append(args, model.StatusPublished, model.VisibilityPermission, codes), roleArgs...)...,
 		)
 	}
 	return q.Where(
-		"d.author_id = ? OR "+publishedOpen+" OR (d.status = ? AND d.visibility = ? AND d.permission_code = '')",
-		append(args, model.StatusPublished, model.VisibilityPermission)...,
+		"d.author_id = ? OR "+publishedOpen+" OR (d.status = ? AND d.visibility = ? AND d.permission_code = '')"+roleClause,
+		append(append(args, model.StatusPublished, model.VisibilityPermission), roleArgs...)...,
 	)
 }

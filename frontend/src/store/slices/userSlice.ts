@@ -49,7 +49,7 @@ const userSlice = createSlice({
       .addCase(fetchCurrentUser.fulfilled, (state, action: PayloadAction<UserInfo>) => {
         state.loading = false;
         state.error = null;
-        state.currentUser = action.payload;
+        state.currentUser = { ...action.payload, roles: action.payload.roles ?? [], permissions: action.payload.permissions ?? [] };
         state.permissions = action.payload.permissions || [];
       })
       .addCase(fetchCurrentUser.rejected, (state, action) => {
