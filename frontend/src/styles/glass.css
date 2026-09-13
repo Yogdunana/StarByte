@@ -50,3 +50,7 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
   .ant-table-wrapper { overflow-x: auto; max-width: 100%; }
   .ant-modal .ant-modal-body, .ant-drawer .ant-drawer-body { overflow-wrap: anywhere; }
 }
+
+/* Leave room for the close control when translated dialog titles wrap. */
+.ant-modal-title { padding-inline-end: 32px; white-space: normal; overflow-wrap: anywhere; }
+.ant-drawer-title { min-width: 0; overflow-wrap: anywhere; }

@@ -80,7 +80,7 @@ const ReviewDrawer: React.FC<ReviewDrawerProps> = ({ open, record, mode, onClose
             </Descriptions.Item>
             <Descriptions.Item label={tx('状态')}>
               <StatusTag status={record.status} mapping={ApplicationStatusMap} />{' '}
-              {record.current_stage}
+              {tx(record.current_stage || '')}
             </Descriptions.Item>
             <Descriptions.Item label={tx('电话')}>{record.contact_phone}</Descriptions.Item>
             <Descriptions.Item label={tx('邮箱')}>{record.contact_email}</Descriptions.Item>
