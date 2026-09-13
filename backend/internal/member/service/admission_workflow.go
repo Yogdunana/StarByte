@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -30,11 +31,46 @@ func (s *admissionService) startAdmissionWorkflow(ctx context.Context, tx *gorm.
 	if app == nil {
 		return nil, response.NewError(response.CodeMemberAppNotFound, "申请不存在")
 	}
+	var definitionID uuid.UUID
+	if err := tx.Raw("SELECT id FROM flow_definitions WHERE key=? FOR UPDATE", engine.MemberApplicationDefinitionKey).Row().Scan(&definitionID); err != nil {
+		return nil, err
+	}
+	var graph []byte
+	if err := tx.Table("flow_definition_versions").Where("definition_id=? AND status=1", definitionID).Select("bpmn_data").Row().Scan(&graph); err != nil {
+		return nil, err
+	}
+	var policy struct {
+		CharterVersion int `json:"charterVersion"`
+	}
+	if err := json.Unmarshal(graph, &policy); err != nil {
+		return nil, err
+	}
+	app.CharterPolicy = policy.CharterVersion == 1
+	vars := applicationVariables(app)
+	if app.CharterPolicy {
+		app.ReviewDepartmentID = app.DepartmentID
+		if app.ReviewDepartmentID == nil {
+			var id uuid.UUID
+			if err := tx.Table("departments").Where("code=? AND status=0", "admin").Select("id").Row().Scan(&id); err != nil {
+				return nil, err
+			}
+			app.ReviewDepartmentID = &id
+		}
+		parent, err := store.ParentDepartment(ctx, *app.ReviewDepartmentID)
+		if err != nil {
+			return nil, err
+		}
+		if parent == nil {
+			return nil, admissionDenied("审批缺少部门或中心范围")
+		}
+		vars["department_id"] = app.ReviewDepartmentID.String()
+		vars["center_department_id"] = parent.String()
+	}
 	flow, deliver, err := s.flow.BindTransaction(tx)
 	if err != nil {
 		return nil, err
 	}
-	inst, err := flow.Start(ctx, engine.MemberApplicationDefinitionKey, app.ID.String(), "member_application", app.UserID, applicationVariables(app))
+	inst, err := flow.Start(ctx, engine.MemberApplicationDefinitionKey, app.ID.String(), "member_application", app.UserID, vars)
 	if err != nil {
 		return nil, err
 	}

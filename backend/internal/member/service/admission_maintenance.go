@@ -42,7 +42,7 @@ func (s *admissionService) finishProbation(ctx context.Context, id uuid.UUID) er
 			return nil
 		}
 		now := s.now()
-		if app.HistoricalReviewRequired || app.AdmissionStage != model.AdmissionProbation || app.ProbationUntil == nil || now.Before(*app.ProbationUntil) {
+		if app.CharterPolicy || app.HistoricalReviewRequired || app.AdmissionStage != model.AdmissionProbation || app.ProbationUntil == nil || now.Before(*app.ProbationUntil) {
 			return nil
 		}
 		objection, err := maintenance.OpenObjection(ctx, id)

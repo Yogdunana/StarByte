@@ -58,6 +58,9 @@ func (s *admissionService) Snapshot(ctx context.Context, viewer, id uuid.UUID) (
 			return err
 		}
 		allowed, _ := admissionAuthority(actor, app, parent, "materials")
+		if app.CharterPolicy && app.CurrentStage == "常委会会签" {
+			allowed, _ = admissionAuthority(actor, app, parent, "standing_committee")
+		}
 		if app.UserID != viewer && !allowed {
 			return admissionDenied("无权查看该申请审批记录")
 		}
@@ -82,8 +85,8 @@ func loadAdmission(ctx context.Context, store repo.AdmissionRepo, viewer, id uui
 		return nil, nil, nil, admissionDenied("签字账号不可用")
 	}
 	var parent *uuid.UUID
-	if app.DepartmentID != nil {
-		parent, err = store.ParentDepartment(ctx, *app.DepartmentID)
+	if dept := approvalDepartment(app); dept != nil {
+		parent, err = store.ParentDepartment(ctx, *dept)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("load department: %w", err)
 		}
@@ -121,6 +124,11 @@ func (s *admissionService) snapshot(ctx context.Context, store repo.AdmissionRep
 		pending, err := maintenance.OpenObjection(ctx, app.ID)
 		if err != nil {
 			return nil, err
+		}
+		if app.CharterPolicy && pending == nil && app.ProbationUntil != nil && !s.now().Before(*app.ProbationUntil) && !app.HistoricalReviewRequired {
+			if ok, delegated := admissionAuthority(actor, app, parent, "minister"); ok && !delegated {
+				allowed = append(allowed, "minister")
+			}
 		}
 		if pending == nil && app.ProbationUntil != nil && s.now().Before(*app.ProbationUntil) {
 			if ok, delegated := admissionAuthority(actor, app, parent, "minister"); ok && !delegated {
@@ -183,6 +191,13 @@ func (s *admissionService) Sign(ctx context.Context, viewer, id uuid.UUID, req *
 		}
 		engineChain, err := s.isEngineChain(ctx, store, app)
 		if err != nil {
+			return err
+		}
+		if engineChain && app.CharterPolicy && app.AdmissionStage == model.AdmissionProbation {
+			if err := s.confirmCharterProbation(ctx, tx, store, app, actor, parent, req); err != nil {
+				return err
+			}
+			out, err = s.snapshot(ctx, store, app, actor, parent)
 			return err
 		}
 		if engineChain {

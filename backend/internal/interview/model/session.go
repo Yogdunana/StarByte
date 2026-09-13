@@ -43,6 +43,8 @@ type NamedUser struct {
 
 // ApplicationBrief 入会申请摘要，用于导入面试者。
 type ApplicationBrief struct {
+	CharterPolicy    bool
+	CurrentStage     string
 	AdmissionVersion int16
 	AdmissionStage   string
 	ID               uuid.UUID

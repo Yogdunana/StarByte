@@ -161,7 +161,9 @@ export default function AdmissionPanel({ id, officer, editable, onChanged }: Pro
   if (!state) return <Skeleton active paragraph={{ rows: 3 }} />;
   const path = officer
     ? ['materials', 'round1', 'round2', 'president', 'probation', 'approved']
-    : ['materials', 'approved'];
+    : state.stage === 'probation'
+      ? ['probation', 'approved']
+      : ['materials', 'approved'];
   return (
     <section className={styles.panel} aria-label={tx('正式审批')}>
       <div className={styles.heading}>
@@ -212,7 +214,9 @@ export default function AdmissionPanel({ id, officer, editable, onChanged }: Pro
                 <Select
                   options={[
                     { value: 'approve', label: tx('同意') },
-                    { value: 'reject', label: tx('拒绝') },
+                    ...(state.stage === 'probation'
+                      ? []
+                      : [{ value: 'reject', label: tx('拒绝') }]),
                     ...(state.stage === 'materials'
                       ? [{ value: 'supplement', label: tx('要求补充材料') }]
                       : []),

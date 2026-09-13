@@ -35,8 +35,8 @@ func (r *admissionApprover) Resolve(ctx context.Context, inst *wfmodel.FlowInsta
 		return nil, admissionDenied("入会申请与流程发起人不一致")
 	}
 	var parent *uuid.UUID
-	if app.DepartmentID != nil {
-		parent, err = store.ParentDepartment(ctx, *app.DepartmentID)
+	if dept := approvalDepartment(app); dept != nil {
+		parent, err = store.ParentDepartment(ctx, *dept)
 		if err != nil {
 			return nil, err
 		}

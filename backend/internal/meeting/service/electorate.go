@@ -55,14 +55,22 @@ func buildElectorate(vote uuid.UUID, candidates []model.ElectorCandidate, cfg mo
 		weight := 0.0
 		if kind == model.VoteEqual {
 			weight = 1
-		} else if candidate.PositionCode == "" {
-			// Yogdunana #8 explicitly defines default_weight for users without a bound position.
-			weight = cfg.DefaultWeight
 		} else {
+			known := false
 			for _, code := range []string{candidate.PositionCode, candidate.RoleCode} {
-				if value, ok := configuredWeight(cfg, code); ok && value > weight {
-					weight = value
+				if code == "user" || code == "member" || code == "probationary" || code == "admin" || code == "super_admin" {
+					known = true
+					continue
 				}
+				if value, ok := configuredWeight(cfg, code); ok {
+					known = true
+					if value > weight {
+						weight = value
+					}
+				}
+			}
+			if !known {
+				weight = cfg.DefaultWeight
 			}
 		}
 		prior, exists := weights[candidate.UserID]
@@ -72,8 +80,8 @@ func buildElectorate(vote uuid.UUID, candidates []model.ElectorCandidate, cfg mo
 	}
 	rows := make([]model.Elector, 0, len(weights))
 	for user, weight := range weights {
-		if weight == 0 {
-			weight = cfg.DefaultWeight
+		if weight <= 0 {
+			continue
 		}
 		rows = append(rows, model.Elector{VoteID: vote, UserID: user, Weight: weight})
 	}

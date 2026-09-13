@@ -15,11 +15,11 @@ func TestResolveWeight_EqualAlwaysOne(t *testing.T) {
 
 func TestResolveWeight_FromConfig(t *testing.T) {
 	cfg := DefaultWeightConfig()
-	require.Equal(t, 5.0, ResolveWeight(cfg, "president", model.VoteWeighted))
-	require.Equal(t, 3.0, ResolveWeight(cfg, "minister", model.VoteWeighted))
-	require.Equal(t, 2.0, ResolveWeight(cfg, "vice_minister", model.VoteWeighted))
-	require.Equal(t, 2.0, ResolveWeight(cfg, "deputy", model.VoteWeighted))
-	require.Equal(t, 1.0, ResolveWeight(cfg, "unknown", model.VoteWeighted))
+	require.Equal(t, 2.0, ResolveWeight(cfg, "president", model.VoteWeighted))
+	require.Equal(t, 0.5, ResolveWeight(cfg, "minister", model.VoteWeighted))
+	require.Equal(t, 0.5, ResolveWeight(cfg, "vice_minister", model.VoteWeighted))
+	require.Equal(t, 0.5, ResolveWeight(cfg, "deputy", model.VoteWeighted))
+	require.Equal(t, 0.0, ResolveWeight(cfg, "unknown", model.VoteWeighted))
 }
 
 func TestParseWeightConfig_Fallback(t *testing.T) {

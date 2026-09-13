@@ -75,8 +75,9 @@ type RoleDetailResponse struct {
 
 // RoleUserResponse 角色下用户响应
 type RoleUserResponse struct {
-	ID       string `json:"id"`
-	Username string `json:"username"`
-	RealName string `json:"real_name"`
-	Status   int    `json:"status"`
+	DepartmentIDs []string `json:"department_ids"`
+	ID            string   `json:"id"`
+	Username      string   `json:"username"`
+	RealName      string   `json:"real_name"`
+	Status        int      `json:"status"`
 }

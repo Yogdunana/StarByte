@@ -85,7 +85,7 @@ func TestSeedDepartments_CharterLayout(t *testing.T) {
 func TestSeedRoles_OnlyTopRolesAreSystem(t *testing.T) {
 	for _, r := range seedRolesData {
 		switch r.Code {
-		case "super_admin", "president":
+		case "super_admin", "president", "user", "center_director", "probationary":
 			assert.True(t, r.IsSystem, "%s should be system", r.Code)
 		default:
 			assert.False(t, r.IsSystem, "%s should not be system", r.Code)

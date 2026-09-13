@@ -33,18 +33,30 @@ func (r *approverRepo) ByRole(ctx context.Context, role uuid.UUID) ([]uuid.UUID,
 	return result, err
 }
 func (r *approverRepo) ByRoleCode(ctx context.Context, code string, departmentID *uuid.UUID) ([]uuid.UUID, error) {
-	query := r.roleUsers(ctx).Where("r.code=?", code)
+	query := r.roleUsers(ctx)
+	if code == "standing_committee" {
+		query = query.Where("r.code IN ?", []string{"president", "vice_president", "center_director", "minister"})
+	} else if code == "center_director" {
+		query = query.Where("r.code IN ?", []string{"center_director", "vice_president"})
+	} else {
+		query = query.Where("r.code=?", code)
+	}
 	if departmentID != nil {
-		query = query.Where("u.department_id=?", *departmentID)
+		query = query.Where("EXISTS (SELECT 1 FROM user_role_departments s JOIN departments d ON d.id=s.department_id AND d.status=0 WHERE s.user_role_id=ur.id AND s.department_id=?) OR (NOT EXISTS (SELECT 1 FROM user_role_departments s WHERE s.user_role_id=ur.id) AND u.department_id=?)", *departmentID, *departmentID)
 	}
 	var result []uuid.UUID
 	err := query.Distinct().Order("u.id").Pluck("u.id", &result).Error
 	return result, err
 }
 func (r *approverRepo) DepartmentLeaders(ctx context.Context, initiator uuid.UUID) ([]uuid.UUID, error) {
-	var result []uuid.UUID
-	err := r.roleUsers(ctx).Where("r.code='minister' AND u.department_id=(SELECT department_id FROM users WHERE id=? AND deleted_at IS NULL)", initiator).Distinct().Order("u.id").Pluck("u.id", &result).Error
-	return result, err
+	var department *uuid.UUID
+	if err := r.db.WithContext(ctx).Table("users").Select("department_id").Where("id=? AND status=0 AND deleted_at IS NULL", initiator).Row().Scan(&department); err != nil {
+		return nil, err
+	}
+	if department == nil {
+		return []uuid.UUID{}, nil
+	}
+	return r.ByRoleCode(ctx, "minister", department)
 }
 
 func (r *approverRepo) Search(ctx context.Context, keyword string, exclude uuid.UUID) ([]model.ApproverOption, error) {

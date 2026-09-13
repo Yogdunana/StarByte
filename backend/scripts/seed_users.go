@@ -37,7 +37,7 @@ func seedUsers(db *gorm.DB) error {
 		SELECT uuid_generate_v4(), u.id, r.id
 		FROM users u
 		CROSS JOIN roles r
-		WHERE u.username = 'admin' AND r.code IN ('president', 'super_admin')
+		WHERE u.username = 'admin' AND r.code = 'super_admin'
 		ON CONFLICT (user_id, role_id) DO NOTHING
 	`).Error; err != nil {
 		return err

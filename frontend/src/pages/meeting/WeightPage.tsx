@@ -147,14 +147,9 @@ export default function WeightPage() {
                       <Form.Item
                         name={[field.name, 'weight']}
                         label={tx('权重')}
-                        rules={[{ required: true }, { type: 'number', min: 0.01, max: 999999.99 }]}
+                        rules={[{ required: true }, { type: 'number', min: 0, max: 999999.99 }]}
                       >
-                        <InputNumber
-                          min={0.01}
-                          max={999999.99}
-                          precision={2}
-                          style={{ width: 130 }}
-                        />
+                        <InputNumber min={0} max={999999.99} precision={2} style={{ width: 130 }} />
                       </Form.Item>
                       {canEdit && (
                         <Button
@@ -182,9 +177,9 @@ export default function WeightPage() {
             <Form.Item
               name="default_weight"
               label={tx('普通议题默认权重')}
-              rules={[{ required: true }, { type: 'number', min: 0.01, max: 999999.99 }]}
+              rules={[{ required: true }, { type: 'number', min: 0, max: 999999.99 }]}
             >
-              <InputNumber min={0.01} max={999999.99} precision={2} />
+              <InputNumber min={0} max={999999.99} precision={2} />
             </Form.Item>
             {canEdit && (
               <Button type="primary" htmlType="submit" loading={busy}>

@@ -93,7 +93,8 @@ const ReviewDrawer: React.FC<ReviewDrawerProps> = ({ open, record, mode, onClose
               <Descriptions.Item label={tx('审核意见')}>{record.review_comment}</Descriptions.Item>
             )}
           </Descriptions>
-          {record.workflow_key === 'member_application' ? (
+          {record.workflow_key === 'member_application' &&
+          record.admission_stage !== 'probation' ? (
             <EngineChainPanel record={record} editable={mode === 'review'} onChanged={onDone} />
           ) : (
             <>

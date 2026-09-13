@@ -35,7 +35,11 @@ func (n *ApprovalNode) resolveRoleAssignees(ctx context.Context, config map[stri
 		return nil, response.NewAppError(response.CodeWorkflowInvalidNode, "角色审批人解析器未配置")
 	}
 	if code, _ := config["roleCode"].(string); code != "" {
-		return n.Approvers.ByRoleCode(ctx, code, scopedDepartment(config, vars))
+		department := scopedDepartment(config, vars)
+		if required, _ := config["requireDepartment"].(bool); required && department == nil {
+			return nil, response.NewAppError(response.CodeWorkflowInvalidNode, "审批缺少部门或中心范围")
+		}
+		return n.Approvers.ByRoleCode(ctx, code, department)
 	}
 	role, _ := config["roleId"].(string)
 	id, err := uuid.Parse(role)
@@ -50,7 +54,11 @@ func scopedDepartment(config, vars map[string]interface{}) *uuid.UUID {
 	if !scoped || vars == nil {
 		return nil
 	}
-	raw, _ := vars["department_id"].(string)
+	key := "department_id"
+	if variable, _ := config["departmentVariable"].(string); variable != "" {
+		key = variable
+	}
+	raw, _ := vars[key].(string)
 	id, err := uuid.Parse(raw)
 	if err != nil {
 		return nil

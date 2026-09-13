@@ -143,7 +143,7 @@ func TestWeightedVoteUsesPosition(t *testing.T) {
 	require.NoError(t, err)
 	res, err := svc.VoteResult(context.Background(), vid)
 	require.NoError(t, err)
-	require.Equal(t, 5.0, res.TotalWeight)
+	require.Equal(t, 2.0, res.TotalWeight)
 }
 
 type denyManageAccess struct{}

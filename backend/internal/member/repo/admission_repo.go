@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	rbacrepo "github.com/Yogdunana/StarByte/backend/internal/rbac/repo"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -44,6 +45,10 @@ func (r *admissionRepo) Actor(ctx context.Context, id uuid.UUID) (*model.Admissi
 		return nil, err
 	}
 	err = r.db.WithContext(ctx).Table("user_roles ur").Select("r.code").Joins("JOIN roles r ON r.id = ur.role_id").Where("ur.user_id = ? AND r.status = 0 AND (ur.expired_at IS NULL OR ur.expired_at > NOW())", id).Pluck("r.code", &actor.Roles).Error
+	if err != nil {
+		return nil, err
+	}
+	actor.RoleDepartments, err = rbacrepo.LoadRoleDepartments(ctx, r.db, id)
 	return &actor, err
 }
 func (r *admissionRepo) ParentDepartment(ctx context.Context, id uuid.UUID) (*uuid.UUID, error) {

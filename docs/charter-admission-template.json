@@ -1,0 +1,118 @@
+{
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start",
+      "position": {
+        "x": 280,
+        "y": 20
+      },
+      "data": {
+        "label": "提交申请",
+        "config": {}
+      }
+    },
+    {
+      "id": "department_review",
+      "type": "approval",
+      "position": {
+        "x": 280,
+        "y": 160
+      },
+      "data": {
+        "label": "部门初审",
+        "config": {
+          "assigneeStrategy": "role",
+          "roleCode": "minister",
+          "approvalType": "any",
+          "departmentScope": true,
+          "requireDepartment": true,
+          "dueDays": 1,
+          "allowReject": true,
+          "allowTransfer": true
+        }
+      }
+    },
+    {
+      "id": "center_review",
+      "type": "approval",
+      "position": {
+        "x": 280,
+        "y": 300
+      },
+      "data": {
+        "label": "中心复审",
+        "config": {
+          "assigneeStrategy": "role",
+          "roleCode": "center_director",
+          "approvalType": "any",
+          "departmentScope": true,
+          "departmentVariable": "center_department_id",
+          "requireDepartment": true,
+          "dueDays": 1,
+          "allowReject": true,
+          "allowTransfer": true
+        }
+      }
+    },
+    {
+      "id": "committee",
+      "type": "approval",
+      "position": {
+        "x": 280,
+        "y": 440
+      },
+      "data": {
+        "label": "常委会会签",
+        "config": {
+          "assigneeStrategy": "role",
+          "roleCode": "standing_committee",
+          "approvalType": "all",
+          "dueDays": 1,
+          "allowReject": true,
+          "allowTransfer": false
+        }
+      }
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "position": {
+        "x": 280,
+        "y": 580
+      },
+      "data": {
+        "label": "结束",
+        "config": {}
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "start-department_review",
+      "source": "start",
+      "target": "department_review"
+    },
+    {
+      "id": "department_review-center_review",
+      "source": "department_review",
+      "target": "center_review"
+    },
+    {
+      "id": "center_review-committee",
+      "source": "center_review",
+      "target": "committee"
+    },
+    {
+      "id": "committee-end",
+      "source": "committee",
+      "target": "end"
+    }
+  ],
+  "viewport": {
+    "x": 0,
+    "y": 0,
+    "zoom": 1
+  },
+  "charterVersion": 1
+}

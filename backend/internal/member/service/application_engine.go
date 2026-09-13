@@ -44,6 +44,12 @@ func applicationVariables(app *model.MemberApplication) map[string]interface{} {
 
 func engineStageLabel(nodeID string) string {
 	switch nodeID {
+	case "department_review":
+		return "部门初审"
+	case "center_review":
+		return "中心复审"
+	case "committee":
+		return "常委会会签"
 	case "officer":
 		return engineStageOfficer
 	case "president":
@@ -73,6 +79,15 @@ func applyEngineOutcome(app *model.MemberApplication, action, nodeID string, com
 		return
 	}
 	if completed {
+		if app.CharterPolicy {
+			app.Status = model.AppApproved
+			app.AdmissionStage = model.AdmissionProbation
+			app.CurrentStage = "候补期"
+			until := calendarMonthLater(now)
+			app.ProbationUntil = &until
+			app.StageEnteredAt = now
+			return
+		}
 		app.Status = model.AppApproved
 		app.AdmissionStage = model.AdmissionApproved
 		app.CurrentStage = stageLabel(model.AppApproved)
@@ -217,6 +232,19 @@ func (s *admissionService) runEngineReview(
 	if err := engineReviewAccess(actor, app, parent, role, scoped, comment, s.now(), true); err != nil {
 		return nil, err
 	}
+	if app.CharterPolicy && app.Type == model.ApplicantOfficer && action == actionApprove && (nodeID == "department_review" || nodeID == "center_review") {
+		round := int16(1)
+		if nodeID == "center_review" {
+			round = 2
+		}
+		done, err := store.InterviewCompleted(ctx, app.ID, round, app.StageEnteredAt)
+		if err != nil {
+			return nil, err
+		}
+		if !done {
+			return nil, admissionDenied("请先完成相应轮次的面试")
+		}
+	}
 	from := app.Status
 	now := s.now()
 	if action == actionSupplement {
@@ -271,11 +299,20 @@ func (s *admissionService) admitFromEngine(ctx context.Context, tx *gorm.DB, app
 	if err := ensureActiveApplicant(ctx, tx, app.UserID); err != nil {
 		return err
 	}
+	if app.CharterPolicy {
+		if err := repo.NewAdmissionProfileRepo(tx).Capture(ctx, app.ID, app.UserID); err != nil {
+			return err
+		}
+	}
 	members := &memberService{apps: repo.NewApplicationRepo(tx), profs: repo.NewProfileRepo(tx)}
 	if err := members.ensureProfile(ctx, app); err != nil {
 		return err
 	}
-	if err := repo.NewAdmissionMaintenanceRepo(tx).GrantRole(ctx, app.UserID, membershipRole(app), app.DepartmentID); err != nil {
+	role := membershipRole(app)
+	if app.CharterPolicy {
+		role = "probationary"
+	}
+	if err := repo.NewAdmissionMaintenanceRepo(tx).GrantRole(ctx, app.UserID, role, app.DepartmentID); err != nil {
 		return err
 	}
 	return repo.NewAdmissionJobsRepo(tx).QueuePermissionRefresh(ctx, app.UserID)

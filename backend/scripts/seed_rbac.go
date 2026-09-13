@@ -15,6 +15,9 @@ type namedCode struct {
 }
 
 var seedRolesData = []namedCode{
+	{Name: "User", Code: "user", Description: "注册账号，尚未入会", Sort: 8, IsSystem: true},
+	{Name: "中心主任", Code: "center_director", Description: "中心负责人", Sort: 2, IsSystem: true},
+	{Name: "候补成员", Code: "probationary", Description: "候补期成员", Sort: 7, IsSystem: true},
 	{Name: "超级管理员", Code: "super_admin", Description: "系统内置超管", Sort: 0, IsSystem: true},
 	{Name: "社长", Code: "president", Description: "协会社长", Sort: 1, IsSystem: true},
 	{Name: "副社长", Code: "vice_president", Description: "协会副社长", Sort: 2},
@@ -192,7 +195,7 @@ func seedPositions(db *gorm.DB) error {
 			INSERT INTO positions (id, name, code, level, vote_weight, sort_order, status)
 			VALUES (uuid_generate_v4(), ?, ?, ?, ?, ?, 0)
 			ON CONFLICT (code) DO NOTHING`,
-			p.Name, p.Code, 10-i, float64(5-i), p.Sort,
+			p.Name, p.Code, 10-i, map[string]float64{"president": 2, "vice_president": 1, "center_director": 1, "minister": 0.5, "vice_minister": 0.5, "officer": 0.25}[p.Code], p.Sort,
 		).Error; err != nil {
 			return err
 		}
@@ -201,6 +204,13 @@ func seedPositions(db *gorm.DB) error {
 }
 
 func seedRolePermissions(db *gorm.DB) error {
+	if err := db.Exec(`INSERT INTO role_permissions(id,role_id,permission_id,data_scope)
+ SELECT uuid_generate_v4(),r.id,p.id,'department_and_sub' FROM roles r CROSS JOIN permissions p
+ WHERE r.code='center_director' AND (p.resource IN ('member','interview','interview_private','task','workflow','meeting') OR p.code IN ('user:read','department:read','position:read','announcement:read','doc:read','file:read'))
+ ON CONFLICT(role_id,permission_id) DO NOTHING`).Error; err != nil {
+		return err
+	}
+
 	if err := db.Exec(`
 		INSERT INTO role_permissions (id, role_id, permission_id, data_scope)
 		SELECT uuid_generate_v4(), r.id, p.id, 'all'
@@ -208,6 +218,7 @@ func seedRolePermissions(db *gorm.DB) error {
 		CROSS JOIN permissions p
 		WHERE r.code IN ('president', 'super_admin')
  AND (r.code = 'president' OR p.resource <> 'interview_private')
+ AND (r.code <> 'president' OR (p.resource NOT IN ('role','permission','config','cache','scheduler','monitor','backup','system','session') AND p.code NOT IN ('user:create','user:update','user:delete')))
 		ON CONFLICT (role_id, permission_id) DO NOTHING
 	`).Error; err != nil {
 		return fmt.Errorf("assign all perms to president: %w", err)

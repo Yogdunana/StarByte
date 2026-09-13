@@ -18,7 +18,7 @@ func TestElectorateUsesHighestConfiguredRoleOnce(t *testing.T) {
 	require.Len(t, rows, 2)
 	for _, row := range rows {
 		if row.UserID == first {
-			require.Equal(t, 5.0, row.Weight)
+			require.Equal(t, 2.0, row.Weight)
 		} else {
 			require.Equal(t, 2.0, row.Weight)
 		}
@@ -28,8 +28,19 @@ func TestElectorateUsesHighestConfiguredRoleOnce(t *testing.T) {
 	}
 }
 func TestInvalidWeightsFailClosed(t *testing.T) {
-	for _, raw := range []string{`{"weights":{"officer":-1},"default_weight":1}`, `{"weights":{"officer":0.001},"default_weight":1}`, `{"weights":{"vice_minister":2,"deputy":3},"default_weight":1}`, `{"weights":{},"default_weight":0}`} {
+	for _, raw := range []string{`{"weights":{"officer":-1},"default_weight":1}`, `{"weights":{"officer":0.001},"default_weight":1}`, `{"weights":{"vice_minister":2,"deputy":3},"default_weight":1}`, `{"weights":{},"default_weight":-1}`} {
 		_, err := parseWeightConfig(raw)
 		require.Error(t, err)
 	}
+}
+
+func TestCharterRoleOnlyWeightAndNoTechnicalVotes(t *testing.T) {
+	user, admin, member := uuid.New(), uuid.New(), uuid.New()
+	rows := buildElectorate(uuid.New(), []model.ElectorCandidate{{UserID: user, RoleCode: "president"}, {UserID: user, RoleCode: "minister"}, {UserID: user, RoleCode: "center_director"}, {UserID: admin, RoleCode: "super_admin"}, {UserID: member, RoleCode: "member"}}, DefaultWeightConfig(), model.VoteWeighted)
+	require.Len(t, rows, 1)
+	require.Equal(t, user, rows[0].UserID)
+	require.Equal(t, 2.0, rows[0].Weight)
+	cfg, err := parseWeightConfig(`{"weights":{"officer":0.25},"default_weight":0}`)
+	require.NoError(t, err)
+	require.Zero(t, cfg.DefaultWeight)
 }

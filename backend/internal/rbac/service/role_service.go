@@ -373,11 +373,16 @@ func (s *roleService) GetRoleUsers(ctx context.Context, id uuid.UUID, page, page
 
 	users := make([]dto.RoleUserResponse, 0, len(results))
 	for _, item := range results {
+		departments := []string{}
+		if err := s.db.WithContext(ctx).Table("user_role_departments s").Select("s.department_id::text").Joins("JOIN user_roles ur ON ur.id=s.user_role_id").Where("ur.user_id=? AND ur.role_id=?", item.ID, id).Scan(&departments).Error; err != nil {
+			return nil, 0, err
+		}
 		users = append(users, dto.RoleUserResponse{
-			ID:       item.ID,
-			Username: item.Username,
-			RealName: item.RealName,
-			Status:   item.Status,
+			DepartmentIDs: departments,
+			ID:            item.ID,
+			Username:      item.Username,
+			RealName:      item.RealName,
+			Status:        item.Status,
 		})
 	}
 

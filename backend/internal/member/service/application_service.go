@@ -95,7 +95,7 @@ func (s *memberService) Resubmit(ctx context.Context, userID, id uuid.UUID, req 
 }
 
 func (s *memberService) ListApplications(ctx context.Context, viewer uuid.UUID, req *dto.ListApplicationRequest, scope *rbacModel.DataScopeCondition) ([]*dto.ApplicationResponse, int64, error) {
-	rows, total, err := s.apps.List(ctx, req, rewriteScope(scope, "a", viewer))
+	rows, total, err := s.apps.List(ctx, req, applicationListScope(scope, viewer))
 	if err != nil {
 		return nil, 0, fmt.Errorf("list applications: %w", err)
 	}
@@ -110,7 +110,12 @@ func (s *memberService) GetApplication(ctx context.Context, viewer, id uuid.UUID
 	if row == nil {
 		return nil, response.NewError(response.CodeMemberAppNotFound, "申请不存在")
 	}
-	if row.UserID != viewer && !canAccessRecord(scope, row.UserID, row.DepartmentID, viewer) {
+	if row.UserID != viewer && !canAccessRecord(scope, row.UserID, approvalDepartment(&row.MemberApplication), viewer) {
+		if row.CharterPolicy && s.admission != nil {
+			if _, err := s.admission.Snapshot(ctx, viewer, id); err == nil {
+				return mapApplication(row), nil
+			}
+		}
 		return nil, response.NewError(response.CodeMemberProfileDenied, "无权查看该申请")
 	}
 	return mapApplication(row), nil
