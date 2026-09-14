@@ -155,6 +155,6 @@ func TestVerifyURLSanitizesOrigin(t *testing.T) {
 	require.Equal(t, "http://10.100.13.17/verify-email?token=abc", svc.verifyURL("https://user:pass@evil.example", "abc"))
 
 	open := New(nil, nil, "")
-	require.Equal(t, "http://10.100.13.17/verify-email?token=abc", open.verifyURL("http://10.100.13.17", "abc"))
+	require.Equal(t, "http://127.0.0.1/verify-email?token=abc", open.verifyURL("http://10.100.13.17", "abc"))
 	require.Equal(t, "http://127.0.0.1/verify-email?token=abc", open.verifyURL("https://attacker.example", "abc"))
 }
