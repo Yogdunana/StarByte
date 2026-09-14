@@ -122,9 +122,8 @@ func (s *authService) CompleteCASCallback(ctx context.Context, ticket, state, ip
 		return casFrontendError(rec.Origin, "locked_user"), nil
 	}
 	if s.activator != nil && !activation.Verified(user) {
-		if strings.TrimSpace(user.Email) != "" {
-			_ = s.activator.Start(ctx, user, rec.Origin)
-		}
+		// Do not Start() here: registration already sent the link, and Start has
+		// no resend throttle. The login page exposes rate-limited resend.
 		return casFrontendError(rec.Origin, "email_unverified"), nil
 	}
 	tokens, err := s.issueSession(ctx, user, ip, userAgent)

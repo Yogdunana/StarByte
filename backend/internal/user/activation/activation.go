@@ -66,6 +66,7 @@ func Verified(user *model.User) bool {
 }
 
 // Start creates a token and sends the activation mail. publicOrigin overrides the configured base when set.
+// A second call within resendInterval is a no-op so login/CAS retries cannot flood SMTP.
 func (s *Service) Start(ctx context.Context, user *model.User, publicOrigin string) error {
 	if user == nil {
 		return response.NewError(response.CodeUserNotFound, "用户不存在")
@@ -78,6 +79,13 @@ func (s *Service) Start(ctx context.Context, user *model.User, publicOrigin stri
 		return response.NewError(response.CodeBadRequest, "注册需要有效邮箱")
 	}
 	if Verified(user) {
+		return nil
+	}
+	latest, err := s.latestUnusedToken(ctx, user.ID)
+	if err != nil {
+		return err
+	}
+	if latest != nil && time.Since(latest.CreatedAt) < resendInterval {
 		return nil
 	}
 	raw, hash, err := newToken()
@@ -159,15 +167,26 @@ func (s *Service) Resend(ctx context.Context, identifier, publicOrigin string) e
 	if Verified(&user) {
 		return nil
 	}
-	var latest tokenRow
-	err = s.db.WithContext(ctx).Where("user_id = ? AND used_at IS NULL", user.ID).Order("created_at DESC").First(&latest).Error
-	if err == nil && time.Since(latest.CreatedAt) < resendInterval {
-		return response.NewError(response.CodeTooManyReq, "验证邮件发送过于频繁，请稍后再试")
-	}
-	if err != nil && err != gorm.ErrRecordNotFound {
+	latest, err := s.latestUnusedToken(ctx, user.ID)
+	if err != nil {
 		return err
 	}
+	if latest != nil && time.Since(latest.CreatedAt) < resendInterval {
+		return response.NewError(response.CodeTooManyReq, "验证邮件发送过于频繁，请稍后再试")
+	}
 	return s.Start(ctx, &user, publicOrigin)
+}
+
+func (s *Service) latestUnusedToken(ctx context.Context, userID uuid.UUID) (*tokenRow, error) {
+	var latest tokenRow
+	err := s.db.WithContext(ctx).Where("user_id = ? AND used_at IS NULL", userID).Order("created_at DESC").First(&latest).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &latest, nil
 }
 
 func (s *Service) verifyURL(publicOrigin, raw string) string {

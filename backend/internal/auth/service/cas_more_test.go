@@ -91,6 +91,8 @@ func TestCompleteCASCallback_EmailUnverified(t *testing.T) {
 	loc, err := svc.CompleteCASCallback(context.Background(), "ST", "st", "", "", "http://10.0.0.8")
 	require.NoError(t, err)
 	assert.Contains(t, loc, "email_unverified")
+	assert.NotContains(t, loc, "code=")
+	users.AssertNotCalled(t, "UpdateLastLogin", mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestCompleteCASCallback_LockedUser(t *testing.T) {

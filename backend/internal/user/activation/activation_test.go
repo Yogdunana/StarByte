@@ -78,6 +78,31 @@ func TestResendRateLimit(t *testing.T) {
 	require.Contains(t, mail.body, "http://override.test/verify-email?token=")
 }
 
+func TestStartIsIdempotentWithinInterval(t *testing.T) {
+	tx := testutil.OpenPostgres(t).Begin()
+	defer tx.Rollback()
+	user := &model.User{
+		ID: uuid.New(), Username: "idp-" + uuid.NewString()[:8],
+		PasswordHash: "x", Email: "idp@example.test", Status: 0,
+	}
+	require.NoError(t, tx.Create(user).Error)
+	mail := &countingMailer{}
+	svc := New(tx, mail, "http://example.test")
+	require.NoError(t, svc.Start(context.Background(), user, ""))
+	require.NoError(t, svc.Start(context.Background(), user, ""))
+	require.Equal(t, 1, mail.n)
+	var n int64
+	require.NoError(t, tx.Model(&tokenRow{}).Where("user_id = ?", user.ID).Count(&n).Error)
+	require.Equal(t, int64(1), n)
+}
+
+type countingMailer struct{ n int }
+
+func (c *countingMailer) Send(_ context.Context, _, _, _ string) error {
+	c.n++
+	return nil
+}
+
 func TestResendUnknownIdentifierIsSilent(t *testing.T) {
 	tx := testutil.OpenPostgres(t).Begin()
 	defer tx.Rollback()
