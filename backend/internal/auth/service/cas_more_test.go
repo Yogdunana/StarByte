@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/auth/dto"
+	"github.com/Yogdunana/StarByte/backend/internal/user/activation"
 	"github.com/Yogdunana/StarByte/backend/internal/user/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
@@ -76,6 +77,20 @@ func TestCompleteCASCallback_DisabledUser(t *testing.T) {
 	loc, err := svc.CompleteCASCallback(context.Background(), "ST", "st", "", "", "http://10.0.0.8")
 	require.NoError(t, err)
 	assert.Contains(t, loc, "disabled_user")
+}
+
+func TestCompleteCASCallback_EmailUnverified(t *testing.T) {
+	store := newMemCASStore()
+	require.NoError(t, store.PutState(context.Background(), "st", `{"origin":"http://10.0.0.8","service":"http://10.0.0.8/cb"}`, time.Minute))
+	users := &mockUserRepo{}
+	users.On("GetByIdentity", mock.Anything, identityTypeCAS, "u1").Return(&model.User{
+		ID: uuid.New(), Username: "u1", Email: "u1@example.test", Status: 0,
+	}, nil)
+	svc := casTestService(store, stubValidator{p: &CASPrincipal{User: "u1"}}, users)
+	svc.activator = activation.New(nil, nil, "")
+	loc, err := svc.CompleteCASCallback(context.Background(), "ST", "st", "", "", "http://10.0.0.8")
+	require.NoError(t, err)
+	assert.Contains(t, loc, "email_unverified")
 }
 
 func TestCompleteCASCallback_LockedUser(t *testing.T) {
@@ -159,6 +174,7 @@ func TestRegisterWithCASToken_CreateFailsKeepsToken(t *testing.T) {
 			CASUser:   "20217777",
 			StudentNo: "20217777",
 			RealName:  "钱七",
+			Email:     "qian@example.test",
 		},
 		Redirect: "/dashboard",
 	})
@@ -191,6 +207,7 @@ func TestRegisterWithCASToken_BindConflictRollsBackAndKeepsToken(t *testing.T) {
 			CASUser:   "20216666",
 			StudentNo: "20216666",
 			RealName:  "孙八",
+			Email:     "sun@example.test",
 		},
 		Redirect: "/dashboard",
 	})
@@ -230,6 +247,7 @@ func TestRegisterWithCASToken_EnsureStudentNoFailsRollsBackAndKeepsToken(t *test
 			CASUser:   "20215555",
 			StudentNo: "20215555",
 			RealName:  "周九",
+			Email:     "zhou@example.test",
 		},
 		Redirect: "/dashboard",
 	})
@@ -254,6 +272,32 @@ func TestRegisterWithCASToken_EnsureStudentNoFailsRollsBackAndKeepsToken(t *test
 	users.AssertCalled(t, "HardDelete", mock.Anything, mock.Anything)
 
 	raw, err := store.TakeCode(context.Background(), "reg-stu")
+	require.NoError(t, err)
+	assert.NotEmpty(t, raw)
+}
+
+func TestRegisterWithCASToken_RequiresEmail(t *testing.T) {
+	store := newMemCASStore()
+	pending, _ := json.Marshal(casExchangePayload{
+		Kind: casExchangeKindRegister,
+		Pending: &casPendingIdentity{
+			CASUser:   "20214444",
+			StudentNo: "20214444",
+			RealName:  "吴十",
+		},
+		Redirect: "/dashboard",
+	})
+	require.NoError(t, store.PutCode(context.Background(), "reg-mail", pending, time.Minute))
+	svc := casTestService(store, stubValidator{}, &mockUserRepo{})
+	svc.identity = &stubIdentity{}
+	_, err := svc.RegisterWithCASToken(context.Background(), &dto.CASRegisterRequest{
+		Token:    "reg-mail",
+		Username: "need_mail",
+		Password: "Passw0rd!",
+	}, "", "")
+	require.Error(t, err)
+	assert.Equal(t, response.CodeBadRequest, err.(*response.AppError).Code)
+	raw, err := store.TakeCode(context.Background(), "reg-mail")
 	require.NoError(t, err)
 	assert.NotEmpty(t, raw)
 }
@@ -292,6 +336,7 @@ func TestRegisterWithCASToken_RejectsUsernameTakenAsStudentNo(t *testing.T) {
 			CASUser:   "cas-bob",
 			StudentNo: "20214444",
 			RealName:  "李四",
+			Email:     "li@example.test",
 		},
 		Redirect: "/dashboard",
 	})
@@ -323,6 +368,7 @@ func TestRegisterWithCASToken_UsernameTakenKeepsToken(t *testing.T) {
 			CASUser:   "20218888",
 			StudentNo: "20218888",
 			RealName:  "赵六",
+			Email:     "zhao@example.test",
 		},
 		Redirect: "/dashboard",
 	})

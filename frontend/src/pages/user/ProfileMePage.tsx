@@ -50,7 +50,7 @@ const ProfileMePage: React.FC = () => {
         </Button>
       }
     >
-      <Descriptions column={2} bordered size="small">
+      <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
         <Descriptions.Item label={t('profile.name', '姓名')}>
           {dash(user?.real_name)}
         </Descriptions.Item>

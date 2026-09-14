@@ -61,10 +61,15 @@ const CasCallback: React.FC = () => {
           navigate('/register/cas', { replace: true });
           return;
         }
+        if (result.needs_email_verification || !result.access_token) {
+          message.success(t('login.needsVerification'));
+          navigate('/login', { replace: true });
+          return;
+        }
         dispatch(
           setToken({
             accessToken: result.access_token,
-            refreshToken: result.refresh_token,
+            refreshToken: result.refresh_token ?? '',
           }),
         );
         await dispatch(fetchCurrentUser()).unwrap();

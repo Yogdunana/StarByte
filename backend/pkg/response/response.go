@@ -311,11 +311,11 @@ func httpStatusFromCode(code int) int {
 		return http.StatusBadRequest
 	case CodeUnauthorized, CodeMonitorWSAuthFail, CodeNotificationWSAuthFail, CodeKnowledgeLoginRequired:
 		return http.StatusUnauthorized
-	case CodeForbidden, CodeWorkflowTaskNoAccess, CodeVoteNoAccess, CodeVoteResultPending, CodeMeetingNotAttendee, CodeTaskNoAccess, CodeScheduleNoAccess, CodeCalendarNoAccess, CodeLeaveNoAccess, CodeMonitorWSForbidden, CodeKnowledgeNoAccess, CodeFeatureDisabled:
+	case CodeForbidden, CodeWorkflowTaskNoAccess, CodeVoteNoAccess, CodeVoteResultPending, CodeMeetingNotAttendee, CodeTaskNoAccess, CodeScheduleNoAccess, CodeCalendarNoAccess, CodeLeaveNoAccess, CodeMonitorWSForbidden, CodeKnowledgeNoAccess, CodeFeatureDisabled, CodeEmailUnverified:
 		return http.StatusForbidden
 	case CodeNotFound, CodeScheduleNotFound, CodeCalendarNotFound, CodeScheduleAttendeeGone, CodeLeaveNotFound, CodeLeaveTypeNotFound, CodeBackupNotFound, CodeKnowledgeNotFound, CodeFeatureNotFound, CodeFeatureNoRollback:
 		return http.StatusNotFound
-	case CodeConflict, CodeBackupBusy, CodeKnowledgeConflict:
+	case CodeConflict, CodeBackupBusy, CodeKnowledgeConflict, CodeUserExists, CodeMemberStudentExists:
 		return http.StatusConflict
 	case CodeTooManyReq, CodeRateLimited:
 		return http.StatusTooManyRequests

@@ -20,14 +20,14 @@ func seedUsers(db *gorm.DB) error {
 	if err := db.Exec(`
 		INSERT INTO users (id, username, password_hash, real_name, email, status)
 		VALUES (uuid_generate_v4(), 'admin', ?, '管理员', 'admin@starbyte.local', 0)
-		ON CONFLICT (username) DO NOTHING
+		ON CONFLICT (username) WHERE deleted_at IS NULL DO NOTHING
 	`, adminHash).Error; err != nil {
 		return err
 	}
 	if err := db.Exec(`
 		INSERT INTO users (id, username, password_hash, real_name, email, status)
 		VALUES (uuid_generate_v4(), 'test', ?, '测试会员', 'test@starbyte.local', 0)
-		ON CONFLICT (username) DO NOTHING
+		ON CONFLICT (username) WHERE deleted_at IS NULL DO NOTHING
 	`, testHash).Error; err != nil {
 		return err
 	}

@@ -62,10 +62,15 @@ const CasRegister: React.FC = () => {
         email: values.email,
       });
       clearCASRegisterDraft();
+      if (result.needs_email_verification || !result.access_token) {
+        message.success(t('login.needsVerification'));
+        navigate('/login', { replace: true });
+        return;
+      }
       dispatch(
         setToken({
           accessToken: result.access_token,
-          refreshToken: result.refresh_token,
+          refreshToken: result.refresh_token ?? '',
         }),
       );
       await dispatch(fetchCurrentUser()).unwrap();
@@ -130,7 +135,10 @@ const CasRegister: React.FC = () => {
             <Form.Item
               name="email"
               label={t('login.email')}
-              rules={[{ type: 'email', message: t('login.emailInvalid') }]}
+              rules={[
+                { required: true, message: t('login.emailRequired') },
+                { type: 'email', message: t('login.emailInvalid') },
+              ]}
             >
               <Input prefix={<MailOutlined />} placeholder={t('login.email')} />
             </Form.Item>

@@ -38,7 +38,7 @@ func seedWorkflowUser(t *testing.T, db *gorm.DB) uuid.UUID {
 	id := uuid.New()
 	require.NoError(t, db.Exec(
 		`INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)
-		 ON CONFLICT (username) DO NOTHING`,
+		 ON CONFLICT (username) WHERE deleted_at IS NULL DO NOTHING`,
 		id, name, "x",
 	).Error)
 	var idStr string

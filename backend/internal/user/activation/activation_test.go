@@ -1,0 +1,102 @@
+package activation
+
+import (
+	"context"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/Yogdunana/StarByte/backend/internal/user/model"
+	"github.com/Yogdunana/StarByte/backend/pkg/response"
+	"github.com/Yogdunana/StarByte/backend/pkg/testutil"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+)
+
+type captureMailer struct {
+	to, subject, body string
+	err               error
+}
+
+func (c *captureMailer) Send(_ context.Context, to, subject, htmlBody string) error {
+	c.to, c.subject, c.body = to, subject, htmlBody
+	return c.err
+}
+
+func TestStartConfirmAndLoginGate(t *testing.T) {
+	tx := testutil.OpenPostgres(t).Begin()
+	defer tx.Rollback()
+	user := &model.User{
+		ID: uuid.New(), Username: "act-" + uuid.NewString()[:8],
+		PasswordHash: "x", Email: "act@example.test", Status: 0,
+	}
+	require.NoError(t, tx.Create(user).Error)
+	mail := &captureMailer{}
+	svc := New(tx, mail, "http://10.100.13.17")
+	require.False(t, Verified(user))
+	require.NoError(t, svc.Start(context.Background(), user, ""))
+	require.Equal(t, "act@example.test", mail.to)
+	require.Contains(t, mail.body, "http://10.100.13.17/verify-email?token=")
+	raw := tokenFromBody(t, mail.body)
+	require.NoError(t, svc.Confirm(context.Background(), raw))
+	var got model.User
+	require.NoError(t, tx.First(&got, "id = ?", user.ID).Error)
+	require.True(t, Verified(&got))
+	require.Error(t, svc.Confirm(context.Background(), raw))
+}
+
+func TestStartRequiresMailerAndEmail(t *testing.T) {
+	svc := New(nil, nil, "")
+	err := svc.Start(context.Background(), &model.User{Email: "a@b.c"}, "")
+	require.Error(t, err)
+	require.Equal(t, response.CodeNotificationEmailFail, err.(*response.AppError).Code)
+	tx := testutil.OpenPostgres(t).Begin()
+	defer tx.Rollback()
+	mail := &captureMailer{}
+	ready := New(tx, mail, "http://example.test")
+	err = ready.Start(context.Background(), &model.User{ID: uuid.New(), Email: ""}, "")
+	require.Error(t, err)
+	require.Equal(t, response.CodeBadRequest, err.(*response.AppError).Code)
+}
+
+func TestResendRateLimit(t *testing.T) {
+	tx := testutil.OpenPostgres(t).Begin()
+	defer tx.Rollback()
+	user := &model.User{
+		ID: uuid.New(), Username: "rsd-" + uuid.NewString()[:8],
+		PasswordHash: "x", Email: "rsd@example.test", Status: 0,
+	}
+	require.NoError(t, tx.Create(user).Error)
+	mail := &captureMailer{}
+	svc := New(tx, mail, "http://example.test")
+	require.NoError(t, svc.Start(context.Background(), user, ""))
+	err := svc.Resend(context.Background(), user.Email, "")
+	require.Error(t, err)
+	require.Equal(t, response.CodeTooManyReq, err.(*response.AppError).Code)
+	require.NoError(t, tx.Model(&tokenRow{}).Where("user_id = ?", user.ID).Update("created_at", time.Now().Add(-2*time.Minute)).Error)
+	require.NoError(t, svc.Resend(context.Background(), user.Username, "http://override.test"))
+	require.Contains(t, mail.body, "http://override.test/verify-email?token=")
+}
+
+func TestResendUnknownIdentifierIsSilent(t *testing.T) {
+	tx := testutil.OpenPostgres(t).Begin()
+	defer tx.Rollback()
+	mail := &captureMailer{}
+	svc := New(tx, mail, "http://example.test")
+	require.NoError(t, svc.Resend(context.Background(), "nobody@example.test", ""))
+	require.Empty(t, mail.to)
+}
+
+func tokenFromBody(t *testing.T, body string) string {
+	t.Helper()
+	const marker = "token="
+	i := strings.Index(body, marker)
+	require.GreaterOrEqual(t, i, 0)
+	raw := body[i+len(marker):]
+	if j := strings.IndexAny(raw, `"<> \n`); j >= 0 {
+		raw = raw[:j]
+	}
+	raw = strings.TrimSpace(raw)
+	require.NotEmpty(t, raw)
+	return raw
+}

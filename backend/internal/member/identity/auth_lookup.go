@@ -94,6 +94,8 @@ func (l *Lookup) EnsureStudentNo(ctx context.Context, userID uuid.UUID, studentN
 			StudentNo:  studentNo,
 			MemberType: model.MemberTypeMember,
 			Status:     model.ProfileActive,
+			Skills:     model.JSONStrings{},
+			Projects:   model.JSONProjects{},
 		})
 	}
 	changed := false

@@ -1,23 +1,47 @@
 package model
 
 import (
+	"context"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // JSONStrings 技能等字符串数组，落库 jsonb。
 type JSONStrings []string
 
-func (j JSONStrings) Value() (driver.Value, error) {
-	if j == nil {
+func jsonbArrayValue(payload interface{}) (driver.Value, error) {
+	if payload == nil {
 		return "[]", nil
 	}
-	b, err := json.Marshal(j)
+	b, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
 	}
+	if len(b) == 0 || string(b) == "null" {
+		return "[]", nil
+	}
 	return string(b), nil
+}
+
+func jsonbArrayExpr(payload interface{}) clause.Expr {
+	v, err := jsonbArrayValue(payload)
+	if err != nil {
+		return clause.Expr{SQL: "'[]'::jsonb"}
+	}
+	return clause.Expr{SQL: "?::jsonb", Vars: []interface{}{v}}
+}
+
+func (j JSONStrings) Value() (driver.Value, error) {
+	return jsonbArrayValue(j)
+}
+
+// GormValue forces GORM to persist [] instead of NULL for a zero slice.
+func (j JSONStrings) GormValue(context.Context, *gorm.DB) clause.Expr {
+	return jsonbArrayExpr(j)
 }
 
 func (j *JSONStrings) Scan(value interface{}) error {
@@ -43,14 +67,12 @@ type ProjectItem struct {
 type JSONProjects []ProjectItem
 
 func (j JSONProjects) Value() (driver.Value, error) {
-	if j == nil {
-		return "[]", nil
-	}
-	b, err := json.Marshal(j)
-	if err != nil {
-		return nil, err
-	}
-	return string(b), nil
+	return jsonbArrayValue(j)
+}
+
+// GormValue forces GORM to persist [] instead of NULL for a zero slice.
+func (j JSONProjects) GormValue(context.Context, *gorm.DB) clause.Expr {
+	return jsonbArrayExpr(j)
 }
 
 func (j *JSONProjects) Scan(value interface{}) error {

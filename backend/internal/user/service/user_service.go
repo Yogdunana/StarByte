@@ -7,6 +7,7 @@ import (
 	"time"
 
 	rbacmodel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
+	"github.com/Yogdunana/StarByte/backend/internal/user/activation"
 	"github.com/Yogdunana/StarByte/backend/internal/user/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/user/model"
 	"github.com/Yogdunana/StarByte/backend/internal/user/repo"
@@ -20,7 +21,7 @@ import (
 // UserService 用户服务接口
 type UserService interface {
 	// 认证相关
-	Register(ctx context.Context, req *dto.RegisterRequest) (*model.User, error)
+	Register(ctx context.Context, req *dto.RegisterRequest, publicOrigin string) (*model.User, error)
 	ChangePassword(ctx context.Context, userID string, req *dto.ChangePasswordRequest) error
 
 	// 用户管理
@@ -37,20 +38,25 @@ type userService struct {
 	db        *gorm.DB
 	userRepo  repo.UserRepo
 	jwtConfig *config.JWTConfig
+	activator *activation.Service
 }
 
-// NewUserService 创建用户服务
-func NewUserService(db *gorm.DB, userRepo repo.UserRepo, jwtConfig *config.JWTConfig) UserService {
+// NewUserService 创建用户服务。activator 可为 nil（测试或不发信）。
+func NewUserService(db *gorm.DB, userRepo repo.UserRepo, jwtConfig *config.JWTConfig, activator *activation.Service) UserService {
 	return &userService{
 		db:        db,
 		userRepo:  userRepo,
 		jwtConfig: jwtConfig,
+		activator: activator,
 	}
 }
 
 // ========== 认证相关 ==========
 
-func (s *userService) Register(ctx context.Context, req *dto.RegisterRequest) (*model.User, error) {
+func (s *userService) Register(ctx context.Context, req *dto.RegisterRequest, publicOrigin string) (*model.User, error) {
+	if strings.TrimSpace(req.Email) == "" {
+		return nil, response.NewError(response.CodeBadRequest, "注册需要有效邮箱")
+	}
 	// 检查用户名是否已存在
 	existing, err := s.userRepo.GetByUsername(ctx, req.Username)
 	if err != nil {
@@ -90,6 +96,13 @@ func (s *userService) Register(ctx context.Context, req *dto.RegisterRequest) (*
 
 	if err != nil {
 		return nil, err
+	}
+
+	if s.activator != nil {
+		if err := s.activator.Start(ctx, user, publicOrigin); err != nil {
+			_ = s.userRepo.HardDelete(ctx, user.ID)
+			return nil, err
+		}
 	}
 
 	return user, nil
@@ -212,12 +225,13 @@ func (s *userService) Create(ctx context.Context, req *dto.CreateUserRequest) (*
 	}
 
 	user := &model.User{
-		ID:           uuid.New(),
-		Username:     req.Username,
-		PasswordHash: passwordHash,
-		RealName:     req.RealName,
-		Email:        req.Email,
-		Phone:        req.Phone,
+		ID:              uuid.New(),
+		Username:        req.Username,
+		PasswordHash:    passwordHash,
+		RealName:        req.RealName,
+		Email:           req.Email,
+		Phone:           req.Phone,
+		EmailVerifiedAt: timePtr(time.Now()),
 	}
 	if req.Gender != nil {
 		user.Gender = *req.Gender
@@ -347,3 +361,5 @@ func formatTimePtr(t *time.Time) string {
 	}
 	return t.Format(time.RFC3339)
 }
+
+func timePtr(t time.Time) *time.Time { return &t }

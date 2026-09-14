@@ -9,22 +9,24 @@ import (
 
 // User 用户模型
 type User struct {
-	ID           uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
-	Username     string         `gorm:"type:varchar(50);uniqueIndex;not null" json:"username"`
-	PasswordHash string         `gorm:"type:varchar(255);not null" json:"-"`
-	RealName     string         `gorm:"type:varchar(50)" json:"real_name"`
-	AvatarURL    string         `gorm:"type:varchar(500)" json:"avatar_url"`
-	Email        string         `gorm:"type:varchar(100)" json:"email"`
-	Phone        string         `gorm:"type:varchar(20)" json:"phone"`
-	Gender       int            `gorm:"type:smallint;default:0" json:"gender"`       // 0=未知 1=男 2=女
-	Status       int            `gorm:"type:smallint;default:0;index" json:"status"` // 0=正常 1=禁用 2=锁定
-	DepartmentID *uuid.UUID     `gorm:"type:uuid;index" json:"department_id"`
-	PositionID   *uuid.UUID     `gorm:"type:uuid" json:"position_id"`
-	LastLoginAt  *time.Time     `json:"last_login_at"`
-	LastLoginIP  string         `gorm:"type:varchar(50)" json:"last_login_ip"`
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
-	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
+	ID uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
+	// Uniqueness is uk_users_username_live (live rows only); see 000074.
+	Username        string         `gorm:"type:varchar(50);not null" json:"username"`
+	PasswordHash    string         `gorm:"type:varchar(255);not null" json:"-"`
+	RealName        string         `gorm:"type:varchar(50)" json:"real_name"`
+	AvatarURL       string         `gorm:"type:varchar(500)" json:"avatar_url"`
+	Email           string         `gorm:"type:varchar(100)" json:"email"`
+	Phone           string         `gorm:"type:varchar(20)" json:"phone"`
+	Gender          int            `gorm:"type:smallint;default:0" json:"gender"`       // 0=未知 1=男 2=女
+	Status          int            `gorm:"type:smallint;default:0;index" json:"status"` // 0=正常 1=禁用 2=锁定
+	DepartmentID    *uuid.UUID     `gorm:"type:uuid;index" json:"department_id"`
+	PositionID      *uuid.UUID     `gorm:"type:uuid" json:"position_id"`
+	LastLoginAt     *time.Time     `json:"last_login_at"`
+	LastLoginIP     string         `gorm:"type:varchar(50)" json:"last_login_ip"`
+	EmailVerifiedAt *time.Time     `json:"email_verified_at"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
+	DeletedAt       gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 // TableName 表名

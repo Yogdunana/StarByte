@@ -83,6 +83,10 @@ func (s casStubService) ExchangeCASCode(context.Context, string) (*dto.CASExchan
 func (s casStubService) RegisterWithCASToken(context.Context, *dto.CASRegisterRequest, string, string) (*dto.CASExchangeResponse, error) {
 	return s.ex, s.err
 }
+func (s casStubService) VerifyEmail(context.Context, string) error { return s.err }
+func (s casStubService) ResendVerification(context.Context, string, string) error {
+	return s.err
+}
 
 func TestCASLogin_Redirect(t *testing.T) {
 	h := NewAuthHandler(casStubService{

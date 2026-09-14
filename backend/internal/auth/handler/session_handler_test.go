@@ -56,6 +56,10 @@ func (s *sessionStub) ExchangeCASCode(context.Context, string) (*dto.CASExchange
 func (s *sessionStub) RegisterWithCASToken(context.Context, *dto.CASRegisterRequest, string, string) (*dto.CASExchangeResponse, error) {
 	return nil, nil
 }
+func (s *sessionStub) VerifyEmail(context.Context, string) error { return nil }
+func (s *sessionStub) ResendVerification(context.Context, string, string) error {
+	return nil
+}
 
 func TestListSessions_OK(t *testing.T) {
 	h := NewAuthHandler(&sessionStub{list: &dto.SessionListResponse{List: []dto.SessionView{{TokenID: "j1"}}, Total: 1}})

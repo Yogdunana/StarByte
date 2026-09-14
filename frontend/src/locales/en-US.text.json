@@ -1608,5 +1608,8 @@
   "部门初审": "Department review",
   "默认权重须为非负数，最多两位小数，且不大于 999999.99": "Default weight must be nonnegative, at most 999999.99, with up to two decimal places",
   "审批进度暂不可用": "Approval progress is temporarily unavailable",
-  "超级管理员": "System administrator"
+  "超级管理员": "System administrator",
+  "激活账号": "Activate account",
+  "请先验证邮箱后再登录": "Verify your email before signing in",
+  "验证链接无效或已过期": "This activation link is invalid or has expired"
 }

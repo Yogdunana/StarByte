@@ -37,6 +37,14 @@ func NewProfileRepo(db *gorm.DB) ProfileRepo {
 }
 
 func (r *profileRepo) Create(ctx context.Context, p *model.MemberProfile) error {
+	if p != nil {
+		if p.Skills == nil {
+			p.Skills = model.JSONStrings{}
+		}
+		if p.Projects == nil {
+			p.Projects = model.JSONProjects{}
+		}
+	}
 	return r.db.WithContext(ctx).Create(p).Error
 }
 
@@ -104,9 +112,11 @@ func (r *profileRepo) GetByStudentNo(ctx context.Context, studentNo string, excl
 	if studentNo == "" {
 		return nil, nil
 	}
-	q := r.db.WithContext(ctx).Where("student_no = ?", studentNo)
+	q := r.db.WithContext(ctx).Table("member_profiles AS p").Select("p.*").
+		Joins("JOIN users u ON u.id = p.user_id AND u.deleted_at IS NULL").
+		Where("p.student_no = ?", studentNo)
 	if excludeID != nil {
-		q = q.Where("id <> ?", *excludeID)
+		q = q.Where("p.id <> ?", *excludeID)
 	}
 	var p model.MemberProfile
 	err := q.First(&p).Error

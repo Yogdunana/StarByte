@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/Yogdunana/StarByte/backend/internal/user/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/user/service"
@@ -38,15 +39,17 @@ func (h *UserHandler) Register(c *gin.Context) {
 		return
 	}
 
-	user, err := h.userService.Register(c.Request.Context(), &req)
+	user, err := h.userService.Register(c.Request.Context(), &req, registerPublicOrigin(c))
 	if err != nil {
 		response.Error(c, err)
 		return
 	}
 
 	response.OK(c, gin.H{
-		"id":       user.ID.String(),
-		"username": user.Username,
+		"id":                       user.ID.String(),
+		"username":                 user.Username,
+		"email":                    user.Email,
+		"needs_email_verification": true,
 	})
 }
 
@@ -291,4 +294,26 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	}
 
 	response.OKWithoutData(c)
+}
+
+func registerPublicOrigin(c *gin.Context) string {
+	if c == nil || c.Request == nil {
+		return ""
+	}
+	proto := strings.TrimSpace(c.GetHeader("X-Forwarded-Proto"))
+	if i := strings.Index(proto, ","); i >= 0 {
+		proto = strings.TrimSpace(proto[:i])
+	}
+	if proto == "" {
+		if c.Request.TLS != nil {
+			proto = "https"
+		} else {
+			proto = "http"
+		}
+	}
+	host := strings.TrimSpace(c.Request.Host)
+	if proto == "" || host == "" {
+		return ""
+	}
+	return proto + "://" + host
 }

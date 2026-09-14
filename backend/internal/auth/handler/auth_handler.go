@@ -322,7 +322,7 @@ func (h *AuthHandler) CASExchange(c *gin.Context) {
 
 // CASRegister handles POST /api/v1/auth/cas/register
 // @Summary 用 CAS 续传凭证注册并绑定学号
-// @Description 校验一次性 registration_token 后创建本地账号、写入学号并绑定 CAS 身份，返回 JWT
+// @Description 校验一次性 registration_token 后创建本地账号、写入学号并绑定 CAS 身份；须验证邮箱后才能登录
 // @Tags 认证
 // @Accept json
 // @Produce json
@@ -352,6 +352,58 @@ func (h *AuthHandler) CASRegister(c *gin.Context) {
 		return
 	}
 	response.OK(c, result)
+}
+
+func (h *AuthHandler) VerifyEmail(c *gin.Context) {
+	if h.authService == nil {
+		response.Error(c, response.NewError(response.CodeNotificationEmailFail, "邮件服务未配置"))
+		return
+	}
+	token := strings.TrimSpace(c.Query("token"))
+	if token == "" {
+		var req struct {
+			Token string `json:"token"`
+		}
+		_ = c.ShouldBindJSON(&req)
+		token = strings.TrimSpace(req.Token)
+	}
+	if token == "" {
+		response.BadRequest(c, "缺少验证令牌")
+		return
+	}
+	if err := h.authService.VerifyEmail(c.Request.Context(), token); err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.OK(c, gin.H{"verified": true})
+}
+
+func (h *AuthHandler) ResendVerification(c *gin.Context) {
+	if h.authService == nil {
+		response.Error(c, response.NewError(response.CodeNotificationEmailFail, "邮件服务未配置"))
+		return
+	}
+	var req struct {
+		Identifier string `json:"identifier"`
+		Email      string `json:"email"`
+		Username   string `json:"username"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+	identifier := strings.TrimSpace(req.Identifier)
+	if identifier == "" {
+		identifier = strings.TrimSpace(req.Email)
+	}
+	if identifier == "" {
+		identifier = strings.TrimSpace(req.Username)
+	}
+	if err := h.authService.ResendVerification(c.Request.Context(), identifier, requestPublicOrigin(c)); err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.OKWithoutData(c)
 }
 
 // RegisterRoutes registers all authentication routes.
@@ -389,6 +441,9 @@ func RegisterRoutes(
 				authGroup.POST("/cas/exchange", handler.CASExchange)
 				authGroup.POST("/cas/register", handler.CASRegister)
 			}
+			authGroup.POST("/verify-email", handler.VerifyEmail)
+			authGroup.GET("/verify-email", handler.VerifyEmail)
+			authGroup.POST("/resend-verification", handler.ResendVerification)
 		}
 	}
 

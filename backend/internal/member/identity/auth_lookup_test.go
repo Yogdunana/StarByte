@@ -125,6 +125,10 @@ func TestLookup_EnsureStudentNo_CreatesProfile(t *testing.T) {
 		assert.Equal(t, userID, p.UserID)
 		assert.Equal(t, "20219999", p.StudentNo)
 		assert.Equal(t, "王五", p.RealName)
+		assert.NotNil(t, p.Skills)
+		assert.Len(t, p.Skills, 0)
+		assert.NotNil(t, p.Projects)
+		assert.Len(t, p.Projects, 0)
 	})
 
 	err := lookup.EnsureStudentNo(ctx, userID, "20219999", "王五")
