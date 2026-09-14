@@ -16,6 +16,7 @@ import PermissionRoute from '@/router/guards/PermissionRoute';
 const Login = lazy(() => import('@/pages/login/Login'));
 const CasCallback = lazy(() => import('@/pages/login/CasCallback'));
 const CasRegister = lazy(() => import('@/pages/login/CasRegister'));
+const VerifyEmail = lazy(() => import('@/pages/login/VerifyEmail'));
 const Dashboard = lazy(() => import('@/pages/dashboard/Dashboard'));
 const BigScreenPage = lazy(() => import('@/pages/dashboard/bigscreen/BigScreenPage'));
 const UserList = lazy(() => import('@/pages/user/UserList'));
@@ -164,6 +165,17 @@ const routes: AppRouteObject[] = [
     meta: {
       get title() {
         return tx('绑定账号');
+      },
+      public: true,
+      hidden: true,
+    },
+  },
+  {
+    path: '/verify-email',
+    element: lazyWrap(VerifyEmail),
+    meta: {
+      get title() {
+        return tx('激活账号');
       },
       public: true,
       hidden: true,

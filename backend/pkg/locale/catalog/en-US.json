@@ -2279,5 +2279,8 @@
   "请选择任职部门或中心": "Select the appointed department or center",
   "部长请选择部门，主任或副会长请选择中心": "Select departments for ministers and centers for directors or vice presidents",
   "部门初审": "Department review",
-  "默认权重须为非负数，最多两位小数，且不大于 999999.99": "Default weight must be nonnegative, at most 999999.99, with up to two decimal places"
+  "默认权重须为非负数，最多两位小数，且不大于 999999.99": "Default weight must be nonnegative, at most 999999.99, with up to two decimal places",
+  "激活你的 StarByte 账号": "Activate your StarByte account",
+  "请点击以下链接激活账号后登录：": "Click the link below to activate your account, then sign in:",
+  "激活链接 24 小时内有效。若非本人操作请忽略此邮件。": "This activation link is valid for 24 hours. If you did not request it, ignore this email."
 }

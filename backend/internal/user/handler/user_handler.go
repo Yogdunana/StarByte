@@ -5,6 +5,7 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/user/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/user/service"
+	"github.com/Yogdunana/StarByte/backend/pkg/httpx"
 	authmiddleware "github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/gin-gonic/gin"
@@ -38,15 +39,17 @@ func (h *UserHandler) Register(c *gin.Context) {
 		return
 	}
 
-	user, err := h.userService.Register(c.Request.Context(), &req)
+	user, err := h.userService.Register(c.Request.Context(), &req, registerPublicOrigin(c))
 	if err != nil {
 		response.Error(c, err)
 		return
 	}
 
 	response.OK(c, gin.H{
-		"id":       user.ID.String(),
-		"username": user.Username,
+		"id":                       user.ID.String(),
+		"username":                 user.Username,
+		"email":                    user.Email,
+		"needs_email_verification": true,
 	})
 }
 
@@ -291,4 +294,11 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	}
 
 	response.OKWithoutData(c)
+}
+
+func registerPublicOrigin(c *gin.Context) string {
+	if c == nil {
+		return ""
+	}
+	return httpx.RequestOrigin(c.Request)
 }

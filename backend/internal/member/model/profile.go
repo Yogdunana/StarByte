@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // 人员类型
@@ -37,8 +38,8 @@ type MemberProfile struct {
 	Status       int16        `gorm:"type:smallint;not null;default:0;index" json:"status"`
 	JoinDate     *time.Time   `json:"join_date"`
 	LeaveDate    *time.Time   `json:"leave_date"`
-	Skills       JSONStrings  `gorm:"type:jsonb" json:"skills"`
-	Projects     JSONProjects `gorm:"type:jsonb" json:"projects"`
+	Skills       JSONStrings  `gorm:"type:jsonb;not null;default:[]" json:"skills"`
+	Projects     JSONProjects `gorm:"type:jsonb;not null;default:[]" json:"projects"`
 	Bio          string       `gorm:"type:text" json:"bio"`
 	ContactPhone string       `gorm:"type:varchar(20)" json:"contact_phone"`
 	ContactEmail string       `gorm:"type:varchar(100)" json:"contact_email"`
@@ -49,6 +50,20 @@ type MemberProfile struct {
 
 func (MemberProfile) TableName() string {
 	return "member_profiles"
+}
+
+// BeforeCreate keeps jsonb arrays as [] so GORM never writes NULL.
+func (p *MemberProfile) BeforeCreate(*gorm.DB) error {
+	if p == nil {
+		return nil
+	}
+	if p.Skills == nil {
+		p.Skills = JSONStrings{}
+	}
+	if p.Projects == nil {
+		p.Projects = JSONProjects{}
+	}
+	return nil
 }
 
 // ProfileHistory 档案字段级变更。

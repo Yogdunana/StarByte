@@ -76,6 +76,8 @@ const (
 	CodePasswordTooWeak     = 2012 // 密码强度不足
 	CodeOldPasswordWrong    = 2013 // 原密码错误
 	CodeAccountLocked       = 2014 // 登录失败次数过多，账号已被锁定
+	CodeEmailUnverified     = 2015 // 邮箱尚未验证，不能登录
+	CodeEmailVerifyInvalid  = 2016 // 验证链接无效或已过期
 
 	// ===== RBAC module (3000-3999) =====
 	// (defined in internal/rbac/errors.go, range 3001-3020)

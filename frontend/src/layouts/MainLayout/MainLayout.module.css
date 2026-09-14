@@ -1,5 +1,7 @@
 .shell {
   min-height: 100dvh;
+  min-width: 0;
+  overflow-x: clip;
   background: var(--sb-bg);
 }
 .sidebar {

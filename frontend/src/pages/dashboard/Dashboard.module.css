@@ -1,7 +1,7 @@
 .page { min-width: 0; }
 .date { font-size: 12px; font-weight: var(--sb-weight-meta); color: var(--sb-muted); margin-right: 8px; }
 .alert { margin-bottom: var(--sb-space-5); }
-.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sb-space-4); margin-bottom: var(--sb-space-6); }
+.metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sb-space-4); margin-bottom: var(--sb-space-6); }
 .metricCell { min-width: 0; }
 .metricCell .metric { height: 100%; }
 .approvalCard { margin-bottom: var(--sb-space-6); }
@@ -81,7 +81,11 @@
 .overview strong { display: block; font-size: 24px; font-weight: 500; }
 .overview span, .overview a { font-size: 11px; color: var(--sb-muted); }
 @media (min-width: 1450px) { .workspace { gap: 36px; } .taskCard { min-height: 280px; } }
-@media (max-width: 1100px) { .metric { padding: 18px; } .workspace { gap: 18px; } }
+@media (max-width: 1100px) {
+  .metric { padding: 18px; }
+  .workspace { gap: 18px; }
+  .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (max-width: 767px) {
   .workspace { grid-template-columns: 1fr; }
   .aside { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }

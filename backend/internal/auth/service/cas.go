@@ -13,8 +13,10 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/auth/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/auth/repo"
+	"github.com/Yogdunana/StarByte/backend/internal/user/activation"
 	"github.com/Yogdunana/StarByte/backend/internal/user/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
+	"github.com/Yogdunana/StarByte/backend/pkg/httpx"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/Yogdunana/StarByte/backend/pkg/utils"
 	"github.com/google/uuid"
@@ -119,6 +121,11 @@ func (s *authService) CompleteCASCallback(ctx context.Context, ticket, state, ip
 	}
 	if user.Status == 2 {
 		return casFrontendError(rec.Origin, "locked_user"), nil
+	}
+	if s.activator != nil && !activation.Verified(user) {
+		// Do not Start() here: registration already sent the link, and Start has
+		// no resend throttle. The login page exposes rate-limited resend.
+		return casFrontendError(rec.Origin, "email_unverified"), nil
 	}
 	tokens, err := s.issueSession(ctx, user, ip, userAgent)
 	if err != nil {
@@ -228,6 +235,19 @@ func (s *authService) RegisterWithCASToken(ctx context.Context, req *dto.CASRegi
 		return nil, err
 	}
 
+	realName := strings.TrimSpace(req.RealName)
+	if realName == "" {
+		realName = pending.RealName
+	}
+	email := strings.TrimSpace(req.Email)
+	if email == "" {
+		email = pending.Email
+	}
+	if email == "" {
+		putBack()
+		return nil, response.NewError(response.CodeBadRequest, "注册需要有效邮箱")
+	}
+
 	if existing, err := s.userRepo.GetByIdentity(ctx, identityTypeCAS, pending.CASUser); err != nil {
 		putBack()
 		return nil, fmt.Errorf("lookup cas identity: %w", err)
@@ -256,14 +276,6 @@ func (s *authService) RegisterWithCASToken(ctx context.Context, req *dto.CASRegi
 		}
 	}
 
-	realName := strings.TrimSpace(req.RealName)
-	if realName == "" {
-		realName = pending.RealName
-	}
-	email := strings.TrimSpace(req.Email)
-	if email == "" {
-		email = pending.Email
-	}
 	hash, err := utils.HashPassword(req.Password)
 	if err != nil {
 		putBack()
@@ -297,20 +309,18 @@ func (s *authService) RegisterWithCASToken(ctx context.Context, req *dto.CASRegi
 	if s.casRole != nil {
 		_ = s.casRole.AssignDefault(ctx, user.ID)
 	}
-	if ip == "" {
-		ip = pending.IP
-	}
-	if userAgent == "" {
-		userAgent = pending.UserAgent
-	}
-	tokens, err := s.issueSession(ctx, user, ip, userAgent)
-	if err != nil {
-		// 账号与 CAS/学号已写完，保留记录；用户可重新走 CAS 登录取会话。
-		return nil, err
+	origin := pending.Origin
+	if s.activator != nil {
+		if err := s.activator.Start(ctx, user, origin); err != nil {
+			return rollbackUser(err)
+		}
 	}
 	return &dto.CASExchangeResponse{
-		LoginResponse: *tokens,
-		Redirect:      sanitizeRedirect(payload.Redirect),
+		Redirect:               sanitizeRedirect(payload.Redirect),
+		NeedsEmailVerification: true,
+		Email:                  email,
+		StudentNo:              pending.StudentNo,
+		RealName:               realName,
 	}, nil
 }
 
@@ -329,6 +339,7 @@ type casPendingIdentity struct {
 	Email     string `json:"email"`
 	IP        string `json:"ip,omitempty"`
 	UserAgent string `json:"user_agent,omitempty"`
+	Origin    string `json:"origin,omitempty"`
 }
 
 func (s *authService) resolveCASUser(ctx context.Context, p *CASPrincipal) (*model.User, error) {
@@ -402,6 +413,7 @@ func (s *authService) issueCASRegistration(ctx context.Context, rec casStateReco
 			Email:     pickAttr(p, "email", "mail"),
 			IP:        ip,
 			UserAgent: userAgent,
+			Origin:    rec.Origin,
 		},
 		Redirect:  rec.Redirect,
 		ExpiresAt: time.Now().Add(casRegisterTTL).Unix(),
@@ -601,18 +613,7 @@ func resolveCASURLs(cfg *config.CASConfig, requestOrigin string) (serviceURL, fr
 }
 
 func sanitizePublicOrigin(raw string) string {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return ""
-	}
-	u, err := url.Parse(raw)
-	if err != nil || u.User != nil || u.Host == "" {
-		return ""
-	}
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return ""
-	}
-	return u.Scheme + "://" + u.Host
+	return httpx.SanitizeOrigin(raw)
 }
 
 func casFrontendSuccess(origin, code string) string {

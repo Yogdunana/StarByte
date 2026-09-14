@@ -92,6 +92,7 @@ import (
 	taskHandler "github.com/Yogdunana/StarByte/backend/internal/task/handler"
 	taskRepo "github.com/Yogdunana/StarByte/backend/internal/task/repo"
 	taskService "github.com/Yogdunana/StarByte/backend/internal/task/service"
+	"github.com/Yogdunana/StarByte/backend/internal/user/activation"
 	"github.com/Yogdunana/StarByte/backend/internal/user/handler"
 	"github.com/Yogdunana/StarByte/backend/internal/user/repo"
 	"github.com/Yogdunana/StarByte/backend/internal/user/service"
@@ -244,6 +245,13 @@ func main() {
 	// 事件总线（登录/登出审计、工作流、通知共用）
 	eventBus := events.NewEventBus()
 
+	cfgRows := cfgstoreRepo.NewConfigRepo(database.DB())
+	cfgStore := configstore.New(redis.Client(), &cfgstoreRepo.BackendAdapter{Rows: cfgRows})
+	emailCh := notifService.NewEmailChannelFromConfig(cfg.Email).WithStore(cfgStore)
+	emailActivator := activation.New(database.DB(), activation.MailFunc(func(ctx context.Context, to, subject, html string) error {
+		return emailCh.SendMIME(ctx, notifService.MailJob{To: []string{to}, Subject: subject, Body: html, IsHTML: true}, nil)
+	}), cfg.CAS.FrontendURL)
+
 	// 认证模块（依赖 cacheService 获取角色和权限）
 	authR := authRepo.NewAuthRepo(redis.Client())
 	memberProfRepo := memberRepo.NewProfileRepo(database.DB())
@@ -256,11 +264,12 @@ func main() {
 			Validator:  authService.NewHTTPTicketValidator(cfg.CAS.ServerURL, nil),
 			AssignRole: authService.NewRoleAssigner(database.DB(), roleRepo, cfg.CAS.DefaultRole),
 		},
+		emailActivator,
 	)
 	authH := authHandler.NewAuthHandler(authSvc)
 
 	// 用户管理模块
-	userService := service.NewUserService(database.DB(), userRepo, &cfg.JWT)
+	userService := service.NewUserService(database.DB(), userRepo, &cfg.JWT, emailActivator)
 	userHandler := handler.NewUserHandler(userService)
 
 	// RBAC 权限模块（service 层）
@@ -296,9 +305,6 @@ func main() {
 
 	hub := notifService.NewHub()
 	emailLogs := notifRepo.NewEmailLogRepo(database.DB())
-	cfgRows := cfgstoreRepo.NewConfigRepo(database.DB())
-	cfgStore := configstore.New(redis.Client(), &cfgstoreRepo.BackendAdapter{Rows: cfgRows})
-	emailCh := notifService.NewEmailChannelFromConfig(cfg.Email).WithStore(cfgStore)
 	emailWorker := notifService.NewEmailWorker(
 		emailCh, emailLogs,
 		notifService.NewAttachmentLoader(database.DB(), objectStore),

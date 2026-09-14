@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/Yogdunana/StarByte/backend/internal/user/model"
+	"github.com/Yogdunana/StarByte/backend/pkg/database"
+	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -67,11 +69,35 @@ func (r *userRepo) Update(ctx context.Context, tx *gorm.DB, user *model.User) er
 }
 
 func (r *userRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	return r.db.WithContext(ctx).Delete(&model.User{}, id).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := releaseAccountBindings(tx, id); err != nil {
+			return err
+		}
+		return tx.Delete(&model.User{}, id).Error
+	})
 }
 
 func (r *userRepo) HardDelete(ctx context.Context, id uuid.UUID) error {
-	return r.db.WithContext(ctx).Unscoped().Delete(&model.User{}, id).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := releaseAccountBindings(tx, id); err != nil {
+			return err
+		}
+		if err := tx.Unscoped().Delete(&model.User{}, id).Error; err != nil {
+			if database.IsForeignKeyViolation(err) {
+				return response.NewError(response.CodeConflict, "该账号仍被业务记录引用，无法硬删除")
+			}
+			return err
+		}
+		return nil
+	})
+}
+
+func releaseAccountBindings(tx *gorm.DB, id uuid.UUID) error {
+	if err := tx.Where("user_id = ?", id).Delete(&model.UserIdentity{}).Error; err != nil {
+		return err
+	}
+	return tx.Table("member_profiles").Where("user_id = ?", id).
+		Updates(map[string]interface{}{"student_no": ""}).Error
 }
 
 func (r *userRepo) List(ctx context.Context, page, pageSize int, keyword string, status *int, departmentID uuid.UUID) ([]model.User, int64, error) {
@@ -124,7 +150,7 @@ func (r *userRepo) GetByIdentity(ctx context.Context, identityType, identityValu
 	err := r.db.WithContext(ctx).
 		Select("users.*").
 		Joins("JOIN user_identities ui ON ui.user_id = users.id").
-		Where("ui.identity_type = ? AND ui.identity_value = ?", identityType, identityValue).
+		Where("ui.identity_type = ? AND ui.identity_value = ? AND users.deleted_at IS NULL", identityType, identityValue).
 		First(&user).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
@@ -139,7 +165,11 @@ func (r *userRepo) CreateIdentity(ctx context.Context, ident *model.UserIdentity
 	if ident.ID == uuid.Nil {
 		ident.ID = uuid.New()
 	}
-	return r.db.WithContext(ctx).Create(ident).Error
+	err := r.db.WithContext(ctx).Create(ident).Error
+	if database.IsUniqueViolation(err) {
+		return response.NewError(response.CodeUserExists, "该校园账号已绑定其他账号")
+	}
+	return err
 }
 
 // UpdateProfile writes only self-editable fields and keeps the displayed member name in sync.

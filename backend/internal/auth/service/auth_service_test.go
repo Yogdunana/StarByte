@@ -8,6 +8,7 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/auth/dto"
 	authmodel "github.com/Yogdunana/StarByte/backend/internal/auth/model"
+	"github.com/Yogdunana/StarByte/backend/internal/user/activation"
 	"github.com/Yogdunana/StarByte/backend/internal/user/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
@@ -293,6 +294,43 @@ func TestLogin_Success(t *testing.T) {
 	assert.Equal(t, "testuser", result.User.Username)
 	assert.Equal(t, []string{"announcement:read"}, result.User.Permissions)
 	assert.Equal(t, []string{"user"}, result.User.Roles)
+}
+
+func TestLogin_EmailUnverified(t *testing.T) {
+	svc, userRepo, authRepo, _ := setupTestService()
+	svc.activator = activation.New(nil, nil, "")
+	ctx := context.Background()
+	userID := uuid.New()
+	user := &model.User{
+		ID:           userID,
+		Username:     "pending",
+		PasswordHash: hashPasswordForTest("password123"),
+		Email:        "pending@example.test",
+		Status:       0,
+	}
+	authRepo.On("IsLockedOut", ctx, "pending").Return(false, nil)
+	userRepo.On("GetByUsername", ctx, "pending").Return(user, nil)
+	authRepo.On("ResetLoginAttempts", ctx, "pending").Return(nil)
+
+	result, err := svc.Login(ctx, &dto.LoginRequest{Username: "pending", Password: "password123"}, "127.0.0.1", "ua")
+	assert.Nil(t, result)
+	requireAppCode(t, err, response.CodeEmailUnverified)
+}
+
+func TestVerifyEmailAndResendWithoutActivator(t *testing.T) {
+	svc, _, _, _ := setupTestService()
+	err := svc.VerifyEmail(context.Background(), "token")
+	requireAppCode(t, err, response.CodeNotificationEmailFail)
+	err = svc.ResendVerification(context.Background(), "user@example.test", "")
+	requireAppCode(t, err, response.CodeNotificationEmailFail)
+}
+
+func requireAppCode(t *testing.T, err error, code int) {
+	t.Helper()
+	assert.Error(t, err)
+	var appErr *response.AppError
+	assert.True(t, errors.As(err, &appErr))
+	assert.Equal(t, code, appErr.Code)
 }
 
 func TestLogin_UserNotFound(t *testing.T) {

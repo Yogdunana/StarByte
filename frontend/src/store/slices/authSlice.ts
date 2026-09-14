@@ -2,6 +2,7 @@ import { tx } from '@/i18n/text';
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { login as loginApi, refreshToken as refreshTokenApi } from '@/api/auth';
 import type { LoginRequest, LoginResponse, RefreshResponse } from '@/types/api';
+import { apiErrorCode, handleApiError } from '@/api/error';
 import {
   setToken as saveToken,
   getRefreshToken,
@@ -44,7 +45,10 @@ export const login = createAsyncThunk(
       const response = await loginApi(params);
       return response;
     } catch (error: unknown) {
-      return rejectWithValue(getErrorMessage(error, tx('登录失败')));
+      return rejectWithValue({
+        message: handleApiError(error),
+        code: apiErrorCode(error),
+      });
     }
   },
 );
@@ -103,7 +107,12 @@ const authSlice = createSlice({
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload as string;
+        const payload = action.payload;
+        if (payload && typeof payload === 'object' && 'message' in payload) {
+          state.error = String((payload as { message?: string }).message || '');
+        } else {
+          state.error = (payload as string) || null;
+        }
       })
       .addCase(refreshToken.fulfilled, (state, action: PayloadAction<RefreshResponse>) => {
         state.token = action.payload.access_token;

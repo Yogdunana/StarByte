@@ -79,7 +79,7 @@ func (m *mockUserRepo) CreateIdentity(ctx context.Context, ident *model.UserIden
 }
 
 func newTestUserService(repo *mockUserRepo) UserService {
-	return NewUserService(nil, repo, &config.JWTConfig{Secret: "test"})
+	return NewUserService(nil, repo, &config.JWTConfig{Secret: "test"}, nil)
 }
 
 func requireAppError(t *testing.T, err error, code int) {

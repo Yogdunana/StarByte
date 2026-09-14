@@ -66,7 +66,7 @@ type FlowInstance struct {
 	DefinitionVersionID uuid.UUID  `gorm:"type:uuid;not null" json:"definition_version_id"`
 	BusinessKey         string     `gorm:"type:varchar(100)" json:"business_key"`
 	BusinessType        string     `gorm:"type:varchar(50)" json:"business_type"`
-	InitiatorID         uuid.UUID  `gorm:"type:uuid;index;not null" json:"initiator_id"`
+	InitiatorID         uuid.UUID  `gorm:"type:uuid;index" json:"initiator_id"`
 	Status              int        `gorm:"type:smallint;default:0;index" json:"status"`
 	CurrentNodeIDs      []byte     `gorm:"type:jsonb" json:"current_node_ids"`
 	StartedAt           time.Time  `json:"started_at"`

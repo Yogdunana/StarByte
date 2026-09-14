@@ -66,12 +66,13 @@ type CASLoginStart struct {
 // CASExchangeResponse 兑换 CAS 回调 code 后的登录结果；未知用户返回 needs_registration。
 type CASExchangeResponse struct {
 	LoginResponse
-	Redirect          string `json:"redirect"`
-	NeedsRegistration bool   `json:"needs_registration,omitempty"`
-	RegistrationToken string `json:"registration_token,omitempty"`
-	StudentNo         string `json:"student_no,omitempty"`
-	RealName          string `json:"real_name,omitempty"`
-	Email             string `json:"email,omitempty"`
+	Redirect               string `json:"redirect"`
+	NeedsRegistration      bool   `json:"needs_registration,omitempty"`
+	RegistrationToken      string `json:"registration_token,omitempty"`
+	StudentNo              string `json:"student_no,omitempty"`
+	RealName               string `json:"real_name,omitempty"`
+	Email                  string `json:"email,omitempty"`
+	NeedsEmailVerification bool   `json:"needs_email_verification,omitempty"`
 }
 
 // ========== Response DTOs ==========

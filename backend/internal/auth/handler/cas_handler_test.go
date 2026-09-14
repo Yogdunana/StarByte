@@ -83,6 +83,10 @@ func (s casStubService) ExchangeCASCode(context.Context, string) (*dto.CASExchan
 func (s casStubService) RegisterWithCASToken(context.Context, *dto.CASRegisterRequest, string, string) (*dto.CASExchangeResponse, error) {
 	return s.ex, s.err
 }
+func (s casStubService) VerifyEmail(context.Context, string) error { return s.err }
+func (s casStubService) ResendVerification(context.Context, string, string) error {
+	return s.err
+}
 
 func TestCASLogin_Redirect(t *testing.T) {
 	h := NewAuthHandler(casStubService{
@@ -137,6 +141,15 @@ func TestRequestPublicOrigin_IgnoresForwardedHost(t *testing.T) {
 	c.Request.Header.Set("X-Forwarded-Proto", "http")
 	c.Request.Header.Set("X-Forwarded-Host", "evil.example")
 	assert.Equal(t, "http://10.0.0.8", requestPublicOrigin(c))
+}
+
+func TestRequestPublicOrigin_RejectsNonHTTPProto(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/auth/cas/login", nil)
+	c.Request.Host = "10.100.13.17"
+	c.Request.Header.Set("X-Forwarded-Proto", "javascript")
+	assert.Equal(t, "http://10.100.13.17", requestPublicOrigin(c))
 }
 
 func TestCASExchange_OK(t *testing.T) {

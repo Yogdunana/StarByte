@@ -268,20 +268,13 @@ func TestRegisterWithCASToken_CreatesUserAndBinds(t *testing.T) {
 		assert.Equal(t, identityTypeCAS, ident.IdentityType)
 		assert.Equal(t, "20219999", ident.IdentityValue)
 	})
-	users.On("UpdateLastLogin", mock.Anything, mock.Anything, "9.9.9.9").Return(nil)
 
 	ident := &stubIdentity{}
 	svc := casTestService(store, stubValidator{p: &CASPrincipal{
 		User:       "20219999",
-		Attributes: map[string]string{"name": "王五"},
+		Attributes: map[string]string{"name": "王五", "email": "wuwu@example.test"},
 	}}, users)
 	svc.identity = ident
-	authRepo := svc.authRepo.(*mockAuthRepo)
-	perm := svc.permCacheSvc.(*mockPermCache)
-	authRepo.On("StoreRefreshToken", mock.Anything, "test-refresh-token-uuid", mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.Anything).Return(nil)
-	authRepo.On("StoreSession", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), "9.9.9.9", "ua", mock.Anything).Return(nil)
-	perm.On("GetUserPermissionsAndSuperAdmin", mock.Anything, mock.Anything).Return([]string{}, false, nil)
-	perm.On("GetUserRoleCodes", mock.Anything, mock.Anything).Return([]string{"member"}, nil)
 
 	loc, err := svc.CompleteCASCallback(context.Background(), "ST-2", "st2", "2.2.2.2", "ua", "http://10.0.0.8")
 	require.NoError(t, err)
@@ -295,9 +288,11 @@ func TestRegisterWithCASToken_CreatesUserAndBinds(t *testing.T) {
 		Username: "alice_wang",
 		Password: "Passw0rd!",
 		RealName: "王五",
+		Email:    "wuwu@example.test",
 	}, "9.9.9.9", "ua")
 	require.NoError(t, err)
-	assert.NotEmpty(t, out.AccessToken)
+	assert.Empty(t, out.AccessToken)
+	assert.True(t, out.NeedsEmailVerification)
 	assert.Equal(t, "/tasks", out.Redirect)
 	require.Len(t, ident.ensured, 1)
 	assert.Equal(t, "20219999", ident.ensured[0].studentNo)

@@ -58,3 +58,11 @@ export function exchangeCasCode(code: string): Promise<CASExchangeResponse> {
 export function registerWithCasToken(params: CASRegisterRequest): Promise<CASExchangeResponse> {
   return request.post('/auth/cas/register', params);
 }
+
+export function verifyEmail(token: string): Promise<{ verified: boolean }> {
+  return request.post('/auth/verify-email', { token });
+}
+
+export function resendVerification(identifier: string): Promise<void> {
+  return request.post('/auth/resend-verification', { identifier });
+}

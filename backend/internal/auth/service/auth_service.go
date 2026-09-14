@@ -8,6 +8,7 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/auth/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/auth/repo"
 	rbacService "github.com/Yogdunana/StarByte/backend/internal/rbac/service"
+	"github.com/Yogdunana/StarByte/backend/internal/user/activation"
 	"github.com/Yogdunana/StarByte/backend/internal/user/model"
 	userRepo "github.com/Yogdunana/StarByte/backend/internal/user/repo"
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
@@ -34,6 +35,8 @@ type AuthService interface {
 	CompleteCASCallback(ctx context.Context, ticket, state, ip, userAgent, publicOrigin string) (string, error)
 	ExchangeCASCode(ctx context.Context, code string) (*dto.CASExchangeResponse, error)
 	RegisterWithCASToken(ctx context.Context, req *dto.CASRegisterRequest, ip, userAgent string) (*dto.CASExchangeResponse, error)
+	VerifyEmail(ctx context.Context, token string) error
+	ResendVerification(ctx context.Context, identifier, publicOrigin string) error
 }
 
 type authService struct {
@@ -47,6 +50,7 @@ type authService struct {
 	casStore     repo.CASTicketStore
 	casValidator TicketValidator
 	casRole      RoleAssigner
+	activator    *activation.Service
 }
 
 // NewAuthService creates a new authentication service.
@@ -60,6 +64,7 @@ func NewAuthService(
 	eventBus *events.EventBus,
 	identity MemberIdentityLookup,
 	cas *CASDeps,
+	activator *activation.Service,
 ) AuthService {
 	svc := &authService{
 		authRepo:     authRepo,
@@ -68,6 +73,7 @@ func NewAuthService(
 		permCacheSvc: permCacheSvc,
 		eventBus:     eventBus,
 		identity:     identity,
+		activator:    activator,
 	}
 	if cas != nil {
 		svc.cas = cas.Config
@@ -83,6 +89,9 @@ func (s *authService) Login(ctx context.Context, req *dto.LoginRequest, ip, user
 	user, err := s.authenticateLogin(ctx, req.Username, req.Password)
 	if err != nil {
 		return nil, err
+	}
+	if s.activator != nil && !activation.Verified(user) {
+		return nil, response.NewError(response.CodeEmailUnverified, "请先验证邮箱后再登录")
 	}
 	return s.issueSession(ctx, user, ip, userAgent)
 }
@@ -341,4 +350,18 @@ func (s *authService) publishLogout(ctx context.Context, userID string) {
 		}
 	}
 	s.eventBus.Publish(ctx, ev)
+}
+
+func (s *authService) VerifyEmail(ctx context.Context, token string) error {
+	if s.activator == nil {
+		return response.NewError(response.CodeNotificationEmailFail, "邮件服务未配置")
+	}
+	return s.activator.Confirm(ctx, token)
+}
+
+func (s *authService) ResendVerification(ctx context.Context, identifier, publicOrigin string) error {
+	if s.activator == nil {
+		return response.NewError(response.CodeNotificationEmailFail, "邮件服务未配置")
+	}
+	return s.activator.Resend(ctx, identifier, publicOrigin)
 }

@@ -1,6 +1,28 @@
 import { tx } from '@/i18n/text';
 import axios, { type AxiosError } from 'axios';
 
+export class ApiError extends Error {
+  code?: number;
+  constructor(message: string, code?: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.code = code;
+  }
+}
+
+export function apiErrorCode(error: unknown): number | undefined {
+  if (error instanceof ApiError && typeof error.code === 'number') return error.code;
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === 'number') return code;
+  }
+  if (axios.isAxiosError(error)) {
+    const code = (error.response?.data as { code?: number } | undefined)?.code;
+    if (typeof code === 'number') return code;
+  }
+  return undefined;
+}
+
 /** 主动取消（AbortSignal / 卸载）不算失败，拦截器不应弹 toast。 */
 export function isCanceledError(error: unknown): boolean {
   if (axios.isCancel(error)) return true;
@@ -43,6 +65,12 @@ const errorCodeMessages: Record<number, string> = {
   },
   get 2005() {
     return tx('原密码错误');
+  },
+  get 2015() {
+    return tx('请先验证邮箱后再登录');
+  },
+  get 2016() {
+    return tx('验证链接无效或已过期');
   },
   get 3001() {
     return tx('角色不存在');

@@ -7,7 +7,8 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import { login, selectIsAuthenticated } from '@/store/slices/authSlice';
 import { fetchCurrentUser } from '@/store/slices/userSlice';
-import { getCasLoginURL, getCasStatus, register } from '@/api/auth';
+import { getCasLoginURL, getCasStatus, register, resendVerification } from '@/api/auth';
+import { apiErrorCode } from '@/api/error';
 import { AppDispatch } from '@/store';
 import { motion } from 'motion/react';
 import styles from './Login.module.css';
@@ -70,6 +71,10 @@ const Login: React.FC = () => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('login');
   const [loading, setLoading] = useState(false);
+  const [needVerify, setNeedVerify] = useState(false);
+  const [verifyId, setVerifyId] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
+  const [loginForm] = Form.useForm<{ username: string; password: string }>();
   const [casEnabled, setCasEnabled] = useState(envCasEnabled);
   const navigate = useNavigate();
   const location = useLocation();
@@ -91,7 +96,11 @@ const Login: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (searchParams.get('cas_error')) {
+    const reason = searchParams.get('cas_error');
+    if (reason === 'email_unverified') {
+      message.error(t('login.casErrorEmail'));
+      setNeedVerify(true);
+    } else if (reason) {
       message.error(t('login.casError'));
     }
   }, [searchParams, t]);
@@ -105,7 +114,12 @@ const Login: React.FC = () => {
       message.success(t('login.success'));
       navigate(getRedirectPath(location.state, searchParams.get('next')), { replace: true });
     } catch (error: unknown) {
-      message.error(getErrorMessage(error, t('login.fail')));
+      if (apiErrorCode(error) === 2015) {
+        setNeedVerify(true);
+        setVerifyId(values.username);
+      } else {
+        message.error(getErrorMessage(error, t('login.fail')));
+      }
     } finally {
       setLoading(false);
     }
@@ -123,10 +137,29 @@ const Login: React.FC = () => {
       });
       message.success(t('login.registerSuccess'));
       setActiveTab('login');
+      setNeedVerify(true);
+      setVerifyId(values.email || values.username);
     } catch (error: unknown) {
       message.error(getErrorMessage(error, t('login.registerFail')));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    const identifier = (verifyId || loginForm.getFieldValue('username') || '').trim();
+    if (!identifier) {
+      message.error(t('login.usernameRequired'));
+      return;
+    }
+    setResendLoading(true);
+    try {
+      await resendVerification(identifier);
+      message.success(t('login.resendOk'));
+    } catch (error: unknown) {
+      message.error(getErrorMessage(error, t('login.registerFail')));
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -227,6 +260,7 @@ const Login: React.FC = () => {
               )}
 
               <Form
+                form={loginForm}
                 name="login"
                 onFinish={handleLogin}
                 size="large"
@@ -268,6 +302,15 @@ const Login: React.FC = () => {
                     {t('login.submit')}
                   </Button>
                 </Form.Item>
+
+                {(needVerify || verifyId) && (
+                  <div className={styles.switchTab}>
+                    {t('login.resendHint')}
+                    <Button type="link" loading={resendLoading} onClick={() => void handleResend()}>
+                      {t('login.resend')}
+                    </Button>
+                  </div>
+                )}
 
                 <div className={styles.switchTab}>
                   {t('login.hint')}
