@@ -34,7 +34,7 @@ docker compose -f deploy/docker-compose.yml ps
 
 校园服务器通常无法直连 GitHub、`dl.min.io`、`proxy.golang.org`。后端 `Dockerfile` 已按校园默认写好，**不必再 sed**：
 
-- **golang-migrate v4.17.0**：经 `https://ghfast.top/https://github.com/...` 下载
+- **golang-migrate v4.17.0**：在构建阶段经 `goproxy.cn` `go install`（不走 ghfast.top）
 - **Go modules**：`go env -w GOPROXY=https://goproxy.cn,direct` 后再 `go mod download`
 - **MinIO mc**：镜像内是 `exit 0` 占位脚本，不从 `dl.min.io` 拉客户端。生产请设 `SKIP_BUCKET_CREATE=true`（`deploy/.env.example` 默认已是），在 MinIO 控制台手动创建一次 `starbyte` 桶
 
