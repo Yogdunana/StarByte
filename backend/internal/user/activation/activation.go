@@ -147,24 +147,23 @@ func (s *Service) Confirm(ctx context.Context, rawToken string) error {
 	})
 }
 
-// Resend sends a new link for an unverified account identified by username or email.
+// Resend sends a new link for an unverified account identified by username, email, or student number.
 func (s *Service) Resend(ctx context.Context, identifier, publicOrigin string) error {
 	if !s.Ready() {
 		return response.NewError(response.CodeNotificationEmailFail, "邮件服务未配置")
 	}
 	identifier = strings.TrimSpace(identifier)
 	if identifier == "" {
-		return response.NewError(response.CodeBadRequest, "请输入用户名或邮箱")
+		return response.NewError(response.CodeBadRequest, "请输入用户名、邮箱或学号")
 	}
-	var user model.User
-	err := s.db.WithContext(ctx).Where("username = ? OR email = ?", identifier, identifier).First(&user).Error
-	if err == gorm.ErrRecordNotFound {
-		return nil
-	}
+	user, err := s.lookupUser(ctx, identifier)
 	if err != nil {
 		return err
 	}
-	if Verified(&user) {
+	if user == nil {
+		return nil
+	}
+	if Verified(user) {
 		return nil
 	}
 	latest, err := s.latestUnusedToken(ctx, user.ID)
@@ -174,7 +173,29 @@ func (s *Service) Resend(ctx context.Context, identifier, publicOrigin string) e
 	if latest != nil && time.Since(latest.CreatedAt) < resendInterval {
 		return response.NewError(response.CodeTooManyReq, "验证邮件发送过于频繁，请稍后再试")
 	}
-	return s.Start(ctx, &user, publicOrigin)
+	return s.Start(ctx, user, publicOrigin)
+}
+
+func (s *Service) lookupUser(ctx context.Context, identifier string) (*model.User, error) {
+	var user model.User
+	err := s.db.WithContext(ctx).Where("username = ? OR email = ?", identifier, identifier).First(&user).Error
+	if err == nil {
+		return &user, nil
+	}
+	if err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+	err = s.db.WithContext(ctx).
+		Joins("JOIN member_profiles p ON p.user_id = users.id").
+		Where("p.student_no = ? AND p.student_no <> ''", identifier).
+		First(&user).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
 }
 
 func (s *Service) latestUnusedToken(ctx context.Context, userID uuid.UUID) (*tokenRow, error) {

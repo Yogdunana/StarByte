@@ -112,6 +112,28 @@ func TestResendUnknownIdentifierIsSilent(t *testing.T) {
 	require.Empty(t, mail.to)
 }
 
+func TestResendByStudentNo(t *testing.T) {
+	tx := testutil.OpenPostgres(t).Begin()
+	defer tx.Rollback()
+	user := &model.User{
+		ID: uuid.New(), Username: "stu-" + uuid.NewString()[:8],
+		PasswordHash: "x", Email: "stu@example.test", Status: 0,
+	}
+	require.NoError(t, tx.Create(user).Error)
+	studentNo := "1120" + uuid.NewString()[:6]
+	require.NoError(t, tx.Exec(
+		`INSERT INTO member_profiles (id, user_id, real_name, student_no) VALUES (?, ?, ?, ?)`,
+		uuid.New(), user.ID, "段茗尧", studentNo,
+	).Error)
+	mail := &captureMailer{}
+	svc := New(tx, mail, "http://example.test")
+	require.NoError(t, svc.Resend(context.Background(), studentNo, ""))
+	require.Equal(t, "stu@example.test", mail.to)
+	err := svc.Resend(context.Background(), studentNo, "")
+	require.Error(t, err)
+	require.Equal(t, response.CodeTooManyReq, err.(*response.AppError).Code)
+}
+
 func tokenFromBody(t *testing.T, body string) string {
 	t.Helper()
 	const marker = "token="
