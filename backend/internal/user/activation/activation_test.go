@@ -75,7 +75,7 @@ func TestResendRateLimit(t *testing.T) {
 	require.Equal(t, firstBody, mail.body)
 	require.NoError(t, tx.Model(&tokenRow{}).Where("user_id = ?", user.ID).Update("created_at", time.Now().Add(-2*time.Minute)).Error)
 	require.NoError(t, svc.Resend(context.Background(), user.Username, "http://override.test"))
-	require.Contains(t, mail.body, "http://override.test/verify-email?token=")
+	require.Contains(t, mail.body, "http://example.test/verify-email?token=")
 }
 
 func TestStartIsIdempotentWithinInterval(t *testing.T) {
@@ -150,7 +150,11 @@ func tokenFromBody(t *testing.T, body string) string {
 func TestVerifyURLSanitizesOrigin(t *testing.T) {
 	svc := New(nil, nil, "http://10.100.13.17/app")
 	require.Equal(t, "http://10.100.13.17/verify-email?token=abc", svc.verifyURL("javascript:alert(1)", "abc"))
-	require.Equal(t, "https://safe.example/verify-email?token=abc", svc.verifyURL("https://safe.example/phish", "abc"))
+	require.Equal(t, "http://10.100.13.17/verify-email?token=abc", svc.verifyURL("https://attacker.example/phish", "abc"))
 	require.Equal(t, "http://10.100.13.17/verify-email?token=abc", svc.verifyURL("//evil.example", "abc"))
 	require.Equal(t, "http://10.100.13.17/verify-email?token=abc", svc.verifyURL("https://user:pass@evil.example", "abc"))
+
+	open := New(nil, nil, "")
+	require.Equal(t, "http://10.100.13.17/verify-email?token=abc", open.verifyURL("http://10.100.13.17", "abc"))
+	require.Equal(t, "http://127.0.0.1/verify-email?token=abc", open.verifyURL("https://attacker.example", "abc"))
 }

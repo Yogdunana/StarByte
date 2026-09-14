@@ -18,6 +18,14 @@ func TestSanitizeOrigin(t *testing.T) {
 	assert.Equal(t, "", SanitizeOrigin(""))
 }
 
+func TestMailOriginPrefersConfiguredAndPrivateRequest(t *testing.T) {
+	assert.Equal(t, "https://app.example", MailOrigin("https://app.example/login", "http://attacker.example"))
+	assert.Equal(t, "http://10.100.13.17", MailOrigin("", "http://10.100.13.17/x"))
+	assert.Equal(t, "http://localhost", MailOrigin("", "http://localhost"))
+	assert.Equal(t, "http://127.0.0.1", MailOrigin("", "https://attacker.example"))
+	assert.Equal(t, "http://127.0.0.1", MailOrigin("javascript:alert(1)", "https://evil.example"))
+}
+
 func TestRequestOriginAllowlistsProto(t *testing.T) {
 	originOf := func(proto, host string) string {
 		req := httptest.NewRequest(http.MethodGet, "http://"+host+"/", nil)

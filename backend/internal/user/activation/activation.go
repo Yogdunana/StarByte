@@ -212,14 +212,7 @@ func (s *Service) latestUnusedToken(ctx context.Context, userID uuid.UUID) (*tok
 }
 
 func (s *Service) verifyURL(publicOrigin, raw string) string {
-	base := httpx.SanitizeOrigin(publicOrigin)
-	if base == "" {
-		base = httpx.SanitizeOrigin(s.publicBase)
-	}
-	if base == "" {
-		base = "http://127.0.0.1"
-	}
-	return base + "/verify-email?token=" + raw
+	return httpx.MailOrigin(s.publicBase, publicOrigin) + "/verify-email?token=" + raw
 }
 
 func newToken() (raw, hash string, err error) {
