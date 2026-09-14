@@ -107,10 +107,9 @@ func TestHardDeleteClearsAuditAndFlowFKs(t *testing.T) {
 	).Error)
 
 	require.NoError(t, users.HardDelete(ctx, u.ID))
-	var auditUser *uuid.UUID
-	require.NoError(t, tx.Raw("SELECT user_id FROM audit_logs WHERE id = ?", auditID).Scan(&auditUser).Error)
+	var auditUser, initiator *string
+	require.NoError(t, tx.Raw("SELECT user_id::text FROM audit_logs WHERE id = ?", auditID).Scan(&auditUser).Error)
 	require.Nil(t, auditUser)
-	var initiator *uuid.UUID
-	require.NoError(t, tx.Raw("SELECT initiator_id FROM flow_instances WHERE id = ?", instID).Scan(&initiator).Error)
+	require.NoError(t, tx.Raw("SELECT initiator_id::text FROM flow_instances WHERE id = ?", instID).Scan(&initiator).Error)
 	require.Nil(t, initiator)
 }
