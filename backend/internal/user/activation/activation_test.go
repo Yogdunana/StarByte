@@ -70,9 +70,9 @@ func TestResendRateLimit(t *testing.T) {
 	mail := &captureMailer{}
 	svc := New(tx, mail, "http://example.test")
 	require.NoError(t, svc.Start(context.Background(), user, ""))
-	err := svc.Resend(context.Background(), user.Email, "")
-	require.Error(t, err)
-	require.Equal(t, response.CodeTooManyReq, err.(*response.AppError).Code)
+	firstBody := mail.body
+	require.NoError(t, svc.Resend(context.Background(), user.Email, ""))
+	require.Equal(t, firstBody, mail.body)
 	require.NoError(t, tx.Model(&tokenRow{}).Where("user_id = ?", user.ID).Update("created_at", time.Now().Add(-2*time.Minute)).Error)
 	require.NoError(t, svc.Resend(context.Background(), user.Username, "http://override.test"))
 	require.Contains(t, mail.body, "http://override.test/verify-email?token=")
@@ -129,9 +129,8 @@ func TestResendByStudentNo(t *testing.T) {
 	svc := New(tx, mail, "http://example.test")
 	require.NoError(t, svc.Resend(context.Background(), studentNo, ""))
 	require.Equal(t, "stu@example.test", mail.to)
-	err := svc.Resend(context.Background(), studentNo, "")
-	require.Error(t, err)
-	require.Equal(t, response.CodeTooManyReq, err.(*response.AppError).Code)
+	require.NoError(t, svc.Resend(context.Background(), studentNo, ""))
+	require.Equal(t, "stu@example.test", mail.to)
 }
 
 func tokenFromBody(t *testing.T, body string) string {
@@ -146,4 +145,12 @@ func tokenFromBody(t *testing.T, body string) string {
 	raw = strings.TrimSpace(raw)
 	require.NotEmpty(t, raw)
 	return raw
+}
+
+func TestVerifyURLSanitizesOrigin(t *testing.T) {
+	svc := New(nil, nil, "http://10.100.13.17/app")
+	require.Equal(t, "http://10.100.13.17/verify-email?token=abc", svc.verifyURL("javascript:alert(1)", "abc"))
+	require.Equal(t, "https://safe.example/verify-email?token=abc", svc.verifyURL("https://safe.example/phish", "abc"))
+	require.Equal(t, "http://10.100.13.17/verify-email?token=abc", svc.verifyURL("//evil.example", "abc"))
+	require.Equal(t, "http://10.100.13.17/verify-email?token=abc", svc.verifyURL("https://user:pass@evil.example", "abc"))
 }

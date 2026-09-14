@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Yogdunana/StarByte/backend/internal/user/model"
+	"github.com/Yogdunana/StarByte/backend/pkg/httpx"
 	"github.com/Yogdunana/StarByte/backend/pkg/locale"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
@@ -171,7 +172,7 @@ func (s *Service) Resend(ctx context.Context, identifier, publicOrigin string) e
 		return err
 	}
 	if latest != nil && time.Since(latest.CreatedAt) < resendInterval {
-		return response.NewError(response.CodeTooManyReq, "验证邮件发送过于频繁，请稍后再试")
+		return nil
 	}
 	return s.Start(ctx, user, publicOrigin)
 }
@@ -211,9 +212,9 @@ func (s *Service) latestUnusedToken(ctx context.Context, userID uuid.UUID) (*tok
 }
 
 func (s *Service) verifyURL(publicOrigin, raw string) string {
-	base := strings.TrimRight(strings.TrimSpace(publicOrigin), "/")
+	base := httpx.SanitizeOrigin(publicOrigin)
 	if base == "" {
-		base = s.publicBase
+		base = httpx.SanitizeOrigin(s.publicBase)
 	}
 	if base == "" {
 		base = "http://127.0.0.1"

@@ -7,6 +7,7 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/auth/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/auth/service"
 	rbacService "github.com/Yogdunana/StarByte/backend/internal/rbac/service"
+	"github.com/Yogdunana/StarByte/backend/pkg/httpx"
 	authmiddleware "github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/gin-gonic/gin"
@@ -437,13 +438,14 @@ func RegisterRoutes(
 			if loginRateLimiter != nil {
 				authGroup.POST("/cas/exchange", loginRateLimiter, handler.CASExchange)
 				authGroup.POST("/cas/register", loginRateLimiter, handler.CASRegister)
+				authGroup.POST("/resend-verification", loginRateLimiter, handler.ResendVerification)
 			} else {
 				authGroup.POST("/cas/exchange", handler.CASExchange)
 				authGroup.POST("/cas/register", handler.CASRegister)
+				authGroup.POST("/resend-verification", handler.ResendVerification)
 			}
 			authGroup.POST("/verify-email", handler.VerifyEmail)
 			authGroup.GET("/verify-email", handler.VerifyEmail)
-			authGroup.POST("/resend-verification", handler.ResendVerification)
 		}
 	}
 
@@ -470,24 +472,8 @@ func setCASReferrerPolicy(c *gin.Context) {
 }
 
 func requestPublicOrigin(c *gin.Context) string {
-	if c == nil || c.Request == nil {
+	if c == nil {
 		return ""
 	}
-	proto := strings.TrimSpace(c.GetHeader("X-Forwarded-Proto"))
-	if i := strings.Index(proto, ","); i >= 0 {
-		proto = strings.TrimSpace(proto[:i])
-	}
-	if proto == "" {
-		if c.Request.TLS != nil {
-			proto = "https"
-		} else {
-			proto = "http"
-		}
-	}
-	// 不读客户端 X-Forwarded-Host：前端 nginx 不会覆盖它，伪造 Host 会把一次性 code 重定向走。
-	host := strings.TrimSpace(c.Request.Host)
-	if proto == "" || host == "" {
-		return ""
-	}
-	return proto + "://" + host
+	return httpx.RequestOrigin(c.Request)
 }

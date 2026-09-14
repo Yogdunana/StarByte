@@ -143,6 +143,15 @@ func TestRequestPublicOrigin_IgnoresForwardedHost(t *testing.T) {
 	assert.Equal(t, "http://10.0.0.8", requestPublicOrigin(c))
 }
 
+func TestRequestPublicOrigin_RejectsNonHTTPProto(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/auth/cas/login", nil)
+	c.Request.Host = "10.100.13.17"
+	c.Request.Header.Set("X-Forwarded-Proto", "javascript")
+	assert.Equal(t, "http://10.100.13.17", requestPublicOrigin(c))
+}
+
 func TestCASExchange_OK(t *testing.T) {
 	h := NewAuthHandler(casStubService{ex: &dto.CASExchangeResponse{
 		LoginResponse: dto.LoginResponse{AccessToken: "tok", RefreshToken: "rt"},

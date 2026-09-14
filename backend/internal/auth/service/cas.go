@@ -16,6 +16,7 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/user/activation"
 	"github.com/Yogdunana/StarByte/backend/internal/user/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
+	"github.com/Yogdunana/StarByte/backend/pkg/httpx"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/Yogdunana/StarByte/backend/pkg/utils"
 	"github.com/google/uuid"
@@ -612,18 +613,7 @@ func resolveCASURLs(cfg *config.CASConfig, requestOrigin string) (serviceURL, fr
 }
 
 func sanitizePublicOrigin(raw string) string {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return ""
-	}
-	u, err := url.Parse(raw)
-	if err != nil || u.User != nil || u.Host == "" {
-		return ""
-	}
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return ""
-	}
-	return u.Scheme + "://" + u.Host
+	return httpx.SanitizeOrigin(raw)
 }
 
 func casFrontendSuccess(origin, code string) string {

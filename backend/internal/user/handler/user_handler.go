@@ -2,10 +2,10 @@ package handler
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/Yogdunana/StarByte/backend/internal/user/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/user/service"
+	"github.com/Yogdunana/StarByte/backend/pkg/httpx"
 	authmiddleware "github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/gin-gonic/gin"
@@ -297,23 +297,8 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 }
 
 func registerPublicOrigin(c *gin.Context) string {
-	if c == nil || c.Request == nil {
+	if c == nil {
 		return ""
 	}
-	proto := strings.TrimSpace(c.GetHeader("X-Forwarded-Proto"))
-	if i := strings.Index(proto, ","); i >= 0 {
-		proto = strings.TrimSpace(proto[:i])
-	}
-	if proto == "" {
-		if c.Request.TLS != nil {
-			proto = "https"
-		} else {
-			proto = "http"
-		}
-	}
-	host := strings.TrimSpace(c.Request.Host)
-	if proto == "" || host == "" {
-		return ""
-	}
-	return proto + "://" + host
+	return httpx.RequestOrigin(c.Request)
 }
