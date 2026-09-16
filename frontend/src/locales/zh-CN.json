@@ -96,6 +96,7 @@
   "public": {
     "about": "关于我们",
     "charter": "协会章程",
+    "charterTitle": "深圳北理莫斯科大学计算机协会章程",
     "docs": "文档",
     "docsTitle": "公开文档",
     "login": "登录",
@@ -1092,6 +1093,8 @@
     "position": "职位",
     "email": "邮箱",
     "phone": "手机",
+    "phoneInvalid": "请输入 11 位中国大陆手机号",
+    "phonePlaceholder": "11 位手机号",
     "roles": "角色",
     "noRoles": "未分配"
   }

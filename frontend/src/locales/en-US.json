@@ -96,6 +96,7 @@
   "public": {
     "about": "About us",
     "charter": "Charter",
+    "charterTitle": "SMBU Computer Association Charter",
     "docs": "Docs",
     "docsTitle": "Public documents",
     "login": "Sign in",
@@ -1092,6 +1093,8 @@
     "position": "Position",
     "email": "Email",
     "phone": "Phone",
+    "phoneInvalid": "Enter an 11-digit mainland China mobile number",
+    "phonePlaceholder": "11-digit mobile number",
     "roles": "Roles",
     "noRoles": "Not assigned"
   }
