@@ -18,19 +18,31 @@ const CENTERS = [
   },
 ] as const;
 
-const ROLES = [
-  'member',
-  'probationOfficer',
-  'officer',
-  'viceMinister',
-  'minister',
-  'viceDirector',
-  'director',
-  'vicePresident',
-  'president',
-  'advisor',
-  'honorary',
-  'admin',
+const ROLE_GROUPS = [
+  {
+    label: 'roleGroupAssociation',
+    roles: [
+      'member',
+      'probationOfficer',
+      'officer',
+      'viceMinister',
+      'minister',
+      'viceDirector',
+      'director',
+      'vicePresident',
+      'president',
+      'advisor',
+      'honorary',
+    ] as const,
+  },
+  {
+    label: 'roleGroupTeam',
+    roles: ['captain', 'teammate'] as const,
+  },
+  {
+    label: 'roleGroupSystem',
+    roles: ['admin'] as const,
+  },
 ] as const;
 
 const AboutLanding: React.FC = () => {
@@ -38,21 +50,33 @@ const AboutLanding: React.FC = () => {
   return (
     <div className={styles.page}>
       <section className={styles.hero}>
-        <span className={styles.kicker}>{t('aboutUs.kicker')}</span>
-        <h1>{t('aboutUs.title')}</h1>
-        <div className={styles.names}>
-          <span>SMBU-CA / SMBUCA</span>
-          <span>КА МГУ-ППИ</span>
+        <div className={styles.heroCopy}>
+          <span className={styles.kicker}>{t('aboutUs.kicker')}</span>
+          <h1>{t('aboutUs.title')}</h1>
+          <div className={styles.names}>
+            <span>SMBU-CA / SMBUCA</span>
+            <span>КА МГУ-ППИ</span>
+          </div>
+          <p className={styles.lead}>{t('aboutUs.lead')}</p>
+          <div className={styles.actions}>
+            <Link className={styles.primary} to="/docs/association-charter">
+              {t('aboutUs.readCharter')}
+            </Link>
+            <Link className={styles.ghost} to="/member/application">
+              {t('aboutUs.apply')}
+            </Link>
+          </div>
         </div>
-        <p className={styles.lead}>{t('aboutUs.lead')}</p>
-        <div className={styles.actions}>
-          <Link className={styles.primary} to="/docs/association-charter">
-            {t('aboutUs.readCharter')}
-          </Link>
-          <Link className={styles.ghost} to="/member/application">
-            {t('aboutUs.apply')}
-          </Link>
-        </div>
+        <aside className={styles.heroAside}>
+          <h2>{t('aboutUs.heroAsideTitle')}</h2>
+          <p>{t('aboutUs.heroAsideLead')}</p>
+          <ol>
+            <li>{t('aboutUs.center.rd')}</li>
+            <li>{t('aboutUs.center.ops')}</li>
+            <li>{t('aboutUs.center.ext')}</li>
+          </ol>
+          <p>{t('aboutUs.heroAsideTeam')}</p>
+        </aside>
       </section>
 
       <div className={styles.stats}>
@@ -102,13 +126,35 @@ const AboutLanding: React.FC = () => {
       </section>
 
       <section className={styles.section}>
+        <h2>{t('aboutUs.teamsTitle')}</h2>
+        <p>{t('aboutUs.teamsLead')}</p>
+        <div className={styles.tracks}>
+          <article className={styles.track}>
+            <h3>{t('aboutUs.teamCaptain')}</h3>
+            <p>{t('aboutUs.teamCaptainBody')}</p>
+          </article>
+          <article className={styles.track}>
+            <h3>{t('aboutUs.teamMember')}</h3>
+            <p>{t('aboutUs.teamMemberBody')}</p>
+          </article>
+        </div>
+      </section>
+
+      <section className={styles.section}>
         <h2>{t('aboutUs.rolesTitle')}</h2>
         <p>{t('aboutUs.rolesLead')}</p>
-        <div className={styles.roles}>
-          {ROLES.map((role) => (
-            <span className={styles.role} key={role}>
-              {t(`aboutUs.role.${role}`)}
-            </span>
+        <div className={styles.roleGroups}>
+          {ROLE_GROUPS.map((group) => (
+            <div className={styles.roleGroup} key={group.label}>
+              <span className={styles.roleGroupLabel}>{t(`aboutUs.${group.label}`)}</span>
+              <div className={styles.roles}>
+                {group.roles.map((role) => (
+                  <span className={styles.role} key={role}>
+                    {t(`aboutUs.role.${role}`)}
+                  </span>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </section>

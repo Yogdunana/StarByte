@@ -112,6 +112,9 @@
     "lead": "A student academic and technology association. We support campus digital services through training, talks, projects, contests, and courses.",
     "readCharter": "Read the charter",
     "apply": "Sign in to apply",
+    "heroAsideTitle": "How it is organized",
+    "heroAsideLead": "The president leads the association and is not the system admin. Vice presidents may also direct a center. Seven departments sit under three centers.",
+    "heroAsideTeam": "Tech teams are part-time project units with a captain and members — not an eighth department. The same person may be both president and minister.",
     "stat": {
       "centersValue": "3",
       "centers": "Centers",
@@ -147,8 +150,17 @@
     "officerStep2": "Formal signatures from department and center",
     "officerStep3": "Probationary officer",
     "officerStep4": "Full officer",
+    "teamsTitle": "Tech teams",
+    "teamsLead": "Part-time project units. A captain leads; members contribute outside departmental posts.",
+    "teamCaptain": "Captain",
+    "teamCaptainBody": "Owns one tech team, usually as a side role.",
+    "teamMember": "Teammate",
+    "teamMemberBody": "Works on projects without replacing a departmental office.",
     "rolesTitle": "Roles",
     "rolesLead": "President is an association office, not the system administrator. The same person may be both president and minister. Tech teams have captains and members, usually part-time.",
+    "roleGroupAssociation": "Association offices",
+    "roleGroupSystem": "System role",
+    "roleGroupTeam": "Tech teams",
     "role": {
       "member": "Member",
       "probationOfficer": "Probationary officer",
@@ -161,7 +173,9 @@
       "president": "President",
       "advisor": "Faculty advisor",
       "honorary": "Honorary member",
-      "admin": "System admin"
+      "admin": "System admin",
+      "captain": "Captain",
+      "teammate": "Teammate"
     },
     "note": "Discipline committee, CYL branch, technical advisory board, general assembly, and standing committee remain charter bodies and are not built in phase one. See repository issues."
   },
@@ -233,6 +247,7 @@
     "subtitle": "Start with today’s list. Turn ideas into work you finish together.",
     "viewTasks": "View my tasks",
     "refresh": "Refresh workspace",
+    "metricsAria": "Workspace metrics",
     "unit": "items",
     "partSep": ", ",
     "loadPartial": "{{parts}} failed to load. Please retry.",

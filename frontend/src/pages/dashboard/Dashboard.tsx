@@ -129,30 +129,30 @@ export default function Dashboard() {
           />
         </motion.div>
       )}
-      <motion.div className={styles.metrics} variants={staggerEnter}>
+      <ul className={styles.metrics} aria-label={t('dashboard.metricsAria')}>
         {metrics.map((item, index) => (
-          <motion.div key={item.label} className={styles.metricCell} variants={fadeUp}>
+          <motion.li key={item.path} className={styles.metricCell} variants={fadeUp}>
             <Link to={item.path} className={styles.metric}>
-              <div className={styles.metricTop}>
-                <span className={styles.metricLabel}>{item.label}</span>
-                <span className={styles.metricNumber}>{String(index + 1).padStart(2, '0')}</span>
-              </div>
+              <span className={styles.metricLabel}>{item.label}</span>
+              <span className={styles.metricNumber}>{String(index + 1).padStart(2, '0')}</span>
               {loading ? (
-                <Skeleton.Input active size="small" />
+                <span className={styles.metricValue}>
+                  <Skeleton.Input active size="small" />
+                </span>
               ) : (
-                <strong>
+                <strong className={styles.metricValue}>
                   {item.value ?? '—'}
                   <span> {t('dashboard.unit')}</span>
                 </strong>
               )}
-              <div className={styles.metricBottom}>
+              <span className={styles.metricBottom}>
                 <span>{item.caption}</span>
                 <ArrowRightOutlined />
-              </div>
+              </span>
             </Link>
-          </motion.div>
+          </motion.li>
         ))}
-      </motion.div>
+      </ul>
       <motion.div className={styles.workspace} variants={staggerEnter}>
         <motion.section className={styles.queue} aria-labelledby="queue-title" variants={fadeUp}>
           <div className={styles.sectionHeader}>

@@ -7,13 +7,52 @@
 
 .hero {
   display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.8fr);
+  gap: 20px;
+  align-items: stretch;
+}
+
+.heroCopy {
+  display: grid;
   gap: 18px;
-  padding: 28px 32px;
+  min-width: 0;
+  padding: 32px;
   border: 1px solid var(--sb-border);
   border-radius: var(--sb-radius-lg);
   background:
     linear-gradient(180deg, var(--sb-surface) 0%, var(--sb-bg-accent) 100%);
   box-shadow: var(--sb-shadow-raised);
+}
+
+.heroAside {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 28px 24px;
+  border: 1px solid var(--sb-border);
+  border-radius: var(--sb-radius-lg);
+  background: var(--sb-surface);
+  box-shadow: var(--sb-shadow);
+}
+
+.heroAside h2 {
+  margin: 0;
+  font-size: 16px;
+  letter-spacing: var(--sb-track-tight);
+}
+
+.heroAside p {
+  margin: 0;
+  color: var(--sb-muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.heroAside ol {
+  margin: 4px 0;
+  padding-left: 1.15em;
+  line-height: 1.9;
+  color: var(--sb-text);
 }
 
 .kicker {
@@ -164,6 +203,21 @@
   gap: 8px;
 }
 
+.roleGroups {
+  display: grid;
+  gap: 18px;
+}
+
+.roleGroupLabel {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: var(--sb-weight-meta);
+  letter-spacing: var(--sb-track-meta);
+  text-transform: uppercase;
+  color: var(--sb-muted);
+}
+
 .role {
   padding: 6px 12px;
   border-radius: 999px;
@@ -181,13 +235,15 @@
 }
 
 @media (max-width: 900px) {
-  .stats, .centers, .tracks { grid-template-columns: 1fr 1fr; }
+  .hero, .stats, .centers, .tracks { grid-template-columns: 1fr 1fr; }
+  .hero { grid-template-columns: 1fr; }
   .stat:nth-child(2n) { border-right: 0; }
   .stat:nth-child(-n+2) { border-bottom: 1px solid var(--sb-border); }
 }
 
 @media (max-width: 640px) {
-  .hero { padding: 22px 18px; }
+  .heroCopy { padding: 22px 18px; }
+  .heroAside { padding: 20px 18px; }
   .stats, .centers, .tracks { grid-template-columns: 1fr; }
   .stat { border-right: 0; border-bottom: 1px solid var(--sb-border); }
   .stat:last-child { border-bottom: 0; }
