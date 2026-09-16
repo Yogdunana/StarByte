@@ -308,6 +308,7 @@ const CalendarPage: React.FC = () => {
               rowKey={(r) => `${r.id}-${r.start_at}`}
               loading={loading}
               dataSource={visibleList}
+              scroll={{ x: 'max-content' }}
               pagination={view === 'agenda' ? { pageSize: 10 } : false}
               onRow={(record) => ({ onClick: () => openEvent(record) })}
               columns={[

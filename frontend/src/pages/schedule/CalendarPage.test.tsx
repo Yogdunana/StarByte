@@ -1,5 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import CalendarPage from './CalendarPage';
@@ -102,5 +105,14 @@ describe('CalendarPage', () => {
     render(<MemoryRouter><CalendarPage /></MemoryRouter>);
     await waitFor(() => expect(screen.getByText('schedule.title')).toBeInTheDocument());
     expect(googleCallback).not.toHaveBeenCalled();
+  });
+});
+
+describe('schedule density', () => {
+  it('caps full-calendar cell height so a laptop month view fits at 100% zoom', () => {
+    const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'schedule.css'), 'utf8');
+    expect(css).toContain('table-layout: fixed');
+    expect(css).toContain('100dvh - 22rem');
+    expect(css).toContain('minmax(0, 1fr)');
   });
 });
