@@ -1,7 +1,8 @@
 import { tx, useLocale } from '@/i18n/text';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Button, Card, Empty, Grid, Modal, Pagination, Select, Spin, message } from 'antd';
+import { Alert, Button, Card, Empty, Modal, Pagination, Select, Spin, message } from 'antd';
 import PageIntro from '@/components/PageIntro/PageIntro';
+import { useViewport } from '@/hooks/useViewport';
 import { getTaskList, updateTaskStatus } from '@/api/task';
 import type { Task, TaskStatus } from '@/types/api';
 import { BOARD_COLUMNS } from './meta';
@@ -101,7 +102,7 @@ function Lane({ status, title, revision, onOpen, onDrag, onDrop }: LaneProps) {
 }
 export default function BoardPage() {
   useLocale();
-  const screens = Grid.useBreakpoint();
+  const { phone } = useViewport();
   const [modal, holder] = Modal.useModal();
   const [drag, setDrag] = useState<Task | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -132,9 +133,9 @@ export default function BoardPage() {
       },
     });
   };
-  const columns = screens.lg
-    ? BOARD_COLUMNS
-    : BOARD_COLUMNS.filter((c) => c.status === mobileStatus);
+  const columns = phone
+    ? BOARD_COLUMNS.filter((c) => c.status === mobileStatus)
+    : BOARD_COLUMNS;
   return (
     <>
       {holder}
@@ -145,7 +146,7 @@ export default function BoardPage() {
         actions={<Button onClick={reload}>{tx('刷新看板')}</Button>}
       />
       <Card>
-        {!screens.lg && (
+        {phone && (
           <Select
             aria-label={tx('看板阶段')}
             value={mobileStatus}

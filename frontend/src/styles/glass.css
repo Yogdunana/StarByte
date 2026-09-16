@@ -16,11 +16,14 @@
   border-radius: var(--sb-radius);
   background: var(--sb-surface);
   box-shadow: var(--sb-shadow);
+  overflow-x: auto;
+  max-width: 100%;
 }
 .ant-table-wrapper .ant-table { background: var(--sb-surface); }
 .ant-table-wrapper .ant-table-container { border-radius: var(--sb-radius-sm); }
 .ant-table-wrapper .ant-table-cell { overflow-wrap: anywhere; }
 .ant-table-wrapper .ant-table-pagination { padding: 0 12px; }
+.ant-modal { max-width: calc(100vw - 24px); }
 .ant-card .ant-table-wrapper { padding: 0; border: 0; box-shadow: none; }
 .ant-input-affix-wrapper, .ant-input, .ant-select-selector, .ant-picker {
   transition: border-color var(--sb-motion), box-shadow var(--sb-motion);
@@ -41,14 +44,15 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
   transition-duration: 0.01ms !important;
   scroll-behavior: auto !important;
 }
-@media (max-width: 767px) {
+@media (max-width: 991px) {
   .ant-btn:not(.ant-btn-icon-only), .ant-btn-icon-only { min-height: 44px; }
   .ant-btn-icon-only { min-width: 44px; }
   .ant-select-single { height: 44px; }
   .ant-input-affix-wrapper, .ant-picker, input.ant-input { min-height: 44px; }
   .ant-input-affix-wrapper input.ant-input { min-height: 0; }
-  .ant-table-wrapper { overflow-x: auto; max-width: 100%; }
+  .ant-modal { max-width: calc(100vw - 32px) !important; }
   .ant-modal .ant-modal-body, .ant-drawer .ant-drawer-body { overflow-wrap: anywhere; }
+  .ant-pagination { flex-wrap: wrap; row-gap: 8px; }
 }
 
 /* Leave room for the close control when translated dialog titles wrap. */

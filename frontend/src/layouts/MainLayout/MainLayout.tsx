@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Drawer, Grid, Input, Layout, Menu } from 'antd';
+import { Drawer, Input, Layout, Menu } from 'antd';
 import { AppstoreOutlined, BellOutlined, CheckCircleOutlined, SearchOutlined, UserOutlined } from '@ant-design/icons';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import TopBar from './components/TopBar';
 import { useMenu } from '@/hooks/useMenu';
 import { FeatureProvider } from '@/hooks/useFeature';
+import { useViewport } from '@/hooks/useViewport';
 import { fadeRight, fadeUp, shellTransition } from '@/motion/tokens';
 import styles from './MainLayout.module.css';
 
@@ -14,11 +15,10 @@ export interface MainLayoutProps { children?: React.ReactNode }
 const MainLayoutInner: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const screens = Grid.useBreakpoint();
-  const mobile = !screens.lg;
+  const { phone, compact: compactViewport } = useViewport();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { menuItems, selectedKeys, openKeys, setOpenKeys, collapsed, searchKeyword, setSearchKeyword } = useMenu();
-  const compact = !mobile && collapsed;
+  const compact = !compactViewport && collapsed;
   const navigation = (
     <>
       <NavLink to="/dashboard" className={styles.brand} onClick={() => setDrawerOpen(false)} aria-label={t('shell.brandAria')}>
@@ -85,7 +85,7 @@ const MainLayoutInner: React.FC = () => {
   return (
     <Layout className={styles.shell}>
       <a href="#main-content" className={styles.skipLink}>{t('shell.skip')}</a>
-      {!mobile && (
+      {!compactViewport && (
         <Layout.Sider
           trigger={null}
           collapsible
@@ -100,7 +100,7 @@ const MainLayoutInner: React.FC = () => {
       <Drawer
         title={t('shell.nav')}
         placement="left"
-        open={mobile && drawerOpen}
+        open={compactViewport && drawerOpen}
         onClose={() => setDrawerOpen(false)}
         width={292}
         styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column', background: 'var(--sb-surface)' } }}
@@ -114,7 +114,7 @@ const MainLayoutInner: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={shellTransition}
         >
-          <TopBar mobile={mobile} onOpenMenu={() => setDrawerOpen(true)} />
+          <TopBar mobile={compactViewport} onOpenMenu={() => setDrawerOpen(true)} />
           <Layout.Content id="main-content" tabIndex={-1} className={styles.content}>
             <motion.div
               className={styles.contentStage}
@@ -133,7 +133,7 @@ const MainLayoutInner: React.FC = () => {
           </footer>
         </motion.div>
       </Layout>
-      {mobile && (
+      {phone && (
         <nav className={styles.mobileNav} aria-label={t('shell.quickNav')}>
           {[
             { path: '/dashboard', label: t('shell.workspace'), icon: <AppstoreOutlined /> },

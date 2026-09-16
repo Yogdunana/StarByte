@@ -3,6 +3,7 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body, #root { min-height: 100%; width: 100%; }
+html { -webkit-text-size-adjust: 100%; }
 body {
   font-family: 'Avenir Next', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
   font-weight: var(--sb-weight-body);
@@ -10,6 +11,7 @@ body {
   color: var(--sb-text);
   background: var(--sb-ambient);
   line-height: 1.6;
+  overflow-x: clip;
 }
 h1, h2, h3 {
   font-weight: var(--sb-weight-title);

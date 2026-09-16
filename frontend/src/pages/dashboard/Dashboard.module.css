@@ -166,11 +166,13 @@
   .metricCell:nth-child(2n) { border-right: 0; }
   .metricCell:nth-child(-n+2) { border-bottom: 1px solid var(--sb-border); }
 }
-@media (max-width: 767px) {
+@media (max-width: 991px) {
   .workspace { grid-template-columns: 1fr; }
   .aside { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .feed { grid-column: 1 / -1; }
   .application { margin-top: 0; }
+}
+@media (max-width: 767px) {
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 24px; }
   .metric {
     padding: 16px 14px;
