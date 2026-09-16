@@ -1,5 +1,6 @@
 import { tx } from '@/i18n/text';
 import type { Rule } from 'antd/es/form';
+import { isCnMobile } from '@/utils/phone';
 
 /**
  * 表单校验规则工具
@@ -56,12 +57,14 @@ export const passwordRule: Rule[] = [
   },
 ];
 
-/** 手机号校验 */
+/** 手机号校验（中国大陆 11 位，可带 +86） */
 export const phoneRule: Rule[] = [
   {
-    pattern: /^1[3-9]\d{9}$/,
-    get message() {
-      return tx('请输入有效的手机号');
+    validator: async (_, value) => {
+      if (!value) return;
+      if (!isCnMobile(value)) {
+        throw new Error(tx('请输入有效的手机号'));
+      }
     },
   },
 ];

@@ -12,6 +12,7 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/user/model"
 	"github.com/Yogdunana/StarByte/backend/internal/user/repo"
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
+	"github.com/Yogdunana/StarByte/backend/pkg/phone"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/Yogdunana/StarByte/backend/pkg/utils"
 	"github.com/google/uuid"
@@ -342,7 +343,11 @@ func (s *userService) UpdateProfile(ctx context.Context, userID string, req *dto
 		changes["email"] = strings.TrimSpace(*req.Email)
 	}
 	if req.Phone != nil {
-		changes["phone"] = strings.TrimSpace(*req.Phone)
+		normalized, err := phone.NormalizeCNOptional(*req.Phone)
+		if err != nil {
+			return response.NewError(response.CodeBadRequest, "请输入11位中国大陆手机号")
+		}
+		changes["phone"] = normalized
 	}
 	if req.Gender != nil {
 		changes["gender"] = *req.Gender

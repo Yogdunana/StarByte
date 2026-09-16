@@ -23,15 +23,15 @@ func seedKnowledge(db *gorm.DB) error {
 	docs := []seedDoc{
 		{
 			ID: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1", Kind: "page", Slug: "about-us",
-			Title: "关于我们", Summary: "深圳北理莫斯科大学计算机协会（StarByte）",
+			Title: "关于我们", Summary: "深圳北理莫斯科大学计算机协会（深北莫计协 / SMBU-CA）",
 			CategoryID: "11111111-1111-4111-8111-111111111111", Visibility: "public",
-			Content: "# 关于 StarByte\n\n深圳北理莫斯科大学计算机协会（StarByte）是面向全校的学生技术社团。\n\n- [计算机协会章程](/docs/association-charter)\n- [使用手册](/docs/user-manual)\n- [API 手册说明](/docs/api-manual)\n",
+			Content: "# 关于我们\n\n公开介绍页：[/about-us](/about-us)。章程全文：[/docs/association-charter](/docs/association-charter)。\n",
 		},
 		{
 			ID: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2", Kind: "doc", Slug: "association-charter",
-			Title: "计算机协会章程", Summary: "协会组织与运行的基本规则",
+			Title: "计算机协会章程", Summary: "深圳北理莫斯科大学计算机协会章程全文",
 			CategoryID: "11111111-1111-4111-8111-111111111111", Visibility: "public",
-			Content: "# 计算机协会章程\n\n本文为招新与日常查阅用的公开章程摘要。\n\n## 宗旨\n\n促进计算机科学学习与实践，培养协作与工程能力。\n",
+			Content: "# 计算机协会章程\n\n公开页 [/docs/association-charter](/docs/association-charter) 展示章程正式 HTML。源文件：docs/charter/smbu-ca-charter.html。\n",
 		},
 		{
 			ID: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3", Kind: "doc", Slug: "user-manual",

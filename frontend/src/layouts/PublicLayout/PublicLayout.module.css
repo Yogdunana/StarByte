@@ -48,6 +48,20 @@
   padding: var(--sb-space-7) 0 var(--sb-space-7);
 }
 
+.mainWide {
+  flex: 1;
+  width: min(1080px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: var(--sb-space-7) 0 var(--sb-space-7);
+}
+
+.mainFlush {
+  flex: 1;
+  width: min(980px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: var(--sb-space-5) 0 var(--sb-space-6);
+}
+
 .footer {
   padding: var(--sb-space-5) var(--sb-space-6) var(--sb-space-6);
   display: flex;
@@ -82,5 +96,5 @@
 
 @media (max-width: 720px) {
   .header, .footer { padding-inline: var(--sb-space-4); }
-  .main { width: calc(100% - 32px); padding-top: var(--sb-space-5); }
+  .main, .mainWide, .mainFlush { width: calc(100% - 32px); padding-top: var(--sb-space-5); }
 }

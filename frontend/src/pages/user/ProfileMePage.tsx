@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { fetchCurrentUser, selectCurrentUser, selectUserLoading } from '@/store/slices/userSlice';
 import { updateMyProfile, type ProfileUpdate } from '@/api/user';
 import type { AppDispatch } from '@/store';
+import { formatCnMobile, isCnMobile, nationalMobileDigits } from '@/utils/phone';
 
 const ProfileMePage: React.FC = () => {
   const { t } = useTranslation();
@@ -23,16 +24,20 @@ const ProfileMePage: React.FC = () => {
     form.setFieldsValue({
       real_name: user?.real_name,
       email: user?.email,
-      phone: user?.phone,
+      phone: nationalMobileDigits(user?.phone) || undefined,
       gender: user?.gender,
     });
     setOpen(true);
   };
   const save = async () => {
     const values = await form.validateFields();
+    const phone = nationalMobileDigits(values.phone);
     setSaving(true);
     try {
-      await updateMyProfile(values);
+      await updateMyProfile({
+        ...values,
+        phone: phone || '',
+      });
       await dispatch(fetchCurrentUser()).unwrap();
       setOpen(false);
       message.success(t('common.saveSuccess', '保存成功'));
@@ -79,7 +84,7 @@ const ProfileMePage: React.FC = () => {
           {dash(user?.email)}
         </Descriptions.Item>
         <Descriptions.Item label={t('profile.phone', '手机')}>
-          {dash(user?.phone)}
+          {user?.phone?.trim() ? formatCnMobile(user.phone) : dash(user?.phone)}
         </Descriptions.Item>
         <Descriptions.Item label={t('common.status', '状态')}>
           <Tag>
@@ -114,8 +119,29 @@ const ProfileMePage: React.FC = () => {
           >
             <Input />
           </Form.Item>
-          <Form.Item name="phone" label={t('profile.phone', '手机')} rules={[{ max: 20 }]}>
-            <Input />
+          <Form.Item
+            name="phone"
+            label={t('profile.phone', '手机')}
+            getValueFromEvent={(event: { target: { value: string } }) =>
+              nationalMobileDigits(event.target.value).slice(0, 11)
+            }
+            rules={[
+              {
+                validator: async (_, value) => {
+                  if (!value || !String(value).trim()) return;
+                  if (!isCnMobile(value)) {
+                    throw new Error(t('profile.phoneInvalid', '请输入 11 位中国大陆手机号'));
+                  }
+                },
+              },
+            ]}
+          >
+            <Input
+              prefix="+86"
+              placeholder={t('profile.phonePlaceholder', '11 位手机号')}
+              maxLength={13}
+              inputMode="numeric"
+            />
           </Form.Item>
           <Form.Item name="gender" label={t('profile.gender', '性别')}>
             <Select

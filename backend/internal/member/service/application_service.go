@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,12 +12,55 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/member/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/member/model"
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
+	"github.com/Yogdunana/StarByte/backend/pkg/phone"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 )
+
+func bindContactPhone(raw string) (string, error) {
+	n, err := phone.NormalizeCN(raw)
+	if err != nil {
+		return "", response.NewError(response.CodeBadRequest, "请输入11位中国大陆手机号")
+	}
+	return n, nil
+}
+
+func bindApplicantDepartment(req *dto.SubmitApplicationRequest) error {
+	if req == nil {
+		return nil
+	}
+	if req.ApplicantType != int(model.ApplicantOfficer) {
+		req.DepartmentID = ""
+		return nil
+	}
+	if strings.TrimSpace(req.DepartmentID) == "" {
+		return response.NewError(response.CodeBadRequest, "干事申请必须选择意向部门")
+	}
+	return nil
+}
+
+func normalizeResubmitPhone(req *dto.ResubmitApplicationRequest) error {
+	if req == nil || strings.TrimSpace(req.ContactPhone) == "" {
+		return nil
+	}
+	n, err := bindContactPhone(req.ContactPhone)
+	if err != nil {
+		return err
+	}
+	req.ContactPhone = n
+	return nil
+}
 
 func (s *memberService) Submit(ctx context.Context, userID uuid.UUID, req *dto.SubmitApplicationRequest) (*dto.ApplicationResponse, error) {
 	if s.admission != nil {
 		return s.admission.SubmitApplication(ctx, userID, req)
+	}
+	normalized, err := bindContactPhone(req.ContactPhone)
+	if err != nil {
+		return nil, err
+	}
+	req.ContactPhone = normalized
+	if err := bindApplicantDepartment(req); err != nil {
+		return nil, err
 	}
 	open, err := s.apps.HasOpenApplication(ctx, userID)
 	if err != nil {
@@ -58,6 +102,9 @@ func (s *memberService) Submit(ctx context.Context, userID uuid.UUID, req *dto.S
 func (s *memberService) Resubmit(ctx context.Context, userID, id uuid.UUID, req *dto.ResubmitApplicationRequest) (*dto.ApplicationResponse, error) {
 	if s.admission != nil {
 		return s.admission.ResubmitApplication(ctx, userID, id, req)
+	}
+	if err := normalizeResubmitPhone(req); err != nil {
+		return nil, err
 	}
 	app, err := s.apps.GetByID(ctx, id)
 	if err != nil {

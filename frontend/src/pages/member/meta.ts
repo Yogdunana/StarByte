@@ -86,7 +86,7 @@ export const ProfileStatusMap: StatusMap = {
   3: {
     color: 'processing',
     get text() {
-      return tx('候补期');
+      return tx('预备期');
     },
   },
   0: {

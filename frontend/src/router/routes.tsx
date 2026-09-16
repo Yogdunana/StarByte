@@ -76,6 +76,7 @@ const LeaveStatsPage = lazy(() => import('@/pages/leave/StatsPage'));
 const MonitorPage = lazy(() => import('@/pages/monitor/MonitorPage'));
 const BackupPage = lazy(() => import('@/pages/backup/BackupPage'));
 const AboutUsPage = lazy(() => import('@/pages/public/AboutUsPage'));
+const AboutLanding = lazy(() => import('@/pages/public/AboutLanding'));
 const DocsIndexPage = lazy(() => import('@/pages/public/DocsIndexPage'));
 const PublicDocPage = lazy(() => import('@/pages/public/DocPage'));
 const KnowledgeAdminPage = lazy(() => import('@/pages/knowledge/AdminPage'));
@@ -186,7 +187,7 @@ const routes: AppRouteObject[] = [
     children: [
       {
         path: 'about-us',
-        element: lazyWrap(AboutUsPage),
+        element: lazyWrap(AboutLanding),
         meta: {
           get title() {
             return tx('关于我们');
