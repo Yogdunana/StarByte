@@ -198,6 +198,9 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
           <Form.Item
             name="contact_phone"
             label={tx('手机号')}
+            getValueFromEvent={(event: { target: { value: string } }) =>
+              nationalMobileDigits(event.target.value).slice(0, 11)
+            }
             rules={[
               { required: true, message: tx('请输入手机号') },
               {
@@ -209,7 +212,7 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
               },
             ]}
           >
-            <Input prefix="+86" placeholder={tx('11 位手机号')} maxLength={11} inputMode="numeric" />
+            <Input prefix="+86" placeholder={tx('11 位手机号')} maxLength={13} inputMode="numeric" />
           </Form.Item>
           <Form.Item
             name="contact_email"

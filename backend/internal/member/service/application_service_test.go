@@ -48,6 +48,38 @@ func TestSubmit_OK(t *testing.T) {
 	require.Equal(t, "张三", out.RealName)
 }
 
+func TestSubmit_MemberDropsDepartment(t *testing.T) {
+	apps := &mockAppRepo{}
+	svc := NewMemberService(apps, &mockProfRepo{}, nil)
+	userID := uuid.New()
+	apps.On("HasOpenApplication", mock.Anything, userID).Return(false, nil)
+	apps.On("Create", mock.Anything, mock.AnythingOfType("*model.MemberApplication")).Run(func(args mock.Arguments) {
+		app := args.Get(1).(*model.MemberApplication)
+		require.Nil(t, app.DepartmentID)
+	}).Return(nil)
+	apps.On("CreateHistory", mock.Anything, mock.AnythingOfType("*model.ApplicationHistory")).Return(nil)
+	apps.On("GetByIDWithNames", mock.Anything, mock.AnythingOfType("uuid.UUID")).Return(&model.ApplicationWithNames{
+		MemberApplication: model.MemberApplication{
+			ID: uuid.New(), UserID: userID, Type: 1, RealName: "张三", Status: model.AppPending,
+		},
+	}, nil)
+
+	_, err := svc.Submit(context.Background(), userID, &dto.SubmitApplicationRequest{
+		ApplicantType: 1, RealName: "张三", StudentNo: "2024001", DepartmentID: uuid.New().String(),
+		Reason: "加入", ContactPhone: "+86 138-0000-0000", ContactEmail: "a@b.com",
+	})
+	require.NoError(t, err)
+}
+
+func TestSubmit_OfficerNeedsDepartment(t *testing.T) {
+	svc := NewMemberService(&mockAppRepo{}, &mockProfRepo{}, nil)
+	_, err := svc.Submit(context.Background(), uuid.New(), &dto.SubmitApplicationRequest{
+		ApplicantType: 2, RealName: "李四", StudentNo: "2024002",
+		Reason: "加入", ContactPhone: "13800000000", ContactEmail: "a@b.com",
+	})
+	requireAppError(t, err, response.CodeBadRequest, "干事申请必须选择意向部门")
+}
+
 func TestResubmit_WrongOwner(t *testing.T) {
 	apps := &mockAppRepo{}
 	svc := NewMemberService(apps, &mockProfRepo{}, nil)

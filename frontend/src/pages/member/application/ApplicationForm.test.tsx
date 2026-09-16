@@ -54,6 +54,8 @@ it('hides intended department for members and prefills phone plus email', async 
   fireEvent.click(await screen.findByText('干事（需面试）'));
   expect(await screen.findByText('意向部门')).toBeTruthy();
   expect(screen.getByText('+86')).toBeTruthy();
+  fireEvent.change(screen.getByDisplayValue('13800138000'), { target: { value: '+86 139-0013-9000' } });
+  expect(screen.getByDisplayValue('13900139000')).toBeTruthy();
 });
 
 it('keeps missing identity editable', async () => {

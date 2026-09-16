@@ -24,6 +24,20 @@ func bindContactPhone(raw string) (string, error) {
 	return n, nil
 }
 
+func bindApplicantDepartment(req *dto.SubmitApplicationRequest) error {
+	if req == nil {
+		return nil
+	}
+	if req.ApplicantType != int(model.ApplicantOfficer) {
+		req.DepartmentID = ""
+		return nil
+	}
+	if strings.TrimSpace(req.DepartmentID) == "" {
+		return response.NewError(response.CodeBadRequest, "干事申请必须选择意向部门")
+	}
+	return nil
+}
+
 func normalizeResubmitPhone(req *dto.ResubmitApplicationRequest) error {
 	if req == nil || strings.TrimSpace(req.ContactPhone) == "" {
 		return nil
@@ -45,6 +59,9 @@ func (s *memberService) Submit(ctx context.Context, userID uuid.UUID, req *dto.S
 		return nil, err
 	}
 	req.ContactPhone = normalized
+	if err := bindApplicantDepartment(req); err != nil {
+		return nil, err
+	}
 	open, err := s.apps.HasOpenApplication(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("check open application: %w", err)

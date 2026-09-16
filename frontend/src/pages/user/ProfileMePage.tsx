@@ -122,6 +122,9 @@ const ProfileMePage: React.FC = () => {
           <Form.Item
             name="phone"
             label={t('profile.phone', '手机')}
+            getValueFromEvent={(event: { target: { value: string } }) =>
+              nationalMobileDigits(event.target.value).slice(0, 11)
+            }
             rules={[
               {
                 validator: async (_, value) => {
@@ -133,7 +136,12 @@ const ProfileMePage: React.FC = () => {
               },
             ]}
           >
-            <Input prefix="+86" placeholder={t('profile.phonePlaceholder', '11 位手机号')} maxLength={11} />
+            <Input
+              prefix="+86"
+              placeholder={t('profile.phonePlaceholder', '11 位手机号')}
+              maxLength={13}
+              inputMode="numeric"
+            />
           </Form.Item>
           <Form.Item name="gender" label={t('profile.gender', '性别')}>
             <Select

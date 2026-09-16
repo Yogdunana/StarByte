@@ -27,8 +27,8 @@ func (s *admissionService) SubmitApplication(ctx context.Context, user uuid.UUID
 		if err := jobs.LockApplicant(ctx, user); err != nil {
 			return err
 		}
-		if req.ApplicantType == 2 && req.DepartmentID == "" {
-			return response.NewError(response.CodeBadRequest, "干事申请必须选择意向部门")
+		if err := bindApplicantDepartment(req); err != nil {
+			return err
 		}
 		if err := validateApplicationDepartment(ctx, jobs, req.DepartmentID); err != nil {
 			return err
