@@ -4,6 +4,7 @@ import { Table, Card, Input, Space } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import type { TablePagination } from '@/types/common';
+import { useViewport } from '@/hooks/useViewport';
 
 export interface DataTableProps<T> {
   columns: ColumnsType<T>;
@@ -35,7 +36,7 @@ function DataTable<T extends Record<string, unknown>>({
   scroll,
 }: DataTableProps<T>) {
   useLocale();
-  // 内部搜索值（当外部未提供 value 时使用）
+  const { phone, compact } = useViewport();
   const [searchValue, setSearchValue] = useState(search?.value || '');
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -83,9 +84,10 @@ function DataTable<T extends Record<string, unknown>>({
         current: pagination.page,
         pageSize: pagination.pageSize,
         total: pagination.total,
-        showSizeChanger: true,
-        showQuickJumper: true,
-        showTotal: (total) => tx('共 {{value0}} 条', { value0: total }),
+        simple: phone,
+        showSizeChanger: !compact,
+        showQuickJumper: !compact,
+        showTotal: compact ? undefined : (total) => tx('共 {{value0}} 条', { value0: total }),
         onChange: (page, pageSize) => pagination.onChange(page, pageSize),
       }
     : undefined;

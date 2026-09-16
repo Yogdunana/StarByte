@@ -137,6 +137,7 @@ export default function TaskCollection({
       loading={loading}
       columns={columns}
       dataSource={rows}
+      scroll={{ x: 'max-content' }}
       pagination={{ current: page, total, pageSize: 10, showSizeChanger: false, onChange: onPage }}
       locale={{ emptyText: tx('暂无符合条件的任务') }}
     />

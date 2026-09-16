@@ -1,9 +1,6 @@
 .header {
   min-height: 64px;
   height: auto;
-  padding-top: 8px;
-  padding-bottom: 8px;
-  padding: 0 var(--sb-space-5);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -11,6 +8,7 @@
   border-bottom: 1px solid var(--sb-border);
   line-height: 1.5;
   gap: var(--sb-space-3);
+  padding: env(safe-area-inset-top, 0px) max(var(--sb-space-5), env(safe-area-inset-right, 0px)) 0 max(var(--sb-space-5), env(safe-area-inset-left, 0px));
 }
 .leading, .actions {
   display: flex;
@@ -47,10 +45,16 @@
 .breadcrumb { min-width: 0; }
 .breadcrumb :global(ol) { flex-wrap: wrap; overflow-wrap: anywhere; }
 @media (max-width: 991px) {
-  .header { padding: 0 var(--sb-space-4); }
+  .header {
+    padding-left: max(var(--sb-space-4), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--sb-space-4), env(safe-area-inset-right, 0px));
+  }
 }
 @media (max-width: 575px) {
-  .header { padding: 0 var(--sb-space-2); }
+  .header {
+    padding-left: max(var(--sb-space-2), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--sb-space-2), env(safe-area-inset-right, 0px));
+  }
   .actions { gap: 2px; }
   .accountText, .language { display: none; }
   .breadcrumb { font-size: 12px; }

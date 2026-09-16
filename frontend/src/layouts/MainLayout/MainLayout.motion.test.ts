@@ -21,4 +21,20 @@ describe('MainLayout motion chrome', () => {
     expect(css).not.toMatch(/\.contentStage\s*>\s*\*/);
     expect(css).toContain('.contentPage');
   });
+
+  it('uses drawer chrome on compact viewports and bottom nav only on phone', () => {
+    expect(source).toContain('useViewport');
+    expect(source).toContain('compactViewport');
+    expect(source).toMatch(/phone && \(/);
+    expect(source).toMatch(/compactViewport && drawerOpen/);
+    expect(css).toContain('Bottom nav is phone-only');
+    expect(css).toContain('max-width: 767px');
+  });
+});
+
+describe('viewport meta', () => {
+  it('requests viewport-fit cover for notched phones', () => {
+    const html = readFileSync(join(dir, '../../../index.html'), 'utf8');
+    expect(html).toContain('viewport-fit=cover');
+  });
 });

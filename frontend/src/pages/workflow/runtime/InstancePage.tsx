@@ -97,6 +97,7 @@ export default function InstancePage() {
             rowKey="id"
             dataSource={items}
             pagination={false}
+            scroll={{ x: 'max-content' }}
             columns={[
               {
                 title: tx('流程名称'),

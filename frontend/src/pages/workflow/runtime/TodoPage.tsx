@@ -99,6 +99,7 @@ export default function TodoPage() {
             rowKey="id"
             dataSource={items}
             pagination={false}
+            scroll={{ x: 'max-content' }}
             columns={[
               {
                 title: tx('当前环节'),
