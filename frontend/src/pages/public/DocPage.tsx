@@ -6,6 +6,7 @@ import { getPublicDoc, isKnowledgeLoginRequired } from '@/api/knowledge';
 import type { KnowledgeDoc } from '@/api/knowledge';
 import { loginPath } from '@/utils/nextPath';
 import MarkdownArticle from './MarkdownArticle';
+import CharterPage from './CharterPage';
 
 const DocPage: React.FC = () => {
   const { slug = '' } = useParams();
@@ -15,7 +16,7 @@ const DocPage: React.FC = () => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!slug) return;
+    if (!slug || slug === 'association-charter') return;
     getPublicDoc(slug)
       .then(setDoc)
       .catch((err: unknown) => {
@@ -27,6 +28,7 @@ const DocPage: React.FC = () => {
       });
   }, [slug, navigate, t]);
 
+  if (slug === 'association-charter') return <CharterPage />;
   if (error) return <Typography.Paragraph>{error}</Typography.Paragraph>;
   if (!doc) return <Spin />;
   return (

@@ -38,7 +38,7 @@ const stages: Record<string, string> = {
     return tx('会长最终确认');
   },
   get probation() {
-    return tx('候补期');
+    return tx('预备期');
   },
   get approved() {
     return tx('正式成员');

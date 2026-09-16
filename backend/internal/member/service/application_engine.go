@@ -82,7 +82,11 @@ func applyEngineOutcome(app *model.MemberApplication, action, nodeID string, com
 		if app.CharterPolicy {
 			app.Status = model.AppApproved
 			app.AdmissionStage = model.AdmissionProbation
-			app.CurrentStage = "候补期"
+			if app.Type == model.ApplicantOfficer {
+				app.CurrentStage = "预备干事"
+			} else {
+				app.CurrentStage = "预备会员"
+			}
 			until := calendarMonthLater(now)
 			app.ProbationUntil = &until
 			app.StageEnteredAt = now

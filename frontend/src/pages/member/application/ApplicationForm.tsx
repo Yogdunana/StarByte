@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/api/auth';
 import { useTranslation } from 'react-i18next';
 import { getMemberDepartments, submitApplication } from '@/api/member';
 import type { CreateMemberApplicationParams, MemberDepartmentOption } from '@/types/api';
+import { isCnMobile, nationalMobileDigits } from '@/utils/phone';
 
 const { TextArea } = Input;
 
@@ -42,6 +43,13 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
             locks[field] = true;
           }
         }
+        const phone = nationalMobileDigits(user.phone);
+        if (isCnMobile(phone) && !form.isFieldTouched('contact_phone')) {
+          values.contact_phone = phone;
+        }
+        if (user.email?.trim() && !form.isFieldTouched('contact_email')) {
+          values.contact_email = user.email.trim();
+        }
         form.setFieldsValue(values);
         setIdentity(values);
         setLocked(locks);
@@ -51,6 +59,12 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
       active = false;
     };
   }, [form]);
+
+  useEffect(() => {
+    if (applicantType !== 2) {
+      form.setFieldValue('department_id', undefined);
+    }
+  }, [applicantType, form]);
 
   const unlock = (field: 'real_name' | 'student_no') => {
     if (!locked[field]) return;
@@ -62,10 +76,12 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
   };
 
   const next = async () => {
-    const fields =
+    const fields: Array<keyof CreateMemberApplicationParams> =
       step === 0
-        ? (['applicant_type', 'real_name', 'student_no', 'department_id'] as const)
-        : (['contact_phone', 'contact_email'] as const);
+        ? applicantType === 2
+          ? ['applicant_type', 'real_name', 'student_no', 'department_id']
+          : ['applicant_type', 'real_name', 'student_no']
+        : ['contact_phone', 'contact_email'];
     await form.validateFields([...fields]);
     setStep((s) => s + 1);
   };
@@ -76,6 +92,8 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
     try {
       await submitApplication({
         ...values,
+        department_id: values.applicant_type === 2 ? values.department_id : undefined,
+        contact_phone: nationalMobileDigits(values.contact_phone),
         skills: values.skills || [],
       });
       message.success(tx('申请已提交'));
@@ -158,25 +176,40 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
               }}
             />
           </Form.Item>
-          <Form.Item
-            name="department_id"
-            label={tx('意向部门')}
-            rules={[{ required: applicantType === 2, message: tx('干事申请请选择意向部门') }]}
-          >
-            <Select
-              allowClear
-              placeholder={tx('选择部门')}
-              options={departments.map((d) => ({ value: d.id, label: d.name }))}
-            />
-          </Form.Item>
+          {applicantType === 2 ? (
+            <Form.Item
+              name="department_id"
+              label={tx('意向部门')}
+              rules={[{ required: true, message: tx('干事申请请选择意向部门') }]}
+            >
+              <Select
+                allowClear
+                placeholder={tx('选择部门')}
+                options={departments.map((d) => ({ value: d.id, label: d.name }))}
+              />
+            </Form.Item>
+          ) : (
+            <p style={{ margin: '0 0 16px', color: 'var(--sb-muted)', fontSize: 13 }}>
+              {tx('会员不隶属任何部门，无需选择意向部门')}
+            </p>
+          )}
         </div>
         <div style={{ display: step === 1 ? 'block' : 'none' }}>
           <Form.Item
             name="contact_phone"
             label={tx('手机号')}
-            rules={[{ required: true, max: 20 }]}
+            rules={[
+              { required: true, message: tx('请输入手机号') },
+              {
+                validator: async (_, value) => {
+                  if (!isCnMobile(value)) {
+                    throw new Error(tx('请输入 11 位中国大陆手机号'));
+                  }
+                },
+              },
+            ]}
           >
-            <Input placeholder={tx('11 位手机号')} />
+            <Input prefix="+86" placeholder={tx('11 位手机号')} maxLength={11} inputMode="numeric" />
           </Form.Item>
           <Form.Item
             name="contact_email"
@@ -230,7 +263,7 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
       {step === 2 && (
         <div style={{ marginTop: 16 }}>
           <Tag color="blue">{tx('会员：资料审核后直接通过/拒绝')}</Tag>
-          <Tag color="green">{tx('干事：面试 → 正式签字 → 候补期')}</Tag>
+          <Tag color="green">{tx('干事：面试 → 正式签字 → 预备干事 → 正式干事')}</Tag>
         </div>
       )}
     </>

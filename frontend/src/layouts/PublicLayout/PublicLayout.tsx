@@ -46,12 +46,17 @@ const PublicNav: React.FC = () => {
 
 const PublicLayout: React.FC = () => {
   const { t } = useTranslation();
+  const location = useLocation();
+  const charter = location.pathname === '/docs/association-charter';
+  const about = location.pathname === '/about-us';
 
   return (
     <FeatureProvider keys={PUBLIC_CMS_KEYS}>
       <div className={styles.shell}>
         <PublicNav />
-        <main className={styles.main}>
+        <main
+          className={charter ? styles.mainFlush : about ? styles.mainWide : styles.main}
+        >
           <FeatureEnabled flag="cms.public">
             <Outlet />
           </FeatureEnabled>

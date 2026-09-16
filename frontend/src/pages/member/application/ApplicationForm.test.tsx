@@ -20,6 +20,8 @@ beforeEach(() => {
   vi.mocked(getCurrentUser).mockResolvedValue({
     real_name: '张三',
     student_no: '2026001',
+    phone: '+86 138-0013-8000',
+    email: 'zhang@smbu.edu.cn',
   } as Awaited<ReturnType<typeof getCurrentUser>>);
 });
 it('prefills identity, keeps it readonly on cancel, and unlocks only the confirmed field', async () => {
@@ -41,6 +43,19 @@ it('prefills identity, keeps it readonly on cancel, and unlocks only the confirm
   fireEvent.change(name, { target: { value: '李四' } });
   expect(name.value).toBe('李四');
 });
+it('hides intended department for members and prefills phone plus email', async () => {
+  render(<ApplicationForm />);
+  await screen.findByDisplayValue('张三');
+  expect(screen.queryByText('意向部门')).toBeNull();
+  expect(screen.getByText('会员不隶属任何部门，无需选择意向部门')).toBeTruthy();
+  expect(screen.getByDisplayValue('13800138000')).toBeTruthy();
+  expect(screen.getByDisplayValue('zhang@smbu.edu.cn')).toBeTruthy();
+  fireEvent.mouseDown(screen.getAllByRole('combobox')[0]);
+  fireEvent.click(await screen.findByText('干事（需面试）'));
+  expect(await screen.findByText('意向部门')).toBeTruthy();
+  expect(screen.getByText('+86')).toBeTruthy();
+});
+
 it('keeps missing identity editable', async () => {
   vi.mocked(getCurrentUser).mockResolvedValue({ real_name: '', student_no: '' } as Awaited<
     ReturnType<typeof getCurrentUser>

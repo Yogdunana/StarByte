@@ -104,6 +104,65 @@
     "emptyDocs": "暂无公开文档",
     "loadFailed": "文档加载失败，或需要登录后查看"
   },
+  "aboutUs": {
+    "kicker": "深圳北理莫斯科大学 · 工程系",
+    "title": "计算机协会",
+    "lead": "由在校学生自愿组成的学术科技类社团。我们服务学校信息化建设，开展编程培训、技术讲座、项目实践、竞赛组织和课程开发，把想法做成可以协作的作品。",
+    "readCharter": "阅读协会章程",
+    "apply": "登录后申请入会",
+    "stat": {
+      "centersValue": "3",
+      "centers": "中心",
+      "departmentsValue": "7",
+      "departments": "职能部门",
+      "teamsValue": "2",
+      "teams": "技术团队群",
+      "taskValue": "1",
+      "task": "服务校园信息化"
+    },
+    "orgTitle": "组织架构",
+    "orgLead": "社长（会长）统筹协会，副社长可兼任三大中心主任；七个职能部门挂在中心之下。技术团队是兼职项目制，不是第八个部门。",
+    "center": {
+      "rd": "技术研发中心",
+      "ops": "运营管理中心",
+      "ext": "对外合作中心"
+    },
+    "dept": {
+      "innovation": "创新创业部 · 大创、孵化、竞赛培训",
+      "project": "项目开发部 · 软件开发与技术资产",
+      "curriculum": "课程研发部 · 课程体系与教学",
+      "admin": "综合行政部 · 招新、档案、换届",
+      "brand": "品牌传播部 · 品牌与新媒体",
+      "strategy": "战略关系部 · 对外合作与赞助",
+      "events": "赛事运营部 · 竞赛与学术交流"
+    },
+    "joinTitle": "如何加入",
+    "joinLead": "申请时选择会员或干事。会员不隶属任何部门；干事走面试和签字，再进入预备干事。",
+    "memberTrackTitle": "会员",
+    "memberTrackBody": "资料审核后决定是否通过。会员可参加课程和活动，不参与日常部门运营，也没有意向部门。",
+    "officerTrackTitle": "干事",
+    "officerStep1": "选择意向职能部门并参加面试",
+    "officerStep2": "部门、中心与负责人正式签字",
+    "officerStep3": "预备干事",
+    "officerStep4": "转为正式干事",
+    "rolesTitle": "角色谱系",
+    "rolesLead": "会长是协会职务，不是系统管理员。同一人可以同时担任会长和部长。技术团队另有队长与队员，一般为兼职。",
+    "role": {
+      "member": "会员",
+      "probationOfficer": "预备干事",
+      "officer": "正式干事",
+      "viceMinister": "副部长",
+      "minister": "部长",
+      "viceDirector": "副中心主任",
+      "director": "中心主任",
+      "vicePresident": "副会长",
+      "president": "会长",
+      "advisor": "指导老师",
+      "honorary": "荣誉会员",
+      "admin": "系统管理员"
+    },
+    "note": "纪律监察委员会、功能型团支部、技术顾问委员会、会员大会、常务委员会仍按章程记载，一期尚未单独上线，见仓库 Issue。"
+  },
   "knowledge": {
     "title": "知识库",
     "search": "搜索文档",

@@ -14,9 +14,14 @@ import (
 )
 
 func (s *admissionService) SubmitApplication(ctx context.Context, user uuid.UUID, req *dto.SubmitApplicationRequest) (*dto.ApplicationResponse, error) {
+	normalized, err := bindContactPhone(req.ContactPhone)
+	if err != nil {
+		return nil, err
+	}
+	req.ContactPhone = normalized
 	var result *dto.ApplicationResponse
 	var deliver func(context.Context)
-	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		jobs := repo.NewAdmissionJobsRepo(tx)
 		// Serialize duplicate submissions, including when no application row exists yet.
 		if err := jobs.LockApplicant(ctx, user); err != nil {
@@ -69,6 +74,9 @@ func (s *admissionService) SubmitApplication(ctx context.Context, user uuid.UUID
 	return result, err
 }
 func (s *admissionService) ResubmitApplication(ctx context.Context, user, id uuid.UUID, req *dto.ResubmitApplicationRequest) (*dto.ApplicationResponse, error) {
+	if err := normalizeResubmitPhone(req); err != nil {
+		return nil, err
+	}
 	var result *dto.ApplicationResponse
 	var deliver func(context.Context)
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

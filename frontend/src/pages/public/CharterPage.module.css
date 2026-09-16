@@ -1,0 +1,13 @@
+.wrap {
+  margin: -8px 0 0;
+}
+
+.frame {
+  display: block;
+  width: 100%;
+  min-height: calc(100dvh - 140px);
+  height: 78vh;
+  border: 1px solid var(--sb-border);
+  border-radius: var(--sb-radius);
+  background: #fff;
+}

@@ -18,7 +18,7 @@ it('saves only editable fields then refreshes the current user', async () => {
     roles: ['member'],
     permissions: [],
     email: 'old@example.test',
-    phone: '123',
+    phone: '13800138000',
     gender: 0,
   } as Awaited<ReturnType<typeof getCurrentUser>>;
   vi.mocked(getCurrentUser).mockResolvedValue(user);
@@ -37,7 +37,7 @@ it('saves only editable fields then refreshes the current user', async () => {
     expect(updateMyProfile).toHaveBeenCalledWith({
       real_name: '新姓名',
       email: 'old@example.test',
-      phone: '123',
+      phone: '13800138000',
       gender: 0,
     }),
   );

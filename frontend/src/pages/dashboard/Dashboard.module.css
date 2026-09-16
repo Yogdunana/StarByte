@@ -1,29 +1,57 @@
-.page { min-width: 0; }
+.page { min-width: 0; width: 100%; }
 .date { font-size: 12px; font-weight: var(--sb-weight-meta); color: var(--sb-muted); margin-right: 8px; }
 .alert { margin-bottom: var(--sb-space-5); }
-.metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sb-space-4); margin-bottom: var(--sb-space-6); }
-.metricCell { min-width: 0; }
-.metricCell .metric { height: 100%; }
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: var(--sb-space-6);
+  border: 1px solid var(--sb-border);
+  border-radius: var(--sb-radius);
+  background: var(--sb-surface);
+  box-shadow: var(--sb-shadow);
+  overflow: hidden;
+  width: 100%;
+}
+.metricCell {
+  min-width: 0;
+  display: flex;
+  border-right: 1px solid var(--sb-border);
+}
+.metricCell:last-child { border-right: 0; }
+.metricCell .metric { flex: 1; }
 .approvalCard { margin-bottom: var(--sb-space-6); }
 .approvalCard :global(.ant-card-body) { padding: 8px 24px; }
 .approvalCard a { color: var(--sb-text); }
 .approvalCard a:hover { color: var(--sb-brand); }
 .metric {
-  background: var(--sb-surface);
-  border: 1px solid var(--sb-border);
-  border-radius: var(--sb-radius);
-  box-shadow: var(--sb-shadow);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  width: 100%;
+  min-height: 148px;
   padding: 20px 22px;
   color: var(--sb-text);
-  transition: border-color var(--sb-motion);
+  text-decoration: none;
+  box-sizing: border-box;
 }
-.metric:hover { border-color: var(--sb-text); color: var(--sb-text); }
-.metricTop, .metricBottom { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.metricTop { font-size: 13px; font-weight: var(--sb-weight-meta); }
-.metricNumber { font-family: ui-monospace, monospace; color: var(--sb-muted); font-size: 12px; }
-.metric strong { display: block; margin: 12px 0; font-size: 36px; font-weight: 500; line-height: 1.1; font-variant-numeric: tabular-nums; letter-spacing: var(--sb-track-tight); }
+.metric:hover { background: var(--sb-panel); color: var(--sb-text); }
+.metricTop, .metricBottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+.metricTop { font-size: 13px; font-weight: var(--sb-weight-meta); line-height: 1.4; }
+.metricTop > span:first-child,
+.metricLabel { min-width: 0; overflow-wrap: anywhere; }
+.metricNumber { flex: 0 0 auto; font-family: ui-monospace, monospace; color: var(--sb-muted); font-size: 11px; letter-spacing: 0.04em; }
+.metric strong { display: block; margin: 0; font-size: 32px; font-weight: 500; line-height: 1.1; font-variant-numeric: tabular-nums; letter-spacing: var(--sb-track-tight); }
 .metric strong span { font-size: 12px; font-weight: var(--sb-weight-body); color: var(--sb-muted); }
-.metricBottom { font-size: 11px; color: var(--sb-muted); }
+.metricBottom { font-size: 11px; color: var(--sb-muted); line-height: 1.45; }
+.metricBottom span { min-width: 0; overflow-wrap: anywhere; }
 .workspace { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(260px, 1fr); gap: var(--sb-space-6); }
 .queue, .aside { min-width: 0; }
 .sectionHeader { display: flex; align-items: center; justify-content: space-between; margin: 0 0 14px; gap: 12px; }
@@ -85,6 +113,8 @@
   .metric { padding: 18px; }
   .workspace { gap: 18px; }
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .metricCell:nth-child(2n) { border-right: 0; }
+  .metricCell:nth-child(-n+2) { border-bottom: 1px solid var(--sb-border); }
 }
 @media (max-width: 767px) {
   .workspace { grid-template-columns: 1fr; }
@@ -92,14 +122,14 @@
   .feed { grid-column: 1 / -1; }
   .application { margin-top: 0; }
   .metricBottom { display: none; }
-  .metrics { gap: 8px; margin-bottom: 24px; }
-  .metric { padding: 16px 12px; }
+  .metrics { margin-bottom: 24px; }
+  .metric { padding: 16px 14px; min-height: 120px; }
   .metric strong { font-size: 28px; }
   .metricNumber { display: none; }
   .metricTop { font-size: 11px; }
   .overview { flex-wrap: wrap; }
 }
-@media (max-width: 767px) { .metrics { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 767px) { .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 479px) {
   .aside { grid-template-columns: 1fr; }
   .approvalCard :global(.ant-card-body), .taskCard :global(.ant-card-body), .scheduleCard :global(.ant-card-body) { padding: 8px 16px; }

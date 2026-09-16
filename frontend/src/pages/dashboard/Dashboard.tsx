@@ -134,8 +134,8 @@ export default function Dashboard() {
           <motion.div key={item.label} className={styles.metricCell} variants={fadeUp}>
             <Link to={item.path} className={styles.metric}>
               <div className={styles.metricTop}>
-                <span>{item.label}</span>
-                <span className={styles.metricNumber}>0{index + 1}</span>
+                <span className={styles.metricLabel}>{item.label}</span>
+                <span className={styles.metricNumber}>{String(index + 1).padStart(2, '0')}</span>
               </div>
               {loading ? (
                 <Skeleton.Input active size="small" />
