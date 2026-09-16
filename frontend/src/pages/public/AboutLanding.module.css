@@ -124,6 +124,7 @@
 
 .card {
   min-width: 0;
+  height: 100%;
   padding: 20px;
   border: 1px solid var(--sb-border);
   border-radius: var(--sb-radius);
@@ -146,6 +147,7 @@
 }
 
 .track {
+  height: 100%;
   padding: 22px;
   border: 1px solid var(--sb-border);
   border-radius: var(--sb-radius);

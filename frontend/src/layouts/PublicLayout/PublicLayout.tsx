@@ -21,21 +21,25 @@ const PublicNav: React.FC = () => {
         StarByte<span>.</span>
       </Link>
       <nav className={styles.nav}>
+        <NavLink
+          to="/about-us"
+          className={({ isActive }) => (isActive ? styles.active : undefined)}
+        >
+          {t('public.about')}
+        </NavLink>
+        <NavLink
+          to="/docs/association-charter"
+          className={({ isActive }) => (isActive ? styles.active : undefined)}
+        >
+          {t('public.charter')}
+        </NavLink>
         {enabled && (
-          <>
-            <NavLink
-              to="/about-us"
-              className={({ isActive }) => (isActive ? styles.active : undefined)}
-            >
-              {t('public.about')}
-            </NavLink>
-            <NavLink
-              to="/docs"
-              className={({ isActive }) => (isActive ? styles.active : undefined)}
-            >
-              {t('public.docs')}
-            </NavLink>
-          </>
+          <NavLink
+            to="/docs"
+            className={({ isActive }) => (isActive ? styles.active : undefined)}
+          >
+            {t('public.docs')}
+          </NavLink>
         )}
         <Link to={loginHref}>{authed ? t('public.workbench') : t('public.login')}</Link>
         <LanguageSelect />
@@ -57,9 +61,13 @@ const PublicLayout: React.FC = () => {
         <main
           className={charter ? styles.mainFlush : about ? styles.mainWide : styles.main}
         >
-          <FeatureEnabled flag="cms.public">
+          {about || charter ? (
             <Outlet />
-          </FeatureEnabled>
+          ) : (
+            <FeatureEnabled flag="cms.public">
+              <Outlet />
+            </FeatureEnabled>
+          )}
         </main>
         <footer className={styles.footer}>
           <span>{t('public.footer')}</span>
