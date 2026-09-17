@@ -21,10 +21,10 @@ type roleAssigner struct {
 	code string
 }
 
-// NewRoleAssigner assigns roleCode (e.g. member) on first CAS login. Nil-safe if db/repo missing.
-func NewRoleAssigner(db *gorm.DB, roles rbacrepo.RoleRepo, roleCode string) RoleAssigner {
-	code := "user" // Identity verification does not confer association membership.
-	return &roleAssigner{db: db, repo: roles, code: code}
+// NewRoleAssigner assigns the registered-user role on first CAS login.
+// CAS_DEFAULT_ROLE is ignored: campus SSO does not confer association membership.
+func NewRoleAssigner(db *gorm.DB, roles rbacrepo.RoleRepo, _ string) RoleAssigner {
+	return &roleAssigner{db: db, repo: roles, code: "user"}
 }
 
 func (a *roleAssigner) AssignDefault(ctx context.Context, userID uuid.UUID) error {

@@ -113,22 +113,36 @@ func TestLookup_GetByUserID(t *testing.T) {
 	assert.Equal(t, "项目开发部", ident.DepartmentName)
 }
 
-func TestLookup_EnsureStudentNo_CreatesProfile(t *testing.T) {
+func TestLookup_EnsureStudentNo_DoesNotCreateMemberProfile(t *testing.T) {
 	profs := &mockProfiles{}
 	lookup := NewLookup(profs)
 	ctx := context.Background()
 	userID := uuid.New()
 	profs.On("GetByStudentNo", ctx, "20219999", (*uuid.UUID)(nil)).Return((*model.MemberProfile)(nil), nil)
 	profs.On("GetByUserID", ctx, userID).Return((*model.MemberProfile)(nil), nil)
-	profs.On("Create", ctx, mock.AnythingOfType("*model.MemberProfile")).Return(nil).Run(func(args mock.Arguments) {
+
+	err := lookup.EnsureStudentNo(ctx, userID, "20219999", "王五")
+	assert.NoError(t, err)
+	profs.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
+	profs.AssertExpectations(t)
+}
+
+func TestLookup_EnsureStudentNo_DoesNotReactivateLeftProfile(t *testing.T) {
+	profs := &mockProfiles{}
+	lookup := NewLookup(profs)
+	ctx := context.Background()
+	userID := uuid.New()
+	existing := &model.MemberProfile{
+		UserID: userID, RealName: "王五", StudentNo: "",
+		MemberType: model.MemberTypeMember, Status: model.ProfileLeft,
+	}
+	profs.On("GetByStudentNo", ctx, "20219999", (*uuid.UUID)(nil)).Return((*model.MemberProfile)(nil), nil)
+	profs.On("GetByUserID", ctx, userID).Return(existing, nil)
+	profs.On("Update", ctx, existing).Return(nil).Run(func(args mock.Arguments) {
 		p := args.Get(1).(*model.MemberProfile)
-		assert.Equal(t, userID, p.UserID)
 		assert.Equal(t, "20219999", p.StudentNo)
-		assert.Equal(t, "王五", p.RealName)
-		assert.NotNil(t, p.Skills)
-		assert.Len(t, p.Skills, 0)
-		assert.NotNil(t, p.Projects)
-		assert.Len(t, p.Projects, 0)
+		assert.Equal(t, model.ProfileLeft, p.Status)
+		assert.Equal(t, model.MemberTypeMember, p.MemberType)
 	})
 
 	err := lookup.EnsureStudentNo(ctx, userID, "20219999", "王五")

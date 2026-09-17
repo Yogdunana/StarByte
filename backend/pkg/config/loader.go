@@ -374,7 +374,7 @@ func setDefaults(cfg *Config) {
 		cfg.CAS.ServerURL = "https://authserver.smbu.edu.cn/authserver"
 	}
 	if cfg.CAS.DefaultRole == "" {
-		cfg.CAS.DefaultRole = "member"
+		cfg.CAS.DefaultRole = "user"
 	}
 
 	if cfg.Backup.Prefix == "" {

@@ -3,7 +3,10 @@ package repo
 import (
 	"context"
 	"strings"
+	"time"
 
+	membermodel "github.com/Yogdunana/StarByte/backend/internal/member/model"
+	rbacmodel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/user/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/database"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
@@ -96,8 +99,23 @@ func releaseAccountBindings(tx *gorm.DB, id uuid.UUID) error {
 	if err := tx.Where("user_id = ?", id).Delete(&model.UserIdentity{}).Error; err != nil {
 		return err
 	}
-	return tx.Table("member_profiles").Where("user_id = ?", id).
-		Updates(map[string]interface{}{"student_no": ""}).Error
+	if err := tx.Where("user_id = ?", id).Delete(&rbacmodel.UserRole{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Model(&model.User{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"department_id": nil,
+		"position_id":   nil,
+	}).Error; err != nil {
+		return err
+	}
+	now := time.Now()
+	return tx.Table("member_profiles").Where("user_id = ?", id).Updates(map[string]interface{}{
+		"student_no":    "",
+		"status":        membermodel.ProfileLeft,
+		"leave_date":    now,
+		"department_id": nil,
+		"position_id":   nil,
+	}).Error
 }
 
 func (r *userRepo) List(ctx context.Context, page, pageSize int, keyword string, status *int, departmentID uuid.UUID) ([]model.User, int64, error) {

@@ -98,7 +98,7 @@ type CASConfig struct {
 	ServiceURL         string `yaml:"service_url"`          // empty = {origin}/api/v1/auth/cas/callback
 	FrontendURL        string `yaml:"frontend_url"`         // empty = same origin as the browser request
 	AllowAutoProvision bool   `yaml:"allow_auto_provision"` // unused for 学号 principals; unknown CAS users must register
-	DefaultRole        string `yaml:"default_role"`         // role code assigned to auto-provisioned users
+	DefaultRole        string `yaml:"default_role"`         // ignored; CAS always assigns user, never member
 }
 
 // CORSConfig holds the Cross-Origin Resource Sharing settings.

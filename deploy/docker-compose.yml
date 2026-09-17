@@ -114,7 +114,7 @@ services:
       # 激活邮件只用该 origin，不信请求 Host。漏测默认校园网入口。
       CAS_FRONTEND_URL: ${CAS_FRONTEND_URL:-http://10.100.13.17}
       CAS_ALLOW_AUTO_PROVISION: ${CAS_ALLOW_AUTO_PROVISION:-true}
-      CAS_DEFAULT_ROLE: ${CAS_DEFAULT_ROLE:-member}
+      CAS_DEFAULT_ROLE: ${CAS_DEFAULT_ROLE:-user}
       # SMTP：密码只从宿主机 .env 注入，勿写进镜像或 compose 明文
       STARBYTE_CONFIG_ENCRYPTION_KEY: ${STARBYTE_CONFIG_ENCRYPTION_KEY:-}
       STARBYTE_SMTP_PASSWORD: ${STARBYTE_SMTP_PASSWORD:-}
