@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -71,8 +72,12 @@ func (n *ApprovalNode) OnEnter(ctx context.Context, inst *model.FlowInstance, no
 		return response.NewAppError(response.CodeWorkflowInvalidNode, "单人审批必须且只能有一名处理人")
 	}
 	if len(assignees) == 0 {
+		label := strings.TrimSpace(node.Label)
+		if label == "" {
+			label = node.ID
+		}
 		return response.NewAppError(response.CodeWorkflowInvalidNode,
-			"审批节点没有处理人")
+			"审批节点没有处理人（"+label+"）")
 	}
 
 	activation := uuid.New()
