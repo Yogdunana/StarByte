@@ -498,7 +498,7 @@
   "schedule": {
     "eyebrow": "图层日历",
     "title": "日程管理",
-    "desc": "侧栏每个日历是一层，可单独显示/隐藏。课表导入写入独立 timetable 层；活动与面试是只读投影，不会写入 schedule_events。列表不接受客户端 owner_id。",
+    "desc": "左侧图层可单独显示或隐藏。课表导入在独立图层；活动和面试只读，点开可跳到详情。",
     "newCalendar": "新建日历",
     "newEvent": "新建事件",
     "import": "导入",

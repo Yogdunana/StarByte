@@ -1,27 +1,64 @@
+.schedule-page {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* TopBar ~4rem + content padding ~3.5rem + footer ~3.5rem. Keep the month on one laptop screen. */
+@media (min-width: 901px) {
+  .schedule-page {
+    height: calc(100dvh - 11rem);
+    max-height: calc(100dvh - 11rem);
+  }
+}
+
+.schedule-page > header {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.schedule-page > header h1 {
+  font-size: 22px;
+}
+
+.schedule-page > header p {
+  max-width: 46rem;
+}
+
 .schedule-body {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: minmax(168px, 220px) minmax(0, 1fr);
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
+  min-width: 0;
+  flex: 1;
+  min-height: 0;
 }
 
 @media (max-width: 900px) {
   .schedule-body {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
 .schedule-layers {
-  background: #fff;
+  background: var(--sb-surface, #fff);
+  border: 1px solid var(--sb-border, #e2e8f0);
   border-radius: 16px;
   padding: 14px 14px 16px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  box-shadow: var(--sb-shadow, 0 8px 24px rgba(15, 23, 42, 0.04));
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
 }
 
 .schedule-layers-title {
   font-size: 13px;
   font-weight: 600;
-  color: #334155;
+  color: var(--sb-text, #334155);
   margin-bottom: 8px;
 }
 
@@ -31,6 +68,7 @@
   gap: 6px;
   margin-bottom: 8px;
   cursor: pointer;
+  min-width: 0;
 }
 
 .schedule-layer-name {
@@ -56,20 +94,131 @@
 .schedule-google {
   margin-top: 16px;
   padding-top: 12px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--sb-border, #e2e8f0);
 }
 
 .schedule-hint {
-  color: #64748b;
+  color: var(--sb-muted, #64748b);
   font-size: 12px;
   margin: 0;
 }
 
 .schedule-page .page-shell {
-  background: #fff;
+  background: var(--sb-surface, #fff);
   border-radius: 16px;
-  padding: 12px 16px 20px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  padding: 12px 16px 16px;
+  box-shadow: var(--sb-shadow, 0 8px 24px rgba(15, 23, 42, 0.04));
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.schedule-page .page-shell .ant-card-body {
+  padding: 0;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.schedule-toolbar {
+  margin-bottom: 12px;
+  flex: 0 0 auto;
+}
+
+.schedule-page .ant-picker-calendar {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.schedule-page .ant-picker-calendar-header {
+  padding: 4px 0;
+  flex: 0 0 auto;
+}
+
+.schedule-page .ant-picker-calendar-full .ant-picker-panel {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.schedule-page .ant-picker-calendar-full .ant-picker-body {
+  flex: 1;
+  min-height: 0;
+  padding-top: 4px;
+}
+
+.schedule-page .ant-picker-calendar-full .ant-picker-content {
+  width: 100%;
+  height: 100%;
+  table-layout: fixed;
+}
+
+.schedule-page .ant-picker-calendar-full .ant-picker-content tbody tr {
+  height: calc(100% / 6);
+}
+
+.schedule-page .ant-picker-calendar-full .ant-picker-content th,
+.schedule-page .ant-picker-calendar-full .ant-picker-content td {
+  min-width: 0;
+  height: auto;
+}
+
+.schedule-page .ant-picker-calendar-full .ant-picker-cell-inner,
+.schedule-page .ant-picker-calendar-full .ant-picker-calendar-date {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+/* Antd full calendar cells are ~120px; share leftover viewport instead of a guessed rem budget. */
+.schedule-page .ant-picker-calendar-full .ant-picker-calendar-date-content {
+  flex: 1;
+  min-height: 0;
+  height: clamp(1.15rem, calc((100dvh - 32rem) / 6), 3.5rem);
+  overflow: hidden;
+}
+
+@media (max-height: 900px) {
+  .schedule-page > header {
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    gap: 8px;
+  }
+
+  .schedule-page > header h1 {
+    font-size: 20px;
+  }
+
+  .schedule-page > header p {
+    display: none;
+  }
+
+  .schedule-toolbar {
+    margin-bottom: 8px;
+  }
+}
+
+.schedule-page .ant-picker-calendar-date-value {
+  margin: 2px 4px 0;
+}
+
+.schedule-page .ant-badge-status-text {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
 }
 
 .schedule-dots {
@@ -86,7 +235,7 @@
 }
 
 .schedule-more {
-  color: #64748b;
+  color: var(--sb-muted, #64748b);
   font-size: 12px;
 }
 

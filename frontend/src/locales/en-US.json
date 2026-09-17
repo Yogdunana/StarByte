@@ -498,7 +498,7 @@
   "schedule": {
     "eyebrow": "Layered calendars",
     "title": "Schedule",
-    "desc": "Each calendar is a toggleable layer. Timetable imports go to a dedicated timetable layer. Activities and interviews are read-only projections and are not written to schedule_events. Lists never take a client owner_id.",
+    "desc": "Toggle calendars in the sidebar. Timetable imports sit on their own layer. Activities and interviews are read-only — open them to jump to the detail page.",
     "newCalendar": "New calendar",
     "newEvent": "New event",
     "import": "Import",
