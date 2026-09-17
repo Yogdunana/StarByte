@@ -24,6 +24,22 @@
 .ant-table-wrapper .ant-table-cell { overflow-wrap: anywhere; }
 .ant-table-wrapper .ant-table-pagination { padding: 0 12px; }
 .ant-modal { max-width: calc(100vw - 24px); }
+@media (max-height: 900px) {
+  .ant-modal {
+    top: 12px;
+    padding-bottom: 0;
+    margin: 0 auto;
+  }
+  .ant-modal .ant-modal-content {
+    max-height: calc(100dvh - 24px);
+    display: flex;
+    flex-direction: column;
+  }
+  .ant-modal .ant-modal-body {
+    overflow-y: auto;
+    min-height: 0;
+  }
+}
 .ant-card .ant-table-wrapper { padding: 0; border: 0; box-shadow: none; }
 .ant-input-affix-wrapper, .ant-input, .ant-select-selector, .ant-picker {
   transition: border-color var(--sb-motion), box-shadow var(--sb-motion);
