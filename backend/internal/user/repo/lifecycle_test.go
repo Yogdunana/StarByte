@@ -31,14 +31,28 @@ func TestSoftDeleteReleasesStudentNoAndIdentity(t *testing.T) {
 	require.NoError(t, users.CreateIdentity(ctx, &model.UserIdentity{
 		UserID: u1.ID, IdentityType: "cas", IdentityValue: studentNo, IsPrimary: true,
 	}))
+	require.NoError(t, tx.Exec(
+		`INSERT INTO roles(id,name,code,status) VALUES (?,'Member','member',0) ON CONFLICT(code) DO NOTHING`,
+		uuid.New(),
+	).Error)
+	require.NoError(t, tx.Exec(
+		`INSERT INTO user_roles(id,user_id,role_id) SELECT ?, ?, id FROM roles WHERE code='member'`,
+		uuid.New(), u1.ID,
+	).Error)
 	require.NoError(t, users.Delete(ctx, u1.ID))
 
 	var student string
 	require.NoError(t, tx.Raw("SELECT student_no FROM member_profiles WHERE user_id = ?", u1.ID).Scan(&student).Error)
 	require.Empty(t, student)
+	var profileStatus int16
+	require.NoError(t, tx.Raw("SELECT status FROM member_profiles WHERE user_id = ?", u1.ID).Scan(&profileStatus).Error)
+	require.Equal(t, membermodel.ProfileLeft, profileStatus)
 	var identCount int64
 	require.NoError(t, tx.Table("user_identities").Where("user_id = ?", u1.ID).Count(&identCount).Error)
 	require.Zero(t, identCount)
+	var roleCount int64
+	require.NoError(t, tx.Table("user_roles").Where("user_id = ?", u1.ID).Count(&roleCount).Error)
+	require.Zero(t, roleCount)
 
 	u2 := &model.User{ID: uuid.New(), Username: "new-" + uuid.NewString()[:8], PasswordHash: "x", Status: 0}
 	require.NoError(t, users.Create(ctx, nil, u2))

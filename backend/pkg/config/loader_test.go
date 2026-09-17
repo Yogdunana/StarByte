@@ -380,6 +380,9 @@ func TestSetDefaults(t *testing.T) {
 	if cfg.Backup.TimeoutSec != 1800 {
 		t.Errorf("Backup.TimeoutSec = %d, want 1800", cfg.Backup.TimeoutSec)
 	}
+	if cfg.CAS.DefaultRole != "user" {
+		t.Errorf("CAS.DefaultRole = %s, want user", cfg.CAS.DefaultRole)
+	}
 }
 
 func TestSetDefaults_DoesNotOverrideExisting(t *testing.T) {
