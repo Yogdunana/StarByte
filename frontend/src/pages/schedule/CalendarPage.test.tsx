@@ -112,7 +112,9 @@ describe('schedule density', () => {
   it('caps full-calendar cell height so a laptop month view fits at 100% zoom', () => {
     const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'schedule.css'), 'utf8');
     expect(css).toContain('table-layout: fixed');
-    expect(css).toContain('100dvh - 22rem');
+    expect(css).toContain('100dvh - 11rem');
+    expect(css).toContain('100dvh - 32rem');
+    expect(css).toContain('calc(100% / 6)');
     expect(css).toContain('minmax(0, 1fr)');
   });
 });

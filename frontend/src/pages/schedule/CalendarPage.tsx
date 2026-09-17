@@ -281,7 +281,7 @@ const CalendarPage: React.FC = () => {
           )}
         </aside>
         <Card className="page-shell">
-          <Space wrap style={{ marginBottom: 16 }}>
+          <Space wrap className="schedule-toolbar">
             <Radio.Group
               value={view}
               optionType="button"
