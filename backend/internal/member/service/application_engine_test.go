@@ -36,6 +36,13 @@ func TestApplicationVariables(t *testing.T) {
 	require.Equal(t, true, member[engine.SkipOfficerVariable])
 	_, hasDept := member["department_id"]
 	require.False(t, hasDept)
+
+	review, center := uuid.New(), uuid.New()
+	applyCharterScopeVars(member, review, center)
+	require.Equal(t, review.String(), member["department_id"])
+	require.Equal(t, review.String(), member["department"])
+	require.Equal(t, center.String(), member["center_department_id"])
+	require.Nil(t, member[engine.SkipMinisterVariable])
 }
 
 func TestApplyEngineOutcome(t *testing.T) {
@@ -115,6 +122,9 @@ func TestEngineStageLabel(t *testing.T) {
 	require.Equal(t, engineStageOfficer, engineStageLabel("officer"))
 	require.Equal(t, engineStageMinister, engineStageLabel("minister"))
 	require.Equal(t, engineStagePresident, engineStageLabel("president"))
+	require.Equal(t, "部门初审", engineStageLabel("department_review"))
+	require.Equal(t, "中心复审", engineStageLabel("center_review"))
+	require.Equal(t, "常委会会签", engineStageLabel("committee"))
 	require.Equal(t, "custom", engineStageLabel("custom"))
 }
 
