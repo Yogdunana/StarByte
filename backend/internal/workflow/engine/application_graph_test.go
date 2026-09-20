@@ -10,6 +10,8 @@ func TestMemberApplicationGraph(t *testing.T) {
 	graph, err := ParseGraph(MemberApplicationBPMN())
 	require.NoError(t, err)
 	require.NoError(t, ValidateBusinessDefinition(MemberApplicationDefinitionKey, graph))
+	require.Contains(t, string(MemberApplicationBPMN()), "会长审批")
+	require.NotContains(t, string(MemberApplicationBPMN()), "社长审批")
 	require.Equal(t, "start", graph.FindStartNode().ID)
 	require.NotNil(t, graph.GetNode("officer"))
 	require.NotNil(t, graph.GetNode("minister"))

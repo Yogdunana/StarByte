@@ -4,7 +4,7 @@ import { tx } from '@/i18n/text';
 export function roleDisplayName(role: { code: string; name: string }): string {
   switch (role.code) {
     case 'super_admin':
-      return tx('超级管理员');
+      return tx('系统管理员');
     case 'user':
       return tx('用户');
     case 'president':
@@ -18,11 +18,11 @@ export function roleDisplayName(role: { code: string; name: string }): string {
     case 'vice_minister':
       return tx('副部长');
     case 'officer':
-      return tx('干事');
+      return tx('正式干事');
     case 'member':
       return tx('会员');
     case 'probationary':
-      return tx('候补成员');
+      return tx('预备成员');
     default:
       return role.name;
   }

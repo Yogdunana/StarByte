@@ -344,7 +344,7 @@ func main() {
 		logger.Fatal("register admission workflow", zap.Error(err))
 	}
 	admissionSvc := memberService.NewAdmissionServiceWithWorkflow(database.DB(), wfHandlers.Engine, cacheService)
-	schedService.RegisterHandler("admission_maintenance", "检查候补到期并按异议状态转正", admissionSvc.Maintenance)
+	schedService.RegisterHandler("admission_maintenance", "检查预备期到期并按异议状态转正", admissionSvc.Maintenance)
 	memberSvc := memberService.NewMemberService(memberAppRepo, memberProfRepo, interviewStarter, admissionSvc)
 	memberH := memberHandler.NewMemberHandler(memberSvc, admissionSvc)
 

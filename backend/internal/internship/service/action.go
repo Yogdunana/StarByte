@@ -60,7 +60,7 @@ func (s *internshipService) SubmitReport(ctx context.Context, operator, id uuid.
 		return nil, response.NewError(response.CodeInternshipInvalidState, "实习状态不允许该操作")
 	}
 	if row.UserID != operator && !isAllScope(scope) {
-		return nil, response.NewError(response.CodeInternshipNoAccess, "仅本人或社长可提交报告")
+		return nil, response.NewError(response.CodeInternshipNoAccess, "仅本人或会长可提交报告")
 	}
 	row.Report = report
 	row.UpdatedBy = &operator

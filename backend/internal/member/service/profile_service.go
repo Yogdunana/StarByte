@@ -60,7 +60,7 @@ func (s *memberService) UpdateProfileStatus(ctx context.Context, operator, id uu
 		return nil, response.NewError(response.CodeMemberProfileDenied, "无权操作该档案")
 	}
 	if p.Status == model.ProfileProbation && req.Status == model.ProfileActive {
-		return nil, response.NewError(response.CodeMemberAppInvalid, "候补成员须完成候补期和异议流程，不能手动跳过转正")
+		return nil, response.NewError(response.CodeMemberAppInvalid, "预备成员须完成预备期和异议流程，不能手动跳过转正")
 	}
 	from := p.Status
 	p.Status = req.Status

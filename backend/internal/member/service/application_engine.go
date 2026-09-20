@@ -17,7 +17,7 @@ import (
 const (
 	engineStageOfficer   = "干事审批"
 	engineStageMinister  = "部长审批"
-	engineStagePresident = "社长审批"
+	engineStagePresident = "会长审批"
 )
 
 func applicationVariables(app *model.MemberApplication) map[string]interface{} {

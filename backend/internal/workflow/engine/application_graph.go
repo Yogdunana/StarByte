@@ -133,7 +133,7 @@ func nodeAllowsTransfer(node *FlowNode) bool {
 }
 
 // MemberApplicationBPMN is the React Flow graph seeded by 000061 / 000070.
-// Default spine: 干事审批 → 部长审批 → 社长审批. Extra nodes are allowed at publish time.
+// Default spine: 干事审批 → 部长审批 → 会长审批. Extra nodes are allowed at publish time.
 func MemberApplicationBPMN() []byte {
 	raw, err := json.Marshal(map[string]interface{}{
 		"nodes": []map[string]interface{}{
@@ -148,7 +148,7 @@ func MemberApplicationBPMN() []byte {
 				"departmentScope": true, "allowReject": true, "allowTransfer": true, "allowRollback": false,
 				"skipWhen": SkipMinisterVariable, "skipIfEmpty": true,
 			}),
-			node("president", "approval", "社长审批", 440, map[string]interface{}{
+			node("president", "approval", "会长审批", 440, map[string]interface{}{
 				"assigneeStrategy": "role", "roleCode": "president", "approvalType": "any",
 				"allowReject": true, "allowTransfer": true, "allowRollback": false,
 			}),

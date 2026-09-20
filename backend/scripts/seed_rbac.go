@@ -17,22 +17,22 @@ type namedCode struct {
 var seedRolesData = []namedCode{
 	{Name: "User", Code: "user", Description: "注册账号，尚未入会", Sort: 8, IsSystem: true},
 	{Name: "中心主任", Code: "center_director", Description: "中心负责人", Sort: 2, IsSystem: true},
-	{Name: "候补成员", Code: "probationary", Description: "候补期成员", Sort: 7, IsSystem: true},
-	{Name: "超级管理员", Code: "super_admin", Description: "系统内置超管", Sort: 0, IsSystem: true},
-	{Name: "社长", Code: "president", Description: "协会社长", Sort: 1, IsSystem: true},
-	{Name: "副社长", Code: "vice_president", Description: "协会副社长", Sort: 2},
+	{Name: "预备成员", Code: "probationary", Description: "预备期成员（会员通道为预备会员，干事通道为预备干事）", Sort: 7, IsSystem: true},
+	{Name: "系统管理员", Code: "super_admin", Description: "系统内置超管，不是协会会长", Sort: 0, IsSystem: true},
+	{Name: "会长", Code: "president", Description: "协会会长", Sort: 1, IsSystem: true},
+	{Name: "副会长", Code: "vice_president", Description: "协会副会长", Sort: 2},
 	{Name: "部长", Code: "minister", Description: "部门部长", Sort: 3},
-	{Name: "副部长", Code: "vice_minister", Description: "部门副部长（章程未单列，系统预留）", Sort: 4},
-	{Name: "干事", Code: "officer", Description: "部门干事", Sort: 5},
-	{Name: "会员", Code: "member", Description: "普通会员", Sort: 6},
+	{Name: "副部长", Code: "vice_minister", Description: "部门副部长", Sort: 4},
+	{Name: "正式干事", Code: "officer", Description: "部门正式干事", Sort: 5},
+	{Name: "会员", Code: "member", Description: "普通会员，不隶属部门", Sort: 6},
 }
 
 var seedPositionsData = []namedCode{
-	{Name: "社长", Code: "president", Sort: 1},
-	{Name: "副社长", Code: "vice_president", Sort: 2},
+	{Name: "会长", Code: "president", Sort: 1},
+	{Name: "副会长", Code: "vice_president", Sort: 2},
 	{Name: "部长", Code: "minister", Sort: 3},
 	{Name: "副部长", Code: "vice_minister", Sort: 4},
-	{Name: "干事", Code: "officer", Sort: 5},
+	{Name: "正式干事", Code: "officer", Sort: 5},
 }
 
 type seedPerm struct {
@@ -194,7 +194,9 @@ func seedPositions(db *gorm.DB) error {
 		if err := db.Exec(`
 			INSERT INTO positions (id, name, code, level, vote_weight, sort_order, status)
 			VALUES (uuid_generate_v4(), ?, ?, ?, ?, ?, 0)
-			ON CONFLICT (code) DO NOTHING`,
+			ON CONFLICT (code) DO UPDATE SET
+				name = EXCLUDED.name,
+				sort_order = EXCLUDED.sort_order`,
 			p.Name, p.Code, 10-i, map[string]float64{"president": 2, "vice_president": 1, "center_director": 1, "minister": 0.5, "vice_minister": 0.5, "officer": 0.25}[p.Code], p.Sort,
 		).Error; err != nil {
 			return err
@@ -224,7 +226,7 @@ func seedRolePermissions(db *gorm.DB) error {
 		return fmt.Errorf("assign all perms to president: %w", err)
 	}
 
-	// 副社长：可读运行时配置，但不能改/删（与 system:config 对齐，避免绕过实习/投票开关）
+	// 副会长：可读运行时配置，但不能改/删（与 system:config 对齐，避免绕过实习/投票开关）
 	if err := db.Exec(`
 		INSERT INTO role_permissions (id, role_id, permission_id, data_scope)
 		SELECT uuid_generate_v4(), r.id, p.id, CASE WHEN p.resource = 'interview_private' THEN 'department_and_sub' ELSE 'all' END

@@ -103,7 +103,7 @@ func TestMemberApplicationStartOfficerMinisterPresidentComplete(t *testing.T) {
 	require.Equal(t, "president", nodeID)
 
 	addApprovalTask(tasks, inst.ID, "president", president)
-	require.NoError(t, e.CompleteApplicationApproval(context.Background(), inst.ID, president, ActionApprove, "社长同意"))
+	require.NoError(t, e.CompleteApplicationApproval(context.Background(), inst.ID, president, ActionApprove, "会长同意"))
 	_, done, err = e.RunningApprovalNode(context.Background(), inst.ID)
 	require.NoError(t, err)
 	require.True(t, done)

@@ -22,7 +22,7 @@ func (s *admissionService) Objection(ctx context.Context, viewer, id uuid.UUID, 
 			return err
 		}
 		if app.AdmissionStage != model.AdmissionProbation || app.HistoricalReviewRequired {
-			return response.NewError(response.CodeMemberAppInvalid, "仅候补期可以处理异议")
+			return response.NewError(response.CodeMemberAppInvalid, "仅预备期可以处理异议")
 		}
 		if strings.TrimSpace(req.Comment) == "" {
 			return response.NewError(response.CodeBadRequest, "请填写具体理由")
@@ -35,10 +35,10 @@ func (s *admissionService) Objection(ctx context.Context, viewer, id uuid.UUID, 
 		if req.Action == "raise" {
 			allowed, delegated := admissionAuthority(actor, app, parent, "minister")
 			if !allowed || delegated {
-				return admissionDenied("须由候补成员所属部门的部长提出异议")
+				return admissionDenied("须由预备成员所属部门的部长提出异议")
 			}
 			if app.ProbationUntil == nil || !now.Before(*app.ProbationUntil) {
-				return response.NewError(response.CodeMemberAppInvalid, "候补期已到期")
+				return response.NewError(response.CodeMemberAppInvalid, "预备期已到期")
 			}
 			if objection != nil {
 				return response.NewError(response.CodeConflict, "已有异议正在处理")
@@ -67,7 +67,7 @@ func (s *admissionService) Objection(ctx context.Context, viewer, id uuid.UUID, 
 				if req.Action == "uphold" {
 					app.AdmissionStage = model.AdmissionRejected
 					app.Status = model.AppRejected
-					app.CurrentStage = "候补异议通过，终止录用"
+					app.CurrentStage = "预备期异议通过，终止录用"
 					app.UpdatedAt = now
 					if err := store.SaveApplication(ctx, app); err != nil {
 						return err
@@ -102,13 +102,13 @@ func (s *admissionService) Objection(ctx context.Context, viewer, id uuid.UUID, 
 func publicObjectionHistory(action string) string {
 	switch action {
 	case "raise":
-		return "候补期已提出异议，等待中心复核"
+		return "预备期已提出异议，等待中心复核"
 	case "center_review":
-		return "候补期异议已提交中心复核，等待会长裁决"
+		return "预备期异议已提交中心复核，等待会长裁决"
 	case "uphold":
-		return "候补期异议成立，终止录用"
+		return "预备期异议成立，终止录用"
 	case "dismiss":
-		return "候补期异议不成立，继续候补"
+		return "预备期异议不成立，继续预备期"
 	}
-	return "候补期异议已记录"
+	return "预备期异议已记录"
 }

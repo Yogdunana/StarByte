@@ -8,7 +8,7 @@ import (
 )
 
 // AdmissionObjection raises or reviews a probation objection.
-// @Summary 候补期异议提出、复核与最终裁决
+// @Summary 预备期异议提出、复核与最终裁决
 // @Tags 会员
 // @Accept json
 // @Produce json

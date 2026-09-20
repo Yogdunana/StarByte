@@ -59,7 +59,7 @@ func (r *leaveApprover) Resolve(ctx context.Context, inst *wfmodel.FlowInstance,
 	}
 	out := uniqueExcept(ids, app.ApplicantID)
 	if len(out) == 0 {
-		return nil, response.NewError(response.CodeLeaveWorkflow, "缺少可用的请假审批人，请先配置部长或社长")
+		return nil, response.NewError(response.CodeLeaveWorkflow, "缺少可用的请假审批人，请先配置部长或会长")
 	}
 	return out, nil
 }

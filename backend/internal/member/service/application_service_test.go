@@ -133,7 +133,7 @@ func TestApplicationHistoryRedactsObjectionInternals(t *testing.T) {
 
 	out, err := svc.ApplicationHistory(context.Background(), applicant, id, nil)
 	require.NoError(t, err)
-	require.Equal(t, "候补期已提出异议，等待中心复核", out[0].Comment)
+	require.Equal(t, "预备期已提出异议，等待中心复核", out[0].Comment)
 	require.Empty(t, out[0].OperatorID)
 }
 
@@ -152,6 +152,6 @@ func TestApplicationHistoryStaffSeesPublicObjectionComment(t *testing.T) {
 
 	out, err := svc.ApplicationHistory(context.Background(), staff, id, scope)
 	require.NoError(t, err)
-	require.Equal(t, "候补期异议已提交中心复核，等待会长裁决", out[0].Comment)
+	require.Equal(t, "预备期异议已提交中心复核，等待会长裁决", out[0].Comment)
 	require.Equal(t, operator.String(), out[0].OperatorID)
 }

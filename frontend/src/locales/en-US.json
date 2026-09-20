@@ -800,7 +800,7 @@
     "delete": "Delete",
     "restore": "Restore",
     "restoreTitle": "Confirm database restore",
-    "restoreWarn": "This overwrites the live database and will interrupt in-flight requests. Notify online users first. President / super-admin / vice-president only.",
+    "restoreWarn": "This overwrites the live database and will interrupt in-flight requests. Notify online users first. President / system admin / vice-president only.",
     "restoreConfirmLabel": "Type RESTORE to confirm:",
     "restoreToken": "RESTORE",
     "policy": "Backup policy",
