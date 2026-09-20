@@ -1,11 +1,12 @@
 import { tx, useLocale } from '@/i18n/text';
 import React, { useEffect, useState } from 'react';
-import { Button, Form, Input, Select, Steps, Tag, Modal, message } from 'antd';
+import { Alert, Button, Form, Input, Select, Steps, Tag, Modal, message } from 'antd';
 import { getCurrentUser } from '@/api/auth';
 import { useTranslation } from 'react-i18next';
 import { getMemberDepartments, submitApplication } from '@/api/member';
-import type { CreateMemberApplicationParams, MemberDepartmentOption } from '@/types/api';
+import type { CreateMemberApplicationParams, MemberDepartmentOption, UserInfo } from '@/types/api';
 import { isCnMobile, nationalMobileDigits } from '@/utils/phone';
+import { applicationGates, blockedApplicationMessage } from './applicationGates';
 
 interface ApplicationFormProps {
   onSubmitted?: () => void;
@@ -19,11 +20,15 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
   const [identity, setIdentity] = useState<Partial<CreateMemberApplicationParams>>({});
   const [locked, setLocked] = useState({ real_name: false, student_no: false, gender: false });
   const [canApplyOfficer, setCanApplyOfficer] = useState(false);
+  const [canApplyMember, setCanApplyMember] = useState(true);
+  const [gateUser, setGateUser] = useState<Partial<UserInfo> | null>(null);
   const [form] = Form.useForm<CreateMemberApplicationParams>();
   const applicantType = Form.useWatch('applicant_type', form);
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [departments, setDepartments] = useState<MemberDepartmentOption[]>([]);
+  const showTypeSelect = canApplyMember && canApplyOfficer;
+  const blocked = !canApplyMember && !canApplyOfficer;
 
   useEffect(() => {
     getMemberDepartments()
@@ -55,9 +60,13 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
         if (user.email?.trim() && !form.isFieldTouched('contact_email')) {
           values.contact_email = user.email.trim();
         }
-        const member = (user.roles || []).includes('member');
-        setCanApplyOfficer(member);
-        if (!member) {
+        const gates = applicationGates(user);
+        setCanApplyOfficer(gates.canApplyOfficer);
+        setCanApplyMember(gates.canApplyMember);
+        setGateUser(user);
+        if (gates.canApplyOfficer && !gates.canApplyMember) {
+          values.applicant_type = 2;
+        } else if (!gates.canApplyOfficer) {
           values.applicant_type = 1;
         }
         form.setFieldsValue(values);
@@ -86,22 +95,23 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
   };
 
   const next = async () => {
-    const fields: Array<keyof CreateMemberApplicationParams> =
-      applicantType === 2
-        ? ['applicant_type', 'real_name', 'student_no', 'gender', 'department_id']
-        : ['applicant_type', 'real_name', 'student_no', 'gender'];
+    const officer = canApplyOfficer && (!canApplyMember || applicantType === 2);
+    const fields: Array<keyof CreateMemberApplicationParams> = officer
+      ? ['applicant_type', 'real_name', 'student_no', 'gender', 'department_id']
+      : ['applicant_type', 'real_name', 'student_no', 'gender'];
     await form.validateFields([...fields]);
     setStep(1);
   };
 
   const handleSubmit = async () => {
     const values = await form.validateFields();
+    const type = canApplyOfficer && (!canApplyMember || values.applicant_type === 2) ? 2 : 1;
     setSubmitting(true);
     try {
       await submitApplication({
         ...values,
-        applicant_type: canApplyOfficer ? values.applicant_type : 1,
-        department_id: values.applicant_type === 2 && canApplyOfficer ? values.department_id : undefined,
+        applicant_type: type,
+        department_id: type === 2 ? values.department_id : undefined,
         contact_phone: nationalMobileDigits(values.contact_phone),
       });
       message.success(tx('申请已提交'));
@@ -125,6 +135,10 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
     cursor: 'pointer',
   } as const;
 
+  if (blocked) {
+    return <Alert type="info" showIcon message={blockedApplicationMessage(gateUser)} />;
+  }
+
   return (
     <>
       <Steps
@@ -132,16 +146,36 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
         style={{ marginBottom: 24 }}
         items={[{ title: tx('基本信息') }, { title: tx('联系方式') }]}
       />
-      <Form form={form} layout="vertical" initialValues={{ applicant_type: 1 }}>
+      <Form form={form} layout="vertical" initialValues={{ applicant_type: canApplyOfficer && !canApplyMember ? 2 : 1 }}>
         <div style={{ display: step === 0 ? 'block' : 'none' }}>
-          <Form.Item name="applicant_type" label={tx('申请类型')} rules={[{ required: true }]}>
-            <Select
-              options={[
-                { value: 1, label: tx('会员') },
-                { value: 2, label: tx('干事（需面试）'), disabled: !canApplyOfficer },
-              ]}
-            />
-          </Form.Item>
+          {showTypeSelect ? (
+            <Form.Item name="applicant_type" label={tx('申请类型')} rules={[{ required: true }]}>
+              <Select
+                options={[
+                  { value: 1, label: tx('会员') },
+                  { value: 2, label: tx('干事（需面试）') },
+                ]}
+              />
+            </Form.Item>
+          ) : (
+            <>
+              <Form.Item name="applicant_type" hidden>
+                <Input />
+              </Form.Item>
+              {canApplyOfficer ? (
+                <Alert
+                  type="info"
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                  message={tx('已是会员，不能再申请成为会员')}
+                />
+              ) : (
+                <Form.Item label={tx('申请类型')}>
+                  <Select disabled options={[{ value: 1, label: tx('会员') }]} value={1} />
+                </Form.Item>
+              )}
+            </>
+          )}
           {!canApplyOfficer ? (
             <p style={{ margin: '0 0 16px', color: 'var(--sb-muted)', fontSize: 13 }}>
               {tx('须先成为会员后再申请干事或干部职务')}
@@ -194,7 +228,7 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
               ]}
             />
           </Form.Item>
-          {applicantType === 2 && canApplyOfficer ? (
+          {canApplyOfficer && (!canApplyMember || applicantType === 2) ? (
             <Form.Item
               name="department_id"
               label={tx('意向部门')}

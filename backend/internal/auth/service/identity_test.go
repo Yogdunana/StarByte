@@ -65,6 +65,7 @@ func TestLogin_ByStudentNo(t *testing.T) {
 	ident.On("GetByUserID", ctx, userID).Return(&MemberIdentity{
 		StudentNo: "20210002", RealName: "测试会员", Grade: "2021", Major: "软件工程",
 		DepartmentName: "品牌传播部", PositionName: "干事",
+		Status: 0, MemberType: 1,
 	}, nil)
 
 	result, err := svc.Login(ctx, &dto.LoginRequest{
@@ -81,6 +82,8 @@ func TestLogin_ByStudentNo(t *testing.T) {
 	assert.Equal(t, "2021", result.User.Grade)
 	assert.Equal(t, "软件工程", result.User.Major)
 	assert.Equal(t, "品牌传播部", result.User.DepartmentName)
+	assert.False(t, result.User.CanApplyMember)
+	assert.True(t, result.User.CanApplyOfficer)
 }
 
 func TestLogin_StudentNoRespectsUsernameLockout(t *testing.T) {
@@ -211,4 +214,6 @@ func TestGetCurrentUser_IdentityMissing(t *testing.T) {
 	assert.Empty(t, result.StudentNo)
 	assert.Empty(t, result.Grade)
 	assert.Empty(t, result.Major)
+	assert.False(t, result.CanApplyMember)
+	assert.False(t, result.CanApplyOfficer)
 }

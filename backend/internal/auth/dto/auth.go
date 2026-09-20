@@ -89,24 +89,26 @@ type LoginResponse struct {
 
 // UserInfo 用户信息（登录与 /auth/me 返回，含档案学号/姓名等）
 type UserInfo struct {
-	ID             string    `json:"id"`
-	Username       string    `json:"username"`
-	RealName       string    `json:"real_name"`
-	StudentNo      string    `json:"student_no"`
-	Grade          string    `json:"grade"`
-	Major          string    `json:"major"`
-	DepartmentID   string    `json:"department_id,omitempty"`
-	DepartmentName string    `json:"department_name"`
-	PositionID     string    `json:"position_id,omitempty"`
-	PositionName   string    `json:"position_name"`
-	AvatarURL      string    `json:"avatar_url"`
-	Email          string    `json:"email"`
-	Phone          string    `json:"phone"`
-	Gender         int       `json:"gender"`
-	Status         int       `json:"status"`
-	Roles          []string  `json:"roles"`
-	Permissions    []string  `json:"permissions"`
-	CreatedAt      time.Time `json:"created_at"`
+	ID              string    `json:"id"`
+	Username        string    `json:"username"`
+	RealName        string    `json:"real_name"`
+	StudentNo       string    `json:"student_no"`
+	Grade           string    `json:"grade"`
+	Major           string    `json:"major"`
+	DepartmentID    string    `json:"department_id,omitempty"`
+	DepartmentName  string    `json:"department_name"`
+	PositionID      string    `json:"position_id,omitempty"`
+	PositionName    string    `json:"position_name"`
+	AvatarURL       string    `json:"avatar_url"`
+	Email           string    `json:"email"`
+	Phone           string    `json:"phone"`
+	Gender          int       `json:"gender"`
+	Status          int       `json:"status"`
+	Roles           []string  `json:"roles"`
+	Permissions     []string  `json:"permissions"`
+	CanApplyMember  bool      `json:"can_apply_member"`
+	CanApplyOfficer bool      `json:"can_apply_officer"`
+	CreatedAt       time.Time `json:"created_at"`
 }
 
 // RefreshResponse 刷新 Token 响应

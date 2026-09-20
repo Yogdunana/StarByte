@@ -61,7 +61,7 @@ it('hides intended department for members and prefills phone plus email', async 
   expect(screen.queryByText('申请理由')).toBeNull();
 });
 
-it('lets members apply as officers and choose a department', async () => {
+it('lets members apply as officers and does not show the member apply option', async () => {
   vi.mocked(getCurrentUser).mockResolvedValue({
     real_name: '张三',
     student_no: '2026001',
@@ -69,12 +69,31 @@ it('lets members apply as officers and choose a department', async () => {
     email: 'zhang@smbu.edu.cn',
     gender: 1,
     roles: ['member'],
+    can_apply_member: false,
+    can_apply_officer: true,
   } as Awaited<ReturnType<typeof getCurrentUser>>);
   render(<ApplicationForm />);
   await screen.findByDisplayValue('张三');
-  fireEvent.mouseDown(screen.getAllByRole('combobox')[0]);
-  fireEvent.click(await screen.findByText('干事（需面试）'));
+  expect(screen.getByText('已是会员，不能再申请成为会员')).toBeTruthy();
+  expect(screen.queryByText('须先成为会员后再申请干事或干部职务')).toBeNull();
   expect(await screen.findByText('意向部门')).toBeTruthy();
+});
+
+it('hides the apply form when a leftover member role has no valid profile', async () => {
+  vi.mocked(getCurrentUser).mockResolvedValue({
+    real_name: '张三',
+    student_no: '2026001',
+    roles: ['member'],
+    can_apply_member: false,
+    can_apply_officer: false,
+  } as Awaited<ReturnType<typeof getCurrentUser>>);
+  render(<ApplicationForm />);
+  expect(
+    await screen.findByText(
+      '当前账号有会员角色但没有有效会员档案，无法申请干事。请管理员核对历史数据。',
+    ),
+  ).toBeTruthy();
+  expect(screen.queryByText('提交申请')).toBeNull();
 });
 
 it('keeps missing identity editable', async () => {
