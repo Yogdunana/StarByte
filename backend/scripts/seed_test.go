@@ -28,7 +28,7 @@ func TestSeedRoles_IncludesRequired(t *testing.T) {
 	for _, r := range seedRolesData {
 		codes[r.Code] = true
 	}
-	for _, need := range []string{"president", "vice_president", "minister", "vice_minister", "officer", "member"} {
+	for _, need := range []string{"president", "vice_president", "minister", "vice_minister", "officer", "member", "vice_center_director", "advisor", "honorary", "captain", "teammate", "probationary"} {
 		assert.True(t, codes[need], "missing role %s", need)
 	}
 }
@@ -85,7 +85,7 @@ func TestSeedDepartments_CharterLayout(t *testing.T) {
 func TestSeedRoles_OnlyTopRolesAreSystem(t *testing.T) {
 	for _, r := range seedRolesData {
 		switch r.Code {
-		case "super_admin", "president", "user", "center_director", "probationary":
+		case "super_admin", "president", "user", "center_director", "vice_center_director", "probationary", "advisor", "honorary", "captain", "teammate":
 			assert.True(t, r.IsSystem, "%s should be system", r.Code)
 		default:
 			assert.False(t, r.IsSystem, "%s should not be system", r.Code)

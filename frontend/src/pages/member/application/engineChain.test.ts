@@ -30,7 +30,7 @@ describe('progress helpers', () => {
         state: 'current',
         allow_transfer: true,
       },
-      { id: 'president', label: '社长审批', type: 'approval', state: 'pending' },
+      { id: 'president', label: '会长审批', type: 'approval', state: 'pending' },
     ];
     expect(currentStepIndex(steps)).toBe(2);
     expect(stepStatus(steps[0], false)).toBe('finish');
@@ -40,7 +40,7 @@ describe('progress helpers', () => {
   });
 
   it('does not invent approval history when progress cannot be loaded', () => {
-    const record = { status: 1, current_stage: '社长审批' } as MemberApplication;
+    const record = { status: 1, current_stage: '会长审批' } as MemberApplication;
     const steps = fallbackSteps(record);
     expect(steps).toHaveLength(1);
     expect(steps[0].state).toBe('pending');

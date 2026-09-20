@@ -17,9 +17,9 @@ type seedDeptNode struct {
 }
 
 var seedCentersData = []seedDeptNode{
-	{Name: "技术研发中心", Code: "center_rd", Description: "副社长兼任主任；下辖创新创业部、项目开发部、课程研发部", Sort: 1},
-	{Name: "运营管理中心", Code: "center_ops", Description: "副社长兼任主任；下辖综合行政部、品牌传播部", Sort: 2},
-	{Name: "对外合作中心", Code: "center_ext", Description: "副社长兼任主任；下辖战略关系部、赛事运营部", Sort: 3},
+	{Name: "技术研发中心", Code: "center_rd", Description: "副会长兼任主任；下辖创新创业部、项目开发部、课程研发部", Sort: 1},
+	{Name: "运营管理中心", Code: "center_ops", Description: "副会长兼任主任；下辖综合行政部、品牌传播部", Sort: 2},
+	{Name: "对外合作中心", Code: "center_ext", Description: "副会长兼任主任；下辖战略关系部、赛事运营部", Sort: 3},
 }
 
 var seedDepartmentsData = []seedDeptNode{

@@ -96,7 +96,7 @@ func TestUpdatePersistsStartTypeAndClearsEnd(t *testing.T) {
 	ctx := context.Background()
 	owner := uuid.New()
 	mem.users[owner] = &model.NamedUser{ID: owner, RealName: "赵六"}
-	end := time.Date(2026, 9, 20, 0, 0, 0, 0, time.UTC)
+	end := time.Now().UTC().AddDate(0, 1, 0)
 	created, err := svc.Create(ctx, owner, &dto.CreateInternshipRequest{
 		Title: "A", Organization: "B", StartDate: time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
 		EndDate: &end, Type: 0,

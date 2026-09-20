@@ -77,7 +77,7 @@ export const MemberTypeMap: StatusMap = {
   4: {
     color: 'red',
     get text() {
-      return tx('社长');
+      return tx('会长');
     },
   },
 };

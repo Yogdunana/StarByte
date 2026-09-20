@@ -2,7 +2,11 @@ package service
 
 import (
 	"context"
-	"github.com/Yogdunana/StarByte/backend/internal/member/dto"
+	"os"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/Yogdunana/StarByte/backend/internal/member/model"
 	"github.com/Yogdunana/StarByte/backend/internal/member/repo"
 	rb "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
@@ -16,10 +20,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"os"
-	"strings"
-	"testing"
-	"time"
 )
 
 func TestCharterChainConcurrentOfficesCommitteeAndExplicitProbation(t *testing.T) {
@@ -101,21 +101,11 @@ func TestCharterChainConcurrentOfficesCommitteeAndExplicitProbation(t *testing.T
 	require.Equal(t, model.AdmissionEngine, app.AdmissionStage)
 	require.NoError(t, s.ReviewMaterials(ctx, other.ID, app.ID, "approve", "committee"))
 	read()
-	require.Equal(t, model.AdmissionProbation, app.AdmissionStage)
+	require.Equal(t, model.AdmissionApproved, app.AdmissionStage)
+	require.Nil(t, app.ProbationUntil)
 	var count int64
 	require.NoError(t, tx.Table("user_roles ur").Joins("JOIN roles r ON r.id=ur.role_id").Where("ur.user_id=? AND r.code='member'", app.UserID).Count(&count).Error)
-	require.Zero(t, count)
-	now = app.ProbationUntil.Add(time.Minute)
-	require.NoError(t, s.finishProbation(ctx, app.ID))
-	read()
-	require.Equal(t, model.AdmissionProbation, app.AdmissionStage)
-	snapshot, err := s.Snapshot(ctx, chair.ID, app.ID)
-	require.NoError(t, err)
-	require.Contains(t, snapshot.AllowedRoles, "minister")
-	_, err = s.Sign(ctx, chair.ID, app.ID, &dto.SignAdmissionRequest{Stage: "probation", Revision: 1, Role: "minister", Decision: "approve", Comment: "confirmed"})
-	require.NoError(t, err)
-	read()
-	require.Equal(t, model.AdmissionApproved, app.AdmissionStage)
+	require.EqualValues(t, 1, count)
 	roles, err := repo.NewAdmissionRepo(tx).Actor(ctx, app.UserID)
 	require.NoError(t, err)
 	require.Contains(t, roles.Roles, "member")

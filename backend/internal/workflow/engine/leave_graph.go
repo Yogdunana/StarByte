@@ -10,7 +10,7 @@ const LeaveBusinessType = "leave_application"
 const LeaveDefinitionKey = "leave_approval"
 
 // LeaveApprovalBPMN is the default published graph seeded by 000067.
-// 申请 → 部长审批 → 社长审批 → 结束
+// 申请 → 部长审批 → 会长审批 → 结束
 func LeaveApprovalBPMN() []byte {
 	raw, err := json.Marshal(map[string]interface{}{
 		"nodes": []map[string]interface{}{
@@ -20,7 +20,7 @@ func LeaveApprovalBPMN() []byte {
 				"leaveStage": "department", "approvalType": "any",
 				"allowReject": true, "allowTransfer": false, "allowRollback": false,
 			}),
-			node("president", "approval", "社长审批", 300, map[string]interface{}{
+			node("president", "approval", "会长审批", 300, map[string]interface{}{
 				"assigneeStrategy": "business_role", "businessType": LeaveBusinessType,
 				"leaveStage": "org", "approvalType": "any",
 				"allowReject": true, "allowTransfer": false, "allowRollback": false,
@@ -58,7 +58,7 @@ func validateLeaveApprovalGraph(g *FlowGraph) error {
 			case "org":
 				name = "president"
 			default:
-				return fmt.Errorf("请假审批节点须为部长或社长环节")
+				return fmt.Errorf("请假审批节点须为部长或会长环节")
 			}
 		default:
 			return fmt.Errorf("默认请假链不支持额外节点类型")
@@ -75,11 +75,11 @@ func validateLeaveApprovalGraph(g *FlowGraph) error {
 	}
 	pattern := []string{"start>minister", "minister>president", "president>end"}
 	if len(actual) != len(pattern) || len(g.Edges) != len(pattern) || len(g.Nodes) != 4 {
-		return fmt.Errorf("默认请假链必须为：提交请假 → 部长审批 → 社长审批 → 结束")
+		return fmt.Errorf("默认请假链必须为：提交请假 → 部长审批 → 会长审批 → 结束")
 	}
 	for _, edge := range pattern {
 		if !actual[edge] {
-			return fmt.Errorf("默认请假链必须为：提交请假 → 部长审批 → 社长审批 → 结束")
+			return fmt.Errorf("默认请假链必须为：提交请假 → 部长审批 → 会长审批 → 结束")
 		}
 		for _, part := range strings.Split(edge, ">") {
 			if !seen[part] {

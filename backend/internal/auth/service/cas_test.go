@@ -261,6 +261,7 @@ func TestRegisterWithCASToken_CreatesUserAndBinds(t *testing.T) {
 		u := args.Get(2).(*model.User)
 		assert.Equal(t, "alice_wang", u.Username)
 		assert.Equal(t, "王五", u.RealName)
+		assert.Equal(t, 1, u.Gender)
 		assert.NotEqual(t, "20219999", u.Username)
 	})
 	users.On("CreateIdentity", mock.Anything, mock.AnythingOfType("*model.UserIdentity")).Return(nil).Run(func(args mock.Arguments) {
@@ -289,6 +290,7 @@ func TestRegisterWithCASToken_CreatesUserAndBinds(t *testing.T) {
 		Password: "Passw0rd!",
 		RealName: "王五",
 		Email:    "wuwu@example.test",
+		Gender:   1,
 	}, "9.9.9.9", "ua")
 	require.NoError(t, err)
 	assert.Empty(t, out.AccessToken)

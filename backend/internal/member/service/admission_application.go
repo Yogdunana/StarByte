@@ -33,12 +33,18 @@ func (s *admissionService) SubmitApplication(ctx context.Context, user uuid.UUID
 		if err := validateApplicationDepartment(ctx, jobs, req.DepartmentID); err != nil {
 			return err
 		}
-		if strings.TrimSpace(req.RealName) == "" || strings.TrimSpace(req.StudentNo) == "" || strings.TrimSpace(req.Reason) == "" {
-			return response.NewError(response.CodeBadRequest, "姓名、学号和申请理由不能为空白")
+		if strings.TrimSpace(req.RealName) == "" || strings.TrimSpace(req.StudentNo) == "" {
+			return response.NewError(response.CodeBadRequest, "姓名和学号不能为空白")
+		}
+		if err := applyApplicantGender(ctx, tx, user, req.Gender); err != nil {
+			return err
 		}
 		profiles := repo.NewProfileRepo(tx)
 		profile, err := profiles.GetByUserID(ctx, user)
 		if err != nil {
+			return err
+		}
+		if err := requireOfficerIsMember(req.ApplicantType, profile); err != nil {
 			return err
 		}
 		if profile != nil {
@@ -46,7 +52,7 @@ func (s *admissionService) SubmitApplication(ctx context.Context, user uuid.UUID
 				return admissionDenied("档案已停用，请联系管理人员处理")
 			}
 			if profile.Status == model.ProfileProbation {
-				return response.NewError(response.CodeMemberAppDuplicate, "已有候补期申请，请等待处理")
+				return response.NewError(response.CodeMemberAppDuplicate, "已有预备期申请，请等待处理")
 			}
 			if profile.Status == model.ProfileActive && profile.MemberType >= int16(req.ApplicantType) {
 				return response.NewError(response.CodeMemberAppDuplicate, "已具有该成员身份，无需重复申请")
@@ -132,6 +138,32 @@ func validateApplicationDepartment(ctx context.Context, jobs repo.AdmissionJobsR
 	}
 	if !valid {
 		return response.NewError(response.CodeBadRequest, "意向部门不存在、已停用或不是职能部门")
+	}
+	return nil
+}
+
+func requireOfficerIsMember(applicantType int, profile *model.MemberProfile) error {
+	if applicantType != int(model.ApplicantOfficer) {
+		return nil
+	}
+	if profile == nil || profile.Status != model.ProfileActive || profile.MemberType < model.MemberTypeMember {
+		return response.NewError(response.CodeBadRequest, "须先成为会员后再申请干事或干部职务")
+	}
+	return nil
+}
+
+func applyApplicantGender(ctx context.Context, tx *gorm.DB, user uuid.UUID, gender *int) error {
+	if gender != nil && (*gender == 1 || *gender == 2) {
+		if err := tx.WithContext(ctx).Table("users").Where("id = ?", user).Update("gender", *gender).Error; err != nil {
+			return err
+		}
+	}
+	var stored int
+	if err := tx.WithContext(ctx).Table("users").Where("id = ?", user).Select("gender").Take(&stored).Error; err != nil {
+		return err
+	}
+	if stored != 1 && stored != 2 {
+		return response.NewError(response.CodeBadRequest, "请选择性别")
 	}
 	return nil
 }

@@ -247,6 +247,10 @@ func (s *authService) RegisterWithCASToken(ctx context.Context, req *dto.CASRegi
 		putBack()
 		return nil, response.NewError(response.CodeBadRequest, "注册需要有效邮箱")
 	}
+	if req.Gender != 1 && req.Gender != 2 {
+		putBack()
+		return nil, response.NewError(response.CodeBadRequest, "请选择性别")
+	}
 
 	if existing, err := s.userRepo.GetByIdentity(ctx, identityTypeCAS, pending.CASUser); err != nil {
 		putBack()
@@ -287,6 +291,7 @@ func (s *authService) RegisterWithCASToken(ctx context.Context, req *dto.CASRegi
 		PasswordHash: hash,
 		RealName:     realName,
 		Email:        email,
+		Gender:       req.Gender,
 		Status:       0,
 	}
 	if err := s.userRepo.Create(ctx, nil, user); err != nil {

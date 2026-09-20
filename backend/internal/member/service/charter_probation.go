@@ -13,14 +13,14 @@ func (s *admissionService) confirmCharterProbation(ctx context.Context, tx *gorm
 	now := s.now()
 	ok, delegated := admissionAuthority(actor, app, parent, "minister")
 	if !ok || delegated || req.Role != "minister" || req.Stage != app.AdmissionStage || req.Revision != app.AdmissionRevision || req.Decision != "approve" || app.ProbationUntil == nil || now.Before(*app.ProbationUntil) {
-		return admissionDenied("候补期届满后须由直属部长确认转正")
+		return admissionDenied("预备期届满后须由直属部长确认转正")
 	}
 	pending, err := store.OpenObjection(ctx, app.ID)
 	if err != nil {
 		return err
 	}
 	if pending != nil {
-		return admissionDenied("请先处理候补异议")
+		return admissionDenied("请先处理预备期异议")
 	}
 	if err := ensureActiveApplicant(ctx, tx, app.UserID); err != nil {
 		return err

@@ -43,11 +43,11 @@ func roleMembership(db *gorm.DB, cache rbacService.PermissionCacheService, add b
 				}
 				return err
 			}
-			leadership := role.Code == "president" || role.Code == "vice_president" || role.Code == "center_director" || role.Code == "minister"
-			if leadership && !c.GetBool("is_super_admin") {
+			office := associationOffice(role.Code)
+			if office != "" && !c.GetBool("is_super_admin") {
 				return response.NewForbiddenError("协会职务须由系统管理员登记任命")
 			}
-			if role.IsSystem && !leadership {
+			if role.IsSystem && office == "" {
 				return response.NewForbiddenError("系统内置角色由业务流程管理")
 			}
 			if add && role.Status != 0 {
@@ -66,18 +66,21 @@ func roleMembership(db *gorm.DB, cache rbacService.PermissionCacheService, add b
 			if user.Status != 0 {
 				return response.NewError(response.CodeBadRequest, "用户不可用")
 			}
-			if !leadership && len(request.DepartmentIDs) > 0 {
+			if office == "" && len(request.DepartmentIDs) > 0 {
 				return response.NewError(response.CodeBadRequest, "该角色不支持任职范围")
 			}
-			if leadership && user.Username == "admin" {
+			if office != "" && user.Username == "admin" {
 				return response.NewError(response.CodeBadRequest, "技术管理员账号不能担任协会职务")
 			}
-			if leadership {
-				if role.Code != "president" && len(request.DepartmentIDs) == 0 {
+			if office != "" {
+				if office != "unscoped" && len(request.DepartmentIDs) == 0 {
 					return response.NewError(response.CodeBadRequest, "请选择任职部门或中心")
 				}
-				if role.Code == "president" && len(request.DepartmentIDs) > 0 {
-					return response.NewError(response.CodeBadRequest, "会长职务不绑定部门，兼任部长请单独登记")
+				if office == "unscoped" && len(request.DepartmentIDs) > 0 {
+					if role.Code == "president" {
+						return response.NewError(response.CodeBadRequest, "会长职务不绑定部门，兼任部长请单独登记")
+					}
+					return response.NewError(response.CodeBadRequest, "该职务不绑定部门")
 				}
 				if len(request.DepartmentIDs) > 20 {
 					return response.NewError(response.CodeBadRequest, "任职范围过多")
@@ -87,8 +90,8 @@ func roleMembership(db *gorm.DB, cache rbacService.PermissionCacheService, add b
 					if err := tx.Where("id=? AND status=0", id).First(&department).Error; err != nil {
 						return response.NewError(response.CodeBadRequest, "无效部门范围")
 					}
-					if role.Code == "minister" && department.ParentID == nil || (role.Code == "center_director" || role.Code == "vice_president") && department.ParentID != nil {
-						return response.NewError(response.CodeBadRequest, "部长请选择部门，主任或副会长请选择中心")
+					if office == "department" && department.ParentID == nil || office == "center" && department.ParentID != nil {
+						return response.NewError(response.CodeBadRequest, "部长请选择部门，主任、副中心主任或副会长请选择中心")
 					}
 				}
 				if role.Code == "president" {
@@ -127,5 +130,20 @@ func roleMembership(db *gorm.DB, cache rbacService.PermissionCacheService, add b
 			return
 		}
 		response.OKWithoutData(c)
+	}
+}
+
+// associationOffice classifies charter offices that super_admin may appoint.
+// unscoped: no department; center: a center; department: a functional department.
+func associationOffice(code string) string {
+	switch code {
+	case "president", "advisor", "honorary", "captain", "teammate":
+		return "unscoped"
+	case "vice_president", "center_director", "vice_center_director":
+		return "center"
+	case "minister":
+		return "department"
+	default:
+		return ""
 	}
 }

@@ -10,6 +10,8 @@ func TestLeaveApprovalGraph(t *testing.T) {
 	graph, err := ParseGraph(LeaveApprovalBPMN())
 	require.NoError(t, err)
 	require.NoError(t, ValidateBusinessDefinition(LeaveDefinitionKey, graph))
+	require.Contains(t, string(LeaveApprovalBPMN()), "会长审批")
+	require.NotContains(t, string(LeaveApprovalBPMN()), "社长审批")
 	require.Equal(t, "start", graph.FindStartNode().ID)
 	require.Equal(t, LeaveBusinessType, "leave_application")
 	require.True(t, IsProtectedBusiness(LeaveBusinessType))

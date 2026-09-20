@@ -72,7 +72,7 @@ func memberTypeLabel(t int16) string {
 	case 3:
 		return "部长"
 	case 4:
-		return "社长"
+		return "会长"
 	default:
 		return "未知"
 	}

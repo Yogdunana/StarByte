@@ -17,7 +17,7 @@ import (
 const (
 	engineStageOfficer   = "干事审批"
 	engineStageMinister  = "部长审批"
-	engineStagePresident = "社长审批"
+	engineStagePresident = "会长审批"
 )
 
 func applicationVariables(app *model.MemberApplication) map[string]interface{} {
@@ -91,14 +91,10 @@ func applyEngineOutcome(app *model.MemberApplication, action, nodeID string, com
 		return
 	}
 	if completed {
-		if app.CharterPolicy {
+		if app.CharterPolicy && app.Type == model.ApplicantOfficer {
 			app.Status = model.AppApproved
 			app.AdmissionStage = model.AdmissionProbation
-			if app.Type == model.ApplicantOfficer {
-				app.CurrentStage = "预备干事"
-			} else {
-				app.CurrentStage = "预备会员"
-			}
+			app.CurrentStage = "预备干事"
 			until := calendarMonthLater(now)
 			app.ProbationUntil = &until
 			app.StageEnteredAt = now
@@ -325,10 +321,13 @@ func (s *admissionService) admitFromEngine(ctx context.Context, tx *gorm.DB, app
 		return err
 	}
 	role := membershipRole(app)
-	if app.CharterPolicy {
+	if app.CharterPolicy && app.Type == model.ApplicantOfficer {
 		role = "probationary"
 	}
 	if err := repo.NewAdmissionMaintenanceRepo(tx).GrantRole(ctx, app.UserID, role, app.DepartmentID); err != nil {
+		return err
+	}
+	if err := tx.WithContext(ctx).Exec(`UPDATE member_profiles p SET gender = u.gender FROM users u WHERE p.user_id = u.id AND p.user_id = ? AND u.gender IN (1, 2)`, app.UserID).Error; err != nil {
 		return err
 	}
 	return repo.NewAdmissionJobsRepo(tx).QueuePermissionRefresh(ctx, app.UserID)

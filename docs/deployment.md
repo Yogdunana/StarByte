@@ -117,7 +117,7 @@ docker pull hello-world
 APP_ENV=prod make seed
 ```
 
-默认账号：`admin/admin123`（社长，学号 `20210001`）、`test/test123`（会员，学号 `20210002`）。
+默认账号：`admin/admin123`（系统管理员，学号 `20210001`）、`test/test123`（会员，学号 `20210002`）。
 
 ## 应急 CLI（`starbyte` / `sb`）
 

@@ -58,7 +58,7 @@ func buildElectorate(vote uuid.UUID, candidates []model.ElectorCandidate, cfg mo
 		} else {
 			known := false
 			for _, code := range []string{candidate.PositionCode, candidate.RoleCode} {
-				if code == "user" || code == "member" || code == "probationary" || code == "admin" || code == "super_admin" {
+				if code == "user" || code == "member" || code == "probationary" || code == "admin" || code == "super_admin" || code == "advisor" || code == "honorary" || code == "captain" || code == "teammate" {
 					known = true
 					continue
 				}

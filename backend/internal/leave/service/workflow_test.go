@@ -46,7 +46,7 @@ func (s *stubFlow) CompleteLeaveApproval(_ context.Context, _ uuid.UUID, reviewe
 		return nil
 	}
 	if s.approvedBy != uuid.Nil && s.approvedBy == reviewer {
-		return response.NewError(response.CodeForbidden, "同一审批人不能连续完成部长与社长两个环节")
+		return response.NewError(response.CodeForbidden, "同一审批人不能连续完成部长与会长两个环节")
 	}
 	s.approvedBy = reviewer
 	s.idx++

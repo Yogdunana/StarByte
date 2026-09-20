@@ -63,10 +63,14 @@
     "casError": "Campus sign-in did not complete. Please try again.",
     "casErrorEmail": "This campus account has not activated email yet. Open the link in the message first.",
     "casBind": "Bind account",
-    "casBindHint": "Campus SSO succeeded. Choose a username and password. Your student ID comes from campus auth and cannot be changed.",
+    "casBindHint": "Campus SSO succeeded. Choose a username, password, and gender. Your student ID comes from campus auth. Your name is filled in automatically; tap it if you need to change it.",
     "casBindSubmit": "Finish binding",
     "casBindNeedAuth": "Finish campus SSO before binding an account.",
     "studentNo": "Student ID",
+    "gender": "Gender",
+    "genderRequired": "Please select a gender",
+    "genderMale": "Male",
+    "genderFemale": "Female",
     "passwordStrength": "Use at least 8 characters with letters and numbers",
     "kicker": "Computer Association",
     "headline": "From one idea to work we make together.",
@@ -107,7 +111,7 @@
     "loadFailed": "Failed to load this document, or sign-in is required"
   },
   "aboutUs": {
-    "kicker": "SMBU · School of Engineering",
+    "kicker": "SMBU · University-level student association",
     "title": "Computer Association",
     "lead": "A student academic and technology association. We support campus digital services through training, talks, projects, contests, and courses.",
     "readCharter": "Read the charter",
@@ -142,11 +146,11 @@
       "events": "Events · contests and academic exchange"
     },
     "joinTitle": "How to join",
-    "joinLead": "Choose member or officer. Members belong to no department. Officers interview, sign, then become probationary officers.",
+    "joinLead": "Apply as a member first. After review you become a member immediately, without a probation period. To become an officer or cadre, join as a member first, then apply separately. Officer applications interview, sign, then become probationary officers.",
     "memberTrackTitle": "Member",
-    "memberTrackBody": "Materials review decides admission. Members can join courses and events, without a home department.",
+    "memberTrackBody": "Only basic details such as gender are required. Name and student ID are filled from campus records; confirm before changing them. After review you become a member directly.",
     "officerTrackTitle": "Officer",
-    "officerStep1": "Pick a department and interview",
+    "officerStep1": "Must already be a member, then pick a department and interview",
     "officerStep2": "Formal signatures from department and center",
     "officerStep3": "Probationary officer",
     "officerStep4": "Full officer",
@@ -177,7 +181,7 @@
       "captain": "Captain",
       "teammate": "Teammate"
     },
-    "note": "Discipline committee, CYL branch, technical advisory board, general assembly, and standing committee remain charter bodies and are not built in phase one. See repository issues."
+    "note": "Discipline committee, CYL branch, technical advisory board, officer assembly, and standing committee remain charter bodies and are not built in phase one. See repository issues."
   },
   "knowledge": {
     "title": "Knowledge base",
@@ -800,7 +804,7 @@
     "delete": "Delete",
     "restore": "Restore",
     "restoreTitle": "Confirm database restore",
-    "restoreWarn": "This overwrites the live database and will interrupt in-flight requests. Notify online users first. President / super-admin / vice-president only.",
+    "restoreWarn": "This overwrites the live database and will interrupt in-flight requests. Notify online users first. President / system admin / vice-president only.",
     "restoreConfirmLabel": "Type RESTORE to confirm:",
     "restoreToken": "RESTORE",
     "policy": "Backup policy",
@@ -1070,7 +1074,7 @@
   },
   "application": {
     "confirmIdentityEdit": "Are you sure you want to change this?",
-    "identityEditHint": "This information was filled automatically. Please verify any changes."
+    "identityEditHint": "This information was filled automatically from the campus system. Do you want to change it?"
   },
   "rbac": {
     "permissions": "Permissions",

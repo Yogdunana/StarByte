@@ -63,10 +63,14 @@
     "casError": "统一认证未完成，请重试",
     "casErrorEmail": "该校园账号尚未激活邮箱，请先点击邮件中的链接。",
     "casBind": "绑定账号",
-    "casBindHint": "学校统一认证已通过。请设置本站用户名和密码；学号来自校园认证，不可修改。",
+    "casBindHint": "学校统一认证已通过。请设置本站用户名、密码并选择性别。学号来自校园认证；姓名已自动填入，如需修改请点选确认。",
     "casBindSubmit": "完成绑定",
     "casBindNeedAuth": "请先完成学校统一认证后再绑定账号。",
     "studentNo": "学号",
+    "gender": "性别",
+    "genderRequired": "请选择性别",
+    "genderMale": "男",
+    "genderFemale": "女",
     "passwordStrength": "密码至少 8 位，需包含字母和数字",
     "kicker": "计算机协会 / Computer Association",
     "headline": "从一个想法，到一群人的作品。",
@@ -107,7 +111,7 @@
     "loadFailed": "文档加载失败，或需要登录后查看"
   },
   "aboutUs": {
-    "kicker": "深圳北理莫斯科大学 · 工程系",
+    "kicker": "深圳北理莫斯科大学 · 校级学生社团",
     "title": "计算机协会",
     "lead": "由在校学生自愿组成的学术科技类社团。我们服务学校信息化建设，开展编程培训、技术讲座、项目实践、竞赛组织和课程开发，把想法做成可以协作的作品。",
     "readCharter": "阅读协会章程",
@@ -126,7 +130,7 @@
       "task": "服务校园信息化"
     },
     "orgTitle": "组织架构",
-    "orgLead": "社长（会长）统筹协会，副社长可兼任三大中心主任；七个职能部门挂在中心之下。技术团队是兼职项目制，不是第八个部门。",
+    "orgLead": "会长统筹协会，不是系统管理员。副会长可兼任三大中心主任；七个职能部门挂在中心之下。技术团队是兼职项目制，不是第八个部门。",
     "center": {
       "rd": "技术研发中心",
       "ops": "运营管理中心",
@@ -142,11 +146,11 @@
       "events": "赛事运营部 · 竞赛与学术交流"
     },
     "joinTitle": "如何加入",
-    "joinLead": "申请时选择会员或干事。会员不隶属任何部门；干事走面试和签字，再进入预备干事。",
+    "joinLead": "先申请成为会员。审核通过后即为会员，不经过预备期。有意担任干事或干部的，须先成为会员后再另行申请。干事申请走面试和签字，再进入预备干事。",
     "memberTrackTitle": "会员",
-    "memberTrackBody": "资料审核后决定是否通过。会员可参加课程和活动，不参与日常部门运营，也没有意向部门。",
+    "memberTrackBody": "填写性别等基础信息即可申请。姓名、学号由系统自动带入，如需修改须确认。资料审核通过后直接成为会员。",
     "officerTrackTitle": "干事",
-    "officerStep1": "选择意向职能部门并参加面试",
+    "officerStep1": "须已是会员，再选择意向职能部门并参加面试",
     "officerStep2": "部门、中心与负责人正式签字",
     "officerStep3": "预备干事",
     "officerStep4": "转为正式干事",
@@ -177,7 +181,7 @@
       "captain": "队长",
       "teammate": "队员"
     },
-    "note": "纪律监察委员会、功能型团支部、技术顾问委员会、会员大会、常务委员会仍按章程记载，一期尚未单独上线，见仓库 Issue。"
+    "note": "纪律监察委员会、功能型团支部、技术顾问委员会、干事大会、常务委员会仍按章程记载，一期尚未单独上线，见仓库 Issue。"
   },
   "knowledge": {
     "title": "知识库",
@@ -665,7 +669,7 @@
   },
   "leave": {
     "myTitle": "我的请假",
-    "myHint": "提交后立即预扣年假/调休额度，并进入部长→社长流程审批；驳回自动返还。时长按工作日计算。",
+    "myHint": "提交后立即预扣年假/调休额度，并进入部长→会长流程审批；驳回自动返还。时长按工作日计算。",
     "listTitle": "请假审批",
     "listHint": "共 {{total}} 条，待审批 {{pending}} 条",
     "apply": "申请请假",
@@ -704,7 +708,7 @@
     "legacySingle": "单级回退",
     "stage": {
       "minister": "待部长审批",
-      "president": "待社长审批"
+      "president": "待会长审批"
     },
     "statsTitle": "请假统计与日历",
     "statsHint": "个人、部门与月度均按所选年份统计；驳回不计入占用天数。",
@@ -800,7 +804,7 @@
     "delete": "删除",
     "restore": "恢复",
     "restoreTitle": "确认恢复数据库",
-    "restoreWarn": "将用该备份覆盖当前数据库，运行中的请求会中断。请先通知在线用户。仅社长 / 超管 / 副社长可操作。",
+    "restoreWarn": "将用该备份覆盖当前数据库，运行中的请求会中断。请先通知在线用户。仅会长 / 系统管理员 / 副会长可操作。",
     "restoreConfirmLabel": "请输入 RESTORE 以确认：",
     "restoreToken": "RESTORE",
     "policy": "备份策略",
@@ -874,7 +878,7 @@
         "apply": "提交申请",
         "officer": "干事审批",
         "minister": "部长审批",
-        "president": "社长审批",
+        "president": "会长审批",
         "end": "结束"
       },
       "approve": "同意",
@@ -888,7 +892,7 @@
       "commentRequired": "拒绝须填写原因",
       "approved": "已同意并推进流程",
       "rejected": "已拒绝该申请",
-      "hint": "默认模板为干事 → 部长 → 社长。可在流程设计器编辑 member_application：增删节点、或签/会签、条件分支后发布新版本。",
+      "hint": "默认模板为干事 → 部长 → 会长。可在流程设计器编辑 member_application：增删节点、或签/会签、条件分支后发布新版本。",
       "supplementHint": "已要求补充材料，请等待申请人重新提交。",
       "viewFlow": "查看流程实例",
       "editTemplate": "编辑流程模板",
@@ -1070,7 +1074,7 @@
   },
   "application": {
     "confirmIdentityEdit": "是否确定修改",
-    "identityEditHint": "此信息已自动获取，请确认修改后的信息准确。"
+    "identityEditHint": "该信息是从系统自动获取的，是否要更改？"
   },
   "rbac": {
     "permissions": "权限管理",

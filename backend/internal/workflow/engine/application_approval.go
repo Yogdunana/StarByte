@@ -114,7 +114,7 @@ func (e *FlowEngine) TransferApplicationApproval(ctx context.Context, instanceID
 }
 
 // SkipApplicationApproval 跳过当前审批节点并进入下一环节。
-// 会员申请无意向部门时没有对口部长，部长节点不能指派，因此直达社长。
+// 会员申请无意向部门时没有对口部长，部长节点不能指派，因此直达会长。
 func (e *FlowEngine) SkipApplicationApproval(ctx context.Context, instanceID uuid.UUID, nodeID string, operator uuid.UUID, reason string) error {
 	if !e.businessTransaction {
 		return response.NewError(response.CodeForbidden, "入会审批需要业务事务")

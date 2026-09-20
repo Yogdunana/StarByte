@@ -27,7 +27,7 @@ func (s *admissionService) Maintenance(ctx context.Context, _ string, logf func(
 			return err
 		}
 	}
-	logf(fmt.Sprintf("检查候补到期申请 %d 项", len(ids)))
+	logf(fmt.Sprintf("检查预备期到期申请 %d 项", len(ids)))
 	return nil
 }
 func (s *admissionService) finishProbation(ctx context.Context, id uuid.UUID) error {
@@ -69,7 +69,7 @@ func (s *admissionService) finishProbation(ctx context.Context, id uuid.UUID) er
 			return err
 		}
 		members := &memberService{apps: repo.NewApplicationRepo(tx)}
-		return members.recordAppHistory(ctx, id, app.Status, app.Status, nil, "候补一个自然月届满，无待处理异议，转为正式成员", map[string]interface{}{"event": "probation_completed"})
+		return members.recordAppHistory(ctx, id, app.Status, app.Status, nil, "预备期一个自然月届满，无待处理异议，转为正式成员", map[string]interface{}{"event": "probation_completed"})
 	})
 	if err == nil {
 		_ = s.refreshPermissions(ctx)

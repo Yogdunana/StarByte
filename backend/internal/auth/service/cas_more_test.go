@@ -191,7 +191,7 @@ func TestRegisterWithCASToken_CreateFailsKeepsToken(t *testing.T) {
 	_, err := svc.RegisterWithCASToken(context.Background(), &dto.CASRegisterRequest{
 		Token:    "reg-create",
 		Username: "new_user",
-		Password: "Passw0rd!",
+		Password: "Passw0rd!", Gender: 1,
 	}, "", "")
 	require.Error(t, err)
 	users.AssertNotCalled(t, "HardDelete", mock.Anything, mock.Anything)
@@ -227,7 +227,7 @@ func TestRegisterWithCASToken_BindConflictRollsBackAndKeepsToken(t *testing.T) {
 	_, err := svc.RegisterWithCASToken(context.Background(), &dto.CASRegisterRequest{
 		Token:    "reg-bind",
 		Username: "fresh_user",
-		Password: "Passw0rd!",
+		Password: "Passw0rd!", Gender: 1,
 	}, "", "")
 	require.Error(t, err)
 	var appErr *response.AppError
@@ -266,7 +266,7 @@ func TestRegisterWithCASToken_EnsureStudentNoFailsRollsBackAndKeepsToken(t *test
 	_, err := svc.RegisterWithCASToken(context.Background(), &dto.CASRegisterRequest{
 		Token:    "reg-stu",
 		Username: "stu_user",
-		Password: "Passw0rd!",
+		Password: "Passw0rd!", Gender: 1,
 		RealName: "周九",
 	}, "", "")
 	require.Error(t, err)
@@ -295,7 +295,7 @@ func TestRegisterWithCASToken_RequiresEmail(t *testing.T) {
 	_, err := svc.RegisterWithCASToken(context.Background(), &dto.CASRegisterRequest{
 		Token:    "reg-mail",
 		Username: "need_mail",
-		Password: "Passw0rd!",
+		Password: "Passw0rd!", Gender: 1,
 	}, "", "")
 	require.Error(t, err)
 	assert.Equal(t, response.CodeBadRequest, err.(*response.AppError).Code)
@@ -320,7 +320,7 @@ func TestRegisterWithCASToken_RejectsStudentNoUsername(t *testing.T) {
 	_, err := svc.RegisterWithCASToken(context.Background(), &dto.CASRegisterRequest{
 		Token:    "reg-sid",
 		Username: "20219999",
-		Password: "Passw0rd!",
+		Password: "Passw0rd!", Gender: 1,
 	}, "", "")
 	require.Error(t, err)
 	assert.Equal(t, response.CodeBadRequest, err.(*response.AppError).Code)
@@ -352,7 +352,7 @@ func TestRegisterWithCASToken_RejectsUsernameTakenAsStudentNo(t *testing.T) {
 	_, err := svc.RegisterWithCASToken(context.Background(), &dto.CASRegisterRequest{
 		Token:    "reg-squat",
 		Username: "alice",
-		Password: "Passw0rd!",
+		Password: "Passw0rd!", Gender: 1,
 	}, "", "")
 	require.Error(t, err)
 	assert.Equal(t, response.CodeUserExists, err.(*response.AppError).Code)
@@ -383,7 +383,7 @@ func TestRegisterWithCASToken_UsernameTakenKeepsToken(t *testing.T) {
 	_, err := svc.RegisterWithCASToken(context.Background(), &dto.CASRegisterRequest{
 		Token:    "reg1",
 		Username: "taken_user",
-		Password: "Passw0rd!",
+		Password: "Passw0rd!", Gender: 1,
 	}, "", "")
 	require.Error(t, err)
 	assert.Equal(t, response.CodeUserExists, err.(*response.AppError).Code)
