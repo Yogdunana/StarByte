@@ -95,3 +95,36 @@ func TestScopedOfficeAppointments(t *testing.T) {
 	require.NoError(t, tx.Table("user_role_departments").Where("department_id=?", dept.ID).Count(&count).Error)
 	require.Zero(t, count)
 }
+
+func TestAppointHonoraryAndViceCenterDirector(t *testing.T) {
+	tx := testutil.OpenPostgres(t).Begin()
+	require.NoError(t, tx.Error)
+	defer tx.Rollback()
+	user := userModel.User{ID: uuid.New(), Username: "office_" + uuid.NewString(), PasswordHash: "x"}
+	require.NoError(t, tx.Create(&user).Error)
+	center := model.Department{ID: uuid.New(), Code: "center_" + uuid.NewString(), Name: "Center"}
+	require.NoError(t, tx.Create(&center).Error)
+	dept := model.Department{ID: uuid.New(), Code: "dept_" + uuid.NewString(), Name: "Department", ParentID: &center.ID}
+	require.NoError(t, tx.Create(&dept).Error)
+	honoraryID, directorID := uuid.New(), uuid.New()
+	require.NoError(t, tx.Exec("INSERT INTO roles(id,name,code,status,is_system) VALUES (?, 'Honorary','honorary',0,true) ON CONFLICT(code) DO UPDATE SET status=0, is_system=true", honoraryID).Error)
+	require.NoError(t, tx.Exec("INSERT INTO roles(id,name,code,status,is_system) VALUES (?, 'VCD','vice_center_director',0,true) ON CONFLICT(code) DO UPDATE SET status=0, is_system=true", directorID).Error)
+	var honorary, director model.Role
+	require.NoError(t, tx.Where("code='honorary'").First(&honorary).Error)
+	require.NoError(t, tx.Where("code='vice_center_director'").First(&director).Error)
+	cache := &membershipCache{}
+	r := testutil.NewEngine()
+	r.Use(func(c *gin.Context) { c.Set("is_super_admin", true); c.Next() })
+	r.PUT("/roles/:id/users/:user_id", roleMembership(tx, cache, true))
+	honoraryPath := "/roles/" + honorary.ID.String() + "/users/" + user.ID.String()
+	directorPath := "/roles/" + director.ID.String() + "/users/" + user.ID.String()
+	require.Equal(t, http.StatusBadRequest, testutil.JSONRequest(t, r, "PUT", honoraryPath, map[string]interface{}{"department_ids": []uuid.UUID{center.ID}}, nil).Code)
+	require.Equal(t, http.StatusOK, testutil.JSONRequest(t, r, "PUT", honoraryPath, nil, nil).Code)
+	require.Equal(t, http.StatusBadRequest, testutil.JSONRequest(t, r, "PUT", directorPath, nil, nil).Code)
+	require.Equal(t, http.StatusBadRequest, testutil.JSONRequest(t, r, "PUT", directorPath, map[string]interface{}{"department_ids": []uuid.UUID{dept.ID}}, nil).Code)
+	response := testutil.JSONRequest(t, r, "PUT", directorPath, map[string]interface{}{"department_ids": []uuid.UUID{center.ID}}, nil)
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	scopes, err := rbacRepo.LoadRoleDepartments(context.Background(), tx, user.ID)
+	require.NoError(t, err)
+	require.Equal(t, []uuid.UUID{center.ID}, scopes["vice_center_director"])
+}

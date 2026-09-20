@@ -176,7 +176,7 @@ func TestCASRegister_OK(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Set("request_id", "rid")
-	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/auth/cas/register", strings.NewReader(`{"token":"abc","username":"alice","password":"Passw0rd1"}`))
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/auth/cas/register", strings.NewReader(`{"token":"abc","username":"alice","password":"Passw0rd1","gender":1}`))
 	c.Request.Header.Set("Content-Type", "application/json")
 	h.CASRegister(c)
 	assert.Equal(t, http.StatusOK, w.Code)

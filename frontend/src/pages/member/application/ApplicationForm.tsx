@@ -7,17 +7,18 @@ import { getMemberDepartments, submitApplication } from '@/api/member';
 import type { CreateMemberApplicationParams, MemberDepartmentOption } from '@/types/api';
 import { isCnMobile, nationalMobileDigits } from '@/utils/phone';
 
-const { TextArea } = Input;
-
 interface ApplicationFormProps {
   onSubmitted?: () => void;
 }
+
+type LockedField = 'real_name' | 'student_no' | 'gender';
 
 const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
   useLocale();
   const { t } = useTranslation();
   const [identity, setIdentity] = useState<Partial<CreateMemberApplicationParams>>({});
-  const [locked, setLocked] = useState({ real_name: false, student_no: false });
+  const [locked, setLocked] = useState({ real_name: false, student_no: false, gender: false });
+  const [canApplyOfficer, setCanApplyOfficer] = useState(false);
   const [form] = Form.useForm<CreateMemberApplicationParams>();
   const applicantType = Form.useWatch('applicant_type', form);
   const [step, setStep] = useState(0);
@@ -36,12 +37,16 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
       .then((user) => {
         if (!active) return;
         const values: Partial<CreateMemberApplicationParams> = {};
-        const locks = { real_name: false, student_no: false };
+        const locks = { real_name: false, student_no: false, gender: false };
         for (const field of ['real_name', 'student_no'] as const) {
           if (user[field]?.trim() && !form.isFieldTouched(field)) {
             values[field] = user[field];
             locks[field] = true;
           }
+        }
+        if ((user.gender === 1 || user.gender === 2) && !form.isFieldTouched('gender')) {
+          values.gender = user.gender;
+          locks.gender = true;
         }
         const phone = nationalMobileDigits(user.phone);
         if (isCnMobile(phone) && !form.isFieldTouched('contact_phone')) {
@@ -49,6 +54,11 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
         }
         if (user.email?.trim() && !form.isFieldTouched('contact_email')) {
           values.contact_email = user.email.trim();
+        }
+        const member = (user.roles || []).includes('member');
+        setCanApplyOfficer(member);
+        if (!member) {
+          values.applicant_type = 1;
         }
         form.setFieldsValue(values);
         setIdentity(values);
@@ -66,24 +76,22 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
     }
   }, [applicantType, form]);
 
-  const unlock = (field: 'real_name' | 'student_no') => {
+  const unlock = (field: LockedField) => {
     if (!locked[field]) return;
     Modal.confirm({
       title: t('application.confirmIdentityEdit', '是否确定修改'),
-      content: t('application.identityEditHint', '此信息已自动获取，请确认修改后的信息准确。'),
+      content: t('application.identityEditHint', '该信息是从系统自动获取的，是否要更改？'),
       onOk: () => setLocked((current) => ({ ...current, [field]: false })),
     });
   };
 
   const next = async () => {
     const fields: Array<keyof CreateMemberApplicationParams> =
-      step === 0
-        ? applicantType === 2
-          ? ['applicant_type', 'real_name', 'student_no', 'department_id']
-          : ['applicant_type', 'real_name', 'student_no']
-        : ['contact_phone', 'contact_email'];
+      applicantType === 2
+        ? ['applicant_type', 'real_name', 'student_no', 'gender', 'department_id']
+        : ['applicant_type', 'real_name', 'student_no', 'gender'];
     await form.validateFields([...fields]);
-    setStep((s) => s + 1);
+    setStep(1);
   };
 
   const handleSubmit = async () => {
@@ -92,14 +100,18 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
     try {
       await submitApplication({
         ...values,
-        department_id: values.applicant_type === 2 ? values.department_id : undefined,
+        applicant_type: canApplyOfficer ? values.applicant_type : 1,
+        department_id: values.applicant_type === 2 && canApplyOfficer ? values.department_id : undefined,
         contact_phone: nationalMobileDigits(values.contact_phone),
-        skills: values.skills || [],
       });
       message.success(tx('申请已提交'));
       form.resetFields();
       form.setFieldsValue(identity);
-      setLocked({ real_name: !!identity.real_name, student_no: !!identity.student_no });
+      setLocked({
+        real_name: !!identity.real_name,
+        student_no: !!identity.student_no,
+        gender: identity.gender === 1 || identity.gender === 2,
+      });
       setStep(0);
       onSubmitted?.();
     } finally {
@@ -107,23 +119,34 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
     }
   };
 
+  const lockedInputStyle = {
+    background: 'var(--ant-color-fill-tertiary, #f5f5f5)',
+    color: 'var(--ant-color-text-secondary, #666)',
+    cursor: 'pointer',
+  } as const;
+
   return (
     <>
       <Steps
         current={step}
         style={{ marginBottom: 24 }}
-        items={[{ title: tx('基本信息') }, { title: tx('联系方式') }, { title: tx('申请材料') }]}
+        items={[{ title: tx('基本信息') }, { title: tx('联系方式') }]}
       />
-      <Form form={form} layout="vertical" initialValues={{ applicant_type: 1, skills: [] }}>
+      <Form form={form} layout="vertical" initialValues={{ applicant_type: 1 }}>
         <div style={{ display: step === 0 ? 'block' : 'none' }}>
           <Form.Item name="applicant_type" label={tx('申请类型')} rules={[{ required: true }]}>
             <Select
               options={[
                 { value: 1, label: tx('会员') },
-                { value: 2, label: tx('干事（需面试）') },
+                { value: 2, label: tx('干事（需面试）'), disabled: !canApplyOfficer },
               ]}
             />
           </Form.Item>
+          {!canApplyOfficer ? (
+            <p style={{ margin: '0 0 16px', color: 'var(--sb-muted)', fontSize: 13 }}>
+              {tx('须先成为会员后再申请干事或干部职务')}
+            </p>
+          ) : null}
           <Form.Item
             name="real_name"
             label={tx('姓名')}
@@ -132,15 +155,7 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
             <Input
               placeholder={tx('真实姓名')}
               readOnly={locked.real_name}
-              style={
-                locked.real_name
-                  ? {
-                      background: 'var(--ant-color-fill-tertiary, #f5f5f5)',
-                      color: 'var(--ant-color-text-secondary, #666)',
-                      cursor: 'pointer',
-                    }
-                  : undefined
-              }
+              style={locked.real_name ? lockedInputStyle : undefined}
               onClick={() => unlock('real_name')}
               onKeyDown={(event) => {
                 if (locked.real_name && (event.key === 'Enter' || event.key === ' ')) {
@@ -158,15 +173,7 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
             <Input
               placeholder={tx('学号')}
               readOnly={locked.student_no}
-              style={
-                locked.student_no
-                  ? {
-                      background: 'var(--ant-color-fill-tertiary, #f5f5f5)',
-                      color: 'var(--ant-color-text-secondary, #666)',
-                      cursor: 'pointer',
-                    }
-                  : undefined
-              }
+              style={locked.student_no ? lockedInputStyle : undefined}
               onClick={() => unlock('student_no')}
               onKeyDown={(event) => {
                 if (locked.student_no && (event.key === 'Enter' || event.key === ' ')) {
@@ -176,7 +183,18 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
               }}
             />
           </Form.Item>
-          {applicantType === 2 ? (
+          <Form.Item name="gender" label={tx('性别')} rules={[{ required: true, message: tx('请选择性别') }]}>
+            <Select
+              placeholder={tx('请选择性别')}
+              open={locked.gender ? false : undefined}
+              onClick={() => unlock('gender')}
+              options={[
+                { value: 1, label: tx('男') },
+                { value: 2, label: tx('女') },
+              ]}
+            />
+          </Form.Item>
+          {applicantType === 2 && canApplyOfficer ? (
             <Form.Item
               name="department_id"
               label={tx('意向部门')}
@@ -222,27 +240,12 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
             <Input placeholder={tx('联系邮箱')} />
           </Form.Item>
         </div>
-        <div style={{ display: step === 2 ? 'block' : 'none' }}>
-          <Form.Item
-            name="reason"
-            label={tx('申请理由')}
-            rules={[{ required: true, whitespace: true, max: 2000 }]}
-          >
-            <TextArea rows={4} placeholder={tx('为什么想加入协会')} />
-          </Form.Item>
-          <Form.Item name="skills" label={tx('技能标签')}>
-            <Select mode="tags" placeholder={tx('输入后回车，如 Go / React')} />
-          </Form.Item>
-          <Form.Item name="experience" label={tx('项目经历')}>
-            <TextArea rows={4} placeholder={tx('过往项目、社团经历')} />
-          </Form.Item>
-        </div>
       </Form>
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-        <Button disabled={step === 0} onClick={() => setStep((s) => s - 1)}>
+        <Button disabled={step === 0} onClick={() => setStep(0)}>
           {tx('上一步')}
         </Button>
-        {step < 2 ? (
+        {step < 1 ? (
           <Button
             type="primary"
             onClick={() => {
@@ -263,10 +266,10 @@ const ApplicationForm: React.FC<ApplicationFormProps> = ({ onSubmitted }) => {
           </Button>
         )}
       </div>
-      {step === 2 && (
+      {step === 1 && (
         <div style={{ marginTop: 16 }}>
-          <Tag color="blue">{tx('会员：资料审核后直接通过/拒绝')}</Tag>
-          <Tag color="green">{tx('干事：面试 → 正式签字 → 预备干事 → 正式干事')}</Tag>
+          <Tag color="blue">{tx('会员：资料审核后即为会员')}</Tag>
+          <Tag color="green">{tx('干事须先成为会员，再另行申请')}</Tag>
         </div>
       )}
     </>

@@ -22,6 +22,8 @@ beforeEach(() => {
     student_no: '2026001',
     phone: '+86 138-0013-8000',
     email: 'zhang@smbu.edu.cn',
+    gender: 0,
+    roles: ['user'],
   } as Awaited<ReturnType<typeof getCurrentUser>>);
 });
 it('prefills identity, keeps it readonly on cancel, and unlocks only the confirmed field', async () => {
@@ -48,14 +50,31 @@ it('hides intended department for members and prefills phone plus email', async 
   await screen.findByDisplayValue('张三');
   expect(screen.queryByText('意向部门')).toBeNull();
   expect(screen.getByText('会员不隶属任何部门，无需选择意向部门')).toBeTruthy();
+  expect(screen.getByText('须先成为会员后再申请干事或干部职务')).toBeTruthy();
   expect(screen.getByDisplayValue('13800138000')).toBeTruthy();
   expect(screen.getByDisplayValue('zhang@smbu.edu.cn')).toBeTruthy();
-  fireEvent.mouseDown(screen.getAllByRole('combobox')[0]);
-  fireEvent.click(await screen.findByText('干事（需面试）'));
-  expect(await screen.findByText('意向部门')).toBeTruthy();
   expect(screen.getByText('+86')).toBeTruthy();
   fireEvent.change(screen.getByDisplayValue('13800138000'), { target: { value: '+86 139-0013-9000' } });
   expect(screen.getByDisplayValue('13900139000')).toBeTruthy();
+  fireEvent.mouseDown(screen.getAllByRole('combobox')[0]);
+  expect(screen.queryByText('申请材料')).toBeNull();
+  expect(screen.queryByText('申请理由')).toBeNull();
+});
+
+it('lets members apply as officers and choose a department', async () => {
+  vi.mocked(getCurrentUser).mockResolvedValue({
+    real_name: '张三',
+    student_no: '2026001',
+    phone: '+86 138-0013-8000',
+    email: 'zhang@smbu.edu.cn',
+    gender: 1,
+    roles: ['member'],
+  } as Awaited<ReturnType<typeof getCurrentUser>>);
+  render(<ApplicationForm />);
+  await screen.findByDisplayValue('张三');
+  fireEvent.mouseDown(screen.getAllByRole('combobox')[0]);
+  fireEvent.click(await screen.findByText('干事（需面试）'));
+  expect(await screen.findByText('意向部门')).toBeTruthy();
 });
 
 it('keeps missing identity editable', async () => {

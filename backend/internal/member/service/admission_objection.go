@@ -35,7 +35,7 @@ func (s *admissionService) Objection(ctx context.Context, viewer, id uuid.UUID, 
 		if req.Action == "raise" {
 			allowed, delegated := admissionAuthority(actor, app, parent, "minister")
 			if !allowed || delegated {
-				return admissionDenied("须由预备成员所属部门的部长提出异议")
+				return admissionDenied("须由预备干事所属部门的部长提出异议")
 			}
 			if app.ProbationUntil == nil || !now.Before(*app.ProbationUntil) {
 				return response.NewError(response.CodeMemberAppInvalid, "预备期已到期")

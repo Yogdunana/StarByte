@@ -97,14 +97,16 @@ func TestApplyEngineOutcome(t *testing.T) {
 		applyEngineOutcome(app, actionApprove, "minister", false, false, now)
 		require.Equal(t, started, app.StageEnteredAt)
 	})
-	t.Run("charter complete uses officer or member probation labels", func(t *testing.T) {
+	t.Run("charter complete admits members and probationary officers", func(t *testing.T) {
 		officer := &model.MemberApplication{CharterPolicy: true, Type: model.ApplicantOfficer}
 		applyEngineOutcome(officer, actionApprove, "", true, false, now)
 		require.Equal(t, "预备干事", officer.CurrentStage)
 		require.Equal(t, model.AdmissionProbation, officer.AdmissionStage)
 		member := &model.MemberApplication{CharterPolicy: true, Type: model.ApplicantMember}
 		applyEngineOutcome(member, actionApprove, "", true, false, now)
-		require.Equal(t, "预备会员", member.CurrentStage)
+		require.Equal(t, stageLabel(model.AppApproved), member.CurrentStage)
+		require.Equal(t, model.AdmissionApproved, member.AdmissionStage)
+		require.Nil(t, member.ProbationUntil)
 	})
 }
 

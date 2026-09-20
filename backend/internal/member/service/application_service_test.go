@@ -71,6 +71,15 @@ func TestSubmit_MemberDropsDepartment(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestRequireOfficerIsMember(t *testing.T) {
+	require.NoError(t, requireOfficerIsMember(int(model.ApplicantMember), nil))
+	err := requireOfficerIsMember(int(model.ApplicantOfficer), nil)
+	requireAppError(t, err, response.CodeBadRequest, "须先成为会员后再申请干事或干部职务")
+	err = requireOfficerIsMember(int(model.ApplicantOfficer), &model.MemberProfile{Status: model.ProfileLeft, MemberType: model.MemberTypeMember})
+	requireAppError(t, err, response.CodeBadRequest, "须先成为会员后再申请干事或干部职务")
+	require.NoError(t, requireOfficerIsMember(int(model.ApplicantOfficer), &model.MemberProfile{Status: model.ProfileActive, MemberType: model.MemberTypeMember}))
+}
+
 func TestSubmit_OfficerNeedsDepartment(t *testing.T) {
 	svc := NewMemberService(&mockAppRepo{}, &mockProfRepo{}, nil)
 	_, err := svc.Submit(context.Background(), uuid.New(), &dto.SubmitApplicationRequest{

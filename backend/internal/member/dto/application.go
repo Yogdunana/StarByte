@@ -8,11 +8,12 @@ type SubmitApplicationRequest struct {
 	RealName      string   `json:"real_name" binding:"required,max=50"`
 	StudentNo     string   `json:"student_no" binding:"required,max=30"`
 	DepartmentID  string   `json:"department_id" binding:"omitempty,uuid"`
-	Reason        string   `json:"reason" binding:"required,max=2000"`
+	Reason        string   `json:"reason" binding:"omitempty,max=2000"`
 	Skills        []string `json:"skills"`
 	Experience    string   `json:"experience" binding:"max=4000"`
 	ContactPhone  string   `json:"contact_phone" binding:"required,max=20"`
 	ContactEmail  string   `json:"contact_email" binding:"required,email,max=100"`
+	Gender        *int     `json:"gender" binding:"omitempty,oneof=1 2"`
 }
 
 // ResubmitApplicationRequest 补充材料后重新提交。

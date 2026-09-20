@@ -49,6 +49,7 @@ type CASRegisterRequest struct {
 	Password string `json:"password" binding:"required,min=8,max=50"`
 	RealName string `json:"real_name" binding:"omitempty,max=50"`
 	Email    string `json:"email" binding:"omitempty,email"`
+	Gender   int    `json:"gender" binding:"required,oneof=1 2"`
 }
 
 // CASStatusResponse 学校统一认证是否开通

@@ -1,6 +1,6 @@
 import LanguageSelect from '@/components/LanguageSelect/LanguageSelect';
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, Card, Tabs, Divider, message } from 'antd';
+import { Form, Input, Button, Card, Tabs, Divider, Select, message } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, BankOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -28,6 +28,7 @@ interface RegisterFormValues {
   confirm_password: string;
   real_name: string;
   email: string;
+  gender: 1 | 2;
 }
 
 function getRedirectPath(state: unknown, nextQuery?: string | null): string {
@@ -134,6 +135,7 @@ const Login: React.FC = () => {
         password: values.password,
         real_name: values.real_name,
         email: values.email,
+        gender: values.gender,
       });
       message.success(t('login.registerSuccess'));
       setActiveTab('login');
@@ -360,6 +362,20 @@ const Login: React.FC = () => {
                 ]}
               >
                 <Input prefix={<MailOutlined />} placeholder={t('login.email')} />
+              </Form.Item>
+
+              <Form.Item
+                name="gender"
+                label={t('login.gender')}
+                rules={[{ required: true, message: t('login.genderRequired') }]}
+              >
+                <Select
+                  placeholder={t('login.genderRequired')}
+                  options={[
+                    { value: 1, label: t('login.genderMale') },
+                    { value: 2, label: t('login.genderFemale') },
+                  ]}
+                />
               </Form.Item>
 
               <div className={styles.fieldRow}>

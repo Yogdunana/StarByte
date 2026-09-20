@@ -56,6 +56,7 @@ export interface RegisterRequest {
   real_name?: string;
   email?: string;
   phone?: string;
+  gender: 1 | 2;
 }
 
 export interface LoginResponse {
@@ -97,6 +98,7 @@ export interface CASRegisterRequest {
   password: string;
   real_name?: string;
   email?: string;
+  gender: 1 | 2;
 }
 
 export interface UserInfo {
@@ -410,11 +412,12 @@ export interface CreateMemberApplicationParams {
   real_name: string;
   student_no: string;
   department_id?: string;
-  reason: string;
-  skills: string[];
+  reason?: string;
+  skills?: string[];
   experience?: string;
   contact_phone: string;
   contact_email: string;
+  gender: 1 | 2;
 }
 
 export interface ResubmitMemberApplicationParams {

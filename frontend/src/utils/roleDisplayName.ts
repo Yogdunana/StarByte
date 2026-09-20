@@ -22,7 +22,17 @@ export function roleDisplayName(role: { code: string; name: string }): string {
     case 'member':
       return tx('会员');
     case 'probationary':
-      return tx('预备成员');
+      return tx('预备干事');
+    case 'vice_center_director':
+      return tx('副中心主任');
+    case 'advisor':
+      return tx('指导老师');
+    case 'honorary':
+      return tx('荣誉会员');
+    case 'captain':
+      return tx('队长');
+    case 'teammate':
+      return tx('队员');
     default:
       return role.name;
   }

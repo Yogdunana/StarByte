@@ -17,7 +17,8 @@ type namedCode struct {
 var seedRolesData = []namedCode{
 	{Name: "User", Code: "user", Description: "注册账号，尚未入会", Sort: 8, IsSystem: true},
 	{Name: "中心主任", Code: "center_director", Description: "中心负责人", Sort: 2, IsSystem: true},
-	{Name: "预备成员", Code: "probationary", Description: "预备期成员（会员通道为预备会员，干事通道为预备干事）", Sort: 7, IsSystem: true},
+	{Name: "副中心主任", Code: "vice_center_director", Description: "中心副主任，中心范围内的协会职务", Sort: 2, IsSystem: true},
+	{Name: "预备干事", Code: "probationary", Description: "干事通道预备期，满一个月后转为正式干事", Sort: 7, IsSystem: true},
 	{Name: "系统管理员", Code: "super_admin", Description: "系统内置超管，不是协会会长", Sort: 0, IsSystem: true},
 	{Name: "会长", Code: "president", Description: "协会会长", Sort: 1, IsSystem: true},
 	{Name: "副会长", Code: "vice_president", Description: "协会副会长", Sort: 2},
@@ -25,6 +26,10 @@ var seedRolesData = []namedCode{
 	{Name: "副部长", Code: "vice_minister", Description: "部门副部长", Sort: 4},
 	{Name: "正式干事", Code: "officer", Description: "部门正式干事", Sort: 5},
 	{Name: "会员", Code: "member", Description: "普通会员，不隶属部门", Sort: 6},
+	{Name: "指导老师", Code: "advisor", Description: "协会指导老师", Sort: 9, IsSystem: true},
+	{Name: "荣誉会员", Code: "honorary", Description: "荣誉会员，不占日常编制", Sort: 10, IsSystem: true},
+	{Name: "队长", Code: "captain", Description: "技术团队队长，兼职编制", Sort: 11, IsSystem: true},
+	{Name: "队员", Code: "teammate", Description: "技术团队队员，兼职编制", Sort: 12, IsSystem: true},
 }
 
 var seedPositionsData = []namedCode{
@@ -33,6 +38,7 @@ var seedPositionsData = []namedCode{
 	{Name: "部长", Code: "minister", Sort: 3},
 	{Name: "副部长", Code: "vice_minister", Sort: 4},
 	{Name: "正式干事", Code: "officer", Sort: 5},
+	{Name: "副中心主任", Code: "vice_center_director", Sort: 2},
 }
 
 type seedPerm struct {
@@ -197,7 +203,7 @@ func seedPositions(db *gorm.DB) error {
 			ON CONFLICT (code) DO UPDATE SET
 				name = EXCLUDED.name,
 				sort_order = EXCLUDED.sort_order`,
-			p.Name, p.Code, 10-i, map[string]float64{"president": 2, "vice_president": 1, "center_director": 1, "minister": 0.5, "vice_minister": 0.5, "officer": 0.25}[p.Code], p.Sort,
+			p.Name, p.Code, 10-i, map[string]float64{"president": 2, "vice_president": 1, "center_director": 1, "vice_center_director": 1, "minister": 0.5, "vice_minister": 0.5, "officer": 0.25}[p.Code], p.Sort,
 		).Error; err != nil {
 			return err
 		}
@@ -299,6 +305,21 @@ func seedRolePermissions(db *gorm.DB) error {
 
 	if err := assignPermCodes(db, "officer", "department", officerPermCodes()); err != nil {
 		return err
+	}
+	if err := db.Exec(`
+		INSERT INTO role_permissions(id,role_id,permission_id,data_scope)
+		SELECT uuid_generate_v4(),r.id,p.id,'department_and_sub' FROM roles r CROSS JOIN permissions p
+		WHERE r.code='vice_center_director' AND (p.resource IN ('member','interview','interview_private','task','workflow','meeting') OR p.code IN ('user:read','department:read','position:read','announcement:read','doc:read','file:read'))
+		ON CONFLICT(role_id,permission_id) DO NOTHING`).Error; err != nil {
+		return fmt.Errorf("assign vice_center_director perms: %w", err)
+	}
+	if err := assignPermCodes(db, "captain", "self", officerPermCodes()); err != nil {
+		return err
+	}
+	for _, code := range []string{"honorary", "advisor", "teammate", "probationary"} {
+		if err := assignPermCodes(db, code, "self", memberPermCodes()); err != nil {
+			return err
+		}
 	}
 	return assignPermCodes(db, "member", "self", memberPermCodes())
 }

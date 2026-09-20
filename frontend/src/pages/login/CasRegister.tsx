@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Button, Card, Form, Input, message } from 'antd';
+import { Button, Card, Form, Input, Modal, Select, message } from 'antd';
 import { LockOutlined, MailOutlined, UserOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
@@ -25,6 +25,7 @@ interface RegisterFormValues {
   confirm_password: string;
   real_name: string;
   email: string;
+  gender: 1 | 2;
 }
 
 const CasRegister: React.FC = () => {
@@ -32,6 +33,7 @@ const CasRegister: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const [loading, setLoading] = useState(false);
+  const [nameLocked, setNameLocked] = useState(true);
   const draft = useMemo(() => loadCASRegisterDraft(), []);
 
   if (!draft) {
@@ -60,6 +62,7 @@ const CasRegister: React.FC = () => {
         password: values.password,
         real_name: values.real_name,
         email: values.email,
+        gender: values.gender,
       });
       clearCASRegisterDraft();
       if (result.needs_email_verification || !result.access_token) {
@@ -130,7 +133,40 @@ const CasRegister: React.FC = () => {
               label={t('login.realName')}
               rules={[{ required: true, message: t('login.realNameRequired') }]}
             >
-              <Input placeholder={t('login.realName')} />
+              <Input
+                placeholder={t('login.realName')}
+                readOnly={Boolean(draft.real_name) && nameLocked}
+                style={
+                  draft.real_name && nameLocked
+                    ? {
+                        background: 'var(--ant-color-fill-tertiary, #f5f5f5)',
+                        color: 'var(--ant-color-text-secondary, #666)',
+                        cursor: 'pointer',
+                      }
+                    : undefined
+                }
+                onClick={() => {
+                  if (!draft.real_name || !nameLocked) return;
+                  Modal.confirm({
+                    title: t('application.confirmIdentityEdit'),
+                    content: t('application.identityEditHint'),
+                    onOk: () => setNameLocked(false),
+                  });
+                }}
+              />
+            </Form.Item>
+            <Form.Item
+              name="gender"
+              label={t('login.gender')}
+              rules={[{ required: true, message: t('login.genderRequired') }]}
+            >
+              <Select
+                placeholder={t('login.genderRequired')}
+                options={[
+                  { value: 1, label: t('login.genderMale') },
+                  { value: 2, label: t('login.genderFemale') },
+                ]}
+              />
             </Form.Item>
             <Form.Item
               name="email"

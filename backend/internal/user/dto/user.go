@@ -9,6 +9,7 @@ type RegisterRequest struct {
 	RealName string `json:"real_name" binding:"omitempty,max=50"`
 	Email    string `json:"email" binding:"required,email"`
 	Phone    string `json:"phone" binding:"omitempty,max=20"`
+	Gender   int    `json:"gender" binding:"required,oneof=1 2"`
 }
 
 // UpdateProfileRequest 更新个人信息请求

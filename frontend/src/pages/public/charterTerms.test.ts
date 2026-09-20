@@ -6,6 +6,12 @@ it('publishes charter titles that match the association role vocabulary', () => 
   const html = readFileSync(resolve(process.cwd(), 'public/charter/smbu-ca-charter.html'), 'utf8');
   expect(html).toContain('会长不是系统管理员');
   expect(html).toContain('面试 → 正式签字 → 预备干事 → 正式干事');
+  expect(html).toContain('干事大会');
+  expect(html).toContain('直接隶属于学生工作部（校团委）');
+  expect(html).not.toContain('预备会员');
+  expect(html).not.toContain('会员大会');
+  expect(html).not.toContain('工程系');
+  expect(html).not.toContain('预备成员');
   expect(html).toContain('副中心主任');
   expect(html).toContain('副部长');
   expect(html).toContain('荣誉会员');

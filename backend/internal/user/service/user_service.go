@@ -58,6 +58,9 @@ func (s *userService) Register(ctx context.Context, req *dto.RegisterRequest, pu
 	if strings.TrimSpace(req.Email) == "" {
 		return nil, response.NewError(response.CodeBadRequest, "注册需要有效邮箱")
 	}
+	if req.Gender != 1 && req.Gender != 2 {
+		return nil, response.NewError(response.CodeBadRequest, "请选择性别")
+	}
 	// 检查用户名是否已存在
 	existing, err := s.userRepo.GetByUsername(ctx, req.Username)
 	if err != nil {
@@ -80,6 +83,7 @@ func (s *userService) Register(ctx context.Context, req *dto.RegisterRequest, pu
 		RealName:     req.RealName,
 		Email:        req.Email,
 		Phone:        req.Phone,
+		Gender:       req.Gender,
 		Status:       0,
 	}
 
