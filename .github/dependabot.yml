@@ -1,0 +1,103 @@
+# ─────────────────────────────────────────────────────────
+# Dependabot 版本更新
+# 覆盖本仓库实际清单：Go（backend/go.mod）、npm（frontend）、
+# GitHub Actions、前后端 Dockerfile。
+# 每周一次 + 同生态 minor/patch 合并成一条 PR，降低噪音。
+# 不纳入 docker-compose：MinIO 使用 latest / MINIO_IMAGE，
+# 校园网约定勿钉死未验证 tag（见 deploy/docker-compose.yml）。
+# 不改 branch protection / deploy / CAS / secrets。
+# ─────────────────────────────────────────────────────────
+version: 2
+updates:
+  # Go 后端：backend/go.mod + go.sum
+  - package-ecosystem: "gomod"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 5
+    labels:
+      - "module:devops"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      go-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # 前端：frontend/package.json + package-lock.json
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 5
+    labels:
+      - "module:devops"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      npm-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # .github/workflows 里的 Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 5
+    labels:
+      - "module:devops"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  # backend/Dockerfile、frontend/Dockerfile
+  # 基础镜像与 CI 对齐：Go 1.22、Node 20；不自动跨大版本。
+  - package-ecosystem: "docker"
+    directories:
+      - "/backend"
+      - "/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 5
+    labels:
+      - "module:devops"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      docker-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      - dependency-name: "golang"
+        versions:
+          - ">=1.23"
+      - dependency-name: "node"
+        versions:
+          - ">=21"
+      - dependency-name: "alpine"
+        update-types:
+          - "version-update:semver-minor"
+          - "version-update:semver-major"
