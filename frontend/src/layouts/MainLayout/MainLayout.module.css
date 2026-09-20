@@ -112,9 +112,9 @@
   flex: 1 0 auto;
   display: flex;
   flex-direction: column;
-  padding: var(--sb-space-5) var(--sb-space-6) var(--sb-space-7);
-  padding-left: max(var(--sb-space-6), env(safe-area-inset-left, 0px));
-  padding-right: max(var(--sb-space-6), env(safe-area-inset-right, 0px));
+  padding: var(--sb-space-5) var(--sb-space-5) var(--sb-space-6);
+  padding-left: max(var(--sb-space-5), env(safe-area-inset-left, 0px));
+  padding-right: max(var(--sb-space-5), env(safe-area-inset-right, 0px));
   width: 100%;
   max-width: 1600px;
   margin: 0 auto;

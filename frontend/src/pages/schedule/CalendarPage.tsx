@@ -281,7 +281,7 @@ const CalendarPage: React.FC = () => {
           )}
         </aside>
         <Card className="page-shell">
-          <Space wrap style={{ marginBottom: 16 }}>
+          <Space wrap className="schedule-toolbar">
             <Radio.Group
               value={view}
               optionType="button"
@@ -308,6 +308,7 @@ const CalendarPage: React.FC = () => {
               rowKey={(r) => `${r.id}-${r.start_at}`}
               loading={loading}
               dataSource={visibleList}
+              scroll={{ x: 'max-content' }}
               pagination={view === 'agenda' ? { pageSize: 10 } : false}
               onRow={(record) => ({ onClick: () => openEvent(record) })}
               columns={[

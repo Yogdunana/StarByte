@@ -5,7 +5,8 @@
   min-height: 100dvh;
   padding: var(--sb-space-7);
   gap: var(--sb-space-6);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   background:
     radial-gradient(ellipse 70% 50% at 8% 0%, color-mix(in srgb, var(--sb-text) 5%, transparent), transparent 58%),
     var(--sb-bg);
@@ -136,13 +137,20 @@ html[data-theme='dark'] .container::before {
   flex-direction: column;
 }
 .cardHeader { margin: 0; }
+.cardHeaderTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
 .formKicker {
   color: var(--sb-muted);
   font-size: 11px;
   font-weight: var(--sb-weight-meta);
   letter-spacing: var(--sb-track-meta);
   text-transform: uppercase;
-  margin: 0 0 var(--sb-space-2);
+  margin: 0;
 }
 .card h2 {
   font-size: 26px;
@@ -217,10 +225,26 @@ html[data-theme='dark'] .container::before {
   .card :global(.ant-card-body) { padding: var(--sb-space-5); }
   .brand { gap: var(--sb-space-5); max-width: 460px; }
 }
-@media (max-height: 800px) {
-  .left { padding-block: var(--sb-space-4); }
-  .brand { gap: var(--sb-space-4); }
-  .right { padding-block: var(--sb-space-4); }
+@media (max-height: 900px) {
+  .container { padding: var(--sb-space-4); gap: var(--sb-space-3); }
+  .left { padding-block: var(--sb-space-3); }
+  .brand { gap: var(--sb-space-3); }
+  .brand h1 { font-size: clamp(24px, 2.6vw, 36px); }
+  .right { padding-block: var(--sb-space-3); }
+  .card :global(.ant-card-body) { padding: 16px 20px 12px; }
+  .card h2 { font-size: 22px; margin-bottom: 4px; }
+  .formHint { margin-bottom: 8px; }
+  .card :global(.ant-tabs-nav) { margin-bottom: 8px; }
+  .card :global(.ant-form-item) { margin-bottom: 10px; }
+  .registerForm :global(.ant-form-item) { margin-bottom: 8px; }
+  .card :global(.ant-input-affix-wrapper),
+  .card :global(.ant-input-lg),
+  .card :global(.ant-btn-lg) { min-height: 38px; }
+  .casDivider { margin: 8px 0; }
+  .casHint { font-size: 11px; }
+  .footer { padding: 8px 0 4px; }
+  .right::before,
+  .right::after { flex: 0.2 0 0; min-height: 0; }
 }
 @media (max-width: 767px) {
   .container {

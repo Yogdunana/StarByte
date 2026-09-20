@@ -214,11 +214,11 @@ const Login: React.FC = () => {
       <motion.div className={styles.right} variants={fadeUp} initial="hidden" animate="show">
         <div className={styles.mobileBrand}>StarByte.</div>
         <Card className={styles.card}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-            <LanguageSelect />
-          </div>
           <header className={styles.cardHeader}>
-            <p className={styles.formKicker}>{t('login.formKicker')}</p>
+            <div className={styles.cardHeaderTop}>
+              <p className={styles.formKicker}>{t('login.formKicker')}</p>
+              <LanguageSelect />
+            </div>
             <h2>{activeTab === 'login' ? t('login.welcomeBack') : t('login.joinUs')}</h2>
             <p className={styles.formHint}>
               {activeTab === 'login' ? t('login.formHintLogin') : t('login.formHintRegister')}
@@ -229,7 +229,6 @@ const Login: React.FC = () => {
             onChange={setActiveTab}
             items={tabItems}
             centered
-            size="large"
           />
 
           {activeTab === 'login' && (
