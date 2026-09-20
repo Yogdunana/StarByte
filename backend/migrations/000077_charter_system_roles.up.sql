@@ -26,7 +26,7 @@ ON CONFLICT (code) DO UPDATE SET
   sort_order = EXCLUDED.sort_order;
 
 UPDATE configs
-SET config_value = jsonb_set(COALESCE(config_value, '{}'::jsonb), '{weights,vice_center_director}', '1'::jsonb, true),
+SET config_value = jsonb_set(COALESCE(config_value::jsonb, '{}'::jsonb), '{weights,vice_center_director}', '1'::jsonb, true)::text,
     updated_at = NOW()
 WHERE config_key = 'vote_weight_config';
 

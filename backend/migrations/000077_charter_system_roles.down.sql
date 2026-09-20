@@ -24,7 +24,8 @@ SET name = '预备成员',
 WHERE code = 'probationary';
 
 UPDATE configs
-SET config_value = (config_value::jsonb #- '{weights,vice_center_director}'),
+SET config_value = (config_value::jsonb #- '{weights,vice_center_director}')::text,
     updated_at = NOW()
 WHERE config_key = 'vote_weight_config'
+  AND NULLIF(config_value, '') IS NOT NULL
   AND config_value::jsonb #> '{weights,vice_center_director}' IS NOT NULL;
