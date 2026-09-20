@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	authsvc "github.com/Yogdunana/StarByte/backend/internal/auth/service"
-	"github.com/Yogdunana/StarByte/backend/internal/member/model"
 	"github.com/Yogdunana/StarByte/backend/internal/member/repo"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
@@ -65,7 +64,8 @@ func (l *Lookup) GetByUserID(ctx context.Context, userID uuid.UUID) (*authsvc.Me
 	return ident, nil
 }
 
-// EnsureStudentNo 把学号写入人员档案；无档案则创建最小记录。学号已被他人占用时拒绝。
+// EnsureStudentNo 在已有人员档案上补学号/姓名，供登录与入会表单使用。
+// 无档案时不创建记录：CAS/注册只证明校园身份，在册会员必须走入会审批。
 func (l *Lookup) EnsureStudentNo(ctx context.Context, userID uuid.UUID, studentNo, realName string) error {
 	if l == nil || l.profiles == nil || userID == uuid.Nil {
 		return nil
@@ -87,16 +87,7 @@ func (l *Lookup) EnsureStudentNo(ctx context.Context, userID uuid.UUID, studentN
 		return err
 	}
 	if p == nil {
-		return l.profiles.Create(ctx, &model.MemberProfile{
-			ID:         uuid.New(),
-			UserID:     userID,
-			RealName:   realName,
-			StudentNo:  studentNo,
-			MemberType: model.MemberTypeMember,
-			Status:     model.ProfileActive,
-			Skills:     model.JSONStrings{},
-			Projects:   model.JSONProjects{},
-		})
+		return nil
 	}
 	changed := false
 	if strings.TrimSpace(p.StudentNo) == "" {

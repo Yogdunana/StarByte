@@ -12,6 +12,8 @@ CMS 编辑页面可设置“指定角色可读”，选择多个角色或输入�
 
 CAS / 本地注册创建的账号默认只有 `user`。注册必须填写邮箱，系统通过 SMTP 发送激活链接（`/verify-email?token=`），激活前不能登录（错误码 2015）。存量未删除账号在迁移 000074 中按上次登录或创建时间记为已验证。SMTP 密码只从环境变量 / 运行时配置读取，不得写入仓库。
 
-软删用户会删除 `user_identities` 并清空 `member_profiles.student_no`，学号与校园身份可被新账号复用。硬删时 `audit_logs.user_id`、`flow_instances.initiator_id` 置空，其它仍被引用的外键返回 409。身份唯一冲突返回 409，而不是 500。
+软删用户会删除 `user_identities` 与 `user_roles`，清空部门/职务，并把 `member_profiles` 标为离会、释放 `student_no`。学号与校园身份可被新账号复用；新账号只有 `user`，不会自动出现在人员档案或恢复会员角色。硬删时 `audit_logs.user_id`、`flow_instances.initiator_id` 置空，其它仍被引用的外键返回 409。身份唯一冲突返回 409，而不是 500。
+
+CAS 注册只会把学号写到已有档案（若有），不会创建在册会员档案。会员身份只通过入会审批 `GrantRole` 授予。
 
 升级需执行 000074（以及此前的 000072/000073）后重建前后端。若回滚 000074，未验证账号的 `email_verified_at` 列会删除，激活表也会删除。
