@@ -119,6 +119,8 @@ export interface UserInfo {
   position_name?: string;
   roles: string[];
   permissions: string[];
+  can_apply_member?: boolean;
+  can_apply_officer?: boolean;
   created_at: string;
 }
 

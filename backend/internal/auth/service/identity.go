@@ -22,6 +22,8 @@ type MemberIdentity struct {
 	DepartmentName string
 	PositionID     string
 	PositionName   string
+	Status         int16
+	MemberType     int16
 }
 
 // MemberIdentityLookup 从人员档案解析学号与姓名等身份信息。
@@ -168,25 +170,35 @@ func (s *authService) buildUserInfo(ctx context.Context, user *model.User, roles
 }
 
 func (s *authService) attachIdentity(ctx context.Context, userID uuid.UUID, info *dto.UserInfo) {
-	if s.identity == nil || info == nil {
+	var ident *MemberIdentity
+	if s.identity != nil && info != nil {
+		got, err := s.identity.GetByUserID(ctx, userID)
+		if err == nil {
+			ident = got
+		}
+	}
+	if ident != nil && info != nil {
+		info.StudentNo = ident.StudentNo
+		info.Grade = ident.Grade
+		info.Major = ident.Major
+		info.DepartmentName = ident.DepartmentName
+		info.PositionName = ident.PositionName
+		if ident.DepartmentID != "" {
+			info.DepartmentID = ident.DepartmentID
+		}
+		if ident.PositionID != "" {
+			info.PositionID = ident.PositionID
+		}
+		if ident.RealName != "" {
+			info.RealName = ident.RealName
+		}
+	}
+	attachApplicationGates(info, ident)
+}
+
+func attachApplicationGates(info *dto.UserInfo, ident *MemberIdentity) {
+	if info == nil {
 		return
 	}
-	ident, err := s.identity.GetByUserID(ctx, userID)
-	if err != nil || ident == nil {
-		return
-	}
-	info.StudentNo = ident.StudentNo
-	info.Grade = ident.Grade
-	info.Major = ident.Major
-	info.DepartmentName = ident.DepartmentName
-	info.PositionName = ident.PositionName
-	if ident.DepartmentID != "" {
-		info.DepartmentID = ident.DepartmentID
-	}
-	if ident.PositionID != "" {
-		info.PositionID = ident.PositionID
-	}
-	if ident.RealName != "" {
-		info.RealName = ident.RealName
-	}
+	info.CanApplyMember, info.CanApplyOfficer = applicationGates(info.Roles, ident)
 }

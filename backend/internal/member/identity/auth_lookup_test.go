@@ -100,6 +100,7 @@ func TestLookup_GetByUserID(t *testing.T) {
 		MemberProfile: model.MemberProfile{
 			UserID: userID, RealName: "管理员", StudentNo: "20210001",
 			Grade: "2021", Major: "计算机科学与技术", DepartmentID: &deptID,
+			Status: model.ProfileActive, MemberType: model.MemberTypePresident,
 		},
 		DepartmentName: "项目开发部",
 		PositionName:   "社长",
@@ -111,6 +112,8 @@ func TestLookup_GetByUserID(t *testing.T) {
 	assert.Equal(t, "管理员", ident.RealName)
 	assert.Equal(t, deptID.String(), ident.DepartmentID)
 	assert.Equal(t, "项目开发部", ident.DepartmentName)
+	assert.Equal(t, int16(0), ident.Status)
+	assert.Equal(t, model.MemberTypePresident, ident.MemberType)
 }
 
 func TestLookup_EnsureStudentNo_DoesNotCreateMemberProfile(t *testing.T) {

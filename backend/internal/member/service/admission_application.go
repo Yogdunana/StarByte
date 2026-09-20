@@ -44,19 +44,19 @@ func (s *admissionService) SubmitApplication(ctx context.Context, user uuid.UUID
 		if err != nil {
 			return err
 		}
-		if err := requireOfficerIsMember(req.ApplicantType, profile); err != nil {
+		actor, err := repo.NewAdmissionRepo(tx).Actor(ctx, user)
+		if err != nil {
 			return err
 		}
-		if profile != nil {
-			if profile.Status == model.ProfileDisabled {
-				return admissionDenied("档案已停用，请联系管理人员处理")
-			}
-			if profile.Status == model.ProfileProbation {
-				return response.NewError(response.CodeMemberAppDuplicate, "已有预备期申请，请等待处理")
-			}
-			if profile.Status == model.ProfileActive && profile.MemberType >= int16(req.ApplicantType) {
-				return response.NewError(response.CodeMemberAppDuplicate, "已具有该成员身份，无需重复申请")
-			}
+		var roles []string
+		if actor != nil {
+			roles = actor.Roles
+		}
+		if err := rejectDuplicateMembership(req.ApplicantType, profile, roles); err != nil {
+			return err
+		}
+		if err := requireOfficerIsMember(req.ApplicantType, profile); err != nil {
+			return err
 		}
 		members := &memberService{apps: repo.NewApplicationRepo(tx), profs: profiles}
 		result, err = members.Submit(ctx, user, req)

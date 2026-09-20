@@ -54,6 +54,8 @@ func (l *Lookup) GetByUserID(ctx context.Context, userID uuid.UUID) (*authsvc.Me
 		Major:          row.Major,
 		DepartmentName: row.DepartmentName,
 		PositionName:   row.PositionName,
+		Status:         row.Status,
+		MemberType:     row.MemberType,
 	}
 	if row.DepartmentID != nil {
 		ident.DepartmentID = row.DepartmentID.String()
