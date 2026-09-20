@@ -10,8 +10,8 @@ import (
 // MemberApplicationDefinitionKey is the default membership approval template (#64).
 const MemberApplicationDefinitionKey = "member_application"
 
-// SkipMinisterVariable tells Start to pass through the minister node
-// without creating assignees when a member application has no department.
+// SkipMinisterVariable tells Start to pass through the minister /
+// department_review / center_review nodes when a member application has no department.
 const SkipMinisterVariable = "skip_minister"
 
 // SkipOfficerVariable skips the officer node for member-type applications.
@@ -45,7 +45,7 @@ func skipWhenKey(node *FlowNode) string {
 	switch node.ID {
 	case "officer":
 		return SkipOfficerVariable
-	case "minister":
+	case "minister", "department_review", "center_review":
 		return SkipMinisterVariable
 	default:
 		return ""
@@ -53,14 +53,22 @@ func skipWhenKey(node *FlowNode) string {
 }
 
 func skipIfEmptyNode(node *FlowNode) bool {
-	if node == nil || node.Config == nil {
+	if node == nil {
 		return false
 	}
-	switch v := node.Config["skipIfEmpty"].(type) {
-	case bool:
-		return v
-	case string:
-		return v == "true" || v == "1"
+	if node.Config != nil {
+		if v, ok := node.Config["skipIfEmpty"]; ok {
+			switch v := v.(type) {
+			case bool:
+				return v
+			case string:
+				return v == "true" || v == "1"
+			}
+		}
+	}
+	switch node.ID {
+	case "officer", "minister", "department_review", "center_review":
+		return true
 	default:
 		return false
 	}

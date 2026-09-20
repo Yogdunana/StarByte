@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/google/uuid"
@@ -189,6 +190,9 @@ func TestSkipApplicationApprovalUsesSkipWhen(t *testing.T) {
 	require.False(t, skipApplicationApproval(node, nil))
 	require.True(t, skipApplicationApproval(node, map[string]interface{}{"skip_extra": true}))
 	require.True(t, skipApplicationApproval(&FlowNode{ID: "officer", Type: "approval"}, map[string]interface{}{SkipOfficerVariable: true}))
+	require.True(t, skipApplicationApproval(&FlowNode{ID: "department_review", Type: "approval"}, map[string]interface{}{SkipMinisterVariable: true}))
+	require.True(t, skipApplicationApproval(&FlowNode{ID: "center_review", Type: "approval"}, map[string]interface{}{SkipMinisterVariable: true}))
+	require.False(t, skipApplicationApproval(&FlowNode{ID: "committee", Type: "approval"}, map[string]interface{}{SkipMinisterVariable: true}))
 }
 
 func TestStartSkipOfficerDoesNotEnterOfficer(t *testing.T) {
@@ -243,6 +247,10 @@ func TestNodeAllowsTransferAndSkipIfEmpty(t *testing.T) {
 	require.False(t, nodeAllowsTransfer(&FlowNode{Config: map[string]interface{}{"allowTransfer": false}}))
 	require.True(t, skipIfEmptyNode(&FlowNode{Config: map[string]interface{}{"skipIfEmpty": true}}))
 	require.False(t, skipIfEmptyNode(&FlowNode{Config: map[string]interface{}{}}))
+	require.True(t, skipIfEmptyNode(&FlowNode{ID: "department_review", Type: "approval"}))
+	require.True(t, skipIfEmptyNode(&FlowNode{ID: "center_review", Type: "approval"}))
+	require.False(t, skipIfEmptyNode(&FlowNode{ID: "department_review", Type: "approval", Config: map[string]interface{}{"skipIfEmpty": false}}))
+	require.False(t, skipIfEmptyNode(&FlowNode{ID: "committee", Type: "approval"}))
 }
 
 func TestTransferApplicationApprovalGuards(t *testing.T) {
@@ -379,4 +387,116 @@ func TestMemberApplicationReachesEnd(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, memberApplicationReachesEnd(graph, "start"))
 	require.False(t, memberApplicationReachesEnd(graph, "missing"))
+}
+
+func charterAdmissionBPMN() []byte {
+	raw, err := json.Marshal(map[string]interface{}{
+		"charterVersion": 1,
+		"nodes": []map[string]interface{}{
+			node("start", "start", "提交申请", 20, nil),
+			node("department_review", "approval", "部门初审", 160, map[string]interface{}{
+				"assigneeStrategy": "role", "roleCode": "minister", "approvalType": "any",
+				"departmentScope": true, "requireDepartment": true,
+			}),
+			node("center_review", "approval", "中心复审", 300, map[string]interface{}{
+				"assigneeStrategy": "role", "roleCode": "center_director", "approvalType": "any",
+				"departmentScope": true, "departmentVariable": "center_department_id", "requireDepartment": true,
+			}),
+			node("committee", "approval", "常委会会签", 440, map[string]interface{}{
+				"assigneeStrategy": "role", "roleCode": "standing_committee", "approvalType": "all",
+			}),
+			node("end", "end", "结束", 580, nil),
+		},
+		"edges": []map[string]string{
+			{"id": "start-department_review", "source": "start", "target": "department_review"},
+			{"id": "department_review-center_review", "source": "department_review", "target": "center_review"},
+			{"id": "center_review-committee", "source": "center_review", "target": "committee"},
+			{"id": "committee-end", "source": "committee", "target": "end"},
+		},
+	})
+	if err != nil {
+		return []byte(`{"nodes":[],"edges":[]}`)
+	}
+	return raw
+}
+
+func charterApplicationEngineWith(t *testing.T, tasks *mockTaskRepo, approval NodeHandler) (*FlowEngine, *storingInstRepo) {
+	t.Helper()
+	defID, verID := uuid.New(), uuid.New()
+	def := &model.FlowDefinition{ID: defID, Key: MemberApplicationDefinitionKey, Status: 1}
+	ver := &model.FlowDefinitionVersion{ID: verID, DefinitionID: defID, BpmnData: charterAdmissionBPMN(), Status: 1}
+	insts := &storingInstRepo{insts: map[uuid.UUID]*model.FlowInstance{}}
+	e := NewFlowEngine(&mockDefRepo{def: def, version: ver}, insts, tasks, newMockVarRepo(), nil, &mockRegistryForTest{handlers: map[string]NodeHandler{
+		"start": stubStartHandler{}, "end": stubEndHandler{}, "approval": approval,
+	}}, NewExpressionEngine(), events.NewEventBus(), nil)
+	e.businessTransaction = true
+	return e, insts
+}
+
+type emptyAssigneeUntilCommittee struct {
+	waitingTestNode
+	enteredIDs []string
+}
+
+func (n *emptyAssigneeUntilCommittee) OnEnter(ctx context.Context, inst *model.FlowInstance, node *FlowNode, vars map[string]interface{}) error {
+	n.enteredIDs = append(n.enteredIDs, node.ID)
+	if node.ID == "committee" {
+		return n.waitingTestNode.OnEnter(ctx, inst, node, vars)
+	}
+	return response.NewAppError(response.CodeWorkflowInvalidNode, "审批节点没有处理人")
+}
+
+func TestCharterStartSkipMinisterDoesNotEnterDepartmentReview(t *testing.T) {
+	applicant := uuid.New()
+	tasks := newMockTaskRepo()
+	approval := &recordingApproval{}
+	e, _ := charterApplicationEngineWith(t, tasks, approval)
+
+	inst, err := e.Start(context.Background(), MemberApplicationDefinitionKey, uuid.New().String(), "member_application", applicant, map[string]interface{}{
+		"applicant": applicant.String(), "apply_type": int16(1), SkipOfficerVariable: true, SkipMinisterVariable: true,
+	})
+	require.NoError(t, err)
+	require.NotContains(t, approval.enteredIDs, "department_review")
+	require.NotContains(t, approval.enteredIDs, "center_review")
+	require.Equal(t, []string{"committee"}, approval.enteredIDs)
+	nodeID, done, err := e.RunningApprovalNode(context.Background(), inst.ID)
+	require.NoError(t, err)
+	require.False(t, done)
+	require.Equal(t, "committee", nodeID)
+}
+
+func TestCharterStartWithDepartmentEntersDepartmentReview(t *testing.T) {
+	applicant := uuid.New()
+	tasks := newMockTaskRepo()
+	approval := &recordingApproval{}
+	e, _ := charterApplicationEngineWith(t, tasks, approval)
+
+	inst, err := e.Start(context.Background(), MemberApplicationDefinitionKey, uuid.New().String(), "member_application", applicant, map[string]interface{}{
+		"applicant": applicant.String(), "apply_type": int16(1), SkipOfficerVariable: true,
+		"department_id": uuid.New().String(), "center_department_id": uuid.New().String(),
+	})
+	require.NoError(t, err)
+	require.Equal(t, []string{"department_review"}, approval.enteredIDs)
+	nodeID, done, err := e.RunningApprovalNode(context.Background(), inst.ID)
+	require.NoError(t, err)
+	require.False(t, done)
+	require.Equal(t, "department_review", nodeID)
+}
+
+func TestCharterEmptyAssigneesEscalateToCommittee(t *testing.T) {
+	applicant := uuid.New()
+	tasks := newMockTaskRepo()
+	approval := &emptyAssigneeUntilCommittee{}
+	e, _ := charterApplicationEngineWith(t, tasks, approval)
+
+	inst, err := e.Start(context.Background(), MemberApplicationDefinitionKey, uuid.New().String(), "member_application", applicant, map[string]interface{}{
+		"applicant": applicant.String(), "apply_type": int16(1), SkipOfficerVariable: true,
+		"department_id": uuid.New().String(), "center_department_id": uuid.New().String(),
+	})
+	require.NoError(t, err)
+	require.Equal(t, []string{"department_review", "center_review", "committee"}, approval.enteredIDs)
+	nodeID, done, err := e.RunningApprovalNode(context.Background(), inst.ID)
+	require.NoError(t, err)
+	require.False(t, done)
+	require.Equal(t, "committee", nodeID)
 }

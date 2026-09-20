@@ -42,6 +42,18 @@ func applicationVariables(app *model.MemberApplication) map[string]interface{} {
 	return vars
 }
 
+// applyCharterScopeVars binds the default review department / center and
+// clears skip_minister so 部门初审 / 中心复审 still run when leadership exists.
+func applyCharterScopeVars(vars map[string]interface{}, reviewDepartment, center uuid.UUID) {
+	if vars == nil {
+		return
+	}
+	vars["department_id"] = reviewDepartment.String()
+	vars["department"] = reviewDepartment.String()
+	vars["center_department_id"] = center.String()
+	delete(vars, engine.SkipMinisterVariable)
+}
+
 func engineStageLabel(nodeID string) string {
 	switch nodeID {
 	case "department_review":

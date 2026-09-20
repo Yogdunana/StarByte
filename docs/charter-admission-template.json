@@ -29,7 +29,9 @@
           "requireDepartment": true,
           "dueDays": 1,
           "allowReject": true,
-          "allowTransfer": true
+          "allowTransfer": true,
+          "skipWhen": "skip_minister",
+          "skipIfEmpty": true
         }
       }
     },
@@ -51,7 +53,9 @@
           "requireDepartment": true,
           "dueDays": 1,
           "allowReject": true,
-          "allowTransfer": true
+          "allowTransfer": true,
+          "skipWhen": "skip_minister",
+          "skipIfEmpty": true
         }
       }
     },

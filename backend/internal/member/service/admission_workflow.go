@@ -63,8 +63,7 @@ func (s *admissionService) startAdmissionWorkflow(ctx context.Context, tx *gorm.
 		if parent == nil {
 			return nil, admissionDenied("审批缺少部门或中心范围")
 		}
-		vars["department_id"] = app.ReviewDepartmentID.String()
-		vars["center_department_id"] = parent.String()
+		applyCharterScopeVars(vars, *app.ReviewDepartmentID, *parent)
 	}
 	flow, deliver, err := s.flow.BindTransaction(tx)
 	if err != nil {
