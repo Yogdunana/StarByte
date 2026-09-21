@@ -31,6 +31,9 @@ jobs:
     env:
       TEST_DATABASE_URL: postgres://starbyte:starbyte@localhost:5432/starbyte_test?sslmode=disable
       TEST_DATABASE_REQUIRED: "1"
+      # TestTaskWorkflowPostgresLifecycle 硬断言 current_database() == starbyte_preview
+      # （防止误跑到别的库），缺这个 DSN 它就一直 SKIP。见下一个 job step 的准备步骤。
+      STARBYTE_TASK_TEST_DSN: postgres://starbyte:starbyte@localhost:5432/starbyte_preview?sslmode=disable
     services:
       postgres:
         image: postgres:16
@@ -104,6 +107,17 @@ jobs:
 
       - name: Migrate test database
         run: migrate -path migrations -database "$TEST_DATABASE_URL" up
+
+      # 任务工作流的集成用例要求**独立的** starbyte_preview 库：
+      # 它硬断言 current_database() == starbyte_preview（防止误跑到别的库），
+      # 并把所有 fixture 包在一个事务里最后回滚，所以不会污染这个库。
+      # 之前 CI 没建这个库，该用例就一直 silently SKIP —— 核心工作流路径
+      # 等于没有端到端回归保护。这里补上建库 + 迁移。
+      - name: Prepare preview database for task integration test
+        run: |
+          psql "postgres://starbyte:starbyte@localhost:5432/postgres?sslmode=disable" \
+            -X -v ON_ERROR_STOP=1 -c 'CREATE DATABASE starbyte_preview'
+          migrate -path migrations -database "$STARBYTE_TASK_TEST_DSN" up
 
       - name: Test
         run: go test -v -race -count=1 -p 1 ./...
