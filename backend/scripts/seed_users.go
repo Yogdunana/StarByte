@@ -26,11 +26,30 @@ func genRandomPassword(length int) (string, error) {
 }
 
 func seedUsers(db *gorm.DB) error {
-	// 生产环境使用强口令策略；其余环境保留开发便利口令。
-	if os.Getenv("APP_ENV") == "prod" {
-		return seedUsersProd(db)
+	if seedUsersUseDevPasswords() {
+		return seedUsersDev(db)
 	}
-	return seedUsersDev(db)
+	return seedUsersProd(db)
+}
+
+// seedUsersUseDevPasswords 报告本次播种是否允许写入开发便利口令。
+//
+// 判定必须与 pkg/config 的语义对齐（fail-closed）：loader 在 APP_ENV 为空时会把
+// effectiveEnv 补成 "prod"（按生产做密钥强度校验），只是不额外加载 config.prod.yaml。
+// 若这里只判 APP_ENV == "prod"，就会出现「按生产校验密钥 + 连生产库 + 却写开发口令」
+// 这种自相矛盾的组合：直接 `go run ./scripts`（绕过 Makefile）且只注入
+// DB_* / JWT_SECRET、不导出 APP_ENV 时，会把 admin/admin123（super_admin）与
+// test/test123 种进生产库，留下可登录的默认超管。
+//
+// 因此改为：只有显式 dev/test 才用开发口令，其余（含未设置）一律按生产处理。
+// Makefile 的 seed 目标已显式带上 `APP_ENV=$(or $(APP_ENV),dev)`，本地开发不受影响。
+func seedUsersUseDevPasswords() bool {
+	switch os.Getenv("APP_ENV") {
+	case "dev", "test":
+		return true
+	default:
+		return false
+	}
 }
 
 // seedUsersDev 保持原有开发口令（admin/admin123、test/test123），仅打印提示。

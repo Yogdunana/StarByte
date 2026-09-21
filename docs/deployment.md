@@ -167,6 +167,10 @@ APP_ENV=prod make seed
 **种子账号（已加固）**：
 
 - 生产**不再创建 `test` 账号**，也不再使用 `admin123`。
+- 判定与后端配置一致（fail-closed）：**只有显式 `APP_ENV=dev|test` 才使用开发便利口令**
+  （`admin/admin123`、`test/test123`）；`APP_ENV` 未设置一律按生产处理 —— 因为
+  `config.Load` 在 `APP_ENV` 为空时也是按生产校验密钥的，两边不能给出相反结论。
+  `make seed` 已默认带上 `APP_ENV=dev`，本地开发不受影响。
 - `admin` 初始口令来源：优先读环境变量 `SEED_ADMIN_PASSWORD`；没有时由 `crypto/rand`
   现场生成 **24 位强随机口令**，并在执行 `make seed` 的终端**打印一次**：
 
