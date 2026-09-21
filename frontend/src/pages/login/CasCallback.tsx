@@ -9,6 +9,7 @@ import { setToken } from '@/store/slices/authSlice';
 import { fetchCurrentUser } from '@/store/slices/userSlice';
 import type { AppDispatch } from '@/store';
 import type { CASExchangeResponse } from '@/types/api';
+import { resolveRedirect } from '@/utils/nextPath';
 import { draftFromExchange, saveCASRegisterDraft } from './casRegisterDraft';
 import styles from './Login.module.css';
 
@@ -21,13 +22,6 @@ function exchangeCasCodeOnce(code: string): Promise<CASExchangeResponse> {
     exchangeByCode.set(code, pending);
   }
   return pending;
-}
-
-function safeRedirect(path: string | undefined): string {
-  if (!path || !path.startsWith('/') || path.startsWith('//')) {
-    return '/dashboard';
-  }
-  return path;
 }
 
 const CasCallback: React.FC = () => {
@@ -74,7 +68,7 @@ const CasCallback: React.FC = () => {
         );
         await dispatch(fetchCurrentUser()).unwrap();
         message.success(t('login.success'));
-        navigate(safeRedirect(result.redirect), { replace: true });
+        navigate(resolveRedirect(result.redirect), { replace: true });
       } catch {
         if (!cancelled) {
           message.error(t('login.casFail'));

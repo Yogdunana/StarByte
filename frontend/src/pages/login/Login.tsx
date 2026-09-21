@@ -15,7 +15,7 @@ import styles from './Login.module.css';
 import { fadeUp, staggerEnter } from '@/motion/tokens';
 import { useTranslation } from 'react-i18next';
 import { PUBLIC_CMS_KEYS } from '@/api/feature';
-import { resolveRedirect } from '@/utils/nextPath';
+import { resolveRedirect, sanitizeNext } from '@/utils/nextPath';
 import { FeatureProvider, useFeature } from '@/hooks/useFeature';
 
 interface LocationFromState {
@@ -36,13 +36,9 @@ function getRedirectPath(state: unknown, nextQuery?: string | null): string {
   if (fromQuery) return fromQuery;
   if (state && typeof state === 'object' && 'from' in state) {
     const from = (state as LocationFromState).from;
-    if (
-      from?.pathname?.startsWith('/') &&
-      !from.pathname.startsWith('//') &&
-      from.pathname !== '/'
-    ) {
-      return from.pathname;
-    }
+    // 走同一个 sanitizeNext，别在这里另写一套弱判断
+    // （原判断只拒了 //，漏了反斜杠与控制字符）。
+    return sanitizeNext(from?.pathname) || '/dashboard';
   }
   return '/dashboard';
 }
