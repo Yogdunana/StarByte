@@ -14,11 +14,24 @@ type TimetableImporter struct{}
 
 func (TimetableImporter) Kind() string { return "timetable" }
 
+// xlsx 解压上限（纵深防御，配合 handler 的 4MB 上传上限）。
+//
+// 背景：xlsx 是 zip 容器，4MB 的压缩包可以解出几十 GB —— 这是 CVE-2026-54063 /
+// CVE-2026-59161 那类「畸形工作表元数据触发无界内存分配」之外的另一种内存耗尽路径。
+// 上传大小上限拦不住 zip bomb，所以在解析层再卡一道解压体积。
+const (
+	maxUnzipSize    = 256 << 20 // 解压后总体积上限 256MB
+	maxUnzipXMLSize = 64 << 20  // 单个 XML 部件解压上限 64MB
+)
+
 func (TimetableImporter) Parse(_ context.Context, raw []byte, opts Options) ([]DraftEvent, Meta, error) {
 	if len(raw) == 0 {
 		return nil, Meta{}, fmt.Errorf("empty xlsx")
 	}
-	f, err := excelize.OpenReader(bytes.NewReader(raw))
+	f, err := excelize.OpenReader(bytes.NewReader(raw), excelize.Options{
+		UnzipSizeLimit:    maxUnzipSize,
+		UnzipXMLSizeLimit: maxUnzipXMLSize,
+	})
 	if err != nil {
 		return nil, Meta{}, fmt.Errorf("open xlsx: %w", err)
 	}

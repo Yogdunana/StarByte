@@ -28,6 +28,7 @@ func convertParameterList(raw any) any {
 
 func convertNonBodyParameter(pm map[string]any) map[string]any {
 	if _, ok := pm["$ref"]; ok {
+		//nolint:errcheck // 契约保证：pm 已由上游单值断言确认为 map[string]any，rewriteRefs 的 switch 对 map 入参必返回同类型，断言不会 panic
 		return rewriteRefs(pm).(map[string]any)
 	}
 	copied := copyMap(pm)
@@ -43,5 +44,6 @@ func convertNonBodyParameter(pm map[string]any) map[string]any {
 			copied["schema"] = schema
 		}
 	}
+	//nolint:errcheck // 同上：copied 由 copyMap 产出，必为 map[string]any
 	return rewriteRefs(copied).(map[string]any)
 }

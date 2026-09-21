@@ -9,6 +9,7 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/activity/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/activity/model"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -81,7 +82,7 @@ func (m *memActivities) GetByIDWithNames(_ context.Context, id uuid.UUID) (*mode
 	}, nil
 }
 
-func (m *memActivities) List(_ context.Context, _ *dto.ListActivityRequest) ([]model.ActivityWithNames, int64, error) {
+func (m *memActivities) List(_ context.Context, _ *dto.ListActivityRequest, _ *rbacModel.DataScopeCondition) ([]model.ActivityWithNames, int64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var out []model.ActivityWithNames
@@ -96,6 +97,12 @@ func (m *memActivities) List(_ context.Context, _ *dto.ListActivityRequest) ([]m
 
 func (m *memActivities) GetUser(_ context.Context, id uuid.UUID) (*model.NamedUser, error) {
 	return &model.NamedUser{ID: id, RealName: "测试用户", Username: "tester"}, nil
+}
+
+// GetUserDepartment 测试桩：返回固定部门，便于数据范围相关用例。
+func (m *memActivities) GetUserDepartment(_ context.Context, _ uuid.UUID) (*uuid.UUID, error) {
+	dept := uuid.MustParse("00000000-0000-0000-0000-0000000000de")
+	return &dept, nil
 }
 
 type memRegs struct {

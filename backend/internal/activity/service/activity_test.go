@@ -123,7 +123,7 @@ func TestDeleteActivity_HiddenFromListAndDetail(t *testing.T) {
 	if _, err := svc.GetActivity(context.Background(), id); err == nil {
 		t.Fatal("deleted activity should not be visible via GetActivity")
 	}
-	list, total, err := svc.ListActivities(context.Background(), &dto.ListActivityRequest{})
+	list, total, err := svc.ListActivities(context.Background(), uuid.New(), &dto.ListActivityRequest{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

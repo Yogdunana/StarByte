@@ -46,15 +46,18 @@ func RegisterRoutes(
 			send.POST("/broadcast", notificationHandler.Broadcast)
 		}
 
-		templates := systemProtected.Group("/notification-templates")
-		{
-			templates.GET("", templateHandler.List)
-			templates.POST("", templateHandler.Create)
-			templates.GET("/:id", templateHandler.Get)
-			templates.PUT("/:id", templateHandler.Update)
-			templates.DELETE("/:id", templateHandler.Delete)
-			templates.POST("/:id/test", templateHandler.Test)
-		}
+		// 模板查询类（GET）：挂 notification:template:read。
+		// systemProtected 只保证已登录，权限必须自己挂（见上方 send 分组的注释）。
+		templatesRead := withPermission(systemProtected.Group("/notification-templates"), "notification:template:read", cacheService)
+		templatesRead.GET("", templateHandler.List)
+		templatesRead.GET("/:id", templateHandler.Get)
+
+		// 模板写类（POST/PUT/DELETE/测试发送）：挂 system:config。
+		templatesWrite := withPermission(systemProtected.Group("/notification-templates"), "system:config", cacheService)
+		templatesWrite.POST("", templateHandler.Create)
+		templatesWrite.PUT("/:id", templateHandler.Update)
+		templatesWrite.DELETE("/:id", templateHandler.Delete)
+		templatesWrite.POST("/:id/test", templateHandler.Test)
 	}
 
 	// WebSocket 路由（独立于 API 组，需要 JWT 认证）

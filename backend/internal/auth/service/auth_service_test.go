@@ -545,7 +545,7 @@ func TestLogout_Success(t *testing.T) {
 }
 
 func TestChangePassword_Success(t *testing.T) {
-	svc, userRepo, _, _ := setupTestService()
+	svc, userRepo, authRepo, _ := setupTestService()
 	ctx := context.Background()
 	userID := uuid.New()
 
@@ -558,6 +558,9 @@ func TestChangePassword_Success(t *testing.T) {
 
 	userRepo.On("GetByID", ctx, userID).Return(user, nil)
 	userRepo.On("Update", ctx, mock.Anything, mock.Anything).Return(nil)
+	// 改密成功后应吊销全部在线会话与 refresh token（此处用户无在线会话）。
+	authRepo.On("ListSessionsByUser", ctx, userID.String()).Return([]authmodel.Session{}, nil)
+	authRepo.On("DeleteRefreshTokensByUser", ctx, userID.String()).Return(nil)
 
 	err := svc.ChangePassword(ctx, userID.String(), &dto.ChangePasswordRequest{
 		OldPassword: "oldpass123",
@@ -565,6 +568,42 @@ func TestChangePassword_Success(t *testing.T) {
 	})
 
 	assert.NoError(t, err)
+	// 验证确实触发了会话吊销
+	authRepo.AssertCalled(t, "ListSessionsByUser", ctx, userID.String())
+	authRepo.AssertCalled(t, "DeleteRefreshTokensByUser", ctx, userID.String())
+}
+
+func TestChangePassword_RevokesActiveSessions(t *testing.T) {
+	svc, userRepo, authRepo, _ := setupTestService()
+	ctx := context.Background()
+	userID := uuid.New()
+
+	user := &model.User{
+		ID:           userID,
+		Username:     "testuser",
+		PasswordHash: hashPasswordForTest("oldpass123"),
+		Status:       0,
+	}
+
+	userRepo.On("GetByID", ctx, userID).Return(user, nil)
+	userRepo.On("Update", ctx, mock.Anything, mock.Anything).Return(nil)
+	// 模拟该用户有一个在线会话
+	authRepo.On("ListSessionsByUser", ctx, userID.String()).Return([]authmodel.Session{
+		{TokenID: "jti-active-1", ExpiresAt: time.Now().Add(time.Hour)},
+	}, nil)
+	authRepo.On("BlacklistToken", ctx, "jti-active-1", mock.Anything).Return(nil)
+	authRepo.On("DeleteSession", ctx, "jti-active-1").Return(nil)
+	authRepo.On("DeleteRefreshTokensByUser", ctx, userID.String()).Return(nil)
+
+	err := svc.ChangePassword(ctx, userID.String(), &dto.ChangePasswordRequest{
+		OldPassword: "oldpass123",
+		NewPassword: "newpass456",
+	})
+
+	assert.NoError(t, err)
+	authRepo.AssertCalled(t, "BlacklistToken", ctx, "jti-active-1", mock.Anything)
+	authRepo.AssertCalled(t, "DeleteSession", ctx, "jti-active-1")
+	authRepo.AssertCalled(t, "DeleteRefreshTokensByUser", ctx, userID.String())
 }
 
 func TestChangePassword_WeakPassword(t *testing.T) {

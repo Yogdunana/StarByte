@@ -1,9 +1,11 @@
-version: "3.8"
-
 # ─────────────────────────────────────────────────────────
 # StarByte 开发环境 Docker Compose
 # 用法：docker compose -f deploy/docker-compose.dev.yml up -d
 # 特点：仅启动基础设施（PostgreSQL + Redis + MinIO），前后端本地运行
+#
+# 警告：本文件把所有基础设施端口发布到宿主机 0.0.0.0，且带弱默认口令，
+# 只允许在开发者本机使用。切勿用于生产 / 校园网共享主机。
+# 生产请用 deploy/docker-compose.yml（口令强制必填、端口仅绑回环）。
 # ─────────────────────────────────────────────────────────
 
 services:

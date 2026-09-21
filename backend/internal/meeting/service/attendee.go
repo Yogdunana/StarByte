@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/subtle"
 	"fmt"
 	"time"
 
@@ -94,8 +95,15 @@ func (s *meetingService) checkin(ctx context.Context, meetingID, userID uuid.UUI
 	if !canCheckinMeeting(m.Status) {
 		return nil, response.NewError(response.CodeMeetingInvalidState, "当前会议不可签到")
 	}
-	if token != "" && m.QRToken != "" && token != m.QRToken {
-		return nil, response.NewError(response.CodeBadRequest, "签到二维码无效")
+	// 二维码签到校验（fail-closed）：
+	// - 会议未启用二维码（m.QRToken == ""，多为历史会议未生成）：无法做在场校验，按设计放行。
+	//   此时仍受限于下方 att==nil 拦截——只有已登录且确为参会人的用户才能签到，不存在越权旁路。
+	// - 会议已启用二维码：必须提交 token 且与 m.QRToken 常量时间比较一致才放行；
+	//   省略或错误即拒绝，避免攻击者仅凭有效 JWT + 参会人身份绕过在场验证。
+	if m.QRToken != "" {
+		if token == "" || subtle.ConstantTimeCompare([]byte(token), []byte(m.QRToken)) != 1 {
+			return nil, response.NewError(response.CodeBadRequest, "签到二维码无效")
+		}
 	}
 	att, err := s.attendees.Get(ctx, meetingID, userID)
 	if err != nil {

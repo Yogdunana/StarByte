@@ -130,7 +130,16 @@ func TestSanitizeRedirect(t *testing.T) {
 	assert.Equal(t, "/dashboard", sanitizeRedirect(""))
 	assert.Equal(t, "/dashboard", sanitizeRedirect("https://evil.com"))
 	assert.Equal(t, "/dashboard", sanitizeRedirect("//evil.com"))
+	// 协议相对变体：浏览器将 "\example.com" 归一化为 "//example.com"。
+	assert.Equal(t, "/dashboard", sanitizeRedirect("/\\evil.com"))
+	assert.Equal(t, "/dashboard", sanitizeRedirect("\\/evil.com"))
+	assert.Equal(t, "/dashboard", sanitizeRedirect("/a\\b"))
+	// 含控制字符 / 空白：可能被归一化到 scheme 之前形成外跳。
+	assert.Equal(t, "/dashboard", sanitizeRedirect("/dashboard\n"))
+	assert.Equal(t, "/dashboard", sanitizeRedirect("/dashboard\r"))
+	// 合法路径不得误伤。
 	assert.Equal(t, "/tasks", sanitizeRedirect("/tasks"))
+	assert.Equal(t, "/dashboard/me", sanitizeRedirect("/dashboard/me"))
 }
 
 func TestSanitizeCASUsername(t *testing.T) {

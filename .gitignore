@@ -22,9 +22,20 @@ pnpm-debug.log*
 
 # Environment
 .env
+.env.credentials
 .env.local
 .env.*.local
 *.local
+
+# TLS 证书与私钥（启用 HTTPS 时运维会把 starbyte.crt / starbyte.key 放到 deploy/certs/，
+# 见 docs/deployment.md。私钥一旦提交即等同泄露，必须在这里挡住。）
+certs/
+deploy/certs/
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
 
 # IDE
 .idea/
@@ -52,6 +63,9 @@ backups/
 # Coverage
 coverage/
 *.lcov
+
+# Go 构建缓存（隔离构建时可能在仓库内落盘，禁止提交）
+.gocache/
 
 # Misc
 *.pid

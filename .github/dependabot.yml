@@ -69,7 +69,10 @@ updates:
           - "*"
 
   # backend/Dockerfile、frontend/Dockerfile
-  # 基础镜像与 CI 对齐：Go 1.22、Node 20；不自动跨大版本。
+  # 基础镜像实际在用：alpine 3.21、golang 1.25-alpine、node 22-alpine、nginx 1.27-alpine。
+  # 只挡「跨大版本」，不挡安全补丁——原先的 ignore 写成 golang>=1.23 / node>=21，
+  # 而这两个值都低于实际在用版本，等于把在用的 Go / Node 基础镜像的**全部**更新
+  # （含安全补丁）都忽略掉了，属补丁管理失效，已改为按大版本放开。
   - package-ecosystem: "docker"
     directories:
       - "/backend"
@@ -91,13 +94,13 @@ updates:
           - "minor"
           - "patch"
     ignore:
+      # 大版本升级（如 Go 2.x、Node 26）需人工评估，其余（含 patch 安全更新）放行。
       - dependency-name: "golang"
-        versions:
-          - ">=1.23"
+        update-types:
+          - "version-update:semver-major"
       - dependency-name: "node"
-        versions:
-          - ">=21"
+        update-types:
+          - "version-update:semver-major"
       - dependency-name: "alpine"
         update-types:
-          - "version-update:semver-minor"
           - "version-update:semver-major"

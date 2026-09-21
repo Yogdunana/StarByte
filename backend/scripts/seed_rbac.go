@@ -160,6 +160,7 @@ func allSeedPermissions() []seedPerm {
 	)
 	perms = append(perms, moduleCRUD("doc", "文档")...)
 	perms = append(perms, seedPerm{Name: "文档发布", Code: "doc:publish", Resource: "doc", Action: "publish"})
+	perms = append(perms, seedPerm{Name: "文件全量查看", Code: "file:read:all", Resource: "file", Action: "read_all"})
 	return perms
 }
 
@@ -214,7 +215,7 @@ func seedPositions(db *gorm.DB) error {
 func seedRolePermissions(db *gorm.DB) error {
 	if err := db.Exec(`INSERT INTO role_permissions(id,role_id,permission_id,data_scope)
  SELECT uuid_generate_v4(),r.id,p.id,'department_and_sub' FROM roles r CROSS JOIN permissions p
- WHERE r.code='center_director' AND (p.resource IN ('member','interview','interview_private','task','workflow','meeting') OR p.code IN ('user:read','department:read','position:read','announcement:read','doc:read','file:read'))
+ WHERE r.code='center_director' AND (p.resource IN ('member','interview','interview_private','task','workflow','meeting') OR p.code IN ('user:read','department:read','position:read','announcement:read','doc:read','file:read','file:read:all'))
  ON CONFLICT(role_id,permission_id) DO NOTHING`).Error; err != nil {
 		return err
 	}

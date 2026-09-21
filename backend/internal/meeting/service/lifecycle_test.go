@@ -45,7 +45,7 @@ func TestRemoveAttendeePreservesParticipation(t *testing.T) {
 	person := uuid.New()
 	_, err := s.AddAttendees(ctx, m.ID, []uuid.UUID{person})
 	require.NoError(t, err)
-	_, err = s.Checkin(ctx, m.ID, person, "")
+	_, err = s.Checkin(ctx, m.ID, person, m.QRToken)
 	require.NoError(t, err)
 	requireAppError(t, s.RemoveAttendee(ctx, m.ID, person), response.CodeMeetingInvalidState)
 }

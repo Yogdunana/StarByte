@@ -24,7 +24,7 @@ func (m *mockBridge) Upload(_ context.Context, _ uuid.UUID, header *multipart.Fi
 		FileSize: header.Size, MimeType: "text/plain",
 	}, nil
 }
-func (m *mockBridge) GetByID(_ context.Context, id uuid.UUID) (*filedto.FileDetailResponse, error) {
+func (m *mockBridge) GetByID(_ context.Context, id, _ uuid.UUID) (*filedto.FileDetailResponse, error) {
 	return &filedto.FileDetailResponse{ID: id.String(), Path: "obj/f.txt", OriginalName: "f.txt"}, nil
 }
 func (m *mockBridge) Delete(_ context.Context, _, _ uuid.UUID) error { return nil }

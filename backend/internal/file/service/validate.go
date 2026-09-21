@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"net/http"
 	"path/filepath"
 	"strings"
 
@@ -51,7 +52,7 @@ type validatedFile struct {
 	MimeType string
 }
 
-func validateUpload(filename string, size int64, declaredCategory string) (*validatedFile, error) {
+func validateUpload(filename string, size int64, declaredCategory string, data []byte) (*validatedFile, error) {
 	ext := strings.ToLower(filepath.Ext(filename))
 	if ext == "" {
 		ext = filepath.Ext(filename)
@@ -71,9 +72,72 @@ func validateUpload(filename string, size int64, declaredCategory string) (*vali
 		return nil, response.NewError(response.CodeBadRequest,
 			fmt.Sprintf("文件大小超过限制: %dMB > %dMB", size/mb, limit/mb))
 	}
+	// 内容嗅探交叉校验：防止「改扩展名藏可执行文件」的绕过。
+	if err := sniffCheck(ext, category, data); err != nil {
+		return nil, err
+	}
 	return &validatedFile{
 		Category: category,
 		Ext:      ext,
 		MimeType: mimeByExt[ext],
 	}, nil
+}
+
+// sniffCheck 用文件头 magic bytes 与扩展名声明的类型做交叉校验。
+//
+// 策略（刻意非完整校验，仅拦常见绕过）：
+//   - 图片(image/*)、application/pdf：用 http.DetectContentType 做强校验；
+//   - video/mp4：Go 的 DetectContentType 无法识别 mp4（会返回 application/octet-stream），
+//     故额外用 mp4 文件头(ftyp box)做专用嗅探，避免误杀正常 mp4 又把伪装档放过去；
+//   - 其余（office/zip/txt 等）：Go 嗅探为 text/plain 或 octet-stream，判断很宽，
+//     不强行比对，只交给 isBannedSniff 拦截被明确识别为可执行/脚本的嗅探结果。
+func sniffCheck(ext, category string, data []byte) error {
+	if len(data) == 0 {
+		return nil // 无内容可嗅探时跳过
+	}
+	sniffed := http.DetectContentType(data)
+
+	switch category {
+	case model.CategoryImage:
+		if !strings.HasPrefix(sniffed, "image/") {
+			return response.NewError(response.CodeBadRequest, "文件内容与扩展名不符")
+		}
+	case model.CategoryDocument:
+		if ext == ".pdf" {
+			if !strings.HasPrefix(sniffed, "application/pdf") {
+				return response.NewError(response.CodeBadRequest, "文件内容与扩展名不符")
+			}
+		}
+	case model.CategoryVideo:
+		// 真实 mp4 经 DetectContentType 得到 application/octet-stream，
+		// 故允许 video/* 或带 ftyp 文件头两种情况。
+		if !strings.HasPrefix(sniffed, "video/") && !isMP4(data) {
+			return response.NewError(response.CodeBadRequest, "文件内容与扩展名不符")
+		}
+	}
+
+	if isBannedSniff(sniffed) {
+		return response.NewError(response.CodeBadRequest, "文件内容与扩展名不符")
+	}
+	return nil
+}
+
+// isMP4 判断数据是否以标准 mp4 文件头(第一个 box 类型为 ftyp)开头。
+func isMP4(data []byte) bool {
+	return len(data) >= 12 && string(data[4:8]) == "ftyp"
+}
+
+// isBannedSniff 判断嗅探出的 MIME 是否属于被明确禁止的可执行/脚本类型。
+func isBannedSniff(sniffed string) bool {
+	banned := []string{
+		"application/x-msdownload", "application/x-executable", "application/x-dosexec",
+		"application/x-sh", "application/x-shellscript", "text/x-shellscript",
+		"application/x-python", "text/x-python", "application/javascript", "text/javascript",
+	}
+	for _, b := range banned {
+		if strings.HasPrefix(sniffed, b) {
+			return true
+		}
+	}
+	return false
 }

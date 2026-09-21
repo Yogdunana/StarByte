@@ -7,6 +7,17 @@ on:
     branches: [main, develop]
   workflow_dispatch:
 
+# 供应链加固（审计项 S-19）：所有第三方 action 一律钉到 commit SHA，
+# 不使用浮动 major tag（tag 可被上游改写指向恶意提交）。
+# 下方注释里的版本号仅用于人工识别，升级时应显式改 SHA + 版本注释。
+#
+# 令牌最小化：本工作流各 job 只需读取仓库内容（docker-build 是 push: false，
+# 产物上传走 artifact 服务而非 token 写权限）。显式声明 contents: read，
+# 避免仓库/组织默认权限为读写时，在 pull_request 事件下把过宽的 GITHUB_TOKEN
+# 暴露给未合并的 PR 代码。
+permissions:
+  contents: read
+
 jobs:
   # ─────────────────────────────────────────────────────────
   # 后端检查
@@ -35,12 +46,14 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
-          go-version: '1.22'
+          # 下限由 go.mod 的 go 指令决定：excelize v2.11.0 / x/net v0.55+
+          # 要求 go 1.25，低版本工具链会直接拒绝构建。
+          go-version: '1.25'
           cache: true
 
       - name: Install dependencies
@@ -54,10 +67,31 @@ jobs:
       - name: go vet
         run: go vet ./...
 
-      - name: Install golangci-lint
+      # 不再用 `curl ... install.sh | sh`：那是把远端脚本直接喂给 shell，
+      # 既无版本校验也无完整性校验。改为下载固定版本发布包 + sha256 校验。
+      #
+      # 必须是 v2.x：backend/go.mod 的 go 指令已是 1.25（excelize v2.11.0 /
+      # x/net v0.56 / x/crypto v0.53 / x/text v0.38 硬性要求），而 v1 系列
+      # （含 v1.64.8）没有任何用 Go 1.25 构建的版本 —— 它自带的 Go 1.22 导入器
+      # 读不了 go 1.25 标准库的 export data（"unsupported version: 2"），
+      # 会级联报出一大片**假的** typecheck 错误（undefined: jwt / redis 等）。
+      # v1 时代靠 .golangci.yml 的 run.go: '1.22' 勉强绕开，但那个开关同时
+      # 也把语言版本钉死在 1.22，无法与 go.mod 的 1.25 共存。
+      # v2.4.0 起正式支持 go1.25；此处钉 v2.13.2（以 go1.27 构建）。
+      # 配置已随之迁移到 v2 schema（见 backend/.golangci.yml 顶部迁移说明）。
+      - name: Install golangci-lint (pinned + checksum verified)
         run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.59.1
-          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+          set -euo pipefail
+          VER="2.13.2"
+          TARBALL="golangci-lint-${VER}-linux-amd64.tar.gz"
+          SHA256="2277d43b98ec0054280f2ac26b53268bae97682444678a59a657dd565da021d6"
+          curl -sSfL -o "/tmp/${TARBALL}" \
+            "https://github.com/golangci/golangci-lint/releases/download/v${VER}/${TARBALL}"
+          echo "${SHA256}  /tmp/${TARBALL}" | sha256sum -c -
+          tar -xzf "/tmp/${TARBALL}" -C /tmp
+          mkdir -p "$HOME/.local/bin"
+          install -m 0755 "/tmp/golangci-lint-${VER}-linux-amd64/golangci-lint" "$HOME/.local/bin/golangci-lint"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: golangci-lint
         run: golangci-lint run --timeout=5m ./...
@@ -79,7 +113,7 @@ jobs:
 
       - name: Upload coverage
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: backend-coverage
           path: backend/coverage.out
@@ -94,12 +128,12 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
@@ -114,7 +148,7 @@ jobs:
 
       - name: Upload coverage
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: frontend-coverage
           path: frontend/coverage
@@ -143,12 +177,12 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
-          go-version: '1.22'
+          go-version: '1.25'
           cache: false
 
       - name: Install migrate
@@ -174,13 +208,13 @@ jobs:
     runs-on: ubuntu-latest
     needs: [backend-lint, frontend-lint]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
       - name: Build backend image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
         with:
           context: backend
           target: production
@@ -191,7 +225,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Build frontend image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
         with:
           context: frontend
           target: production

@@ -1040,7 +1040,7 @@ npm run dev
 |------|------|
 | 前端 | http://localhost:5173 |
 | 后端 API | http://localhost:8080/api/v1 |
-| MinIO 控制台 | http://localhost:9001 (minioadmin/minioadmin) |
+| MinIO 控制台 | http://localhost:9001 （凭据见 `deploy/docker-compose.dev.yml` 的 dev 默认值，仅本机） |
 
 ### 数据库迁移
 

@@ -111,35 +111,68 @@ func applySMTPSecurity(d *mail.Dialer, mode string) {
 	}
 }
 
+type attachmentFileRow struct {
+	ID           uuid.UUID
+	OriginalName string
+	Name         string
+	Path         string
+	MimeType     string
+	Size         int64
+	// UploadedBy / IsPublic are not selected by the production query; they are
+	// kept here so test fakes can model the ownership scope. The production
+	// gorm scan simply leaves them as zero values.
+	UploadedBy uuid.UUID
+	IsPublic   bool
+}
+
+// fileRepository abstracts the read of files the operator is allowed to access
+// by id. The gorm-backed implementation enforces the ownership scope
+// (uploaded_by = operator OR is_public); tests substitute a fake.
+type fileRepository interface {
+	accessibleFiles(ctx context.Context, operatorID uuid.UUID, ids []uuid.UUID) ([]attachmentFileRow, error)
+}
+
+type gormFileRepository struct {
+	db *gorm.DB
+}
+
+func (g gormFileRepository) accessibleFiles(ctx context.Context, operatorID uuid.UUID, ids []uuid.UUID) ([]attachmentFileRow, error) {
+	var rows []attachmentFileRow
+	if err := g.db.WithContext(ctx).Table("files").
+		Select("id, original_name, name, path, mime_type, size").
+		Where("id IN ?", ids).
+		Where("(uploaded_by = ? OR is_public = TRUE)", operatorID).
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
 type attachmentLoader struct {
-	db    *gorm.DB
+	repo  fileRepository
 	store storage.ObjectStorage
 }
 
 func NewAttachmentLoader(db *gorm.DB, store storage.ObjectStorage) *attachmentLoader {
-	return &attachmentLoader{db: db, store: store}
+	return &attachmentLoader{repo: gormFileRepository{db: db}, store: store}
 }
 
-func (l *attachmentLoader) Load(ctx context.Context, ids []uuid.UUID) ([]MailAttachment, error) {
+// Load fetches the given file attachments on behalf of operatorID. Only files
+// owned by the operator or marked public are returned. Any id the operator
+// cannot access causes the whole request to be rejected (fail-closed), which
+// prevents probing whether an arbitrary file id exists.
+func (l *attachmentLoader) Load(ctx context.Context, operatorID uuid.UUID, ids []uuid.UUID) ([]MailAttachment, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
 	if len(ids) > maxEmailAttachments {
 		return nil, fmt.Errorf("too many attachments")
 	}
-	if l.store == nil || l.db == nil {
+	if l.store == nil || l.repo == nil {
 		return nil, fmt.Errorf("attachment storage unavailable")
 	}
-	var rows []struct {
-		ID           uuid.UUID
-		OriginalName string
-		Name         string
-		Path         string
-		MimeType     string
-		Size         int64
-	}
-	if err := l.db.WithContext(ctx).Table("files").Select("id, original_name, name, path, mime_type, size").
-		Where("id IN ?", ids).Find(&rows).Error; err != nil {
+	rows, err := l.repo.accessibleFiles(ctx, operatorID, ids)
+	if err != nil {
 		return nil, err
 	}
 	if len(rows) != len(ids) {

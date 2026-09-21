@@ -32,11 +32,11 @@ func RegisterRoutes(
 	deptRepo rbacRepo.DepartmentRepo,
 ) {
 	g := r.Group("/stats")
-	g.GET("/providers", h.Providers)
-	g.GET("/overview", h.Overview)
+	read := withStatsScope(g, "stats:read", cacheService, db, deptRepo)
+	read.GET("/providers", h.Providers)
+	read.GET("/overview", h.Overview)
 	withStatsScope(g, "stats:export", cacheService, db, deptRepo).GET("/export/:provider", h.Export)
 
-	read := withStatsScope(g, "stats:read", cacheService, db, deptRepo)
 	read.GET("/member-distribution", h.serveNamed("member-distribution"))
 	read.GET("/interview-data", h.serveNamed("interview-data"))
 	read.GET("/meeting-attendance", h.serveNamed("meeting-attendance"))

@@ -7,6 +7,7 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/activity/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/activity/model"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/google/uuid"
 )
@@ -170,8 +171,9 @@ func (s *activityService) GetActivity(ctx context.Context, id uuid.UUID) (*dto.A
 	return s.getActivityResponse(ctx, id)
 }
 
-func (s *activityService) ListActivities(ctx context.Context, req *dto.ListActivityRequest) ([]*dto.ActivityResponse, int64, error) {
-	rows, total, err := s.activities.List(ctx, req)
+func (s *activityService) ListActivities(ctx context.Context, viewer uuid.UUID, req *dto.ListActivityRequest, scope *rbacModel.DataScopeCondition) ([]*dto.ActivityResponse, int64, error) {
+	clause := activityScopeClause(scope, viewer)
+	rows, total, err := s.activities.List(ctx, req, clause)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list activities: %w", err)
 	}
@@ -180,6 +182,30 @@ func (s *activityService) ListActivities(ctx context.Context, req *dto.ListActiv
 		list = append(list, toActivityResponse(&rows[i]))
 	}
 	return list, total, nil
+}
+
+// CanAccessActivity 校验 viewer 是否有权访问指定活动（数据范围）。
+func (s *activityService) CanAccessActivity(ctx context.Context, viewer, activityID uuid.UUID, scope *rbacModel.DataScopeCondition) (bool, error) {
+	a, err := s.activities.GetByID(ctx, activityID)
+	if err != nil {
+		return false, fmt.Errorf("get activity: %w", err)
+	}
+	if a == nil {
+		return false, nil
+	}
+	// 短路：无范围 / 全部数据则直接放行。
+	if scope == nil || scope.IsEmpty() {
+		return true, nil
+	}
+	// self 范围只比较组织者，避免不必要的部门查询。
+	if scope.IsSelf {
+		return a.OrganizerID == viewer, nil
+	}
+	dept, err := s.activities.GetUserDepartment(ctx, a.OrganizerID)
+	if err != nil {
+		return false, fmt.Errorf("get organizer department: %w", err)
+	}
+	return canAccessActivity(scope, a.OrganizerID, dept, viewer), nil
 }
 
 func (s *activityService) StartActivity(ctx context.Context, id uuid.UUID) (*dto.ActivityResponse, error) {

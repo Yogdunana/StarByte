@@ -160,7 +160,11 @@ make migrate-create name=xx  # 新建迁移文件
 make seed                    # 幂等写入测试角色/用户/模板
 ```
 
-默认账号：`admin/admin123`（系统管理员，学号 `20210001`）、`test/test123`（会员，学号 `20210002`）。登录框支持用户名或学号。
+> **开发环境专用账号（`APP_ENV=dev`）**：`admin/admin123`（系统管理员，学号 `20210001`）、`test/test123`（会员，学号 `20210002`）。
+> 上面这条只在本机 `make seed` 的 dev 库适用。**生产环境不创建 `test` 账号，管理员口令由 `starbyte init` 随机生成并只打印一次**，
+> 详见 [docs/deployment.md](docs/deployment.md) 与 [deploy/cli/starbyte](deploy/cli/starbyte)。
+>
+> 登录框支持用户名或学号。
 
 #### 前端开发
 
@@ -180,7 +184,7 @@ npm run dev
 
 ### 一期功能 (Phase 1)
 
-对照 2026-09-06 可用性检查（见 [docs/phase1-readiness.md](docs/phase1-readiness.md)）。账号：`admin/admin123`。
+对照 2026-09-06 可用性检查（见 [docs/phase1-readiness.md](docs/phase1-readiness.md)）。当时的验收账号是 dev 库的 `admin`（口令见上文 dev 说明，生产环境为随机生成）。
 
 | 模块 | 功能描述 | 状态 |
 |------|----------|------|

@@ -48,7 +48,8 @@ func (h *StatsHandler) Providers(c *gin.Context) {
 // @Router /stats/overview [get]
 func (h *StatsHandler) Overview(c *gin.Context) {
 	uid, _ := uuid.Parse(auth.GetUserID(c))
-	res, err := h.svc.Overview(c.Request.Context(), uid)
+	scope := middleware.GetDataScopeFromContext(c)
+	res, err := h.svc.Overview(c.Request.Context(), uid, scope)
 	if err != nil {
 		response.Error(c, err)
 		return

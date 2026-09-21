@@ -1,8 +1,16 @@
-version: "3.8"
-
 # ─────────────────────────────────────────────────────────
 # StarByte 生产环境 Docker Compose
-# 用法：docker compose -f deploy/docker-compose.yml up -d
+#
+# 首次部署：
+#   sudo starbyte install     # 安装 CLI，并自动生成随机密钥
+#   starbyte env-check        # 校验 .env（不打印值）
+#   docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d
+#
+# 密钥策略：本文件**不再为任何口令提供兜底默认值**。POSTGRES_PASSWORD /
+# REDIS_PASSWORD / MINIO_ROOT_USER / MINIO_ROOT_PASSWORD / JWT_SECRET 全部用
+# `${VAR:?...}` 强制必填，值由 `starbyte init` 在安装时自动随机生成并告知运维。
+# 未生成 .env 直接 up 会在此处报错退出，而不是带着默认口令上线。
+#
 # 校园网：基础镜像走 docker.io 官方 tag + daemon.json mirrors（勿写死未验证源）；
 # MinIO 默认 latest + pull_policy: if_not_present，避免 RELEASE 钉死 tag 被镜像站 403。
 # ─────────────────────────────────────────────────────────
@@ -16,12 +24,15 @@ services:
     container_name: starbyte-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-starbyte}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-starbyte123}
+      # 必填：由 starbyte init 自动随机生成，不提供默认口令
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 未设置，请先运行 starbyte init}
       POSTGRES_DB: ${POSTGRES_DB:-starbyte}
       TZ: Asia/Shanghai
     volumes:
       - postgres-data:/var/lib/postgresql/data
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-starbyte} -d ${POSTGRES_DB:-starbyte}"]
       interval: 10s
@@ -33,14 +44,16 @@ services:
     image: redis:7-alpine
     pull_policy: if_not_present
     container_name: starbyte-redis
-    command: redis-server --requirepass ${REDIS_PASSWORD:-starbyte123} --appendonly yes
+    command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD 未设置，请先运行 starbyte init} --appendonly yes
     environment:
       TZ: Asia/Shanghai
     volumes:
       - redis-data:/data
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-starbyte123}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?REDIS_PASSWORD 未设置}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -48,21 +61,27 @@ services:
   # MinIO：默认 latest，可用 MINIO_IMAGE 覆盖。
   # pull_policy: if_not_present — 本地已有兼容镜像时不强制拉 RELEASE 钉死 tag
   #（校园镜像站对 minio/minio:RELEASE.* 常 403，而本机已有 minio/minio:latest）。
+  # 残余风险：latest 不可复现。要可复现构建请显式设置 MINIO_IMAGE=<具体 tag 或 digest>。
   minio:
     image: ${MINIO_IMAGE:-minio/minio:latest}
     pull_policy: if_not_present
     container_name: starbyte-minio
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      # 账号与口令都由 starbyte init 自动随机生成，默认值 minioadmin 已移除
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER 未设置，请先运行 starbyte init}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD 未设置，请先运行 starbyte init}
       TZ: Asia/Shanghai
-    # 生产环境仅暴露 MinIO API，控制台通过反向代理或内网访问
+    # 生产环境仅把 MinIO API 绑到回环地址：宿主机本地工具可用，
+    # 校园网其它主机无法直连对象存储（也避免绕过 API 鉴权直读对象）。
+    # 需要内网直连控制台请用 ssh 端口转发，或显式改成 <内网IP>:9000:9000 并自担风险。
     ports:
-      - "9000:9000"
+      - "127.0.0.1:9000:9000"
     volumes:
       - minio-data:/data
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       # latest 与旧 RELEASE 镜像工具集不同：curl / wget / mc 任一成功即可
       test: ["CMD-SHELL", "curl -sf http://localhost:9000/minio/health/live >/dev/null || wget -qO- http://localhost:9000/minio/health/live >/dev/null || mc ready local"]
@@ -86,26 +105,27 @@ services:
       APP_ENV: prod
       # Only the frontend reverse proxy may supply client forwarding headers.
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-172.30.77.2/32}
-      # 数据库（与 config.Load 的环境变量名对齐）
+      # 数据库（与 config.Load 的环境变量名对齐；口令无默认值，见文件头说明）
       DB_HOST: postgres
       DB_PORT: "5432"
       DB_USER: ${POSTGRES_USER:-starbyte}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-starbyte123}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 未设置，请先运行 starbyte init}
       DB_NAME: ${POSTGRES_DB:-starbyte}
       DB_SSLMODE: disable
       # Redis
       REDIS_HOST: redis
       REDIS_PORT: "6379"
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-starbyte123}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD 未设置，请先运行 starbyte init}
       REDIS_DB: "0"
       # MinIO
       MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?MINIO_ROOT_USER 未设置，请先运行 starbyte init}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD 未设置，请先运行 starbyte init}
       MINIO_USE_SSL: "false"
       MINIO_BUCKET: starbyte
-      # JWT
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      # JWT：无默认值。后端 loader 另有「长度 ≥32 + 占位词表 + 低熵」校验，
+      # 即便有人手工填了弱值也会拒绝启动。
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET 未设置，请先运行 starbyte init}
       # 一期校园网 CAS（authserver.smbu.edu.cn）
       CAS_ENABLED: ${CAS_ENABLED:-true}
       CAS_SERVER_URL: ${CAS_SERVER_URL:-https://authserver.smbu.edu.cn/authserver}
@@ -113,11 +133,18 @@ services:
       CAS_SERVICE_URL: ${CAS_SERVICE_URL:-}
       # 激活邮件只用该 origin，不信请求 Host。漏测默认校园网入口。
       CAS_FRONTEND_URL: ${CAS_FRONTEND_URL:-http://10.100.13.17}
-      CAS_ALLOW_AUTO_PROVISION: ${CAS_ALLOW_AUTO_PROVISION:-true}
+      # 与 backend/configs/config.prod.yaml 的 allow_auto_provision: false 对齐：
+      # 默认不自动开户，避免任何能过 CAS 的账号都被静默建成系统账号。
+      CAS_ALLOW_AUTO_PROVISION: ${CAS_ALLOW_AUTO_PROVISION:-false}
       CAS_DEFAULT_ROLE: ${CAS_DEFAULT_ROLE:-user}
       # SMTP：密码只从宿主机 .env 注入，勿写进镜像或 compose 明文
       STARBYTE_CONFIG_ENCRYPTION_KEY: ${STARBYTE_CONFIG_ENCRYPTION_KEY:-}
       STARBYTE_SMTP_PASSWORD: ${STARBYTE_SMTP_PASSWORD:-}
+      # 备份加密（AES-256）：由 starbyte init 生成（Base64 的 32 字节）。
+      # 留空则 pg_dump 产物以明文落对象存储（见 internal/backup/service/artifact.go）。
+      STARBYTE_BACKUP_ENCRYPTION_KEY: ${STARBYTE_BACKUP_ENCRYPTION_KEY:-}
+      # /metrics：留空则生产环境返回 404（见 cmd/server/main.go 的守卫）
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
       # 迁移控制
       SKIP_MIGRATION: ${SKIP_MIGRATION:-false}
       MIGRATION_FAIL_FATAL: ${MIGRATION_FAIL_FATAL:-true}
@@ -129,8 +156,12 @@ services:
     # zip 更新会覆盖本文件，故把 extra_hosts 写进仓库，勿再靠机器上手改。
     extra_hosts:
       - "authserver.smbu.edu.cn:${CAS_AUTHSERVER_IP:-10.100.14.250}"
+    # 仅绑回环：宿主机 starbyte status / 健康检查可用，校园网其它主机无法直连
+    # 后端（原先 0.0.0.0:8080 会把 /metrics 与全部 API 暴露到内网）。
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       postgres:
         condition: service_healthy
@@ -147,6 +178,7 @@ services:
       start_period: 15s
 
   # 前端 Web 服务（Nginx + API 代理）
+  # 容器内以非 root 用户 nginx 运行并监听 8080（非特权端口），故这里映射 80:8080。
   frontend:
     build:
       context: ../frontend
@@ -159,13 +191,22 @@ services:
     environment:
       TZ: Asia/Shanghai
     ports:
-      - "80:80"
+      - "${STARBYTE_HTTP_PORT:-80}:8080"
+      # ── HTTPS（S-03）：启用前先在 frontend/nginx.conf 里打开 443 server 块
+      #    与 80→443 跳转块，再把证书目录挂进来（见下方 volumes 注释）。
+      # - "${STARBYTE_HTTPS_PORT:-443}:443"
+    # volumes:
+    #   # 证书目录：宿主机 deploy/certs 只读挂入，nginx 的 ssl_certificate 指向
+    #   # /etc/nginx/certs/starbyte.crt 与 .key。自签或校园 CA 均可。
+    #   - ./certs:/etc/nginx/certs:ro
     depends_on:
       backend:
         condition: service_healthy
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
       interval: 30s
       timeout: 5s
       retries: 3

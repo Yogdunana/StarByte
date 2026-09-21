@@ -12,12 +12,21 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/user/model"
 	"github.com/Yogdunana/StarByte/backend/internal/user/repo"
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
+	"github.com/Yogdunana/StarByte/backend/pkg/logger"
 	"github.com/Yogdunana/StarByte/backend/pkg/phone"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/Yogdunana/StarByte/backend/pkg/utils"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
+
+// SessionRevoker 窄接口：改密后吊销会话所需的最小能力。
+// 用接口隔离，避免 user 包直接依赖 auth 包的具体类型（防止循环依赖）。
+// auth 包的 AuthService 已实现该方法，可作为吊销器注入。
+type SessionRevoker interface {
+	RevokeAllUserSessions(ctx context.Context, userID string) error
+}
 
 // UserService 用户服务接口
 type UserService interface {
@@ -40,15 +49,19 @@ type userService struct {
 	userRepo  repo.UserRepo
 	jwtConfig *config.JWTConfig
 	activator *activation.Service
+	revoker   SessionRevoker
 }
 
 // NewUserService 创建用户服务。activator 可为 nil（测试或不发信）。
-func NewUserService(db *gorm.DB, userRepo repo.UserRepo, jwtConfig *config.JWTConfig, activator *activation.Service) UserService {
+// revoker 可为 nil（测试或不需改密吊销会话的场景）；为 nil 时 ChangePassword 改密成功后
+// 跳过会话吊销（降级：保留旧会话有效，需在报告中说明该降级）。
+func NewUserService(db *gorm.DB, userRepo repo.UserRepo, jwtConfig *config.JWTConfig, activator *activation.Service, revoker SessionRevoker) UserService {
 	return &userService{
 		db:        db,
 		userRepo:  userRepo,
 		jwtConfig: jwtConfig,
 		activator: activator,
+		revoker:   revoker,
 	}
 }
 
@@ -138,7 +151,23 @@ func (s *userService) ChangePassword(ctx context.Context, userID string, req *dt
 	}
 
 	user.PasswordHash = newHash
-	return s.userRepo.Update(ctx, nil, user)
+	if err := s.userRepo.Update(ctx, nil, user); err != nil {
+		return err
+	}
+
+	// 改密成功后立即吊销该用户全部在线会话与 refresh token，防止账号被盗后
+	// 攻击者凭借旧 refresh token 续期（最长 7 天）继续访问。
+	// 与 auth_service.go 的 ChangePassword 保持一致：刻意**不**把吊销失败上报给
+	// 调用方（密码已改成功，报错会让用户重试一个已生效的操作而无法用新密码登录），
+	// 但吊销失败属安全相关降级（旧 access token 在剩余 TTL 内仍可用），必须记
+	// Error 级别日志以便运维告警，不得只记 Warn 或静默吞掉。
+	if s.revoker != nil {
+		if err := s.revoker.RevokeAllUserSessions(ctx, userID); err != nil {
+			logger.Error("change password: sessions were NOT revoked, old tokens remain valid until expiry",
+				zap.String("user_id", userID), zap.Error(err))
+		}
+	}
+	return nil
 }
 
 // ========== 用户管理 ==========

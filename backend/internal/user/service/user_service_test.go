@@ -9,9 +9,11 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/user/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
+	"github.com/Yogdunana/StarByte/backend/pkg/utils"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
 
@@ -79,7 +81,7 @@ func (m *mockUserRepo) CreateIdentity(ctx context.Context, ident *model.UserIden
 }
 
 func newTestUserService(repo *mockUserRepo) UserService {
-	return NewUserService(nil, repo, &config.JWTConfig{Secret: "test"}, nil)
+	return NewUserService(nil, repo, &config.JWTConfig{Secret: "test"}, nil, nil)
 }
 
 func requireAppError(t *testing.T, err error, code int) {
@@ -235,4 +237,53 @@ func TestUpdateProfileOnlyWritesEditableFields(t *testing.T) {
 	assert.Equal(t, 2, original.Status)
 	assert.Equal(t, "Old", original.RealName)
 	r.AssertExpectations(t)
+}
+
+// fakeSessionRevoker 记录 RevokeAllUserSessions 调用，用于验证改密后是否触发吊销。
+type fakeSessionRevoker struct {
+	mock.Mock
+}
+
+func (f *fakeSessionRevoker) RevokeAllUserSessions(ctx context.Context, userID string) error {
+	return f.Called(ctx, userID).Error(0)
+}
+
+// TestChangePassword_RevokesSessionsOnSuccess 证明改密成功后会调用 SessionRevoker.RevokeAllUserSessions。
+func TestChangePassword_RevokesSessionsOnSuccess(t *testing.T) {
+	repo := &mockUserRepo{}
+	revoker := &fakeSessionRevoker{}
+	svc := NewUserService(nil, repo, &config.JWTConfig{Secret: "test"}, nil, revoker)
+	userID := uuid.New()
+	hashedOld, err := utils.HashPassword("oldpass123")
+	require.NoError(t, err)
+	repo.On("GetByID", mock.Anything, userID).Return(&model.User{ID: userID, Username: "alice", PasswordHash: hashedOld}, nil)
+	repo.On("Update", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	revoker.On("RevokeAllUserSessions", mock.Anything, userID.String()).Return(nil)
+
+	err = svc.ChangePassword(context.Background(), userID.String(), &dto.ChangePasswordRequest{
+		OldPassword: "oldpass123",
+		NewPassword: "newpass456",
+	})
+	assert.NoError(t, err)
+	revoker.AssertCalled(t, "RevokeAllUserSessions", mock.Anything, userID.String())
+	repo.AssertExpectations(t)
+	revoker.AssertExpectations(t)
+}
+
+// TestChangePassword_DoesNotRevokeOnWrongOldPassword 证明旧密码错误（改密未发生）时不调用吊销。
+func TestChangePassword_DoesNotRevokeOnWrongOldPassword(t *testing.T) {
+	repo := &mockUserRepo{}
+	revoker := &fakeSessionRevoker{}
+	svc := NewUserService(nil, repo, &config.JWTConfig{Secret: "test"}, nil, revoker)
+	userID := uuid.New()
+	hashedOld, err := utils.HashPassword("oldpass123")
+	require.NoError(t, err)
+	repo.On("GetByID", mock.Anything, userID).Return(&model.User{ID: userID, Username: "alice", PasswordHash: hashedOld}, nil)
+
+	err = svc.ChangePassword(context.Background(), userID.String(), &dto.ChangePasswordRequest{
+		OldPassword: "wrongpass",
+		NewPassword: "newpass456",
+	})
+	assert.Error(t, err)
+	revoker.AssertNotCalled(t, "RevokeAllUserSessions", mock.Anything, mock.Anything)
 }

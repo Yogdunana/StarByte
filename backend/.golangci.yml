@@ -1,61 +1,87 @@
+version: "2"
+
+# 迁移说明（v1 → v2，golangci-lint 2.13.2）：
+#   - v2 起 gosimple 并入 staticcheck，typecheck 不可单独配置，gofmt 移到 formatters。
+#   - errcheck / govet / ineffassign / staticcheck / unused 是 v2 的默认 linter 集，
+#     不必再在 enable 里重复；原来显式 enable 它们只是为了覆盖 v1 的默认集。
+#   - run.timeout 已由 CI 命令行 --timeout=5m 指定，配置里不再重复。
+#   - 原 v1 的 issues.exclude-use-default: false 未迁移，改为沿用 v2 默认 presets
+#     （comments / std-error-handling / common-false-positives / legacy）。
+
 run:
-  timeout: 5m
+  # 必须与 backend/go.mod 的 go 指令一致。excelize v2.11.0 / golang.org/x/net v0.56
+  # / x/crypto v0.53 / x/text v0.38 硬性要求 go 1.25，低版本工具链会直接拒绝构建。
+  # v1 时代这里钉的是 1.22（当时 golangci-lint 1.59.1 无法理解 go 1.25 的 export data）。
+  go: "1.25"
   tests: true
-  go: '1.22'
 
 linters:
   enable:
-    - errcheck         # 未处理的错误
-    - gosimple         # 简化代码
-    - govet            # go vet
-    - ineffassign      # 无效赋值
-    - staticcheck      # 静态分析
-    - typecheck        # 类型检查
-    - gofmt            # 代码格式
     - nolintlint       # nolint 注释检查
   disable:
     - misspell         # 拼写检查（美/英式拼写差异大，后续统一再加）
     - err113
     - gochecknoglobals
     - gochecknoinits
-
-linters-settings:
-  errcheck:
-    check-type-assertions: true
-    check-blank: false
-    exclude-functions:
-      - (io.Closer).Close
-  govet:
-    enable-all: true
-    disable:
-      - shadow
-      - fieldalignment   # 结构体对齐优化，现阶段没必要
-      - nilness          # 已知现有代码有恒真判断，后续单独修复
-  gofmt:
-    simplify: true
-  staticcheck:
-    checks: ["all", "-SA1019", "-SA9003"]  # 忽略 deprecated 和空分支
-  nolintlint:
-    allow-unused: false
-    require-explanation: true
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: false
+      exclude-functions:
+        - (io.Closer).Close
+    govet:
+      enable-all: true
+      disable:
+        - shadow
+        - fieldalignment   # 结构体对齐优化，现阶段没必要
+        - nilness          # 已知现有代码有恒真判断，后续单独修复
+    nolintlint:
+      require-explanation: true
+      allow-unused: false
+    staticcheck:
+      checks:
+        - all
+        - -SA1019    # 忽略 deprecated
+        - -SA9003    # 忽略空分支
+        # 下面两组是 v2 才计入 `all` 的规则，v1 时代不检查，存量代码因此有大量告警。
+        # 排除它们是为了**保持 v1 的既有检查范围**，而不是把迁移变成一次全仓风格重构；
+        # 想启用应先单独开一轮清理（实测一次性会冒出 10 条存量问题）。
+        - -ST*       # stylecheck 系列（v2 起并入 staticcheck）：包注释、注释格式等
+        - -QF*       # quickfix 重构建议（v2 起计入 all）：De Morgan、tagged switch 等
+  exclusions:
+    generated: lax
+    rules:
+      # 测试文件放宽规则
+      - path: _test\.go
+        linters:
+          - errcheck
+          - ineffassign
+          - staticcheck
+      # gomock 生成文件：类型断言为生成代码惯例
+      - path: mock_.*\.go
+        linters:
+          - errcheck
+          - govet
+          - ineffassign
+          - staticcheck
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
 
 issues:
-  exclude-rules:
-    # 测试文件放宽规则
-    - path: _test\.go
-      linters:
-        - errcheck
-        - ineffassign
-        - gosimple
-        - staticcheck  # 测试代码静态检查适当放宽
-    # gomock 生成文件：类型断言为生成代码惯例
-    - path: mock_.*\.go
-      linters:
-        - errcheck
-        - ineffassign
-        - gosimple
-        - staticcheck
-        - govet
-  exclude-use-default: false
   max-issues-per-linter: 50
   max-same-issues: 5
+
+formatters:
+  enable:
+    - gofmt
+  settings:
+    gofmt:
+      simplify: true
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

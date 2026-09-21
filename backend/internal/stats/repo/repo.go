@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 
+	"github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/stats/dto"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -28,7 +29,7 @@ type StatsRepo interface {
 	InternshipDeptAvg(ctx context.Context, q Query) ([]Bucket, error)
 	InternshipTrend(ctx context.Context, q Query) ([]Bucket, error)
 	RankingHidden(ctx context.Context) (bool, error)
-	Overview(ctx context.Context, userID uuid.UUID) (*dto.OverviewResponse, error)
+	Overview(ctx context.Context, userID uuid.UUID, scope *model.DataScopeCondition) (*dto.OverviewResponse, error)
 }
 
 type statsRepo struct {

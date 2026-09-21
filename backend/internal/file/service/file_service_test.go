@@ -42,8 +42,8 @@ func (m *mockFileRepo) GetByIDWithUploader(ctx context.Context, id uuid.UUID) (*
 	}
 	return args.Get(0).(*model.FileWithUploader), args.Error(1)
 }
-func (m *mockFileRepo) List(ctx context.Context, req *dto.ListFilesRequest) ([]model.FileWithUploader, int64, error) {
-	args := m.Called(ctx, req)
+func (m *mockFileRepo) List(ctx context.Context, req *dto.ListFilesRequest, ownerScope *uuid.UUID) ([]model.FileWithUploader, int64, error) {
+	args := m.Called(ctx, req, ownerScope)
 	return args.Get(0).([]model.FileWithUploader), args.Get(1).(int64), args.Error(2)
 }
 func (m *mockFileRepo) Delete(ctx context.Context, id uuid.UUID) error {
@@ -168,7 +168,7 @@ func TestGetByID_NotFound(t *testing.T) {
 	svc := NewFileService(repo, storage.NewMemory("b"), &mockPermCache{}, "b")
 	id := uuid.New()
 	repo.On("GetByIDWithUploader", mock.Anything, id).Return(nil, nil)
-	_, err := svc.GetByID(context.Background(), id)
+	_, err := svc.GetByID(context.Background(), id, uuid.New())
 	requireAppError(t, err, response.CodeNotFound, "文件不存在")
 }
 
@@ -177,4 +177,125 @@ func TestUploadBatch_TooMany(t *testing.T) {
 	headers := make([]*multipart.FileHeader, 11)
 	_, err := svc.UploadBatch(context.Background(), uuid.New(), headers)
 	requireAppError(t, err, response.CodeBadRequest, "批量上传最多 10 个文件")
+}
+
+// ---- 越权修复（Issue：文件读取/下载越权） ----
+
+func TestPresignDownload_Forbidden(t *testing.T) {
+	repo := &mockFileRepo{}
+	perms := &mockPermCache{}
+	svc := NewFileService(repo, storage.NewMemory("b"), perms, "b")
+	owner := uuid.New()
+	other := uuid.New()
+	fileID := uuid.New()
+	repo.On("GetByID", mock.Anything, fileID).Return(&model.File{
+		ID: fileID, Path: "document/a.pdf", UploadedBy: &owner,
+	}, nil)
+	perms.On("GetUserPermissionsAndSuperAdmin", mock.Anything, other).Return([]string{"file:read"}, false, nil)
+
+	_, err := svc.PresignDownload(context.Background(), fileID, other)
+	requireAppError(t, err, response.CodeForbidden, "无权访问该文件")
+}
+
+func TestPresignDownload_OwnerOK(t *testing.T) {
+	repo := &mockFileRepo{}
+	svc := NewFileService(repo, storage.NewMemory("b"), &mockPermCache{}, "b")
+	owner := uuid.New()
+	fileID := uuid.New()
+	repo.On("GetByID", mock.Anything, fileID).Return(&model.File{
+		ID: fileID, Path: "document/a.pdf", UploadedBy: &owner,
+	}, nil)
+
+	_, err := svc.PresignDownload(context.Background(), fileID, owner)
+	require.NoError(t, err)
+}
+
+func TestPresignDownload_PublicOK(t *testing.T) {
+	repo := &mockFileRepo{}
+	svc := NewFileService(repo, storage.NewMemory("b"), &mockPermCache{}, "b")
+	owner := uuid.New()
+	other := uuid.New()
+	fileID := uuid.New()
+	repo.On("GetByID", mock.Anything, fileID).Return(&model.File{
+		ID: fileID, Path: "document/a.pdf", UploadedBy: &owner, IsPublic: true,
+	}, nil)
+
+	_, err := svc.PresignDownload(context.Background(), fileID, other)
+	require.NoError(t, err)
+}
+
+func TestPresignDownload_SuperOK(t *testing.T) {
+	repo := &mockFileRepo{}
+	perms := &mockPermCache{}
+	svc := NewFileService(repo, storage.NewMemory("b"), perms, "b")
+	owner := uuid.New()
+	admin := uuid.New()
+	fileID := uuid.New()
+	repo.On("GetByID", mock.Anything, fileID).Return(&model.File{
+		ID: fileID, Path: "document/a.pdf", UploadedBy: &owner,
+	}, nil)
+	perms.On("GetUserPermissionsAndSuperAdmin", mock.Anything, admin).Return([]string{}, true, nil)
+
+	_, err := svc.PresignDownload(context.Background(), fileID, admin)
+	require.NoError(t, err)
+}
+
+func TestGetByID_Forbidden(t *testing.T) {
+	repo := &mockFileRepo{}
+	perms := &mockPermCache{}
+	svc := NewFileService(repo, storage.NewMemory("b"), perms, "b")
+	owner := uuid.New()
+	other := uuid.New()
+	fileID := uuid.New()
+	repo.On("GetByIDWithUploader", mock.Anything, fileID).Return(&model.FileWithUploader{
+		File: model.File{ID: fileID, Path: "document/a.pdf", UploadedBy: &owner},
+	}, nil)
+	perms.On("GetUserPermissionsAndSuperAdmin", mock.Anything, other).Return([]string{"file:read"}, false, nil)
+
+	_, err := svc.GetByID(context.Background(), fileID, other)
+	requireAppError(t, err, response.CodeForbidden, "无权访问该文件")
+}
+
+func TestGetByID_OwnerOK(t *testing.T) {
+	repo := &mockFileRepo{}
+	svc := NewFileService(repo, storage.NewMemory("b"), &mockPermCache{}, "b")
+	owner := uuid.New()
+	fileID := uuid.New()
+	repo.On("GetByIDWithUploader", mock.Anything, fileID).Return(&model.FileWithUploader{
+		File: model.File{ID: fileID, Path: "document/a.pdf", UploadedBy: &owner},
+	}, nil)
+
+	_, err := svc.GetByID(context.Background(), fileID, owner)
+	require.NoError(t, err)
+}
+
+func TestList_ScopeForMember(t *testing.T) {
+	repo := &mockFileRepo{}
+	perms := &mockPermCache{}
+	svc := NewFileService(repo, storage.NewMemory("b"), perms, "b")
+	userID := uuid.New()
+	// 会员只有 file:read，没有 file:read:all —— 应被收窄到「自己的 + 公开的」。
+	perms.On("GetUserPermissionsAndSuperAdmin", mock.Anything, userID).Return([]string{"file:read"}, false, nil)
+	repo.On("List", mock.Anything, mock.Anything, mock.MatchedBy(func(s *uuid.UUID) bool {
+		return s != nil && *s == userID
+	})).Return([]model.FileWithUploader{}, int64(0), nil)
+
+	_, _, err := svc.List(context.Background(), &dto.ListFilesRequest{}, userID)
+	require.NoError(t, err)
+	repo.AssertExpectations(t)
+}
+
+func TestList_ScopeForAllReader(t *testing.T) {
+	repo := &mockFileRepo{}
+	perms := &mockPermCache{}
+	svc := NewFileService(repo, storage.NewMemory("b"), perms, "b")
+	userID := uuid.New()
+	perms.On("GetUserPermissionsAndSuperAdmin", mock.Anything, userID).Return([]string{"file:read:all"}, false, nil)
+	repo.On("List", mock.Anything, mock.Anything, mock.MatchedBy(func(s *uuid.UUID) bool {
+		return s == nil
+	})).Return([]model.FileWithUploader{}, int64(0), nil)
+
+	_, _, err := svc.List(context.Background(), &dto.ListFilesRequest{}, userID)
+	require.NoError(t, err)
+	repo.AssertExpectations(t)
 }

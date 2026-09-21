@@ -17,7 +17,7 @@ func TestRegistrationGrantsOnlyUserAndRollsBackWithoutRole(t *testing.T) {
 	tx := testutil.OpenPostgres(t).Begin()
 	defer tx.Rollback()
 	require.NoError(t, tx.Exec(`INSERT INTO roles(id,name,code,status) VALUES (?,'User','user',0) ON CONFLICT(code) DO NOTHING`, uuid.New()).Error)
-	svc := NewUserService(tx, repo.NewUserRepo(tx), &config.JWTConfig{}, nil)
+	svc := NewUserService(tx, repo.NewUserRepo(tx), &config.JWTConfig{}, nil, nil)
 	u, err := svc.Register(context.Background(), &dto.RegisterRequest{Username: "reg-" + uuid.NewString()[:12], Password: "ValidPass123", Email: "new@example.test", Gender: 1}, "")
 	require.NoError(t, err)
 	var roles []string

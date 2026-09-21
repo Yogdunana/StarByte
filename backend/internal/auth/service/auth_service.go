@@ -13,10 +13,12 @@ import (
 	userRepo "github.com/Yogdunana/StarByte/backend/internal/user/repo"
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
 	"github.com/Yogdunana/StarByte/backend/pkg/events"
+	"github.com/Yogdunana/StarByte/backend/pkg/logger"
 	authmiddleware "github.com/Yogdunana/StarByte/backend/pkg/middleware/auth"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/Yogdunana/StarByte/backend/pkg/utils"
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 // AuthService defines the authentication service interface.
@@ -26,6 +28,7 @@ type AuthService interface {
 	Logout(ctx context.Context, userID, tokenID, refreshToken string) error
 	GetCurrentUser(ctx context.Context, userID string) (*dto.UserInfo, error)
 	ChangePassword(ctx context.Context, userID string, req *dto.ChangePasswordRequest) error
+	RevokeAllUserSessions(ctx context.Context, userID string) error
 	ListSessions(ctx context.Context, keyword, userID string) (*dto.SessionListResponse, error)
 	GetUserSessions(ctx context.Context, userID string) (*dto.UserSessionsResponse, error)
 	KickSession(ctx context.Context, tokenID string) error
@@ -283,7 +286,21 @@ func (s *authService) ChangePassword(ctx context.Context, userID string, req *dt
 	}
 
 	user.PasswordHash = newHash
-	return s.userRepo.Update(ctx, nil, user)
+	if err := s.userRepo.Update(ctx, nil, user); err != nil {
+		return err
+	}
+
+	// 改密成功后立即吊销该用户全部在线会话与 refresh token，防止账号被盗后
+	// 攻击者凭借旧 refresh token 续期（最长 7 天）继续访问。
+	// 这里刻意**不**把吊销失败上报给调用方：密码已经改写成功，返回失败会导致
+	// 用户重试一个已生效的操作、进而无法用新密码登录。
+	// 但吊销失败是安全相关的降级（旧 access token 在剩余 TTL 内仍然可用），
+	// 因此必须记 Error 级别日志以便运维告警，不能只记 Warn 或静默吞掉。
+	if err := s.revokeAllUserSessions(ctx, userID); err != nil {
+		logger.Error("change password: sessions were NOT revoked, old tokens remain valid until expiry",
+			zap.String("user_id", userID), zap.Error(err))
+	}
+	return nil
 }
 
 // ========== Helper methods ==========
