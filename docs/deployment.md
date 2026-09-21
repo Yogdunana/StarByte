@@ -152,7 +152,7 @@ docker pull hello-world
 | 前端 | 校园网 `http://<服务器IP>/`（宿主机 80 → 容器非 root nginx 的 8080） |
 | API | 仅本机 `http://127.0.0.1:8080/api/v1`（容器间走 `http://backend:8080`） |
 | 健康检查 | http://127.0.0.1:8080/health 、`/health/ready` |
-| Metrics | 生产默认 **404**。需抓取时在 `.env` 设 `METRICS_TOKEN`，带 `Authorization: Bearer <token>` 访问 |
+| Metrics | 默认 **404**（未设 `METRICS_TOKEN` 时一律拒绝，只有显式 `APP_ENV=dev\|test` 的本地开发才放行）。需抓取时在 `.env` 设 `METRICS_TOKEN`，带 `Authorization: Bearer <token>` 访问 |
 | Swagger（非生产） | http://127.0.0.1:8080/swagger/index.html（`APP_ENV=prod` 时关闭） |
 | MinIO API | 仅本机 `http://127.0.0.1:9000`；控制台请用 `ssh -L 9001:127.0.0.1:9001` 转发后访问 |
 

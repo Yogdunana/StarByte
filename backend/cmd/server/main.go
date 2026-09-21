@@ -215,8 +215,8 @@ func main() {
 		return pingMinio(ctx)
 	}))
 	// /metrics 暴露全部 API 路由标签与服务器资源水位，对校园网开放端口存在信息泄露风险。
-	// 仅在设置了 METRICS_TOKEN 时通过 Bearer/query 令牌访问；未设置且为生产（release）模式直接 404，
-	// 避免暴露端点存在。非生产模式未设令牌则放行（便于本地观测）。
+	// 仅在设置了 METRICS_TOKEN 时通过 Bearer/query 令牌访问；未设置时默认 404（fail-closed），
+	// 避免暴露端点存在。只有显式 APP_ENV=dev|test 的本地开发才放行（见 metricsGuard）。
 	r.GET("/metrics", metricsGuard(cfg), gin.WrapH(promhttp.Handler()))
 	registerSwagger(r)
 
@@ -701,21 +701,27 @@ func main() {
 // 规则：
 //   - 设置了 METRICS_TOKEN：要求 Authorization: Bearer <token> 或 ?token=<token> 匹配
 //     （常量时间比较，避免时序侧信道），不匹配返回 404（不暴露端点存在）。
-//   - 未设置 METRICS_TOKEN：非 release 模式放行（便于本地观测）；release（生产）模式直接 404，
-//     并只告警一次（避免每个请求刷一条日志）。
+//   - 未设置 METRICS_TOKEN：默认 404（fail-closed），并只告警一次（避免每个请求刷一条日志）。
+//     仅当显式处于本地开发环境时才放行（见 metricsLocalDevAllowed）。
+//
+// 为什么不看 cfg.Server.Mode 判断生产：compose 部署下 APP_ENV=prod 会让 loader
+// 叠加 config.prod.yaml 的 mode=release，此时确实会 404；但直接用二进制或裸
+// `docker run`（只补齐密钥环境变量、不导出 APP_ENV）时，生效的是 base config.yaml
+// 的 mode=debug，而 Addr 是 ":%d"（监听全部网卡），等于把 /metrics 连同路由标签
+// 一起开放到校园网。改用「显式声明才有豁免」，默认拒绝。
 func metricsGuard(cfg *config.Config) gin.HandlerFunc {
 	var warnOnce sync.Once
 	return func(c *gin.Context) {
 		token := os.Getenv("METRICS_TOKEN")
 		if token == "" {
-			if cfg.Server.Mode == "release" {
-				warnOnce.Do(func() {
-					logger.Warn("metrics endpoint is disabled in production; set METRICS_TOKEN to enable it")
-				})
-				c.AbortWithStatus(http.StatusNotFound)
+			if metricsLocalDevAllowed(cfg) {
+				c.Next()
 				return
 			}
-			c.Next()
+			warnOnce.Do(func() {
+				logger.Warn("metrics endpoint is disabled; set METRICS_TOKEN to enable it")
+			})
+			c.AbortWithStatus(http.StatusNotFound)
 			return
 		}
 
@@ -730,5 +736,19 @@ func metricsGuard(cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 		c.Next()
+	}
+}
+
+// metricsLocalDevAllowed 报告当前是否处于「允许无令牌访问 /metrics」的本地开发环境。
+// 判定与 pkg/config 的既有语义对齐：**只有显式声明 dev/test 才放宽，APP_ENV 未设置
+// 一律按生产处理**（loader.go 里 effectiveEnv 的补默认值用的就是这条规则）。
+// 另外要求 mode != release：APP_ENV=dev 却又加载到 release 配置属于自相矛盾，
+// 此时按生产处理，不给豁免。
+func metricsLocalDevAllowed(cfg *config.Config) bool {
+	switch os.Getenv("APP_ENV") {
+	case "dev", "test":
+		return cfg.Server.Mode != "release"
+	default:
+		return false
 	}
 }

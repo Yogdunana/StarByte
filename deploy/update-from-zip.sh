@@ -6,11 +6,16 @@
 #   - 白名单准入：一组受保护的基础设施文件/目录，永不覆盖。
 #   - SHA256 校验清单：可选强校验，不匹配即中止，绝不写入。
 #   - zip-slip 防护：拒绝含绝对路径或 `..` 段条目的 zip。
+#   - 非普通文件防护：拒绝含符号链接等特殊文件条目的 zip。
+#     这条不是锦上添花 —— 受保护清单是靠 `find -type f` 枚举出来的，而符号链接
+#     不是普通文件，既进不了「可覆盖」清单也进不了「受保护」清单，最后会被
+#     tar 原样写进仓库，直接把 backend/entrypoint.sh、deploy/cli/starbyte、
+#     .github/** 这些「永不覆盖」的目标换成攻击者内容，绕过整套白名单。
 #
 # 设计要点：
 #   - 始终保留现有 deploy/.env（不覆盖密钥）。
 #   - 绝不执行 docker volume / compose down -v。
-#   - 所有校验（zip-slip → SHA256 → 受保护清单）在覆盖【之前】完成；
+#   - 所有校验（zip-slip → 非普通文件 → SHA256 → 受保护清单）在覆盖【之前】完成；
 #     任一失败都「不写入任何文件」。
 set -euo pipefail
 
@@ -28,6 +33,9 @@ usage() {
 
 安全校验（全部在覆盖之前完成；任一失败都不写入任何文件）：
   • zip-slip 防护           拒绝含绝对路径或 `..` 路径段的条目
+  • 非普通文件防护          拒绝含符号链接/设备文件等条目的 zip
+                            （符号链接会绕过下面的受保护清单，故直接拒绝，
+                              合法发行包不会包含它们）
   • 受保护基础设施清单      一组文件/目录永不覆盖，且会被报告/告警
   • SHA256 校验清单（可选） 强校验，不匹配即中止
 
@@ -202,9 +210,9 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 #######################################
-# 步骤 1/4: zip-slip 防护（解压前先列条目）
+# 步骤 1/4: zip-slip + 非普通文件防护（解压前先列条目）
 #######################################
-echo "=== 步骤 1/4: 校验 zip 条目（zip-slip 防护）==="
+echo "=== 步骤 1/4: 校验 zip 条目（zip-slip + 非普通文件防护）==="
 
 list_zip_entries() {
   if command -v unzip >/dev/null 2>&1; then
@@ -219,6 +227,55 @@ PY
   else
     echo "需要 unzip 或 python3 才能读取 zip 条目。" >&2
     exit 1
+  fi
+}
+
+# 列出 zip 中类型不是「普通文件 / 目录」的条目（符号链接、FIFO、设备文件等）。
+#
+# 为什么要在解压【之前】查：unzip 在 Unix 上会忠实还原符号链接（unzip(1)：
+# "the only file types restored by unzip are regular files, directories and
+# symbolic (soft) links"）。而符号链接落在解压树里之后：
+#   1) 它不是 `find -type f` 的命中对象 —— 于是既进不了「可覆盖」清单，
+#      也进不了「受保护」清单，白名单对它完全失效；
+#   2) 最后的 `tar -C "$SRC" -cf - .` 默认把符号链接当符号链接存（不加 -h
+#      就不会解引用），解到仓库里就把目标换成了攻击者指定的链接；
+#   3) 于是 backend/entrypoint.sh（镜像入口）、deploy/cli/starbyte（运维用
+#      sudo 执行）、.github/**（CI 工作流）都能被不可信 zip 替换 —— 供应链 RCE。
+#
+# 探测工具不可用 / 探测失败时输出为空，此时靠解压之后的兜底复查拦截。
+list_zip_nonregular() {
+  if command -v unzip >/dev/null 2>&1; then
+    # zipinfo 长格式（unzip -Z -l）每行首字符即文件类型：
+    #   `-` 普通文件、`d` 目录、`?` 未知（FAT/DOS 来源，按普通文件看待），
+    #   其余（l 符号链接 / b 块设备 / c 字符设备 / p FIFO / s socket）一律可疑。
+    # 表头/表尾行以 A、Z、数字等开头，不会命中 /^[lbcps]/，故不会误报。
+    # 报错信息只需要条目名，故按时间戳字段把它从长格式行里切出来；
+    # 切不出来就原样打印整行（判定只看首字符，不依赖这里的解析结果）。
+    unzip -Z -l "$ZIP" 2>/dev/null | awk '
+      /^[-d?]/ { next }
+      /^[lbcps]/ {
+        if (match($0, /[0-9]+-[A-Za-z]+-[0-9]+ [0-9]+:[0-9]+ /)) {
+          print substr($0, RSTART + RLENGTH)
+        } else {
+          print $0
+        }
+      }'
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 - "$ZIP" <<'PY'
+import stat, sys, zipfile
+
+with zipfile.ZipFile(sys.argv[1]) as z:
+    for info in z.infolist():
+        # 只看外部属性里的 Unix 类型位，不能拿 stat.S_ISREG 直接判：
+        # 很多打包器（包括 Python 自己的 zipfile.writestr）只写权限位、
+        # 不写类型位（如 0o600），此时 S_ISREG(0o600) 为假，会把普通文件误判成
+        # 特殊文件，导致正常更新被拒。
+        kind = stat.S_IFMT(info.external_attr >> 16)
+        # kind == 0：没有类型位（上述情况，或 FAT/DOS 创建的包），按普通文件处理。
+        if kind == 0 or kind == stat.S_IFREG or kind == stat.S_IFDIR:
+            continue
+        print(info.filename)
+PY
   fi
 }
 
@@ -244,6 +301,22 @@ if [[ $SLIP_FOUND -ne 0 ]]; then
   exit 1
 fi
 echo "  ✓ 未发现 zip-slip 条目"
+
+# 1b) 非普通文件（符号链接 / 特殊文件）防护。
+# 探测失败（工具不可用或输出格式不符）不在这里硬失败：解压后的兜底复查会兜住，
+# 而此处误判会把正常更新卡死。
+ZIP_NONREG_FILE="$WORKDIR/nonregular.txt"
+list_zip_nonregular > "$ZIP_NONREG_FILE" || true
+
+if [[ -s "$ZIP_NONREG_FILE" ]]; then
+  echo "  ✗ 拒绝：zip 含符号链接/特殊文件条目（受保护清单无法拦截它们）：" >&2
+  while IFS= read -r entry; do
+    [[ -n "$entry" ]] && echo "      $entry" >&2
+  done < "$ZIP_NONREG_FILE"
+  echo "错误: zip 含非普通文件条目，已中止，未写入任何文件。" >&2
+  exit 1
+fi
+echo "  ✓ 未发现符号链接/特殊文件条目"
 
 #######################################
 # 步骤 2/4: SHA256 完整性校验（覆盖之前）
@@ -338,6 +411,20 @@ fi
 
 if [[ ! -f "$SRC/deploy/docker-compose.yml" && ! -f "$SRC/README.md" ]]; then
   echo "zip 内容不像 StarByte 仓库根（缺少 deploy/docker-compose.yml 或 README.md）。" >&2
+  exit 1
+fi
+
+# 兜底复查（解压之后、枚举/写入之前）：解压器是否还原符号链接因平台而异
+# （Linux 的 Info-ZIP unzip 会还原；python3 -m zipfile 不会，它把链接目标
+# 写成普通文件的内容，那种情况下会被下面的 -type f + 受保护清单正常拦下）。
+# 所以这里不依赖步骤 1 的探测结果，直接在解压树上找「既不是普通文件也不是目录」
+# 的任何东西。这是权威判定：命中即中止，且此刻尚未向仓库写入任何文件。
+SPECIAL_FOUND="$(find "$SRC" ! -type f ! -type d -print 2>/dev/null || true)"
+if [[ -n "$SPECIAL_FOUND" ]]; then
+  echo "错误: 解压结果含非普通文件（符号链接/特殊文件），已中止，未写入任何文件：" >&2
+  while IFS= read -r p; do
+    [[ -n "$p" ]] && echo "  - $p" >&2
+  done <<< "$SPECIAL_FOUND"
   exit 1
 fi
 
