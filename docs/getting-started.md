@@ -46,7 +46,7 @@ npm run dev
 | 迁移失败 | `POSTGRES_DB` 与 `backend/configs/config.dev.yaml` 一致 |
 | 登录 429 | #75 用户令牌桶约 2 req/s；稍等再试 |
 | 菜单没有财务/处分/合同 | 重新 `make seed` 写入权限；系统管理员/会长默认全开 |
-| Swagger 404 | 仅非生产启用；访问 `/swagger/index.html` |
+| Swagger 404 | 仅显式 `APP_ENV=dev\|test` 时挂载。按上面第 4 步带 `APP_ENV=dev` 启动；未带 `APP_ENV` 裸跑会 404（fail-closed，与生产口径一致） |
 | `any` / 单文件超 300 行 | 见 `TEAM_DEV_GUIDE.md`，CI 会拦 |
 
 ## 代码规范摘要

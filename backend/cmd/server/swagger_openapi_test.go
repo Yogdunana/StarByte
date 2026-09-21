@@ -99,6 +99,22 @@ func TestRegisterSwaggerProdDisabled(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, w2.Code)
 }
 
+// TestRegisterSwaggerUnsetEnvDisabled 证明 fail-closed：APP_ENV **未设置**时
+// 同样不注册任何 /swagger 路由，与 loader「空值按生产处理」的语义对齐。
+// 这条覆盖的是「按文档补齐 DB_*/JWT_SECRET 等密钥、却没导出 APP_ENV」的部署姿势
+// —— 原实现（`!= "prod"`）在此时会把完整 API 文档挂到公网。
+func TestRegisterSwaggerUnsetEnvDisabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Setenv("APP_ENV", "")
+	r := gin.New()
+	require.NotPanics(t, func() { registerSwagger(r) })
+	for _, p := range []string{"/swagger/index.html", "/swagger/openapi.json", "/swagger/doc.json"} {
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, p, nil))
+		require.Equal(t, http.StatusNotFound, w.Code, "APP_ENV 未设置时 %s 应返回 404", p)
+	}
+}
+
 func TestRegisterSwaggerDevServesOpenAPI3(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	t.Setenv("APP_ENV", "dev")

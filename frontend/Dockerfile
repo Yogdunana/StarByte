@@ -50,8 +50,14 @@ COPY security-headers.conf /etc/nginx/snippets/security-headers.conf
 # ── 非特权运行（S-15）─────────────────────────────────────
 # nginx 官方镜像自带 nginx 用户（uid 101）与组。以非 root 运行需要：
 #   1) 预建/授权它必须写的路径（pid 文件与各级 temp 目录）；
-#   2) 监听非特权端口 —— 非 root 无法 bind < 1024，故 nginx.conf 用 8080，
-#      宿主机再由 compose 把 80 映射到容器 8080。
+#   2) 监听 8080 而非 80/443 —— 宿主机再由 compose 把 80 映射到容器 8080。
+#
+# 关于端口，这里**不是**因为「非 root 绑不了 <1024」—— 那个说法不成立：
+# Docker 自 20.10.0 起默认 net.ipv4.ip_unprivileged_port_start=0
+# （moby/moby#41030），容器内 uid 101 可以 bind 443。所以 nginx.conf 末尾那段
+# 443 模板在 USER nginx 下直接取消注释即可生效，无需改回 root。
+# 选 8080 是为了**可移植性**：rootless Docker 与 K8s + containerd 会把 <1024
+# 重新变成特权端口，届时 443 会 bind 失败。别把这条改成「非 root 绑不了低端口」。
 RUN mkdir -p /var/cache/nginx/client_temp /var/cache/nginx/proxy_temp \
              /var/cache/nginx/fastcgi_temp /var/cache/nginx/uwsgi_temp \
              /var/cache/nginx/scgi_temp /etc/nginx/snippets \
