@@ -6,7 +6,9 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      // vite 8 起 `configLoader: 'native'` 不再提供 __dirname（会告警），
+      // 官方建议改用 import.meta.dirname（Node >= 20.11，CI 的 Node 22 满足）。
+      '@': path.resolve(import.meta.dirname, './src'),
     },
   },
   test: {
