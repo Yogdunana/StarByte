@@ -695,8 +695,8 @@ func TestValidate_ProdJWTLowEntropy(t *testing.T) {
 // 长重复串过长度+熵检查，但旧逻辑或因词表缺失、或因 len<64 跳过词表而放行。
 func TestValidate_ProdJWTSecretBypass(t *testing.T) {
 	bypasses := []string{
-		strings.Repeat("password", 5), // 40 chars, distinct=7, "password" 不在旧词表
-		strings.Repeat("starbyte", 8), // 64 chars, 因 len<64 不成立而跳过词表
+		strings.Repeat("password", 5),   // 40 chars, distinct=7, "password" 不在旧词表
+		strings.Repeat("starbyte", 8),   // 64 chars, 因 len<64 不成立而跳过词表
 		strings.Repeat("change-me-", 7), // 70 chars, 同理跳过词表
 	}
 	for _, s := range bypasses {
