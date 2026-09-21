@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 # StarByte 应急运维 CLI（类似宝塔 bt）
-# 依赖：bash + docker compose。不打印 .env 密钥值。
+# 依赖：bash + docker compose。
+#
+# 密钥显示策略：
+#   - status / logs / doctor / env-check / backup 等日常命令一律不打印 .env 密钥值；
+#   - 只有 starbyte init 与 starbyte credentials 会显示口令。这两个命令是
+#     「安装期由系统自动随机生成口令，并把结果告知运维」的唯一通道。
 set -euo pipefail
 
-VERSION="1.0.3"
+VERSION="1.1.0"
 CONF_FILE="/etc/starbyte.conf"
 
 usage() {
@@ -15,6 +20,9 @@ StarByte 应急运维 CLI（类似宝塔 bt）
   sb <命令> [参数]          # 安装后的短命令
 
 命令:
+  init [--force]                 由系统自动生成随机密钥并写出 deploy/.env
+                                 首次安装必须执行；生成后会把口令告知运维
+  credentials                    再次显示系统生成的口令（仅限可信终端）
   status                         compose ps + :8080 / :80 短健康检查
   logs [服务] [--tail N]         查看日志（默认 --tail 100）
   restart [服务|all]             重启容器，不重建镜像
@@ -25,6 +33,7 @@ StarByte 应急运维 CLI（类似宝塔 bt）
                                  emergency 才走主机明文 pg_dump
   doctor                         校园网部署常见问题排查
   install                        安装到 /usr/local/bin/starbyte，并创建 sb 软链
+                                 若 deploy/.env 不存在会自动执行 init
   help                           显示本帮助
   version                        显示版本
 
@@ -33,6 +42,9 @@ StarByte 应急运维 CLI（类似宝塔 bt）
   /etc/starbyte.conf  可写 STARBYTE_HOME=/path
 
 示例:
+  sudo starbyte install          # 安装 CLI，首次会自动生成随机口令
+  starbyte init --force          # 为已有部署重新生成全部密钥
+  starbyte credentials           # 忘记口令时再查一次
   starbyte status
   starbyte logs backend --tail 200
   starbyte rebuild all
@@ -158,6 +170,306 @@ env_has_key() {
   local key="$1"
   local file="$ROOT/deploy/.env"
   [[ -f "$file" ]] && grep -Eq "^${key}=" "$file"
+}
+
+# ─────────────────────────────────────────────────────────
+# 安装期随机密钥生成（starbyte init）
+#
+# 产品约束：不让运维自行生成或手填随机值 —— 由本 CLI 在安装时自动生成，
+# 并在生成后把结果明确告知运维。
+#
+# 字符集只用 [A-Za-z0-9]，刻意不用 base64 的 +/= 与 shell 元字符：
+#   - 口令会进入 DATABASE_URL、redis-server --requirepass、compose 插值；
+#   - 任何 & ? # @ / : " ' \ 都可能被 DSN 解析或 shell 二次解释吃掉。
+# 32 位 alnum ≈ 190 bit 熵，足够。
+# ─────────────────────────────────────────────────────────
+
+ENV_REL="deploy/.env"
+ENV_EXAMPLE_REL="deploy/.env.example"
+CRED_REL="deploy/.env.credentials"
+
+# "键名:生成方式:参数"，顺序决定打印顺序。
+#   alnum:<字符数>  —— 口令类，字符集限定 [A-Za-z0-9]。
+#   b64:<字节数>    —— 需要 Base64 形态的密钥，输出保留标准 base64 字符集（含 + / =）。
+#
+# 为什么分两种：STARBYTE_CONFIG_ENCRYPTION_KEY 被后端按
+# `base64.StdEncoding.DecodeString` 解码后要求恰好 32 字节
+# （backend/pkg/config/smtp_secret.go:14）。若像口令那样把非字母数字字符过滤掉，
+# 44 个字母数字会被解码成 33 字节，后端必然报错——生成器与消费者就对不上了。
+SECRET_SPECS=(
+  "POSTGRES_PASSWORD:alnum:32"
+  "REDIS_PASSWORD:alnum:32"
+  "MINIO_ROOT_USER:alnum:12"
+  "MINIO_ROOT_PASSWORD:alnum:32"
+  "JWT_SECRET:alnum:64"
+  "STARBYTE_CONFIG_ENCRYPTION_KEY:b64:32"
+  "STARBYTE_BACKUP_ENCRYPTION_KEY:b64:32"
+)
+
+# 口令类：只用 [A-Za-z0-9]。值会写入 .env 并被 compose 插值，
+# 含 $ / 反引号 / 引号会直接破坏部署，故刻意剔除这些字符。
+gen_alnum_secret() {
+  local n="${1:-32}" raw=""
+  # 首选 openssl（若存在），失败或长度不足再退到 /dev/urandom。
+  if command -v openssl >/dev/null 2>&1; then
+    raw="$(openssl rand -base64 $((n * 2)) 2>/dev/null | LC_ALL=C tr -dc 'A-Za-z0-9' | cut -c1-"$n" || true)"
+  fi
+  if [[ "${#raw}" -lt "$n" ]]; then
+    # cut 会读完整个输入，不会因 head 提前关闭管道触发 SIGPIPE（set -o pipefail 下会失败）。
+    raw="$(dd if=/dev/urandom bs=256 count=1 2>/dev/null | LC_ALL=C tr -dc 'A-Za-z0-9' | cut -c1-"$n" || true)"
+  fi
+  if [[ "${#raw}" -lt "$n" ]]; then
+    err "无法生成随机值：openssl 与 /dev/urandom 均不可用。"
+    err "本机需要可用的随机源；不要改用手工填值。"
+    exit 1
+  fi
+  printf '%s' "$raw"
+}
+
+# Base64 类：输出标准 base64，只去掉换行，保留 + / =。
+# 值写入 .env 是安全的：+/= 在 .env 里都是普通字符，不会被 compose 展开。
+gen_b64_secret() {
+  local bytes="${1:-32}" raw=""
+  if command -v openssl >/dev/null 2>&1; then
+    raw="$(openssl rand -base64 "$bytes" 2>/dev/null | tr -d '\r\n' || true)"
+  fi
+  if [[ -z "$raw" ]] && command -v base64 >/dev/null 2>&1; then
+    raw="$(dd if=/dev/urandom bs="$bytes" count=1 2>/dev/null | base64 | tr -d '\r\n' || true)"
+  fi
+  if [[ -z "$raw" ]]; then
+    err "无法生成 Base64 密钥：本机既没有 openssl 也没有 base64。"
+    exit 1
+  fi
+  printf '%s' "$raw"
+}
+
+# 按 SECRET_SPECS 的生成方式分派。
+gen_secret() {
+  local mode="${1:-alnum}" param="${2:-32}"
+  case "$mode" in
+    b64) gen_b64_secret "$param" ;;
+    *)   gen_alnum_secret "$param" ;;
+  esac
+}
+
+# 校验某个值是否为「Base64 解码后恰好 bytes 字节」——即后端能接受它的充分条件。
+# 没有 base64 命令时退化为长度启发式（编码长度按 4 字节对齐，含填充）。
+b64_decodes_to() {
+  local val="$1" bytes="$2" n="" expected
+  if command -v base64 >/dev/null 2>&1; then
+    n="$(printf '%s' "$val" | base64 -d 2>/dev/null | wc -c | tr -d '[:space:]')"
+    [[ "$n" == "$bytes" ]]
+    return
+  fi
+  expected=$(( (bytes + 2) / 3 * 4 ))
+  [[ "${#val}" -eq "$expected" ]]
+}
+
+# 保持 .env.example 的键顺序与注释，只替换/追加密钥键的值。
+write_env_value() {
+  local file="$1" key="$2" val="$3" tmp
+  umask 077
+  tmp="$(mktemp)"
+  if grep -Eq "^${key}=" "$file"; then
+    awk -v k="$key" -v v="$val" 'index($0, k"=") == 1 { print k"="v; next } { print }' "$file" > "$tmp"
+  else
+    cat "$file" > "$tmp"
+    printf '%s=%s\n' "$key" "$val" >> "$tmp"
+  fi
+  cat "$tmp" > "$file"
+  rm -f "$tmp"
+}
+
+# .env.example 里用 `<...>` 包裹的拓扑占位符不写进 .env，
+# 让 compose 里带默认值的项（CAS_AUTHSERVER_IP / CAS_FRONTEND_URL / 代理网段）自己兜底。
+neutralize_placeholders() {
+  local file="$1" tmp
+  umask 077
+  tmp="$(mktemp)"
+  awk '
+    /^[[:space:]]*#/ { print; next }
+    /^[A-Za-z_][A-Za-z0-9_]*=/ {
+      eq = index($0, "="); v = substr($0, eq + 1)
+      if (v ~ /^<.*>$/) { print "# " $0 "   # 占位符未填，已忽略（compose 默认值生效）"; next }
+    }
+    { print }
+  ' "$file" > "$tmp"
+  cat "$tmp" > "$file"
+  rm -f "$tmp"
+}
+
+print_credentials() {
+  local f="$1" mode="${2:-initial}"
+  printf '\n'
+  printf '================================================================\n'
+  if [[ "$mode" == "initial" ]]; then
+    printf ' StarByte 初始口令（系统自动随机生成，仅此一次展示）\n'
+  else
+    printf ' StarByte 当前口令（由 deploy/.env 读出）\n'
+  fi
+  printf '================================================================\n'
+  cat "$f"
+  printf '================================================================\n'
+  if [[ "$mode" == "initial" ]]; then
+    printf ' 请立即抄录 / 存入密码管理器，然后删除该文件：\n'
+    printf '   shred -u %s   (或 rm -f)\n' "$f"
+    printf ' 之后仍可用 starbyte credentials 从 deploy/.env 重新读出。\n'
+  fi
+  printf '================================================================\n'
+}
+
+cmd_init() {
+  local force=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --force|-f) force=1; shift ;;
+      -h|--help)
+        log "用法: starbyte init [--force]"
+        log "  无参数：deploy/.env 不存在时按模板生成随机密钥；已存在则不动。"
+        log "  --force：对已存在的 .env 只重新生成密钥项，其余键值保留。"
+        return 0
+        ;;
+      *) err "未知参数: $1"; exit 2 ;;
+    esac
+  done
+  init_root
+
+  local example="$ROOT/$ENV_EXAMPLE_REL"
+  local envf="$ROOT/$ENV_REL"
+  local credf="$ROOT/$CRED_REL"
+
+  if [[ ! -f "$example" ]]; then
+    err "缺少模板 $example，无法生成配置"
+    exit 1
+  fi
+
+  local fresh=1
+  if [[ -f "$envf" ]]; then
+    if [[ "$force" -eq 0 ]]; then
+      log "已存在 $envf，未做任何修改。"
+      log "  重新生成密钥: starbyte init --force"
+      log "  查看初始口令: starbyte credentials"
+      return 0
+    fi
+    log "已存在 $envf：--force 会替换全部密钥项，非密钥键（库名/用户名/拓扑）保持不变。"
+    log "  注意：换掉 POSTGRES_PASSWORD / REDIS_PASSWORD / MINIO_ROOT_PASSWORD 后，"
+    log "        已初始化的数据卷仍用旧口令，需要同步改库/缓存/对象存储的口令，"
+    log "        或者清空卷重来（会丢数据）。生产上更稳妥的做法是重新走一次全新部署。"
+    fresh=0
+  fi
+
+  if [[ "$fresh" -eq 1 ]]; then
+    umask 077
+    cp "$example" "$envf"
+    neutralize_placeholders "$envf"
+    log "已按 $ENV_EXAMPLE_REL 生成 $ENV_REL"
+  fi
+  chmod 600 "$envf" 2>/dev/null || true
+
+  local spec key mode param val
+  local -a shown=()
+  for spec in "${SECRET_SPECS[@]}"; do
+    IFS=':' read -r key mode param <<<"$spec"
+    # --force 的语义就是「重新生成」：所有密钥项一律换新，不沿用旧值。
+    # 非密钥键（POSTGRES_USER / POSTGRES_DB / 拓扑项等）保持不动。
+    val="$(gen_secret "$mode" "$param")"
+    write_env_value "$envf" "$key" "$val"
+    shown+=("$key=$val")
+  done
+
+  # 生成后立刻自检，避免写出一个 compose 或后端会拒绝的 .env
+  local bad=0
+  for spec in "${SECRET_SPECS[@]}"; do
+    IFS=':' read -r key mode param <<<"$spec"
+    val="$(env_get "$key" || true)"
+    if [[ -z "$val" ]]; then
+      err "生成后仍为空: $key"
+      bad=$((bad + 1))
+      continue
+    fi
+    # b64 类必须真能被后端解码成 param 字节，光看「非空」会漏掉格式不对的情况。
+    if [[ "$mode" == "b64" ]] && ! b64_decodes_to "$val" "$param"; then
+      err "生成的密钥格式不正确（Base64 解码后应为 ${param} 字节）: $key"
+      bad=$((bad + 1))
+    fi
+  done
+  if [[ "$bad" -gt 0 ]]; then
+    err "密钥生成不完整，已中止。请检查 $envf 的写权限。"
+    exit 1
+  fi
+
+  # 整份 .env 只让属主可读（内含 Postgres / Redis / MinIO / JWT 明文）。
+  # Windows 上 chmod 基本无效（Git Bash 仍显示 644），属平台限制；
+  # 真正的保护靠不要提交（deploy/.gitignore 已含 .env 与 .env.credentials）。
+  umask 077
+  chmod 600 "$envf" 2>/dev/null || true
+
+  umask 077
+  : > "$credf"
+  chmod 600 "$credf" 2>/dev/null || true
+
+  # 唯一一次明文展示：直接从内存里的 .env 读出，不落盘。
+  print_credentials_copy
+
+  # 展示完之后，credf 只留「去哪儿再读」的提示，不再存明文口令。
+  {
+    printf '# StarByte 密钥已生成完毕（明文口令已在安装终端展示过一次）。\n'
+    printf '# 需要再次查看请运行：starbyte credentials\n'
+    printf '#\n'
+    printf '# 容器内使用的连接信息（供接入方参考，勿外传）：\n'
+    printf '#   PostgreSQL  主机 postgres  端口 5432  库/用户见 deploy/.env\n'
+    printf '#   Redis       主机 redis     端口 6379\n'
+    printf '#   MinIO       主机 minio     端口 9000\n'
+  } > "$credf"
+  chmod 600 "$credf" 2>/dev/null || true
+
+  log "已写入: $envf （密钥项，权限 0600）"
+  log "已写入: $credf （仅提示，不含明文）"
+  log ""
+  log "下一步: starbyte env-check && docker compose --env-file $ENV_REL -f deploy/docker-compose.yml up -d"
+}
+
+# 把刚生成的密钥打印到终端——明文口令在整个流程里只在这一次出现。
+# 与 cmd_credentials 的区别：数据取自内存（env_get），不经过磁盘。
+print_credentials_copy() {
+  local spec key
+  printf '\n'
+  printf '================================================================\n'
+  printf ' StarByte 初始口令（系统自动随机生成，仅此一次展示）\n'
+  printf ' 请立即抄录或存入密码管理器。该列表不会落盘。\n'
+  printf '================================================================\n'
+  for spec in "${SECRET_SPECS[@]}"; do
+    key="${spec%%:*}"
+    printf '%s=%s\n' "$key" "$(env_get "$key" || true)"
+  done
+  printf '================================================================\n'
+  printf ' 之后可随时用 `starbyte credentials` 从 deploy/.env 重新读出。\n'
+  printf '================================================================\n'
+}
+
+cmd_credentials() {
+  init_root
+  local envf="$ROOT/$ENV_REL"
+  if [[ ! -f "$envf" ]]; then
+    err "未找到 $envf。请先执行: starbyte init"
+    exit 1
+  fi
+  local spec key val tmp
+  umask 077
+  tmp="$(mktemp)"
+  chmod 600 "$tmp"
+  for spec in "${SECRET_SPECS[@]}"; do
+    key="${spec%%:*}"
+    val="$(env_get "$key" || true)"
+    if [[ -n "$val" ]]; then
+      printf '%s=%s\n' "$key" "$val" >> "$tmp"
+    else
+      printf '%s=<未设置>\n' "$key" >> "$tmp"
+    fi
+  done
+  print_credentials "$tmp" recall
+  rm -f "$tmp"
+  warn "以上为明文口令。请确认当前终端可信，且不要在共享会话中执行本命令。"
 }
 
 cmd_status() {
@@ -288,8 +600,8 @@ cmd_env_check() {
   local missing=0 empty=0
   log "检查 $file （只报键名，不打印值）"
   if [[ ! -f "$file" ]]; then
-    warn "文件不存在。请: cp deploy/.env.example deploy/.env"
-    exit 1
+    warn "文件不存在。请先运行: starbyte init（由系统自动生成随机密钥）"
+    return 1
   fi
 
   local key val
@@ -308,14 +620,44 @@ cmd_env_check() {
     fi
   done
 
-  # 占位 JWT：只对比已知示例，不回显实际内容
-  if env_has_key JWT_SECRET; then
-    val="$(env_get JWT_SECRET || true)"
-    case "$val" in
-      change-me-in-production|your-super-secret-key-change-in-production-please)
-        warn "JWT_SECRET 仍是示例占位，生产请改成随机串（值未打印）"
+  # 密钥占位 / 弱值检查：只报键名，绝不回显实际内容
+  local spec key mode param lower weak=0
+  for spec in "${SECRET_SPECS[@]}"; do
+    IFS=':' read -r key mode param <<<"$spec"
+    env_has_key "$key" || continue
+    val="$(env_get "$key" || true)"
+    [[ -n "$val" ]] || continue
+    lower="$(printf '%s' "$val" | tr '[:upper:]' '[:lower:]')"
+    if [[ "$key" == "MINIO_ROOT_USER" ]]; then
+      if [[ "$lower" == "minioadmin" ]]; then
+        warn "MINIO_ROOT_USER 仍是示例值（值未打印）"
+        weak=$((weak + 1))
+      fi
+      continue
+    fi
+    # b64 类：必须能被后端 base64 解码成 param 字节，否则后端会在用到时报错。
+    # 只查长度会让「44 个字母数字」这种解不开的值蒙混过关，给出虚假的通过信号。
+    if [[ "$mode" == "b64" ]]; then
+      if ! b64_decodes_to "$val" "$param"; then
+        warn "$key 不是合法的 Base64（解码后应为 ${param} 字节，值未打印）"
+        weak=$((weak + 1))
+      fi
+      continue
+    fi
+    if [[ "${#val}" -lt 24 ]]; then
+      warn "$key 长度不足 24，疑似占位或弱口令（值未打印）"
+      weak=$((weak + 1))
+      continue
+    fi
+    case "$lower" in
+      *change-me*|*changeme*|*your-super-secret*|*example*|*minioadmin*|*starbyte123*|*placeholder*|*password*)
+        warn "$key 命中示例 / 占位词表（值未打印）"
+        weak=$((weak + 1))
         ;;
     esac
+  done
+  if [[ "$weak" -gt 0 ]]; then
+    warn "共 ${weak} 个密钥疑似占位或强度不足。修复: starbyte init --force"
   fi
 
   if env_has_key MINIO_IMAGE; then
@@ -327,14 +669,17 @@ cmd_env_check() {
   if env_has_key CAS_AUTHSERVER_IP; then
     ok "已设置: CAS_AUTHSERVER_IP"
   else
-    info "未设置 CAS_AUTHSERVER_IP（compose extra_hosts 默认 10.100.14.250）"
+    info "未设置 CAS_AUTHSERVER_IP（compose extra_hosts 默认值生效）"
   fi
 
-  if [[ "$missing" -gt 0 || "$empty" -gt 0 ]]; then
-    err "env-check 未通过（缺少 ${missing}，空值 ${empty}）"
-    exit 1
+  if [[ "$missing" -gt 0 || "$empty" -gt 0 || "$weak" -gt 0 ]]; then
+    err "env-check 未通过（缺少 ${missing}，空值 ${empty}，密钥占位/弱值 ${weak}）"
+    # 用 return 而非 exit：本函数会被 cmd_install / doctor 复用，
+    # 直接 exit 会把容器的调用方也一起终止，且拿不到非零返回码。
+    return 1
   fi
   log "env-check 通过"
+  return 0
 }
 
 pick_backup_dir() {
@@ -485,8 +830,11 @@ cmd_doctor() {
 
   if [[ -f "$ROOT/deploy/.env" ]]; then
     ok "存在 deploy/.env"
+    if [[ -f "$ROOT/$CRED_REL" ]]; then
+      warn "$CRED_REL 仍存在（含明文初始口令）。抄录后请删除: shred -u $ROOT/$CRED_REL"
+    fi
   else
-    warn "缺少 deploy/.env（cp deploy/.env.example deploy/.env）"
+    warn "缺少 deploy/.env。请运行: starbyte init（系统会自动生成随机密钥）"
     issues=$((issues + 1))
   fi
 
@@ -615,6 +963,21 @@ cmd_install() {
   log "已安装: $dest"
   log "软链:   /usr/local/bin/sb -> $dest"
   log "配置:   $CONF_FILE  (STARBYTE_HOME=$ROOT)"
+
+  # 首次安装：配置不存在就由系统自动生成随机密钥，并把口令当场告知。
+  # 已存在则不动（不覆盖既有部署的密钥），只提示查看方式。
+  if [[ ! -f "$ROOT/$ENV_REL" ]]; then
+    log ""
+    log "未发现 $ENV_REL，正在自动生成随机密钥 ..."
+    cmd_init
+  else
+    log ""
+    log "已存在 $ENV_REL，未改动密钥。"
+    log "  查看初始口令: starbyte credentials"
+    log "  重新生成密钥: starbyte init --force"
+  fi
+
+  log ""
   log "试运行: starbyte status"
 }
 
@@ -625,6 +988,8 @@ main() {
     help|-h|--help) usage ;;
     version|-v|--version) log "starbyte $VERSION" ;;
     install) cmd_install "$@" ;;
+    init) init_root; cmd_init "$@" ;;
+    credentials) init_root; cmd_credentials "$@" ;;
     status|logs|restart|rebuild|env-check|backup|doctor)
       init_root
       case "$cmd" in
@@ -632,7 +997,8 @@ main() {
         logs) cmd_logs "$@" ;;
         restart) cmd_restart "$@" ;;
         rebuild) cmd_rebuild "$@" ;;
-        env-check) cmd_env_check "$@" ;;
+        # 显式透传返回码，让 `starbyte env-check && docker compose up` 真正短路
+        env-check) cmd_env_check "$@"; exit $? ;;
         backup) cmd_backup "$@" ;;
         doctor) cmd_doctor "$@" ;;
       esac

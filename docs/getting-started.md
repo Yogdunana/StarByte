@@ -34,7 +34,7 @@ npm install
 npm run dev
 ```
 
-打开 http://localhost:5173 ，用 `admin/admin123` 登录（也可用学号 `20210001`）。本地默认关闭 CAS；校园网生产开 `CAS_ENABLED=true`，登录页会出现「学校统一认证」。
+打开 http://localhost:5173 ，用 `admin/admin123` 登录（也可用学号 `20210001`）。**这套口令只属于本机 dev 库**——`make seed` 在 `APP_ENV=dev` 下才写入；生产环境的管理员口令由 `starbyte init` 在安装时随机生成（见 [deployment.md](deployment.md)），文档里不会出现明文。本地默认关闭 CAS；校园网生产开 `CAS_ENABLED=true`，登录页会出现「学校统一认证」。
 
 不要只跑 `go run cmd/server/main.go`：同包还有 swagger / traffic 文件，会缺符号。
 

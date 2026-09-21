@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { resolve, sep } from 'node:path';
 import ts from 'typescript';
 import zh from '@/locales/zh-CN.json';
 import en from '@/locales/en-US.json';
@@ -62,7 +62,9 @@ it('covers static translation calls and rejects newly hardcoded Chinese UI strin
         continue;
       }
       if (!/\.tsx?$/.test(file) || /\.(test|spec)\./.test(file)) continue;
-      const relative = file.slice(root.length + 1);
+      // Windows 下 resolve() 产出反斜杠路径，而 identifiers 的键用正斜杠书写。
+      // 不归一化会让白名单永不命中，把已登记的持久化业务标识误报成 hardcoded。
+      const relative = file.slice(root.length + 1).split(sep).join('/');
       const ast = ts.createSourceFile(
         file,
         readFileSync(file, 'utf8'),

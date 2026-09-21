@@ -65,6 +65,7 @@ func (s casStubService) GetUserSessions(context.Context, string) (*dto.UserSessi
 }
 func (s casStubService) KickSession(context.Context, string) error      { return nil }
 func (s casStubService) KickUserSessions(context.Context, string) error { return nil }
+func (s casStubService) RevokeAllUserSessions(context.Context, string) error { return nil }
 func (s casStubService) CASStatus() dto.CASStatusResponse {
 	return dto.CASStatusResponse{Enabled: s.enabled}
 }

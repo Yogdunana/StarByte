@@ -42,7 +42,12 @@ func (h *FileHandler) List(c *gin.Context) {
 		response.BadRequest(c, "参数错误: "+err.Error())
 		return
 	}
-	list, total, err := h.fileService.List(c.Request.Context(), &req)
+	userID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	list, total, err := h.fileService.List(c.Request.Context(), &req, userID)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -68,12 +73,17 @@ func (h *FileHandler) List(c *gin.Context) {
 // @Router /files/{id} [get]
 // @Security BearerAuth
 func (h *FileHandler) GetByID(c *gin.Context) {
+	userID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 	id, err := parseFileID(c)
 	if err != nil {
 		response.Error(c, err)
 		return
 	}
-	result, err := h.fileService.GetByID(c.Request.Context(), id)
+	result, err := h.fileService.GetByID(c.Request.Context(), id, userID)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -93,12 +103,17 @@ func (h *FileHandler) GetByID(c *gin.Context) {
 // @Router /files/{id}/download [get]
 // @Security BearerAuth
 func (h *FileHandler) Download(c *gin.Context) {
+	userID, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
 	id, err := parseFileID(c)
 	if err != nil {
 		response.Error(c, err)
 		return
 	}
-	url, err := h.fileService.PresignDownload(c.Request.Context(), id)
+	url, err := h.fileService.PresignDownload(c.Request.Context(), id, userID)
 	if err != nil {
 		response.Error(c, err)
 		return

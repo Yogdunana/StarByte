@@ -358,8 +358,9 @@ jwt:
 
 minio:
   endpoint: localhost:9000
-  access_key: minioadmin
-  secret_key: minioadmin
+  # 仅本地开发示例值；生产由 starbyte init 随机生成，禁止手填
+  access_key: <开发时用 dev 库的 MinIO 凭据>
+  secret_key: <同上>
   use_ssl: false
   bucket: starbyte
 

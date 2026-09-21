@@ -41,6 +41,7 @@ func (s *sessionStub) GetUserSessions(context.Context, string) (*dto.UserSession
 }
 func (s *sessionStub) KickSession(context.Context, string) error      { return s.err }
 func (s *sessionStub) KickUserSessions(context.Context, string) error { return s.err }
+func (s *sessionStub) RevokeAllUserSessions(context.Context, string) error { return s.err }
 func (s *sessionStub) CASStatus() dto.CASStatusResponse {
 	return dto.CASStatusResponse{Enabled: false}
 }

@@ -36,19 +36,19 @@ func (m *mockFileService) UploadBatch(ctx context.Context, userID uuid.UUID, hea
 	}
 	return args.Get(0).([]*dto.FileUploadResponse), args.Error(1)
 }
-func (m *mockFileService) List(ctx context.Context, req *dto.ListFilesRequest) ([]*dto.FileListItem, int64, error) {
-	args := m.Called(ctx, req)
+func (m *mockFileService) List(ctx context.Context, req *dto.ListFilesRequest, userID uuid.UUID) ([]*dto.FileListItem, int64, error) {
+	args := m.Called(ctx, req, userID)
 	return args.Get(0).([]*dto.FileListItem), args.Get(1).(int64), args.Error(2)
 }
-func (m *mockFileService) GetByID(ctx context.Context, id uuid.UUID) (*dto.FileDetailResponse, error) {
-	args := m.Called(ctx, id)
+func (m *mockFileService) GetByID(ctx context.Context, id, userID uuid.UUID) (*dto.FileDetailResponse, error) {
+	args := m.Called(ctx, id, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*dto.FileDetailResponse), args.Error(1)
 }
-func (m *mockFileService) PresignDownload(ctx context.Context, id uuid.UUID) (string, error) {
-	args := m.Called(ctx, id)
+func (m *mockFileService) PresignDownload(ctx context.Context, id, userID uuid.UUID) (string, error) {
+	args := m.Called(ctx, id, userID)
 	return args.String(0), args.Error(1)
 }
 func (m *mockFileService) Delete(ctx context.Context, id, userID uuid.UUID) error {
@@ -60,7 +60,10 @@ func TestGetByID_InvalidID(t *testing.T) {
 	svc := &mockFileService{}
 	h := NewFileHandler(svc)
 	r := gin.New()
-	r.GET("/files/:id", h.GetByID)
+	r.GET("/files/:id", func(c *gin.Context) {
+		c.Set(auth.ContextKeyUserID, uuid.New().String())
+		h.GetByID(c)
+	})
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/files/not-a-uuid", nil)
@@ -73,9 +76,12 @@ func TestDownload_Redirect(t *testing.T) {
 	svc := &mockFileService{}
 	h := NewFileHandler(svc)
 	r := gin.New()
-	r.GET("/files/:id/download", h.Download)
+	r.GET("/files/:id/download", func(c *gin.Context) {
+		c.Set(auth.ContextKeyUserID, uuid.New().String())
+		h.Download(c)
+	})
 	id := uuid.New()
-	svc.On("PresignDownload", mock.Anything, id).Return("https://minio.example/obj?X-Amz-Expires=3600", nil)
+	svc.On("PresignDownload", mock.Anything, id, mock.Anything).Return("https://minio.example/obj?X-Amz-Expires=3600", nil)
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/files/"+id.String()+"/download", nil)
@@ -112,8 +118,11 @@ func TestList_OK(t *testing.T) {
 	svc := &mockFileService{}
 	h := NewFileHandler(svc)
 	r := gin.New()
-	r.GET("/files", h.List)
-	svc.On("List", mock.Anything, mock.Anything).Return([]*dto.FileListItem{
+	r.GET("/files", func(c *gin.Context) {
+		c.Set(auth.ContextKeyUserID, uuid.New().String())
+		h.List(c)
+	})
+	svc.On("List", mock.Anything, mock.Anything, mock.Anything).Return([]*dto.FileListItem{
 		{ID: uuid.New().String(), Filename: "a.png"},
 	}, int64(1), nil)
 

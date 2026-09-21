@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -17,6 +18,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
 
@@ -44,6 +46,17 @@ type WSHandler struct {
 	hub       service.HubManager
 	jwtConfig *config.JWTConfig
 	upgrader  websocket.Upgrader
+	rdb       *redis.Client
+}
+
+// WithRedis enables logout/revoke blacklist checks for access tokens, using the
+// same key as JWTAuth ("auth:blacklist:<jti>"). When rdb is nil the check is
+// skipped (nil-safe), mirroring monitor's WS handler.
+func (h *WSHandler) WithRedis(rdb *redis.Client) *WSHandler {
+	if h != nil {
+		h.rdb = rdb
+	}
+	return h
 }
 
 // NewWSHandler 创建 WebSocket 处理器
@@ -128,6 +141,19 @@ func (h *WSHandler) HandleConnection(c *gin.Context) {
 			Message: "WebSocket 认证失败：Token 无效或已过期",
 		})
 		return
+	}
+
+	// 2b. 吊销黑名单校验：已改密/已登出的 access token 不能建立连接。
+	// 与 monitor 的 WS 处理一致；rdb 为 nil 时跳过（nil-safe）。
+	if h.rdb != nil && claims.ID != "" {
+		n, berr := h.rdb.Exists(c.Request.Context(), fmt.Sprintf("auth:blacklist:%s", claims.ID)).Result()
+		if berr == nil && n > 0 {
+			c.JSON(http.StatusUnauthorized, response.Response{
+				Code:    response.CodeNotificationWSAuthFail,
+				Message: "WebSocket 认证失败：Token 已失效",
+			})
+			return
+		}
 	}
 
 	userID, err := uuid.Parse(claims.UserID)

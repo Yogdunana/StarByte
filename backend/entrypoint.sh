@@ -3,6 +3,24 @@ set -e
 
 echo "[entrypoint] StarByte 后端服务启动中..."
 
+# ── 默认按生产处理（fail-closed），只有显式 dev/test 才放宽 ──────────
+# 本镜像可能被单独 `docker run`（不经 compose）。下面的 `${VAR:-默认}` 兜底
+# 会让服务带着开发口令起起来，所以默认（未设置 APP_ENV）就按生产严格校验：
+# 任一密钥缺失/为空就直接退出，而不是静默退化成 dev 口令。
+# 只有显式声明 APP_ENV=dev 或 APP_ENV=test 时才走宽松分支。
+# 正常 compose 部署由 starbyte init 写入 deploy/.env，这些变量一定存在。
+case "${APP_ENV:-prod}" in
+  dev|test) : ;;            # 显式声明才放宽
+  *)
+    : "${DB_PASSWORD:?生产环境必须设置 DB_PASSWORD（请运行 starbyte init 生成随机口令）}"
+    : "${REDIS_PASSWORD:?生产环境必须设置 REDIS_PASSWORD（请运行 starbyte init 生成随机口令）}"
+    : "${MINIO_ACCESS_KEY:?生产环境必须设置 MINIO_ACCESS_KEY（请运行 starbyte init 生成随机账号）}"
+    : "${MINIO_SECRET_KEY:?生产环境必须设置 MINIO_SECRET_KEY（请运行 starbyte init 生成随机口令）}"
+    : "${JWT_SECRET:?生产环境必须设置 JWT_SECRET（请运行 starbyte init 生成随机密钥）}"
+    echo "[entrypoint] 生产环境密钥校验通过（值不打印）"
+    ;;
+esac
+
 # ── 从环境变量构建数据库连接串 ──────────────────────────────
 DB_HOST="${DB_HOST:-postgres}"
 DB_PORT="${DB_PORT:-5432}"

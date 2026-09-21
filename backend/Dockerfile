@@ -3,14 +3,19 @@
 # 生产 compose 请设 SKIP_BUCKET_CREATE=true；桶可在控制台手动创建一次。
 # 入口脚本在 SKIP_BUCKET_CREATE=true 时不会调用 mc。
 # ─────────────────────────────────────────────────────────
-FROM alpine:3.19 AS mc-builder
+FROM alpine:3.21 AS mc-builder
 
 RUN printf '%s\n' '#!/bin/sh' 'exit 0' > /usr/local/bin/mc && chmod +x /usr/local/bin/mc
 
 # ─────────────────────────────────────────────────────────
 # Stage 2: 构建 Go 二进制与 golang-migrate
+#
+# 工具链下限说明：go.mod 的 go 指令已提升到 1.25 —— 这是
+# github.com/xuri/excelize/v2 v2.11.0（CVE-2026-54063 / CVE-2026-59161）
+# 与 golang.org/x/net v0.55+（GO-2026-5030）的最低要求。
+# 本镜像必须 >= 1.25，否则 go build 会直接拒绝。
 # ─────────────────────────────────────────────────────────
-FROM golang:1.22-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 RUN apk add --no-cache git gcc musl-dev
 
@@ -31,7 +36,7 @@ RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o starbyte-server ./cmd/
 # ─────────────────────────────────────────────────────────
 # Stage 3: 生产运行镜像
 # ─────────────────────────────────────────────────────────
-FROM alpine:3.19 AS production
+FROM alpine:3.21 AS production
 
 RUN apk add --no-cache ca-certificates tzdata bash postgresql-client
 
@@ -52,6 +57,20 @@ COPY --from=mc-builder /usr/local/bin/mc /usr/local/bin/mc
 # 入口脚本：自动迁移 + 启动服务
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# ── 非特权运行（S-15）─────────────────────────────────────
+# 进程不再以 root 启动：一旦应用被 RCE，攻击者拿到的是 uid 10001 而非容器 root，
+# 无法直接改系统文件 / 装包 / 读取其它进程信息，横向移动成本显著上升。
+# 需要预建并授权的可写路径：
+#   /app/logs      logger 默认 logs/starbyte.log（相对 WORKDIR /app）
+#   $HOME/.mc      entrypoint 的 `mc alias set` 会写配置文件
+ENV HOME=/home/starbyte
+RUN addgroup -S -g 10001 starbyte \
+ && adduser -S -u 10001 -G starbyte -h /home/starbyte starbyte \
+ && mkdir -p /app/logs /home/starbyte/.mc \
+ && chown -R starbyte:starbyte /app /home/starbyte
+
+USER starbyte
 
 EXPOSE 8080
 

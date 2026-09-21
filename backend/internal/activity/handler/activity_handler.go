@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/Yogdunana/StarByte/backend/internal/activity/dto"
+	"github.com/Yogdunana/StarByte/backend/pkg/middleware"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -32,6 +33,9 @@ func (h *ActivityHandler) UpdateActivity(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
+	if !h.mustAccessActivity(c, id) {
+		return
+	}
 	var req dto.UpdateActivityRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "参数错误: "+err.Error())
@@ -51,6 +55,9 @@ func (h *ActivityHandler) DeleteActivity(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
+	if !h.mustAccessActivity(c, id) {
+		return
+	}
 	if err := h.svc.DeleteActivity(c.Request.Context(), id); err != nil {
 		response.Error(c, err)
 		return
@@ -62,6 +69,9 @@ func (h *ActivityHandler) GetActivity(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
 		response.Error(c, err)
+		return
+	}
+	if !h.mustAccessActivity(c, id) {
 		return
 	}
 	result, err := h.svc.GetActivity(c.Request.Context(), id)
@@ -79,7 +89,13 @@ func (h *ActivityHandler) ListActivities(c *gin.Context) {
 		return
 	}
 	req.Page, req.PageSize = defaultPage(req.Page, req.PageSize)
-	list, total, err := h.svc.ListActivities(c.Request.Context(), &req)
+	viewer, err := getUserID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	scope := middleware.GetDataScopeFromContext(c)
+	list, total, err := h.svc.ListActivities(c.Request.Context(), viewer, &req, scope)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -91,6 +107,9 @@ func (h *ActivityHandler) StartActivity(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
 		response.Error(c, err)
+		return
+	}
+	if !h.mustAccessActivity(c, id) {
 		return
 	}
 	result, err := h.svc.StartActivity(c.Request.Context(), id)
@@ -107,6 +126,9 @@ func (h *ActivityHandler) EndActivity(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
+	if !h.mustAccessActivity(c, id) {
+		return
+	}
 	result, err := h.svc.EndActivity(c.Request.Context(), id)
 	if err != nil {
 		response.Error(c, err)
@@ -119,6 +141,9 @@ func (h *ActivityHandler) CancelActivity(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
 		response.Error(c, err)
+		return
+	}
+	if !h.mustAccessActivity(c, id) {
 		return
 	}
 	var body struct {
@@ -195,6 +220,9 @@ func (h *ActivityHandler) ListRegistrations(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
+	if !h.mustAccessActivity(c, id) {
+		return
+	}
 	list, err := h.svc.ListRegistrations(c.Request.Context(), id)
 	if err != nil {
 		response.Error(c, err)
@@ -207,6 +235,9 @@ func (h *ActivityHandler) ApproveRegistration(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
 		response.Error(c, err)
+		return
+	}
+	if !h.mustAccessActivity(c, id) {
 		return
 	}
 	uid, err := uuid.Parse(c.Param("uid"))
@@ -257,6 +288,9 @@ func (h *ActivityHandler) CheckinQRCode(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
+	if !h.mustAccessActivity(c, id) {
+		return
+	}
 	result, err := h.svc.IssueCheckinQR(c.Request.Context(), id)
 	if err != nil {
 		response.Error(c, err)
@@ -269,6 +303,9 @@ func (h *ActivityHandler) GetStats(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
 		response.Error(c, err)
+		return
+	}
+	if !h.mustAccessActivity(c, id) {
 		return
 	}
 	result, err := h.svc.GetStats(c.Request.Context(), id)

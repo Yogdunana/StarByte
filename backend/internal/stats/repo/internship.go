@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/google/uuid"
-
+	"github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/stats/dto"
+	"github.com/google/uuid"
 )
 
 func (r *statsRepo) InternshipRanking(ctx context.Context, q Query) ([]Bucket, error) {
@@ -64,26 +64,33 @@ func (r *statsRepo) RankingHidden(ctx context.Context) (bool, error) {
 	return !*cfg.RankingVisible, nil
 }
 
-func (r *statsRepo) Overview(ctx context.Context, userID uuid.UUID) (*dto.OverviewResponse, error) {
+func (r *statsRepo) Overview(ctx context.Context, userID uuid.UUID, scope *model.DataScopeCondition) (*dto.OverviewResponse, error) {
 	out := &dto.OverviewResponse{TodayMeetings: []dto.OverviewMeeting{}}
 	now := time.Now()
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	dayEnd := dayStart.Add(24 * time.Hour)
 
-	if err := r.db.WithContext(ctx).Table("member_profiles").Where("status = 0").Count(&out.TotalMembers).Error; err != nil {
+	if err := applyDeptScope(r.db.WithContext(ctx).Table("member_profiles").Where("status = 0"), scope, "department_id IN ?").
+		Count(&out.TotalMembers).Error; err != nil {
 		return nil, err
 	}
-	if err := r.db.WithContext(ctx).Table("meetings").Where("start_time >= ? AND start_time < ?", monthStart, monthStart.AddDate(0, 1, 0)).Count(&out.TotalMeetingsThisMonth).Error; err != nil {
+	if err := applyDeptScope(
+		r.db.WithContext(ctx).Table("meetings").Where("start_time >= ? AND start_time < ?", monthStart, monthStart.AddDate(0, 1, 0)),
+		scope, "organizer_id IN (SELECT id FROM users WHERE department_id IN ?)").
+		Count(&out.TotalMeetingsThisMonth).Error; err != nil {
 		return nil, err
 	}
-	if err := r.db.WithContext(ctx).Table("tasks").Where("deleted_at IS NULL").Where("status = 1").Count(&out.TotalTasksInProgress).Error; err != nil {
+	if err := applyDeptScope(r.db.WithContext(ctx).Table("tasks").Where("deleted_at IS NULL").Where("status = 1"), scope, "department_id IN ?").
+		Count(&out.TotalTasksInProgress).Error; err != nil {
 		return nil, err
 	}
-	if err := r.db.WithContext(ctx).Table("internships").Where("status = 0").Count(&out.TotalInternshipsActive).Error; err != nil {
+	if err := applyDeptScope(r.db.WithContext(ctx).Table("internships").Where("status = 0"), scope, "department_id IN ?").
+		Count(&out.TotalInternshipsActive).Error; err != nil {
 		return nil, err
 	}
-	if err := r.db.WithContext(ctx).Table("member_applications").Where("status IN (0, 1, 2, 5)").Count(&out.PendingApprovals).Error; err != nil {
+	if err := applyDeptScope(r.db.WithContext(ctx).Table("member_applications").Where("status IN (0, 1, 2, 5)"), scope, "department_id IN ?").
+		Count(&out.PendingApprovals).Error; err != nil {
 		return nil, err
 	}
 	if userID != uuid.Nil {
@@ -104,9 +111,11 @@ func (r *statsRepo) Overview(ctx context.Context, userID uuid.UUID) (*dto.Overvi
 		Title     string
 		StartTime time.Time
 	}
-	if err := r.db.WithContext(ctx).Table("meetings").
-		Select("id, title, start_time").
-		Where("start_time >= ? AND start_time < ?", dayStart, dayEnd).
+	if err := applyDeptScope(
+		r.db.WithContext(ctx).Table("meetings").
+			Select("id, title, start_time").
+			Where("start_time >= ? AND start_time < ?", dayStart, dayEnd),
+		scope, "organizer_id IN (SELECT id FROM users WHERE department_id IN ?)").
 		Order("start_time").Limit(8).Scan(&meetings).Error; err != nil {
 		return nil, err
 	}

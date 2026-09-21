@@ -7,6 +7,7 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/activity/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/activity/model"
 	"github.com/Yogdunana/StarByte/backend/internal/activity/repo"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -22,7 +23,10 @@ type ActivityService interface {
 	UpdateActivity(ctx context.Context, id uuid.UUID, req *dto.UpdateActivityRequest) (*dto.ActivityResponse, error)
 	DeleteActivity(ctx context.Context, id uuid.UUID) error
 	GetActivity(ctx context.Context, id uuid.UUID) (*dto.ActivityResponse, error)
-	ListActivities(ctx context.Context, req *dto.ListActivityRequest) ([]*dto.ActivityResponse, int64, error)
+	// CanAccessActivity 判定 viewer 是否有权访问该活动（数据范围校验）。
+	// scope 为 nil 表示不限制；活动不存在返回 (false, nil)。
+	CanAccessActivity(ctx context.Context, viewer, activityID uuid.UUID, scope *rbacModel.DataScopeCondition) (bool, error)
+	ListActivities(ctx context.Context, viewer uuid.UUID, req *dto.ListActivityRequest, scope *rbacModel.DataScopeCondition) ([]*dto.ActivityResponse, int64, error)
 
 	StartActivity(ctx context.Context, id uuid.UUID) (*dto.ActivityResponse, error)
 	EndActivity(ctx context.Context, id uuid.UUID) (*dto.ActivityResponse, error)

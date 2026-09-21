@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -148,4 +149,72 @@ func TestSessionMatchesAndAnnotate(t *testing.T) {
 	assert.False(t, views[2].MultiDevice)
 	assert.True(t, sessionMatches(views[0], "chrome"))
 	assert.False(t, sessionMatches(views[0], "zzz"))
+}
+
+// TestKickSession_BlacklistFails 写侧 fail-closed：黑名单写入失败必须返回错误，
+// 且不继续删除该 session（保留重试依据）。
+func TestKickSession_BlacklistFails(t *testing.T) {
+	svc, _, authRepo, _ := setupTestService()
+	ctx := context.Background()
+	sess := sampleSession("user-1", "jti-1", "1.1.1.1", "ua")
+	authRepo.On("GetSession", ctx, "jti-1").Return(&sess, nil)
+	authRepo.On("BlacklistToken", ctx, "jti-1", mock.Anything).Return(errors.New("redis down"))
+
+	err := svc.KickSession(ctx, "jti-1")
+	var appErr *response.AppError
+	assert.ErrorAs(t, err, &appErr)
+	assert.Equal(t, response.CodeInternalError, appErr.Code)
+	// 黑名单写失败不应继续删除 session
+	authRepo.AssertNotCalled(t, "DeleteSession", mock.Anything, mock.Anything)
+}
+
+// TestKickSession_DeleteFailsAfterBlacklist 黑名单成功但删除失败也须返回错误，
+// 且黑名单写入发生在删除之前。
+func TestKickSession_DeleteFailsAfterBlacklist(t *testing.T) {
+	svc, _, authRepo, _ := setupTestService()
+	ctx := context.Background()
+	sess := sampleSession("user-1", "jti-1", "1.1.1.1", "ua")
+	authRepo.On("GetSession", ctx, "jti-1").Return(&sess, nil)
+	authRepo.On("BlacklistToken", ctx, "jti-1", mock.Anything).Return(nil)
+	authRepo.On("DeleteSession", ctx, "jti-1").Return(errors.New("redis down"))
+	authRepo.On("DeleteRefreshTokensByJTI", ctx, "user-1", "jti-1").Return(nil)
+
+	err := svc.KickSession(ctx, "jti-1")
+	var appErr *response.AppError
+	assert.ErrorAs(t, err, &appErr)
+	assert.Equal(t, response.CodeInternalError, appErr.Code)
+
+	// 断言黑名单写入发生在删除之前（按调用顺序）
+	var blIdx, delIdx = -1, -1
+	for i, c := range authRepo.Calls {
+		switch c.Method {
+		case "BlacklistToken":
+			if blIdx == -1 {
+				blIdx = i
+			}
+		case "DeleteSession":
+			if delIdx == -1 {
+				delIdx = i
+			}
+		}
+	}
+	assert.GreaterOrEqual(t, blIdx, 0)
+	assert.GreaterOrEqual(t, delIdx, 0)
+	assert.Less(t, blIdx, delIdx)
+}
+
+// TestKickUserSessions_BlacklistFails 逐会话吊销时黑名单失败同样须返回错误。
+func TestKickUserSessions_BlacklistFails(t *testing.T) {
+	svc, _, authRepo, _ := setupTestService()
+	ctx := context.Background()
+	sess := []authmodel.Session{sampleSession("u1", "a", "1.1.1.1", "ua")}
+	authRepo.On("ListSessionsByUser", ctx, "u1").Return(sess, nil)
+	authRepo.On("BlacklistToken", ctx, "a", mock.Anything).Return(errors.New("redis down"))
+	authRepo.On("DeleteRefreshTokensByUser", ctx, "u1").Return(nil)
+
+	err := svc.KickUserSessions(ctx, "u1")
+	var appErr *response.AppError
+	assert.ErrorAs(t, err, &appErr)
+	assert.Equal(t, response.CodeInternalError, appErr.Code)
+	authRepo.AssertNotCalled(t, "DeleteSession", mock.Anything, mock.Anything)
 }

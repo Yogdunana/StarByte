@@ -25,6 +25,12 @@ var validEnvs = map[string]bool{
 // The path argument points to the base config file (e.g. "configs/config.yaml").
 // If the APP_ENV environment variable is set (dev/test/prod), a matching
 // config.{APP_ENV}.yaml in the same directory is loaded and merged on top.
+// (File loading is driven only by an explicit APP_ENV — an unset value does
+// NOT auto-load config.prod.yaml, to avoid changing existing load semantics.)
+//
+// Validation strictness differs: when APP_ENV is unset it defaults to "prod"
+// (fail-closed), so the stricter production checks apply by default. Only the
+// explicit "dev" and "test" environments relax them. See effectiveEnv in Load.
 //
 // Environment variables override individual fields after YAML merging.
 // See applyEnvOverrides() for the full list of supported variables.
@@ -40,8 +46,16 @@ func Load(path string) (*Config, error) {
 		return nil, fmt.Errorf("unmarshal base config: %w", err)
 	}
 
-	// 2. Load environment-specific override (if APP_ENV is set).
+	// 2. Load environment-specific override (if APP_ENV is set explicitly).
 	env := os.Getenv("APP_ENV")
+	// 未设置 APP_ENV 时按生产处理（默认拒绝）：只有显式 dev/test 才放宽校验。
+	// 配置文件加载仍只由显式 APP_ENV 驱动（保持既有语义，不强行加载
+	// config.prod.yaml），这里只翻转「校验严格性」——把传给 validate 的
+	// effectiveEnv 在空值时补成 "prod"。
+	effectiveEnv := env
+	if effectiveEnv == "" {
+		effectiveEnv = "prod"
+	}
 	if env != "" {
 		if !validEnvs[env] {
 			return nil, fmt.Errorf("invalid APP_ENV %q, must be one of: dev, test, prod", env)
@@ -61,8 +75,9 @@ func Load(path string) (*Config, error) {
 	// 4. Set defaults for any remaining zero-value fields.
 	setDefaults(cfg)
 
-	// 5. Validate critical fields.
-	if err := validate(cfg, env); err != nil {
+	// 5. Validate critical fields. effectiveEnv 已把「未设置」补成 "prod"，
+	// 因此未声明 APP_ENV 时按生产严格校验（fail-closed）。
+	if err := validate(cfg, effectiveEnv); err != nil {
 		return nil, err
 	}
 
@@ -406,18 +421,22 @@ func setDefaults(cfg *Config) {
 // values. It returns an error describing the first problem found, or nil
 // if the configuration passes all checks.
 //
-// The env parameter is the current APP_ENV value (may be empty). In
-// production mode the validation rules are stricter — for example, the
-// JWT secret must not be the placeholder value.
+// The env parameter is the effective APP_ENV used for validation. An empty
+// (unset) APP_ENV is treated as "prod" by the caller (Load), so the stricter
+// rules below apply by default — fail-closed. Only the explicit "dev" and
+// "test" environments relax them. In production mode the validation rules are
+// stricter — for example, the JWT secret must not be the placeholder value.
 func validate(cfg *Config, env string) error {
 	// JWT secret is always required.
 	if cfg.JWT.Secret == "" {
 		return fmt.Errorf("config validation: jwt.secret is required")
 	}
-	// In production, reject the placeholder JWT secret.
-	if env == "prod" && (cfg.JWT.Secret == "starbyte-secret-key-change-in-production" ||
-		strings.Contains(cfg.JWT.Secret, "change-in-production")) {
-		return fmt.Errorf("config validation: jwt.secret must be changed from default in production")
+	// In production (or when APP_ENV is unset), enforce a strong JWT secret
+	// (length + no placeholder + entropy).
+	if env == "prod" {
+		if err := validateProdJWTSecret(cfg.JWT.Secret); err != nil {
+			return err
+		}
 	}
 
 	// Database host is required.
@@ -431,16 +450,17 @@ func validate(cfg *Config, env string) error {
 		return fmt.Errorf("config validation: database.dbname is required")
 	}
 
-	// In production, database password must not be empty.
+	// In production (or when APP_ENV is unset), database password must not be empty.
 	if env == "prod" && cfg.Database.Password == "" {
 		return fmt.Errorf("config validation: database.password is required in production")
 	}
 
-	// In production, Redis host must be set.
+	// In production (or when APP_ENV is unset), Redis host must be set.
 	if env == "prod" && cfg.Redis.Host == "" {
 		return fmt.Errorf("config validation: redis.host is required in production")
 	}
-	// In production, Redis password should be set (security best practice).
+	// In production (or when APP_ENV is unset), Redis password should be set
+	// (security best practice).
 	if env == "prod" && cfg.Redis.Password == "" {
 		return fmt.Errorf("config validation: redis.password should be set in production (use environment variable REDIS_PASSWORD)")
 	}
@@ -458,4 +478,60 @@ func validate(cfg *Config, env string) error {
 	}
 
 	return nil
+}
+
+// validateProdJWTSecret enforces a strong JWT secret in production.
+// Three stages:
+//  1. length must be >= 32;
+//  2. low-entropy patterns (all-identical or <=2 distinct characters) are rejected
+//     regardless of length, since even a long repeated string is guessable;
+//  3. common placeholder / weak words are rejected at ANY length.
+//
+// The placeholder check is intentionally NOT limited to short secrets. Repeating a
+// short word — e.g. strings.Repeat("password", 5) = 40 chars or
+// strings.Repeat("starbyte", 8) = 64 chars — yields a long string that passes both
+// the length and entropy stages yet has negligible real entropy. Skipping the check
+// for >=64-char secrets (the previous behaviour) let exactly these values through,
+// so the check runs unconditionally. It operates on the lowercased secret; a genuine
+// random 64-char [A-Za-z0-9] secret will not contain any of these substrings, so
+// legitimate strong keys are not falsely rejected.
+func validateProdJWTSecret(secret string) error {
+	if len(secret) < 32 {
+		return fmt.Errorf("config validation: jwt.secret must be at least 32 characters in production")
+	}
+
+	if isLowEntropy(secret) {
+		return fmt.Errorf("config validation: jwt.secret is too weak (low entropy) in production")
+	}
+
+	lower := strings.ToLower(secret)
+	placeholders := []string{
+		"change-me", "change-in-production", "changeme",
+		"secret", "your-super-secret", "example", "default", "starbyte",
+		"password", "passwd", "pwd", "admin", "test",
+		"000000", "123456", "qwerty",
+	}
+	for _, w := range placeholders {
+		if strings.Contains(lower, w) {
+			return fmt.Errorf("config validation: jwt.secret must not be a placeholder value in production")
+		}
+	}
+
+	return nil
+}
+
+// isLowEntropy reports whether s consists of identical characters or at most two
+// distinct characters — both trivially guessable patterns.
+func isLowEntropy(s string) bool {
+	if s == "" {
+		return true
+	}
+	seen := make(map[rune]struct{}, 4)
+	for _, r := range s {
+		seen[r] = struct{}{}
+		if len(seen) > 2 {
+			return false
+		}
+	}
+	return true
 }

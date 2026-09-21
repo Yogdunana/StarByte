@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/stats/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/stats/repo"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
@@ -68,7 +69,7 @@ func (stubRepo) InternshipTrend(context.Context, repo.Query) ([]repo.Bucket, err
 	return []repo.Bucket{{Key: "2026-01", Label: "2026-01", Value: 45}}, nil
 }
 func (stubRepo) RankingHidden(context.Context) (bool, error) { return false, nil }
-func (stubRepo) Overview(context.Context, uuid.UUID) (*dto.OverviewResponse, error) {
+func (stubRepo) Overview(context.Context, uuid.UUID, *rbacModel.DataScopeCondition) (*dto.OverviewResponse, error) {
 	return &dto.OverviewResponse{TotalMembers: 12, TotalMeetingsThisMonth: 2, TotalTasksInProgress: 3}, nil
 }
 
@@ -124,7 +125,7 @@ func TestInvalidQuery(t *testing.T) {
 
 func TestOverviewAndExport(t *testing.T) {
 	svc := NewStatsService(stubRepo{})
-	ov, err := svc.Overview(context.Background(), uuid.New())
+	ov, err := svc.Overview(context.Background(), uuid.New(), nil)
 	require.NoError(t, err)
 	assert.Equal(t, int64(12), ov.TotalMembers)
 

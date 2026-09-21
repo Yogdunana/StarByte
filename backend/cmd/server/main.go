@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -212,7 +214,10 @@ func main() {
 		}
 		return pingMinio(ctx)
 	}))
-	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+	// /metrics 暴露全部 API 路由标签与服务器资源水位，对校园网开放端口存在信息泄露风险。
+	// 仅在设置了 METRICS_TOKEN 时通过 Bearer/query 令牌访问；未设置且为生产（release）模式直接 404，
+	// 避免暴露端点存在。非生产模式未设令牌则放行（便于本地观测）。
+	r.GET("/metrics", metricsGuard(cfg), gin.WrapH(promhttp.Handler()))
 	registerSwagger(r)
 
 	// 9. 初始化业务模块
@@ -269,7 +274,7 @@ func main() {
 	authH := authHandler.NewAuthHandler(authSvc)
 
 	// 用户管理模块
-	userService := service.NewUserService(database.DB(), userRepo, &cfg.JWT, emailActivator)
+	userService := service.NewUserService(database.DB(), userRepo, &cfg.JWT, emailActivator, authSvc)
 	userHandler := handler.NewUserHandler(userService)
 
 	// RBAC 权限模块（service 层）
@@ -328,7 +333,7 @@ func main() {
 	// 通知处理器
 	notificationHandler := notifHandler.NewNotificationHandler(notifSvc, hub)
 	templateHandler := notifHandler.NewTemplateHandler(tplSvc)
-	wsHandler := notifHandler.NewWSHandler(hub, &cfg.JWT, cfg.CORS.AllowedOrigins)
+	wsHandler := notifHandler.NewWSHandler(hub, &cfg.JWT, cfg.CORS.AllowedOrigins).WithRedis(redis.Client())
 	emailSvc := notifService.NewEmailService(emailWorker, tplEngine, emailLogs)
 	emailHandler := notifHandler.NewEmailHandler(emailSvc)
 
@@ -556,7 +561,7 @@ func main() {
 		meetingHandler.RegisterRoutes(protected, mtH, cacheService, database.DB(), deptRepo)
 
 		// 活动管理与报名系统（/activities）
-		activityHandler.RegisterRoutes(protected, actH, cacheService)
+		activityHandler.RegisterRoutes(protected, actH, cacheService, database.DB(), deptRepo)
 
 		// 公告中心（/announcements，#77）；成员侧信息流受 announcement.feed 灰度
 		announcementHandler.RegisterRoutes(protected, annH, cacheService, featureHandler.RequireFlag(
@@ -690,4 +695,40 @@ func main() {
 	schedEng.Stop()
 
 	logger.Info("server exited")
+}
+
+// metricsGuard 保护 /metrics 端点，避免校园网开放端口泄露 API 路由标签与资源水位。
+// 规则：
+//   - 设置了 METRICS_TOKEN：要求 Authorization: Bearer <token> 或 ?token=<token> 匹配
+//     （常量时间比较，避免时序侧信道），不匹配返回 404（不暴露端点存在）。
+//   - 未设置 METRICS_TOKEN：非 release 模式放行（便于本地观测）；release（生产）模式直接 404，
+//     并只告警一次（避免每个请求刷一条日志）。
+func metricsGuard(cfg *config.Config) gin.HandlerFunc {
+	var warnOnce sync.Once
+	return func(c *gin.Context) {
+		token := os.Getenv("METRICS_TOKEN")
+		if token == "" {
+			if cfg.Server.Mode == "release" {
+				warnOnce.Do(func() {
+					logger.Warn("metrics endpoint is disabled in production; set METRICS_TOKEN to enable it")
+				})
+				c.AbortWithStatus(http.StatusNotFound)
+				return
+			}
+			c.Next()
+			return
+		}
+
+		provided := c.Query("token")
+		if provided == "" {
+			if ah := c.GetHeader("Authorization"); strings.HasPrefix(ah, "Bearer ") {
+				provided = strings.TrimPrefix(ah, "Bearer ")
+			}
+		}
+		if provided == "" || subtle.ConstantTimeCompare([]byte(provided), []byte(token)) != 1 {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		}
+		c.Next()
+	}
 }

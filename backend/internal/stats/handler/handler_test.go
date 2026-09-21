@@ -31,7 +31,7 @@ func (s *stubSvc) ListProviders() []dto.ProviderInfo { return s.providers }
 func (s *stubSvc) GetStats(context.Context, string, *dto.StatsQuery) (*dto.StatsResult, error) {
 	return s.result, s.err
 }
-func (s *stubSvc) Overview(context.Context, uuid.UUID) (*dto.OverviewResponse, error) {
+func (s *stubSvc) Overview(context.Context, uuid.UUID, *rbacModel.DataScopeCondition) (*dto.OverviewResponse, error) {
 	return s.overview, s.err
 }
 func (s *stubSvc) Export(context.Context, string, string, *dto.StatsQuery) ([]byte, string, error) {

@@ -20,13 +20,16 @@ import (
 
 const permFileDelete = "file:delete"
 
+// permFileReadAll 文件全量查看。持该权限者可读取全站任意文件（含他人非公开文件）。
+const permFileReadAll = "file:read:all"
+
 // FileService 文件管理服务
 type FileService interface {
 	Upload(ctx context.Context, userID uuid.UUID, header *multipart.FileHeader, category string, isPublic bool) (*dto.FileUploadResponse, error)
 	UploadBatch(ctx context.Context, userID uuid.UUID, headers []*multipart.FileHeader) ([]*dto.FileUploadResponse, error)
-	List(ctx context.Context, req *dto.ListFilesRequest) ([]*dto.FileListItem, int64, error)
-	GetByID(ctx context.Context, id uuid.UUID) (*dto.FileDetailResponse, error)
-	PresignDownload(ctx context.Context, id uuid.UUID) (string, error)
+	List(ctx context.Context, req *dto.ListFilesRequest, userID uuid.UUID) ([]*dto.FileListItem, int64, error)
+	GetByID(ctx context.Context, id, userID uuid.UUID) (*dto.FileDetailResponse, error)
+	PresignDownload(ctx context.Context, id, userID uuid.UUID) (string, error)
 	Delete(ctx context.Context, id, userID uuid.UUID) error
 }
 
@@ -63,10 +66,6 @@ func (s *fileService) Upload(ctx context.Context, userID uuid.UUID, header *mult
 	if header == nil {
 		return nil, response.NewError(response.CodeBadRequest, "请选择要上传的文件")
 	}
-	validated, err := validateUpload(header.Filename, header.Size, strings.TrimSpace(category))
-	if err != nil {
-		return nil, err
-	}
 
 	src, err := header.Open()
 	if err != nil {
@@ -77,6 +76,11 @@ func (s *fileService) Upload(ctx context.Context, userID uuid.UUID, header *mult
 	data, err := io.ReadAll(src)
 	if err != nil {
 		return nil, response.NewError(response.CodeInternalError, "读取上传文件失败")
+	}
+
+	validated, err := validateUpload(header.Filename, header.Size, strings.TrimSpace(category), data)
+	if err != nil {
+		return nil, err
 	}
 
 	fileID := uuid.New()

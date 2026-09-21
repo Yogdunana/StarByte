@@ -19,9 +19,14 @@ type Notifier interface {
 	Send(ctx context.Context, userIDs []uuid.UUID, template string, vars map[string]interface{}) error
 }
 
+// FileBridge 任务模块借道文件模块做附件上传/删除。
+// 注意：签名必须与 file/service.FileService 保持一致 —— 由 main.go 直接把
+// fileSvc 注入本接口，任一侧改签名都会导致编译期不匹配。
+// GetByID 目前无调用方（附件读取走 AttachmentRepo 的 GetNamed/ListByTask），
+// 保留是为了让桥接接口完整镜像文件服务的读取能力；若后续弃用可直接删除。
 type FileBridge interface {
 	Upload(ctx context.Context, userID uuid.UUID, header *multipart.FileHeader, category string, isPublic bool) (*filedto.FileUploadResponse, error)
-	GetByID(ctx context.Context, id uuid.UUID) (*filedto.FileDetailResponse, error)
+	GetByID(ctx context.Context, id, userID uuid.UUID) (*filedto.FileDetailResponse, error)
 	Delete(ctx context.Context, id, userID uuid.UUID) error
 }
 

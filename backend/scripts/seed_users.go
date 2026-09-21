@@ -1,13 +1,40 @@
 package main
 
 import (
+	"crypto/rand"
 	"fmt"
+	"math/big"
+	"os"
 
 	"github.com/Yogdunana/StarByte/backend/pkg/utils"
 	"gorm.io/gorm"
 )
 
+// genRandomPassword 生成 length 位、由大小写字母+数字组成的高熵口令。
+// 仅使用字母与数字（无 shell 元字符），避免部署脚本回显或复制时被截断/注入。
+func genRandomPassword(length int) (string, error) {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, length)
+	for i := range b {
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			return "", err
+		}
+		b[i] = charset[n.Int64()]
+	}
+	return string(b), nil
+}
+
 func seedUsers(db *gorm.DB) error {
+	// 生产环境使用强口令策略；其余环境保留开发便利口令。
+	if os.Getenv("APP_ENV") == "prod" {
+		return seedUsersProd(db)
+	}
+	return seedUsersDev(db)
+}
+
+// seedUsersDev 保持原有开发口令（admin/admin123、test/test123），仅打印提示。
+func seedUsersDev(db *gorm.DB) error {
 	adminHash, err := utils.HashPassword("admin123")
 	if err != nil {
 		return fmt.Errorf("hash admin password: %w", err)
@@ -58,6 +85,84 @@ func seedUsers(db *gorm.DB) error {
 		ON CONFLICT (user_id, role_id) DO NOTHING
 	`).Error; err != nil {
 		return err
+	}
+
+	fmt.Println("============================================================")
+	fmt.Println("[StarByte] 开发环境已播种 admin/admin123 与 test/test123（仅用于开发，请勿在生产使用）")
+	fmt.Println("============================================================")
+	return nil
+}
+
+// seedUsersProd 生产播种：不写入测试账号；admin 口令优先取 SEED_ADMIN_PASSWORD，
+// 否则生成 24 位强随机口令并打印一次（只显示这一次）。
+func seedUsersProd(db *gorm.DB) error {
+	// 测试账号仅用于开发，生产不创建。
+
+	// 先判断 admin 是否已存在，已存在则跳过创建/不打印口令。
+	var adminCount int64
+	if err := db.Raw("SELECT count(*) FROM users WHERE username = 'admin' AND deleted_at IS NULL").Scan(&adminCount).Error; err != nil {
+		return fmt.Errorf("check admin existence: %w", err)
+	}
+
+	// 口令来源：环境变量优先，否则生成强随机口令。
+	adminPassword := os.Getenv("SEED_ADMIN_PASSWORD")
+	generated := false
+	if adminPassword == "" {
+		p, err := genRandomPassword(24)
+		if err != nil {
+			return fmt.Errorf("generate admin password: %w", err)
+		}
+		adminPassword = p
+		generated = true
+	}
+	adminHash, err := utils.HashPassword(adminPassword)
+	if err != nil {
+		return fmt.Errorf("hash admin password: %w", err)
+	}
+
+	if err := db.Exec(`
+		INSERT INTO users (id, username, password_hash, real_name, email, status, email_verified_at)
+		VALUES (uuid_generate_v4(), 'admin', ?, '管理员', 'admin@starbyte.local', 0, CURRENT_TIMESTAMP)
+		ON CONFLICT (username) WHERE deleted_at IS NULL DO NOTHING
+	`, adminHash).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`
+		UPDATE users
+		SET email_verified_at = COALESCE(email_verified_at, CURRENT_TIMESTAMP)
+		WHERE username = 'admin' AND deleted_at IS NULL AND email_verified_at IS NULL
+	`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`
+		INSERT INTO user_roles (id, user_id, role_id)
+		SELECT uuid_generate_v4(), u.id, r.id
+		FROM users u
+		CROSS JOIN roles r
+		WHERE u.username = 'admin' AND r.code = 'super_admin'
+		ON CONFLICT (user_id, role_id) DO NOTHING
+	`).Error; err != nil {
+		return err
+	}
+
+	if adminCount > 0 {
+		fmt.Println("============================================================")
+		fmt.Println("[StarByte] 生产环境：admin 已存在，跳过创建（未打印口令）")
+		fmt.Println("============================================================")
+		return nil
+	}
+
+	if generated {
+		fmt.Println("============================================================")
+		fmt.Println("[StarByte] 生产环境首次播种：admin 账号已创建")
+		fmt.Println("用户名: admin")
+		fmt.Printf("初始密码: %s\n", adminPassword)
+		fmt.Println("请立即登录并修改密码；本密码只显示这一次。")
+		fmt.Println("============================================================")
+	} else {
+		fmt.Println("============================================================")
+		fmt.Println("[StarByte] 生产环境首次播种：admin 账号已创建（口令来自 SEED_ADMIN_PASSWORD，未打印）")
+		fmt.Println("============================================================")
 	}
 	return nil
 }

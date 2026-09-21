@@ -39,7 +39,7 @@
 POST /api/v1/auth/login
 Content-Type: application/json
 
-{"username":"admin","password":"admin123"}
+{"username":"admin","password":"<你的口令>"}
 ```
 
 ```json

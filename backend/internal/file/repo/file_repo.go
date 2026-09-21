@@ -14,7 +14,7 @@ type FileRepo interface {
 	Create(ctx context.Context, file *model.File) error
 	GetByID(ctx context.Context, id uuid.UUID) (*model.File, error)
 	GetByIDWithUploader(ctx context.Context, id uuid.UUID) (*model.FileWithUploader, error)
-	List(ctx context.Context, req *dto.ListFilesRequest) ([]model.FileWithUploader, int64, error)
+	List(ctx context.Context, req *dto.ListFilesRequest, ownerScope *uuid.UUID) ([]model.FileWithUploader, int64, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
@@ -55,7 +55,7 @@ func (r *fileRepo) GetByIDWithUploader(ctx context.Context, id uuid.UUID) (*mode
 	return &row, nil
 }
 
-func (r *fileRepo) List(ctx context.Context, req *dto.ListFilesRequest) ([]model.FileWithUploader, int64, error) {
+func (r *fileRepo) List(ctx context.Context, req *dto.ListFilesRequest, ownerScope *uuid.UUID) ([]model.FileWithUploader, int64, error) {
 	page, pageSize := normalizePage(req.Page, req.PageSize)
 	query := r.withUploader(r.db.WithContext(ctx).Model(&model.File{}))
 	if req.Category != "" {
@@ -65,11 +65,15 @@ func (r *fileRepo) List(ctx context.Context, req *dto.ListFilesRequest) ([]model
 		like := "%" + req.Keyword + "%"
 		query = query.Where("files.name ILIKE ? OR files.original_name ILIKE ?", like, like)
 	}
-	if req.UploaderID != "" {
-		query = query.Where("files.uploaded_by = ?", req.UploaderID)
-	}
 	if req.MimeType != "" {
 		query = query.Where("files.mime_type = ?", req.MimeType)
+	}
+	// ownerScope != nil 表示普通会员：强制只看「自己的 + 公开的」。
+	// 此时忽略客户端传入的 uploader_id（客户端只能进一步收窄，不能放宽隔离边界）。
+	if ownerScope != nil {
+		query = query.Where("files.uploaded_by = ? OR files.is_public = TRUE", *ownerScope)
+	} else if req.UploaderID != "" {
+		query = query.Where("files.uploaded_by = ?", req.UploaderID)
 	}
 
 	var total int64

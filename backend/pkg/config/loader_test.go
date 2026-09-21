@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -72,6 +73,9 @@ cors:
 `
 
 func TestLoad_BaseConfig(t *testing.T) {
+	// 显式声明测试态：基础配置里的弱 JWT 密钥只在 dev/test 下放行，
+	// 避免这次 fail-closed 改动把既有测试当成「未设置 APP_ENV」的生产校验而误拒。
+	t.Setenv("APP_ENV", "test")
 	dir := t.TempDir()
 	path := helperWriteConfig(t, dir, "config.yaml", baseConfigYAML)
 
@@ -416,7 +420,7 @@ func TestValidate_Success(t *testing.T) {
 		Database: DatabaseConfig{Host: "localhost", User: "starbyte", DBName: "starbyte", Password: "pass"},
 		JWT:      JWTConfig{Secret: "valid-secret"},
 	}
-	if err := validate(cfg, ""); err != nil {
+	if err := validate(cfg, "test"); err != nil {
 		t.Errorf("validate() error = %v, want nil", err)
 	}
 }
@@ -449,7 +453,7 @@ func TestValidate_ProductionEmptyPassword(t *testing.T) {
 	cfg := &Config{
 		Server:   ServerConfig{Port: 8080, Mode: "release"},
 		Database: DatabaseConfig{Host: "localhost", User: "starbyte", DBName: "starbyte", Password: ""},
-		JWT:      JWTConfig{Secret: "real-prod-secret"},
+		JWT:      JWTConfig{Secret: "aT9kL2mN8qR5vB7wX4yZ1cD6eF3gH0jP9sU2n"},
 	}
 	err := validate(cfg, "prod")
 	if err == nil {
@@ -463,7 +467,7 @@ func TestValidate_InvalidPort(t *testing.T) {
 		Database: DatabaseConfig{Host: "localhost", User: "starbyte", DBName: "starbyte"},
 		JWT:      JWTConfig{Secret: "valid-secret"},
 	}
-	err := validate(cfg, "")
+	err := validate(cfg, "test")
 	if err == nil {
 		t.Fatal("expected error for invalid port, got nil")
 	}
@@ -475,7 +479,7 @@ func TestValidate_InvalidMode(t *testing.T) {
 		Database: DatabaseConfig{Host: "localhost", User: "starbyte", DBName: "starbyte"},
 		JWT:      JWTConfig{Secret: "valid-secret"},
 	}
-	err := validate(cfg, "")
+	err := validate(cfg, "test")
 	if err == nil {
 		t.Fatal("expected error for invalid mode, got nil")
 	}
@@ -487,7 +491,7 @@ func TestValidate_MissingDBHost(t *testing.T) {
 		Database: DatabaseConfig{User: "starbyte", DBName: "starbyte"},
 		JWT:      JWTConfig{Secret: "valid-secret"},
 	}
-	err := validate(cfg, "")
+	err := validate(cfg, "test")
 	if err == nil {
 		t.Fatal("expected error for missing DB host, got nil")
 	}
@@ -602,7 +606,7 @@ func TestValidate_ProductionMissingRedisHost(t *testing.T) {
 		Server:   ServerConfig{Port: 8080, Mode: "release"},
 		Database: DatabaseConfig{Host: "db.prod", User: "starbyte", DBName: "starbyte", Password: "pass"},
 		Redis:    RedisConfig{Host: "", Port: 6379, Password: "redis-pass"},
-		JWT:      JWTConfig{Secret: "real-prod-secret"},
+		JWT:      JWTConfig{Secret: "aT9kL2mN8qR5vB7wX4yZ1cD6eF3gH0jP9sU2n"},
 	}
 	err := validate(cfg, "prod")
 	if err == nil {
@@ -615,7 +619,7 @@ func TestValidate_ProductionEmptyRedisPassword(t *testing.T) {
 		Server:   ServerConfig{Port: 8080, Mode: "release"},
 		Database: DatabaseConfig{Host: "db.prod", User: "starbyte", DBName: "starbyte", Password: "pass"},
 		Redis:    RedisConfig{Host: "redis.prod", Port: 6379, Password: ""},
-		JWT:      JWTConfig{Secret: "real-prod-secret"},
+		JWT:      JWTConfig{Secret: "aT9kL2mN8qR5vB7wX4yZ1cD6eF3gH0jP9sU2n"},
 	}
 	err := validate(cfg, "prod")
 	if err == nil {
@@ -628,14 +632,107 @@ func TestValidate_ProductionRedisValid(t *testing.T) {
 		Server:   ServerConfig{Port: 8080, Mode: "release"},
 		Database: DatabaseConfig{Host: "db.prod", User: "starbyte", DBName: "starbyte", Password: "pass"},
 		Redis:    RedisConfig{Host: "redis.prod", Port: 6379, Password: "redis-pass"},
-		JWT:      JWTConfig{Secret: "real-prod-secret"},
+		JWT:      JWTConfig{Secret: "aT9kL2mN8qR5vB7wX4yZ1cD6eF3gH0jP9sU2n"},
 	}
 	if err := validate(cfg, "prod"); err != nil {
 		t.Errorf("validate() in prod with valid Redis = %v, want nil", err)
 	}
 }
 
+// 以下为 JWT 强度校验的专项测试（S-01 后端侧）。
+
+func TestValidate_ProdJWTTooShort(t *testing.T) {
+	cfg := &Config{
+		Server:   ServerConfig{Port: 8080, Mode: "release"},
+		Database: DatabaseConfig{Host: "db.prod", User: "starbyte", DBName: "starbyte", Password: "pass"},
+		Redis:    RedisConfig{Host: "redis.prod", Port: 6379, Password: "redis-pass"},
+		JWT:      JWTConfig{Secret: "short-but-strong-looking"}, // 24 chars < 32
+	}
+	if err := validate(cfg, "prod"); err == nil {
+		t.Fatal("expected error for <32 char JWT secret in prod, got nil")
+	}
+}
+
+func TestValidate_ProdJWTPlaceholder(t *testing.T) {
+	cfg := &Config{
+		Server:   ServerConfig{Port: 8080, Mode: "release"},
+		Database: DatabaseConfig{Host: "db.prod", User: "starbyte", DBName: "starbyte", Password: "pass"},
+		Redis:    RedisConfig{Host: "redis.prod", Port: 6379, Password: "redis-pass"},
+		// compose 兜底值 change-me-in-production 不含旧子串，但命中新占位词表。
+		JWT: JWTConfig{Secret: "change-me-in-production-abcdefghijklmnop"},
+	}
+	if err := validate(cfg, "prod"); err == nil {
+		t.Fatal("expected error for placeholder JWT secret in prod, got nil")
+	}
+}
+
+func TestValidate_ProdJWTLongRandomOK(t *testing.T) {
+	cfg := &Config{
+		Server:   ServerConfig{Port: 8080, Mode: "release"},
+		Database: DatabaseConfig{Host: "db.prod", User: "starbyte", DBName: "starbyte", Password: "pass"},
+		Redis:    RedisConfig{Host: "redis.prod", Port: 6379, Password: "redis-pass"},
+		// 64 字符高熵随机串，即便偶含占位词也不应被拒。
+		JWT: JWTConfig{Secret: "xK9mP2qR5vB7wT1zC4dF6gH8jL0sU3yE5aN7cX9mP2qR5vB7wT1zC4dF6gH8jL0sU3yE5aN7cX9mP2qR5vB7"},
+	}
+	if err := validate(cfg, "prod"); err != nil {
+		t.Errorf("validate() with 64-char random secret = %v, want nil", err)
+	}
+}
+
+func TestValidate_ProdJWTLowEntropy(t *testing.T) {
+	cfg := &Config{
+		Server:   ServerConfig{Port: 8080, Mode: "release"},
+		Database: DatabaseConfig{Host: "db.prod", User: "starbyte", DBName: "starbyte", Password: "pass"},
+		Redis:    RedisConfig{Host: "redis.prod", Port: 6379, Password: "redis-pass"},
+		JWT:      JWTConfig{Secret: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, // 40 个 a
+	}
+	if err := validate(cfg, "prod"); err == nil {
+		t.Fatal("expected error for low-entropy (repeated) JWT secret in prod, got nil")
+	}
+}
+
+// TestValidate_ProdJWTSecretBypass 覆盖上一轮修复的两个已确认绕过：
+// 长重复串过长度+熵检查，但旧逻辑或因词表缺失、或因 len<64 跳过词表而放行。
+func TestValidate_ProdJWTSecretBypass(t *testing.T) {
+	bypasses := []string{
+		strings.Repeat("password", 5), // 40 chars, distinct=7, "password" 不在旧词表
+		strings.Repeat("starbyte", 8), // 64 chars, 因 len<64 不成立而跳过词表
+		strings.Repeat("change-me-", 7), // 70 chars, 同理跳过词表
+	}
+	for _, s := range bypasses {
+		if err := validateProdJWTSecret(s); err == nil {
+			t.Errorf("validateProdJWTSecret(%q) = nil, want rejection (confirmed bypass value)", s)
+		}
+	}
+}
+
+// TestValidate_ProdJWTSecretStrongOK 确保真正的 64 位 [A-Za-z0-9] 随机串不被误伤。
+func TestValidate_ProdJWTSecretStrongOK(t *testing.T) {
+	// 与 CLI 生成的真实 JWT_SECRET 同形态（64 个 [A-Za-z0-9]），且不含任何占位词子串。
+	strong := "AbCdEfGhIjKlMnOpQrStUvWxYz9073528416AbCdEfGhIjKlMnOpQrStUvWxYz90"
+	if len(strong) != 64 {
+		t.Fatalf("test fixture must be 64 chars, got %d", len(strong))
+	}
+	if err := validateProdJWTSecret(strong); err != nil {
+		t.Errorf("validateProdJWTSecret(strong 64-char) = %v, want nil", err)
+	}
+}
+
+func TestValidate_NonProdWeakSecretOK(t *testing.T) {
+	// 非生产环境不强制 JWT 强度，弱占位词也不应报错。
+	cfg := &Config{
+		Server:   ServerConfig{Port: 8080, Mode: "debug"},
+		Database: DatabaseConfig{Host: "localhost", User: "starbyte", DBName: "starbyte"},
+		JWT:      JWTConfig{Secret: "change-me-in-production"},
+	}
+	if err := validate(cfg, "dev"); err != nil {
+		t.Errorf("validate() in non-prod with weak secret = %v, want nil", err)
+	}
+}
+
 func TestLoad_MinimalConfigWithDefaults(t *testing.T) {
+	// 显式声明测试态：minYAML 用的是弱 JWT 密钥，只在 dev/test 下放行。
+	t.Setenv("APP_ENV", "test")
 	// A minimal config with only critical fields.
 	minYAML := `database:
   host: db.local
@@ -669,5 +766,92 @@ jwt:
 	}
 	if cfg.JWT.Secret != "minimal-secret" {
 		t.Errorf("JWT.Secret = %s, want minimal-secret", cfg.JWT.Secret)
+	}
+}
+
+// ── fail-closed：未设置 APP_ENV 时按生产严格校验（默认拒绝） ─────────────
+
+// TestLoad_DefaultEnv_PlaceholderJWTRejected 证明：未声明 APP_ENV 时，
+// 占位 JWT 密钥（即 configs/config.yaml 里的公开值）会被拒绝，后端将启动
+// 失败——这正是我们要的 fail-closed 结果（不能离线伪造 super_admin token）。
+func TestLoad_DefaultEnv_PlaceholderJWTRejected(t *testing.T) {
+	// 确保 APP_ENV 未设置（空值等价于未设置：Loader 把空值补成 prod）。
+	t.Setenv("APP_ENV", "")
+
+	yaml := `server:
+  port: 8080
+  mode: debug
+database:
+  host: localhost
+  user: starbyte
+  dbname: starbyte
+  password: strong-db-pass
+redis:
+  host: localhost
+  password: strong-redis-pass
+jwt:
+  secret: "starbyte-secret-key-change-in-production"
+`
+	dir := t.TempDir()
+	path := helperWriteConfig(t, dir, "config.yaml", yaml)
+
+	if _, err := Load(path); err == nil {
+		t.Fatal("expected rejection of placeholder JWT secret when APP_ENV unset, got nil")
+	}
+}
+
+// TestLoad_TestEnv_PlaceholderJWTAllowed 证明：显式 APP_ENV=test 时，
+// 同一弱占位密钥被放行（测试态允许弱口令，不被当成生产误拒）。
+func TestLoad_TestEnv_PlaceholderJWTAllowed(t *testing.T) {
+	t.Setenv("APP_ENV", "test")
+
+	yaml := `server:
+  port: 8080
+  mode: debug
+database:
+  host: localhost
+  user: starbyte
+  dbname: starbyte
+jwt:
+  secret: "starbyte-secret-key-change-in-production"
+`
+	dir := t.TempDir()
+	path := helperWriteConfig(t, dir, "config.yaml", yaml)
+
+	if _, err := Load(path); err != nil {
+		t.Fatalf("expected placeholder JWT allowed in test env, got %v", err)
+	}
+}
+
+// TestLoad_DefaultEnv_StrongJWTAllowed 证明：未设置 APP_ENV 时，
+// 强随机 64 位 [A-Za-z0-9] 密钥不会被误伤（可以正常启动）。
+func TestLoad_DefaultEnv_StrongJWTAllowed(t *testing.T) {
+	t.Setenv("APP_ENV", "")
+
+	// 与 CLI 生成的真实 JWT_SECRET 同形态（64 个 [A-Za-z0-9]，不含占位词）。
+	strong := "AbCdEfGhIjKlMnOpQrStUvWxYz9073528416AbCdEfGhIjKlMnOpQrStUvWxYz90"
+	if len(strong) != 64 {
+		t.Fatalf("test fixture must be 64 chars, got %d", len(strong))
+	}
+
+	yaml := `server:
+  port: 8080
+  mode: debug
+database:
+  host: localhost
+  user: starbyte
+  dbname: starbyte
+  password: strong-db-pass
+redis:
+  host: localhost
+  password: strong-redis-pass
+jwt:
+  secret: "` + strong + `"
+`
+	dir := t.TempDir()
+	path := helperWriteConfig(t, dir, "config.yaml", yaml)
+
+	if _, err := Load(path); err != nil {
+		t.Fatalf("expected strong 64-char JWT allowed when APP_ENV unset, got %v", err)
 	}
 }

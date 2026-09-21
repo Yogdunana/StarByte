@@ -7,6 +7,7 @@ import (
 
 	exportDTO "github.com/Yogdunana/StarByte/backend/internal/export/dto"
 	exportSvc "github.com/Yogdunana/StarByte/backend/internal/export/service"
+	"github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/Yogdunana/StarByte/backend/internal/stats/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/stats/repo"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
@@ -19,7 +20,7 @@ const maxExportPoints = 5000
 type StatsService interface {
 	ListProviders() []dto.ProviderInfo
 	GetStats(ctx context.Context, provider string, q *dto.StatsQuery) (*dto.StatsResult, error)
-	Overview(ctx context.Context, userID uuid.UUID) (*dto.OverviewResponse, error)
+	Overview(ctx context.Context, userID uuid.UUID, scope *model.DataScopeCondition) (*dto.OverviewResponse, error)
 	Export(ctx context.Context, provider, format string, q *dto.StatsQuery) ([]byte, string, error)
 }
 
@@ -50,8 +51,8 @@ func (s *statsService) GetStats(ctx context.Context, provider string, q *dto.Sta
 	return s.reg.GetStats(ctx, provider, q)
 }
 
-func (s *statsService) Overview(ctx context.Context, userID uuid.UUID) (*dto.OverviewResponse, error) {
-	return s.repo.Overview(ctx, userID)
+func (s *statsService) Overview(ctx context.Context, userID uuid.UUID, scope *model.DataScopeCondition) (*dto.OverviewResponse, error) {
+	return s.repo.Overview(ctx, userID, scope)
 }
 
 func (s *statsService) Export(ctx context.Context, provider, format string, q *dto.StatsQuery) ([]byte, string, error) {

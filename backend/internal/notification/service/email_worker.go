@@ -176,7 +176,14 @@ func (w *EmailWorker) process(ctx context.Context, job MailJob) {
 	var files []MailAttachment
 	var err error
 	if len(job.AttachmentIDs) > 0 && w.attach != nil {
-		files, err = w.attach.Load(ctx, job.AttachmentIDs)
+		// Fail-closed: without a known operator we cannot scope the file
+		// lookup, so reject the attachment rather than risk loading
+		// someone else's file.
+		if job.UserID == nil {
+			w.finish(ctx, job, model.EmailFailed, "attachment operator unknown")
+			return
+		}
+		files, err = w.attach.Load(ctx, *job.UserID, job.AttachmentIDs)
 		if err != nil {
 			w.finish(ctx, job, model.EmailFailed, err.Error())
 			return

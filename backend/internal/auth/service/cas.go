@@ -642,8 +642,30 @@ func casFrontendError(origin, reason string) string {
 
 func sanitizeRedirect(p string) string {
 	p = strings.TrimSpace(p)
-	if p == "" || !strings.HasPrefix(p, "/") || strings.HasPrefix(p, "//") || strings.Contains(p, "://") {
+	if p == "" {
 		return casRedirectFallback
+	}
+	// Must be a path: start with exactly one slash.
+	if !strings.HasPrefix(p, "/") {
+		return casRedirectFallback
+	}
+	// Reject protocol-relative ("//evil.com") and absolute ("https://evil.com") URLs.
+	if strings.HasPrefix(p, "//") || strings.Contains(p, "://") {
+		return casRedirectFallback
+	}
+	// Reject backslashes: per WHATWG URL / browser normalization, "\example.com"
+	// is treated as "//example.com" (protocol-relative), enabling open redirect.
+	// This covers prefixes like "/\" and embedded variants like "/a\b".
+	if strings.Contains(p, "\\") {
+		return casRedirectFallback
+	}
+	// Reject control characters and whitespace (incl. internal spaces/newlines):
+	// a value like "/\x01http://evil.com" or "/ dashboard" could be normalized into
+	// an absolute URL before the scheme, bypassing the checks above.
+	for i := 0; i < len(p); i++ {
+		if p[i] <= 0x20 {
+			return casRedirectFallback
+		}
 	}
 	return p
 }

@@ -54,13 +54,41 @@ func TestCreateAndStartMeeting(t *testing.T) {
 func TestCheckinRules(t *testing.T) {
 	svc, mm, _, _ := newTestSvc()
 	m, org := seedMeeting(t, svc, mm, model.MeetingOngoing)
-	_, err := svc.Checkin(context.Background(), m.ID, uuid.New(), "")
+	// 会议已启用二维码（CreateMeeting 会生成 QRToken），签到必须携带正确 token。
+	_, err := svc.Checkin(context.Background(), m.ID, uuid.New(), m.QRToken)
 	requireAppError(t, err, response.CodeMeetingNotAttendee)
-	first, err := svc.Checkin(context.Background(), m.ID, org, "")
+	first, err := svc.Checkin(context.Background(), m.ID, org, m.QRToken)
 	require.NoError(t, err)
 	require.True(t, first.Attended)
-	_, err = svc.Checkin(context.Background(), m.ID, org, "")
+	_, err = svc.Checkin(context.Background(), m.ID, org, m.QRToken)
 	requireAppError(t, err, response.CodeMeetingDupCheckin)
+}
+
+// TestCheckinQRTokenEnforced 验证启用二维码的会议对省略/错误 token 进行 fail-closed 拒绝。
+func TestCheckinQRTokenEnforced(t *testing.T) {
+	svc, mm, _, _ := newTestSvc()
+	m, org := seedMeeting(t, svc, mm, model.MeetingOngoing)
+
+	_, err := svc.Checkin(context.Background(), m.ID, org, "")
+	requireAppError(t, err, response.CodeBadRequest)
+
+	_, err = svc.Checkin(context.Background(), m.ID, org, "wrong-token")
+	requireAppError(t, err, response.CodeBadRequest)
+
+	// 正确 token 放行。
+	_, err = svc.Checkin(context.Background(), m.ID, org, m.QRToken)
+	require.NoError(t, err)
+}
+
+// TestCheckinNoQRTokenAllowsEmpty 验证历史会议（未启用二维码）按设计放行空 token。
+func TestCheckinNoQRTokenAllowsEmpty(t *testing.T) {
+	svc, mm, _, _ := newTestSvc()
+	m, org := seedMeeting(t, svc, mm, model.MeetingOngoing)
+	m.QRToken = "" // 模拟未生成二维码的历史会议
+	_ = mm.Update(context.Background(), m)
+
+	_, err := svc.Checkin(context.Background(), m.ID, org, "")
+	require.NoError(t, err)
 }
 
 func TestCastVoteRules(t *testing.T) {

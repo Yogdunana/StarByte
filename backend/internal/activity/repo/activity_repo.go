@@ -6,6 +6,7 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/activity/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/activity/model"
+	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -18,9 +19,10 @@ type ActivityRepo interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*model.Activity, error)
 	GetByIDForUpdate(ctx context.Context, id uuid.UUID) (*model.Activity, error)
 	GetByIDWithNames(ctx context.Context, id uuid.UUID) (*model.ActivityWithNames, error)
-	List(ctx context.Context, req *dto.ListActivityRequest) ([]model.ActivityWithNames, int64, error)
+	List(ctx context.Context, req *dto.ListActivityRequest, scope *rbacModel.DataScopeCondition) ([]model.ActivityWithNames, int64, error)
 	UpdateCheckinToken(ctx context.Context, id uuid.UUID, secret string, nonce int64) error
 	GetUser(ctx context.Context, id uuid.UUID) (*model.NamedUser, error)
+	GetUserDepartment(ctx context.Context, userID uuid.UUID) (*uuid.UUID, error)
 }
 
 type activityRepo struct{ db *gorm.DB }
@@ -118,18 +120,39 @@ func (r *activityRepo) applyListFilters(q *gorm.DB, req *dto.ListActivityRequest
 	return q
 }
 
-func (r *activityRepo) List(ctx context.Context, req *dto.ListActivityRequest) ([]model.ActivityWithNames, int64, error) {
+func (r *activityRepo) List(ctx context.Context, req *dto.ListActivityRequest, scope *rbacModel.DataScopeCondition) ([]model.ActivityWithNames, int64, error) {
 	// Count 必须避开 namedQuery 里的 COUNT(*) 子查询，否则 GORM 会把整行扫进 int64。
 	countQ := r.applyListFilters(r.db.WithContext(ctx).Table("activities AS a").Where("a.deleted_at IS NULL"), req)
+	if scope != nil && !scope.IsEmpty() {
+		countQ = countQ.Where(scope.Query, scope.Args...)
+	}
 	var total int64
 	if err := countQ.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 	page, size := normalizePage(req.Page, req.PageSize)
+	q := r.applyListFilters(r.namedQuery(ctx), req)
+	if scope != nil && !scope.IsEmpty() {
+		q = q.Where(scope.Query, scope.Args...)
+	}
 	var rows []model.ActivityWithNames
-	err := r.applyListFilters(r.namedQuery(ctx), req).
-		Order("a.start_time DESC").Offset((page - 1) * size).Limit(size).Find(&rows).Error
+	err := q.Order("a.start_time DESC").Offset((page - 1) * size).Limit(size).Find(&rows).Error
 	return rows, total, err
+}
+
+// GetUserDepartment 返回用户所属部门 ID。用户不存在或 department_id 为 NULL 时返回 (nil, nil)。
+func (r *activityRepo) GetUserDepartment(ctx context.Context, userID uuid.UUID) (*uuid.UUID, error) {
+	var row struct {
+		DepartmentID *uuid.UUID `gorm:"column:department_id"`
+	}
+	err := r.db.WithContext(ctx).Table("users").Select("department_id").Where("id = ?", userID).First(&row).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return row.DepartmentID, nil
 }
 
 func (r *activityRepo) GetUser(ctx context.Context, id uuid.UUID) (*model.NamedUser, error) {
