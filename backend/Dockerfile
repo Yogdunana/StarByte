@@ -44,7 +44,10 @@ ENV TZ=Asia/Shanghai
 
 WORKDIR /app
 
-# 复制二进制和迁移文件
+# 复制二进制、迁移 SQL、配置基线，以及 PDF 内嵌字体的 OFL 许可证
+# （NotoSansSC 以 SIL OFL 分发，随镜像携带许可证文本是分发要求）。
+# 注意 configs/ 只会带进未在 .dockerignore 中排除的文件 —— config.dev.yaml /
+# config.test.yaml 已被排除，生产基线由环境变量覆盖。
 COPY --from=builder /app/starbyte-server .
 COPY --from=builder /app/migrations ./migrations
 COPY --from=builder /app/configs ./configs

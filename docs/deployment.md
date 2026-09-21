@@ -153,7 +153,7 @@ docker pull hello-world
 | API | 仅本机 `http://127.0.0.1:8080/api/v1`（容器间走 `http://backend:8080`） |
 | 健康检查 | http://127.0.0.1:8080/health 、`/health/ready` |
 | Metrics | 默认 **404**（未设 `METRICS_TOKEN` 时一律拒绝，只有显式 `APP_ENV=dev\|test` 的本地开发才放行）。需抓取时在 `.env` 设 `METRICS_TOKEN`，带 `Authorization: Bearer <token>` 访问 |
-| Swagger（非生产） | http://127.0.0.1:8080/swagger/index.html（`APP_ENV=prod` 时关闭） |
+| Swagger | 默认 **404**（fail-closed：只有显式 `APP_ENV=dev\|test` 才挂载）。本地开发见 [getting-started.md](getting-started.md)；未带 `APP_ENV` 裸跑二进制会 404，属预期行为 |
 | MinIO API | 仅本机 `http://127.0.0.1:9000`；控制台请用 `ssh -L 9001:127.0.0.1:9001` 转发后访问 |
 
 首次启动后端会跑迁移。生产 Postgres **不映射主机端口**，在宿主机执行 `APP_ENV=prod make seed` 会连不上库。请在能访问 `postgres` 服务的网络里跑种子（跳板机映射 5432，或一次性容器加入 compose 网络），并注入 `DB_HOST` / `DB_USER` / `DB_PASSWORD` / `JWT_SECRET` 等（见 `backend/.env.example`）。
@@ -185,8 +185,9 @@ APP_ENV=prod make seed
 
 - 若 `admin` 已存在，只打印「已存在，跳过」且**不打印口令**（避免重复播种泄露）。
 - **立即抄录并登录改密**。改密后服务端会吊销该账号全部在线会话与 refresh token。
-- 非生产环境（`APP_ENV != prod`）保持 `admin/admin123`、`test/test123` 以方便开发，
-  但会打印一行显式提示这是开发口令。
+- 开发便利口令（`admin/admin123`、`test/test123`）**只在显式 `APP_ENV=dev|test` 时写入**
+  （见上）。`APP_ENV` 未设置同样是生产口径，不会写入开发口令 —— 不要按「非 prod 就是非生产」
+  来理解，空值按生产处理。
 
 ## 应急 CLI（`starbyte` / `sb`）
 

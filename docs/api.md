@@ -2,7 +2,9 @@
 
 前缀：`/api/v1`。完整请求/响应以运行中的 OpenAPI 为准。
 
-- 非生产：http://localhost:8080/swagger/index.html
+- Swagger UI（仅显式 `APP_ENV=dev|test`）：`APP_ENV=dev go run ./cmd/server` 后访问
+  http://localhost:8080/swagger/index.html
+  —— `APP_ENV` 未设置时 `/swagger` 返回 404，这是刻意的 fail-closed，不是故障。
 - 从 Handler 注释生成：`make swagger`
 - 统一信封：`{ code, message, data, request_id, timestamp }`
 - `code = 0` 表示成功；分页在 `data.list / total / page / page_size`
