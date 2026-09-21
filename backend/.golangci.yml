@@ -43,6 +43,11 @@ linters:
         - all
         - -SA1019    # 忽略 deprecated
         - -SA9003    # 忽略空分支
+        # 下面两组是 v2 才计入 `all` 的规则，v1 时代不检查，存量代码因此有大量告警。
+        # 排除它们是为了**保持 v1 的既有检查范围**，而不是把迁移变成一次全仓风格重构；
+        # 想启用应先单独开一轮清理（实测一次性会冒出 10 条存量问题）。
+        - -ST*       # stylecheck 系列（v2 起并入 staticcheck）：包注释、注释格式等
+        - -QF*       # quickfix 重构建议（v2 起计入 all）：De Morgan、tagged switch 等
   exclusions:
     generated: lax
     rules:
