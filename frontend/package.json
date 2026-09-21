@@ -16,7 +16,7 @@
   "dependencies": {
     "@ant-design/icons": "^5.3.0",
     "@reduxjs/toolkit": "^2.2.0",
-    "antd": "^5.15.0",
+    "antd": "^6.6.4",
     "axios": "^1.6.7",
     "dayjs": "^1.11.10",
     "echarts": "^5.5.0",
