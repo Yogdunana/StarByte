@@ -9,15 +9,9 @@ import { registerWithCasToken } from '@/api/auth';
 import { setToken } from '@/store/slices/authSlice';
 import { fetchCurrentUser } from '@/store/slices/userSlice';
 import type { AppDispatch } from '@/store';
+import { resolveRedirect } from '@/utils/nextPath';
 import { clearCASRegisterDraft, isStudentIdLikeUsername, loadCASRegisterDraft } from './casRegisterDraft';
 import styles from './Login.module.css';
-
-function safeRedirect(path: string | undefined): string {
-  if (!path || !path.startsWith('/') || path.startsWith('//')) {
-    return '/dashboard';
-  }
-  return path;
-}
 
 interface RegisterFormValues {
   username: string;
@@ -78,7 +72,7 @@ const CasRegister: React.FC = () => {
       );
       await dispatch(fetchCurrentUser()).unwrap();
       message.success(t('login.success'));
-      navigate(safeRedirect(result.redirect || draft.redirect), { replace: true });
+      navigate(resolveRedirect(result.redirect || draft.redirect), { replace: true });
     } catch (error: unknown) {
       const msg = error instanceof Error && error.message ? error.message : t('login.registerFail');
       message.error(msg);
