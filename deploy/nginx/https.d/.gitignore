@@ -1,0 +1,10 @@
+# starbyte ssl enable 会把仓库模板 deploy/nginx/starbyte-https.conf.template
+# 复制成同目录下的 starbyte-https.conf —— **该文件存在即表示 HTTPS 已启用**，
+# compose() 据此自动叠加 deploy/docker-compose.https.yml。
+#
+# 它是「运行状态」而不是源码，所以不进版本库；真正的实体模板在同一层的上一层：
+#   deploy/nginx/starbyte-https.conf.template
+#
+# 目录为空时不会有任何 *.conf，主配置末尾的通配 include 匹配不到文件且不报错，
+# 默认部署保持纯 HTTP —— 这正是本目录要一直存在（.gitkeep）的原因。
+*.conf
