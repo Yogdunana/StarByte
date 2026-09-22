@@ -156,7 +156,10 @@ docker pull hello-world
 | Swagger | 默认 **404**（fail-closed：只有显式 `APP_ENV=dev\|test` 才挂载）。本地开发见 [getting-started.md](getting-started.md)；未带 `APP_ENV` 裸跑二进制会 404，属预期行为 |
 | MinIO API | 仅本机 `http://127.0.0.1:9000`；控制台请用 `ssh -L 9001:127.0.0.1:9001` 转发后访问 |
 
-首次启动后端会跑迁移。生产 Postgres **不映射主机端口**，在宿主机执行 `APP_ENV=prod make seed` 会连不上库。请在能访问 `postgres` 服务的网络里跑种子（跳板机映射 5432，或一次性容器加入 compose 网络），并注入 `DB_HOST` / `DB_USER` / `DB_PASSWORD` / `JWT_SECRET` 等（见 `backend/.env.example`）。
+首次启动后端会跑迁移，**但不会跑种子**（`entrypoint.sh` 只做迁移、建桶、起服务）。
+生产 Postgres **不映射主机端口**，在宿主机直接 `APP_ENV=prod make seed` 会连不上库。
+compose 部署请用 `starbyte bootstrap`（它会起一个加入 compose 网络的一次性容器，
+并自动带上 `DB_HOST` / `DB_USER` / `DB_PASSWORD` / `JWT_SECRET` 等，见下节）。
 
 手动部署（库端口对本机可见）时：
 
@@ -189,6 +192,38 @@ APP_ENV=prod make seed
   （见上）。`APP_ENV` 未设置同样是生产口径，不会写入开发口令 —— 不要按「非 prod 就是非生产」
   来理解，空值按生产处理。
 
+### compose 部署下怎么跑种子
+
+容器化部署**不会自动跑种子**：`backend/entrypoint.sh` 只做「迁移 → MinIO 建桶 → 起服务」，
+生产镜像里也没有 Go 工具链。管理员要显式建：
+
+```bash
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d --build
+starbyte bootstrap          # 写入种子 + 创建 admin，初始口令打印一次
+```
+
+`starbyte bootstrap` 走一次性容器（复用 `backend` 服务定义、只覆盖 entrypoint，
+不新增 compose 服务，因此默认 `up -d` 的行为不变）。它是幂等的：admin 已存在就跳过，
+不回显既有口令。
+
+初始口令**只显示一次**，丢了也不需要重来：
+
+```bash
+starbyte admin show                     # 查看管理员账号（默认列出全部 super_admin）
+starbyte admin set-password             # 重设口令，不需要旧口令
+starbyte admin set-password --value '…' # 按指定值设置（会进 shell history，一般不推荐）
+starbyte admin set-username <新账号名>   # 改账号名
+```
+
+三条 `admin` 命令都会吊销该账号的全部在线会话与 refresh token，并清掉失败计数与登录锁定。
+改过账号名后，后续命令要带 `-u <新账号名>`。
+
+> 为什么不能只改数据库：核心角色（`super_admin` / `president` 等）**不在迁移里**，
+> 全库只有 `000072` / `000073` / `000077` 三条迁移写 `INSERT INTO roles`，且都是后加的
+> 章程角色；角色本体在 `backend/scripts/seed_rbac.go`。手工 `INSERT` 一个用户的话，
+> `user_roles` 的 `CROSS JOIN roles r WHERE r.code='super_admin'` 匹配不到任何行、
+> **不报错但插 0 行**，结果是一个能登录却没有任何权限的账号。
+
 ## 应急 CLI（`starbyte` / `sb`）
 
 SSH 登录后的轻量运维入口，依赖 **bash + docker compose**。日常命令不读、不打印密钥值；
@@ -207,11 +242,15 @@ sudo bash deploy/cli/starbyte install
 | `starbyte install` | 装 CLI + 软链 `sb`；`.env` 不存在时自动执行 `init` 并把口令告知运维 |
 | `starbyte init [--force]` | 由系统自动生成随机密钥并写 `deploy/.env`。`--force` 会**替换全部密钥项**、保留非密钥键；换库口令后需同步已有数据卷 |
 | `starbyte credentials` | 再次显示系统生成的口令（仅限可信终端） |
+| `starbyte bootstrap` | 写入种子并创建管理员账号（幂等）。栈没起会自动拉起 postgres/redis/minio |
+| `starbyte admin show` | 查看管理员账号 |
+| `starbyte admin set-password [--value …]` | 重设管理员口令（不需要旧口令），并吊销其全部在线会话 |
+| `starbyte admin set-username <新账号名>` | 改管理员账号名 |
 | `starbyte status` / `sb status` | `compose ps` + `:8080/health`、`:80` 短检查 |
 | `starbyte logs [服务] [--tail N]` | 看日志 |
 | `starbyte restart [服务\|all]` | 重启容器（不重建镜像） |
 | `starbyte rebuild [backend\|frontend\|all]` | `build` + `up --no-deps --force-recreate`，避免顺带强拉 MinIO/Postgres |
-| `starbyte env-check` | 检查 `deploy/.env` 关键键名是否齐全、密钥是否仍是占位/弱值；不打印值。**通过返回 0，失败返回 1**，可直接用于 `env-check && compose up` |
+| `starbyte env-check` | 检查 `deploy/.env` 关键键名是否齐全、密钥是否仍是占位/弱值；不打印值。**通过返回 0，失败返回 1**，可直接用于 `env-check && compose up`。拓扑项不强制填，但**填了就校验合法性**（`TRUSTED_PROXIES` 必须是 CIDR） |
 | `starbyte backup create\|list\|preview\|restore\|drill` | 经 backend 容器走托管备份（gzip / AES / 预览 / 失败告警） |
 | `starbyte backup emergency` | 主机明文 `pg_dump` → `/var/backups/starbyte/`（backend 不可用时的兜底） |
 | `starbyte doctor` | 校园部署常见问题：镜像站 403、`SKIP_BUCKET_CREATE`、CAS 回调 / authserver 内网解析、80 端口 |
@@ -423,7 +462,7 @@ starbyte ssl disable
 - [ ] `METRICS_TOKEN` 已设或明确接受 `/metrics` 返回 404
 - [ ] HTTPS 已启用且证书有效（`starbyte ssl status` 返回 0），`Strict-Transport-Security` 生效
 - [ ] 证书到期日已记录（`starbyte ssl status` 会在剩余 < 30 天时告警）
-- [ ] `make seed` 的 admin 随机口令已抄录、已登录改密
+- [ ] `starbyte bootstrap` 的 admin 初始口令已抄录、已登录改密（`starbyte admin show` 可复查账号）
 - [ ] MinIO 桶 `starbyte` 已手动创建
 - [ ] 后端 8080 / MinIO 9000 **未**对校园网开放（`ss -lnt` 确认只绑 127.0.0.1）
 - [ ] 已确认无 `down -v` / 无删除 named volumes 的操作习惯

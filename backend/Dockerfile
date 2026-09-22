@@ -31,7 +31,13 @@ RUN go env -w GOPROXY=https://goproxy.cn,direct && \
 
 # 复制源码并构建
 COPY . .
-RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o starbyte-server ./cmd/server
+# 第二个产物是种子/管理员维护工具（backend/scripts），运维 CLI 通过
+# `docker compose run --rm --entrypoint /usr/local/bin/starbyte-seed backend ...`
+# 一次性调用：首次部署建管理员，之后改名/改口令。
+# 它不写开发便利口令 —— seed_users.go 的判定是 fail-closed，只有显式
+# APP_ENV=dev|test 才用 admin/admin123（详见该文件注释）。
+RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o starbyte-server ./cmd/server && \
+    CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o starbyte-seed ./scripts
 
 # ─────────────────────────────────────────────────────────
 # Stage 3: 生产运行镜像
@@ -56,6 +62,8 @@ COPY internal/export/service/fonts/OFL.txt /usr/share/licenses/starbyte/NotoSans
 # 复制迁移工具和 MinIO 客户端（mc 为占位脚本，见 Stage 1）
 COPY --from=builder /go/bin/migrate /usr/local/bin/migrate
 COPY --from=mc-builder /usr/local/bin/mc /usr/local/bin/mc
+# 种子 / 管理员维护工具：平时不执行，只有运维 CLI 用 --entrypoint 显式调用。
+COPY --from=builder /app/starbyte-seed /usr/local/bin/starbyte-seed
 
 # 入口脚本：自动迁移 + 启动服务
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh

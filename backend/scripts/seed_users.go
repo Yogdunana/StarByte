@@ -164,10 +164,13 @@ func seedUsersProd(db *gorm.DB) error {
 		return err
 	}
 
+	// 下面几行 ADMIN_* 是给运维 CLI（starbyte bootstrap）解析的机器可读标记。
+	// 中文那段是给人看的，CLI 不去匹配它 —— 中文一旦改个字，解析就静默失效。
 	if adminCount > 0 {
 		fmt.Println("============================================================")
 		fmt.Println("[StarByte] 生产环境：admin 已存在，跳过创建（未打印口令）")
 		fmt.Println("============================================================")
+		fmt.Println("ADMIN_EXISTS=1")
 		return nil
 	}
 
@@ -178,10 +181,12 @@ func seedUsersProd(db *gorm.DB) error {
 		fmt.Printf("初始密码: %s\n", adminPassword)
 		fmt.Println("请立即登录并修改密码；本密码只显示这一次。")
 		fmt.Println("============================================================")
+		fmt.Printf("ADMIN_PASSWORD=%s\n", adminPassword)
 	} else {
 		fmt.Println("============================================================")
 		fmt.Println("[StarByte] 生产环境首次播种：admin 账号已创建（口令来自 SEED_ADMIN_PASSWORD，未打印）")
 		fmt.Println("============================================================")
 	}
+	fmt.Println("ADMIN_CREATED=1")
 	return nil
 }
