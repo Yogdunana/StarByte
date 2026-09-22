@@ -23,6 +23,9 @@ StarByte 应急运维 CLI（类似宝塔 bt）
   init [--force]                 由系统自动生成随机密钥并写出 deploy/.env
                                  首次安装必须执行；生成后会把口令告知运维
   credentials                    再次显示系统生成的口令（仅限可信终端）
+  bootstrap                      写入种子并创建管理员账号（幂等，可重复执行）
+  admin <子命令>                  管理员账号维护（账号名/口令）
+                                 show / set-password / set-username
   status                         compose ps + :8080 / :80 短健康检查
   logs [服务] [--tail N]         查看日志（默认 --tail 100）
   restart [服务|all]             重启容器，不重建镜像
@@ -48,6 +51,9 @@ StarByte 应急运维 CLI（类似宝塔 bt）
   sudo starbyte install          # 安装 CLI，首次会自动生成随机口令
   starbyte init --force          # 为已有部署重新生成全部密钥
   starbyte credentials           # 忘记口令时再查一次
+  starbyte bootstrap             # 起栈后创建管理员账号
+  starbyte admin show            # 查看管理员账号
+  starbyte admin set-password    # 忘了口令就重设一个（无需旧口令）
   starbyte status
   starbyte logs backend --tail 200
   starbyte rebuild all
@@ -277,6 +283,25 @@ b64_decodes_to() {
   [[ "${#val}" -eq "$expected" ]]
 }
 
+# is_cidr_list 判断逗号分隔的 CIDR 列表，如 172.30.77.2/32 或 10.0.0.0/8,10.1.0.0/16。
+# 只做格式校验（四段点分十进制 + 0..32 的前缀长度），不做可达性判断 ——
+# 目的只有一个：在装的时候拦住「看起来设了、实际后端解析不了直接退出」的值。
+is_cidr_list() {
+  local raw="$1" item prefix
+  [[ -n "$raw" ]] || return 1
+  local IFS=','
+  # shellcheck disable=SC2206  # 需要按逗号切分，词分裂是刻意的
+  local -a items=($raw)
+  for item in "${items[@]}"; do
+    [[ "$item" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$ ]] || return 1
+    prefix="${item##*/}"
+    # 去掉前导 0，避免 shell 把 08 当八进制（合规写法里不该有，但别因此误判）
+    prefix="$((10#${prefix}))"
+    ((prefix >= 0 && prefix <= 32)) || return 1
+  done
+  return 0
+}
+
 # 保持 .env.example 的键顺序与注释，只替换/追加密钥键的值。
 write_env_value() {
   local file="$1" key="$2" val="$3" tmp
@@ -484,6 +509,286 @@ cmd_credentials() {
   warn "以上为明文口令。请确认当前终端可信，且不要在共享会话中执行本命令。"
 }
 
+# ─────────────────────────────────────────────────────────
+# 管理员账号（super_admin）
+#
+# 管理员不是 starbyte init 建的 —— init 只生成机器用的基础设施密钥
+# （POSTGRES / REDIS / MINIO / JWT / 两个加密 KEY），没有一个是给人登录用的。
+# 它由 backend/scripts 的种子创建：首次跑 starbyte bootstrap，之后改名或
+# 改口令走 starbyte admin。
+# ─────────────────────────────────────────────────────────
+SEED_ENTRYPOINT="/usr/local/bin/starbyte-seed"
+# compose 里写死的 container_name（不发布端口，只能靠名字判断它在不在跑）
+POSTGRES_CONTAINER="starbyte-postgres"
+
+# 一次性执行 backend 镜像里的种子 / 管理员工具。
+#
+# 刻意不新增 compose 服务：复用 backend 服务已有的 build / env / 网络定义，
+# 只覆盖 entrypoint。好处是默认 `docker compose up -d` 的行为一点都不变，
+# 种子也不会在每次 up 时被顺带跑一遍。
+#
+#   --no-deps   依赖由 ensure_stack_deps 保证，避免 run 把 depends_on 全量拉起
+#   --no-build  镜像没构建就直接失败：改个口令不该触发一次 Go 全量编译
+#
+# 用法: seed_run [docker compose run 的选项...] -- [传给种子的参数...]
+seed_run() {
+  local -a runopts=()
+  while [[ $# -gt 0 && "$1" != "--" ]]; do
+    runopts+=("$1")
+    shift
+  done
+  if [[ "${1:-}" == "--" ]]; then
+    shift
+  fi
+  compose run --rm --no-deps --no-build -T \
+    ${runopts[@]+"${runopts[@]}"} \
+    --entrypoint "$SEED_ENTRYPOINT" backend "$@"
+}
+
+# ensure_stack_deps 保证 postgres 已 healthy。种子只需要数据库，
+# 所以只拉 postgres / redis / minio 这三个「直接拉镜像」的服务，不碰 build。
+ensure_stack_deps() {
+  local name="$POSTGRES_CONTAINER" i status
+  if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$name"; then
+    return 0
+  fi
+  info "数据库尚未运行，正在拉起 postgres / redis / minio ..."
+  compose up -d postgres redis minio >/dev/null || return 1
+  for ((i = 0; i < 60; i++)); do
+    status="$(docker inspect -f '{{.State.Health.Status}}' "$name" 2>/dev/null || true)"
+    if [[ "$status" == "healthy" ]]; then
+      return 0
+    fi
+    sleep 2
+  done
+  err "等待 ${name} 进入 healthy 超时（约 120 秒）"
+  return 1
+}
+
+# 把种子的 KEY=VALUE 输出翻成人读的行。种子刻意输出 ASCII 键值，
+# 这样 CLI 不需要 jq 也能解析。
+format_admin_lines() {
+  awk '
+    /^ADMIN_/ {
+      p = index($0, "=")
+      k = substr($0, 1, p - 1)
+      v = substr($0, p + 1)
+      if      (k == "ADMIN_USERNAME")        print "  账号:       " v
+      else if (k == "ADMIN_ID")              print "  ID:         " v
+      else if (k == "ADMIN_STATUS")          print "  状态:       " (v == "0" ? "正常" : (v == "1" ? "禁用" : (v == "2" ? "锁定" : v)))
+      else if (k == "ADMIN_CREATED_AT")      print "  创建时间:   " v
+      else if (k == "ADMIN_LAST_LOGIN")      print "  最近登录:   " v
+      else                                   print "  " k ": " v
+    }
+  '
+}
+
+# cmd_bootstrap 写入种子并确保管理员账号存在（幂等：admin 已存在则跳过）。
+#
+# 用 return 而不是 exit —— cmd_install 会复用它，exit 会把调用方一起终止，
+# 而 install 只是「顺手把管理员建出来」，不该因为这一步失败就整体失败。
+cmd_bootstrap() {
+  init_root
+  need_docker
+  if [[ ! -f "$ROOT/$ENV_REL" ]]; then
+    err "未找到 $ROOT/$ENV_REL，请先执行: starbyte init"
+    return 1
+  fi
+  ensure_stack_deps || return 1
+
+  log "正在写入种子数据并确保管理员账号 ..."
+  local out rc=0
+  out="$(seed_run -- 2>&1)" || rc=$?
+  if [[ "$rc" -ne 0 ]]; then
+    err "种子执行失败（退出码 ${rc}）。最后 20 行输出："
+    printf '%s\n' "$out" | tail -n 20
+    return 1
+  fi
+
+  if printf '%s\n' "$out" | grep -qE '^ADMIN_EXISTS=1'; then
+    ok "管理员账号已存在，未重复创建（种子不回显既有口令）"
+    log "  忘记口令时重设: starbyte admin set-password"
+    return 0
+  fi
+
+  local pw
+  pw="$(printf '%s\n' "$out" | grep -E '^ADMIN_PASSWORD=' | tail -n1 | cut -d= -f2- || true)"
+  if [[ -z "$pw" ]]; then
+    warn "种子执行成功，但没有拿到初始口令（可能由 SEED_ADMIN_PASSWORD 指定）"
+    log "  查看账号: starbyte admin show"
+    return 0
+  fi
+
+  printf '\n'
+  printf '================================================================\n'
+  printf ' StarByte 管理员账号已创建（初始口令只显示这一次）\n'
+  printf '================================================================\n'
+  printf '  账号: admin\n'
+  printf '  口令: %s\n' "$pw"
+  printf '================================================================\n'
+  printf ' 请立即登录并修改密码。\n'
+  printf ' 忘了也不用重来 —— starbyte admin set-password 会重新生成一个。\n'
+  printf '================================================================\n'
+  return 0
+}
+
+admin_usage() {
+  cat <<'EOF'
+用法: starbyte admin <子命令> [参数]
+
+  show [-u <账号名>]                查看管理员账号（默认列出全部 super_admin）
+  set-password [-u <账号名>] [--value <口令>]
+                                    重设口令。不给 --value 时由系统生成 24 位
+                                    强随机口令（推荐）；给了则按指定值设置
+  set-username [-u <当前账号名>] <新账号名>
+                                    修改管理员账号名
+
+  -u 默认是 admin；改名之后后续命令要带上新名字。
+  改口令与改账号名都会吊销该账号的全部在线会话与 refresh token，
+  并把失败计数和登录锁定一起清掉。
+EOF
+}
+
+cmd_admin() {
+  init_root
+  local sub="${1:-show}"
+  if [[ $# -gt 0 ]]; then
+    shift
+  fi
+  case "$sub" in
+    show) admin_show "$@" ;;
+    set-password) admin_set_password "$@" ;;
+    set-username) admin_set_username "$@" ;;
+    -h|--help|help) admin_usage ;;
+    *)
+      err "未知子命令: $sub"
+      admin_usage >&2
+      return 2
+      ;;
+  esac
+}
+
+admin_show() {
+  need_docker
+  local username="admin" explicit=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -u|--username) username="${2:-}"; explicit=1; shift 2 ;;
+      -h|--help) admin_usage; return 0 ;;
+      *) err "未知参数: $1"; return 2 ;;
+    esac
+  done
+  ensure_stack_deps || return 1
+
+  local -a args=()
+  # 不指定 -u 时列出全部 super_admin：管理员可能被改过名，
+  # 写死 admin 会查不到。
+  if [[ "$explicit" -eq 1 ]]; then
+    args+=("-username=${username}")
+  fi
+
+  local out rc=0
+  out="$(seed_run -- -mode=show-admin ${args[@]+"${args[@]}"} 2>&1)" || rc=$?
+  if [[ "$rc" -ne 0 ]]; then
+    if printf '%s\n' "$out" | grep -q "未找到该管理员账号"; then
+      err "还没有管理员账号。请先执行: starbyte bootstrap"
+      return 1
+    fi
+    err "查询失败："
+    printf '%s\n' "$out" | tail -n 10
+    return 1
+  fi
+  log "管理员账号："
+  printf '%s\n' "$out" | format_admin_lines
+}
+
+admin_set_password() {
+  need_docker
+  local username="admin" value=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -u|--username) username="${2:-}"; shift 2 ;;
+      --value) value="${2:-}"; shift 2 ;;
+      -h|--help) admin_usage; return 0 ;;
+      *) err "未知参数: $1"; return 2 ;;
+    esac
+  done
+  if [[ -z "$username" ]]; then
+    err "-u 不能为空"
+    return 2
+  fi
+  if [[ -n "$value" && "${#value}" -lt 8 ]]; then
+    err "口令至少 8 位，且需同时含字母和数字（后端强度校验）"
+    return 2
+  fi
+  ensure_stack_deps || return 1
+
+  local -a runopts=()
+  # 口令走环境变量而不是命令行参数：参数会留在 docker inspect / compose ps 的输出里，
+  # 也可能进 shell history。留空则由种子自己生成 24 位强随机口令。
+  if [[ -n "$value" ]]; then
+    runopts+=("-e" "STARBYTE_ADMIN_NEW_PASSWORD=${value}")
+  fi
+
+  local out rc=0
+  out="$(seed_run ${runopts[@]+"${runopts[@]}"} -- -mode=set-admin-password "-username=${username}" 2>&1)" || rc=$?
+  if [[ "$rc" -ne 0 ]]; then
+    if printf '%s\n' "$out" | grep -q "未找到该管理员账号"; then
+      err "账号 ${username} 不存在。先确认: starbyte admin show"
+      return 1
+    fi
+    err "改口令失败："
+    printf '%s\n' "$out" | tail -n 10
+    return 1
+  fi
+
+  local pw revoked
+  pw="$(printf '%s\n' "$out" | grep -E '^ADMIN_PASSWORD=' | tail -n1 | cut -d= -f2- || true)"
+  revoked="$(printf '%s\n' "$out" | grep -E '^ADMIN_SESSIONS_REVOKED=' | tail -n1 | cut -d= -f2- || true)"
+  if [[ -n "$pw" ]]; then
+    printf '\n'
+    printf '  账号:   %s\n' "$username"
+    printf '  新口令: %s\n' "$pw"
+    printf '\n'
+    warn "请立即抄录并登录改密；本口令不会再显示第二次。"
+  else
+    ok "口令已按指定值更新"
+  fi
+  ok "已吊销会话数: ${revoked:-0}"
+}
+
+admin_set_username() {
+  need_docker
+  local username="admin" newname=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -u|--username) username="${2:-}"; shift 2 ;;
+      -h|--help) admin_usage; return 0 ;;
+      -*) err "未知参数: $1"; return 2 ;;
+      *) newname="$1"; shift ;;
+    esac
+  done
+  if [[ -z "$newname" ]]; then
+    err "请给出新账号名: starbyte admin set-username <新账号名>"
+    return 2
+  fi
+  ensure_stack_deps || return 1
+
+  local out rc=0
+  out="$(seed_run -- -mode=set-admin-username "-username=${username}" "-value=${newname}" 2>&1)" || rc=$?
+  if [[ "$rc" -ne 0 ]]; then
+    if printf '%s\n' "$out" | grep -q "未找到该管理员账号"; then
+      err "账号 ${username} 不存在。先确认: starbyte admin show"
+      return 1
+    fi
+    err "改账号名失败："
+    printf '%s\n' "$out" | tail -n 10
+    return 1
+  fi
+  ok "账号名已更新: ${username} -> ${newname}"
+  log "  之后的管理员命令请带: -u ${newname}"
+}
+
 cmd_status() {
   need_docker
   log "仓库: $ROOT"
@@ -682,6 +987,26 @@ cmd_env_check() {
     ok "已设置: CAS_AUTHSERVER_IP"
   else
     info "未设置 CAS_AUTHSERVER_IP（compose extra_hosts 默认值生效）"
+  fi
+
+  # TRUSTED_PROXIES 不强制填写（compose 有兜底默认值），但**填了就必须合法**。
+  # 后端 cmd/server/main.go 在解析失败时直接 logger.Fatal 退出，容器会一直重启；
+  # 而它不在 CRITICAL_KEYS 里，只查「键在不在、空不空」会给出虚假的通过信号 ——
+  # 曾经就因为 .env.example 里那行占位符没被中和，装完 env-check 全绿、起来才炸。
+  # 所以这里按「设了就校验值」处理，把失败提前到安装阶段。
+  if env_has_key TRUSTED_PROXIES; then
+    val="$(env_get TRUSTED_PROXIES || true)"
+    if [[ -z "$val" ]]; then
+      info "TRUSTED_PROXIES 为空（compose 默认值生效）"
+    elif is_cidr_list "$val"; then
+      ok "已设置: TRUSTED_PROXIES（CIDR 格式合法）"
+    else
+      warn "TRUSTED_PROXIES 不是合法的 CIDR（逗号分隔，如 172.30.77.2/32；值未打印）"
+      warn "  后端会在启动时因该值直接退出，请修正 $file 后重试"
+      weak=$((weak + 1))
+    fi
+  else
+    info "未设置 TRUSTED_PROXIES（compose 默认值生效）"
   fi
 
   if [[ "$missing" -gt 0 || "$empty" -gt 0 || "$weak" -gt 0 ]]; then
@@ -1640,6 +1965,22 @@ cmd_install() {
     log "  重新生成密钥: starbyte init --force"
   fi
 
+  # 管理员账号不是 init 建的（init 只出机器用的密钥）。栈已经在跑就顺手建出来，
+  # 让「装完就能登录」在重复安装的场景里直接成立；
+  # 栈没跑时不在这里拉镜像/建镜像 —— install 只负责装 CLI，
+  # 起栈交给 up -d，之后一行 starbyte bootstrap 即可。
+  log ""
+  if command -v docker >/dev/null 2>&1 &&
+    docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$POSTGRES_CONTAINER"; then
+    log "检测到栈已在运行，正在确保管理员账号 ..."
+    if ! cmd_bootstrap; then
+      warn "自动创建管理员未成功，稍后可手动执行: starbyte bootstrap"
+    fi
+  else
+    log "下一步: docker compose --env-file $ENV_REL -f deploy/docker-compose.yml up -d --build"
+    log "起栈后创建管理员: starbyte bootstrap"
+  fi
+
   log ""
   log "试运行: starbyte status"
 }
@@ -1653,6 +1994,8 @@ main() {
     install) cmd_install "$@" ;;
     init) init_root; cmd_init "$@" ;;
     credentials) init_root; cmd_credentials "$@" ;;
+    bootstrap) init_root; cmd_bootstrap "$@"; exit $? ;;
+    admin) init_root; cmd_admin "$@"; exit $? ;;
     ssl) init_root; cmd_ssl "$@" ;;
     status|logs|restart|rebuild|env-check|backup|doctor)
       init_root

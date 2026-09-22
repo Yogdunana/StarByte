@@ -34,7 +34,18 @@ npm install
 npm run dev
 ```
 
-打开 http://localhost:5173 ，用 `admin/admin123` 登录（也可用学号 `20210001`）。**这套口令只属于本机 dev 库**——`make seed` 在 `APP_ENV=dev` 下才写入；生产环境的管理员口令由 `starbyte init` 在安装时随机生成（见 [deployment.md](deployment.md)），文档里不会出现明文。本地默认关闭 CAS；校园网生产开 `CAS_ENABLED=true`，登录页会出现「学校统一认证」。
+打开 http://localhost:5173 ，用 `admin/admin123` 登录（也可用学号 `20210001`）。**这套口令只属于本机 dev 库**——`make seed` 在 `APP_ENV=dev` 下才写入（`APP_ENV` 未设置同样是生产口径，不写开发口令）。本地默认关闭 CAS；校园网生产开 `CAS_ENABLED=true`，登录页会出现「学校统一认证」。
+
+> 生产环境的管理员**不是 `starbyte init` 建的**。init 只生成机器用的基础设施密钥（Postgres / Redis / MinIO / JWT / 两个加密 KEY），没有一个是给人登录用的。管理员来自同一份种子，只是要走容器：
+>
+> ```bash
+> starbyte bootstrap          # 首次：写入种子并创建 admin，把初始口令打印一次
+> starbyte admin show         # 查看管理员账号
+> starbyte admin set-password # 忘了口令就重设一个（不需要旧口令）
+> starbyte admin set-username <新账号名>
+> ```
+>
+> 详见 [deployment.md](deployment.md)。初始口令只打印一次，丢了也不用重来——`set-password` 不需要知道旧口令。
 
 不要只跑 `go run cmd/server/main.go`：同包还有 swagger / traffic 文件，会缺符号。
 
