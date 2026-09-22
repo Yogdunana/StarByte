@@ -36,7 +36,7 @@ CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 # nginx:1.27-alpine 同样来自 docker.io；拉失败时用 daemon.json 镜像源
 # 或 retag，勿写死未验证的 registry。
 # ─────────────────────────────────────────────────────────
-FROM nginx:1.27-alpine AS production
+FROM nginx:1.31-alpine AS production
 
 RUN apk add --no-cache tzdata
 ENV TZ=Asia/Shanghai
