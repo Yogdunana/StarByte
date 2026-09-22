@@ -32,6 +32,9 @@ StarByte 应急运维 CLI（类似宝塔 bt）
                                  托管备份（与应用同一套 gzip/AES/预览/告警）
                                  emergency 才走主机明文 pg_dump
   doctor                         校园网部署常见问题排查
+  ssl <子命令>                   HTTPS 开关（审计项 S-03）
+                                 status / enable / verify / disable / selfsign
+                                 一期接学校通配证书只需 enable --cert --key
   install                        安装到 /usr/local/bin/starbyte，并创建 sb 软链
                                  若 deploy/.env 不存在会自动执行 init
   help                           显示本帮助
@@ -49,6 +52,9 @@ StarByte 应急运维 CLI（类似宝塔 bt）
   starbyte logs backend --tail 200
   starbyte rebuild all
   starbyte doctor
+  starbyte ssl enable --cert /root/smbu.crt --key /root/smbu.key
+  starbyte ssl status
+  starbyte ssl disable
 EOF
 }
 
@@ -140,6 +146,12 @@ init_root() {
 
 compose() {
   local args=(-f "$ROOT/deploy/docker-compose.yml")
+  # HTTPS 启用时自动叠加 override。启用状态的唯一事实来源是 https.d 里那个
+  # 生成出来的 conf —— 由 starbyte ssl enable / disable 写入与移除。
+  # 不启用时不叠加：否则宿主 443 被占用会让最普通的 `docker compose up` 直接失败。
+  if https_enabled; then
+    args+=(-f "$ROOT/deploy/docker-compose.https.yml")
+  fi
   if [[ -f "$ROOT/deploy/.env" ]]; then
     args+=(--env-file "$ROOT/deploy/.env")
   fi
@@ -945,6 +957,657 @@ cmd_doctor() {
   ok "doctor 未发现必须处理的问题"
 }
 
+# ═════════════════════════════════════════════════════════
+# HTTPS 开关（审计项 S-03）：starbyte ssl
+#
+# 为什么做成子命令组、而不是 `ssl on | ssl off` 两个值：
+#   - 真正决定成败的是「证书从哪来、和私钥配不配」，不是一个布尔量；
+#   - 443 的 server 块一旦加载失败，nginx 进程起不来，会**连 HTTP 一起带走** ——
+#     所以必须有一条和 enable 同等重要、且在故障中仍然能执行的回退路径（disable）。
+#
+# 启用状态的唯一事实来源：deploy/nginx/https.d/starbyte-https.conf 是否存在。
+#   存在   → compose() 自动叠加 deploy/docker-compose.https.yml，443 块被加载；
+#   不存在 → 目录里没有 *.conf，主配置末尾的通配 include 匹配不到文件且不报错，
+#            部署保持纯 HTTP，与引入本机制之前完全一致。
+# 一个文件同时充当「状态」与「开关」，好处是：状态可见、操作幂等、回滚零风险。
+#
+# 一期（学校提供 *.smbu.edu.cn 通配证书）只用到三条：
+#   starbyte ssl enable --cert <crt> --key <key>
+#   starbyte ssl status
+#   starbyte ssl disable
+# Let's Encrypt / DNS-01 在一期完全用不上，故刻意不实现 —— 需要时再加 acme.sh 钩子，
+# 别为了「以后可能要用」现在就引入一条要每 90 天改一次 DNS TXT 的链路。
+# ═════════════════════════════════════════════════════════
+
+HTTPS_CONF_REL="deploy/nginx/https.d/starbyte-https.conf"
+HTTPS_TEMPLATE_REL="deploy/nginx/starbyte-https.conf.template"
+HTTPS_OVERRIDE_REL="deploy/docker-compose.https.yml"
+CERTS_REL="deploy/certs"
+CERT_NAME="starbyte"
+CERT_WARN_DAYS=30   # 剩余天数低于此值：提醒续期
+CERT_CRIT_DAYS=7    # 剩余天数低于此值：强提醒
+
+SSL_CERT=""
+SSL_KEY=""
+
+https_enabled() { [[ -f "$ROOT/$HTTPS_CONF_REL" ]]; }
+cert_path() { printf '%s/%s/%s.crt' "$ROOT" "$CERTS_REL" "$CERT_NAME"; }
+key_path()  { printf '%s/%s/%s.key' "$ROOT" "$CERTS_REL" "$CERT_NAME"; }
+
+ssl_usage() {
+  cat <<'EOF'
+HTTPS 管理（审计项 S-03）
+
+用法:
+  starbyte ssl status                     签发者 / 到期日 / 剩余天数 / 是否已启用
+  starbyte ssl enable --cert <crt> --key <key> [--host <域名>]
+                                          用现成证书启用 HTTPS（一期的主路径）
+  starbyte ssl enable                     刷新模式：复用 deploy/certs 里已有的证书，
+                                          用于应用升级后的仓库模板
+  starbyte ssl verify [--cert <crt> --key <key>] [--host <域名>]
+                                          只体检，不落地、不改运行状态
+  starbyte ssl disable                    一键回退到纯 HTTP（逃生门）
+  starbyte ssl selfsign --host <域名> [--days N] --yes
+                                          自签证书，**仅供联调**，不要用于上线
+
+说明:
+  - 证书被复制到 deploy/certs/starbyte.crt(0644) 与 starbyte.key(0600)。
+    复制而非软链：容器里的软链指向宿主路径会解析失败。
+    该目录已被根 .gitignore 挡住（certs/ 与 *.key 两条），私钥不会进版本库。
+  - 启用后 HTTP(80) **仍然可用**：那是证书配错时的逃生通道，故不做 80→443 强制跳转。
+    想强制走 HTTPS 交给 HSTS 在浏览器侧完成。
+  - HSTS 首次 max-age=300（5 分钟）。确认无混合内容后再逐步调大。
+  - enable 会先建 frontend 镜像、再用一次性容器跑 `nginx -t` 预检；
+    预检不通过就不碰正在运行的服务，并自动回滚。
+  - disable 不删证书（那是学校签发的资产，删了要重新申请）。
+EOF
+}
+
+need_openssl() {
+  if ! command -v openssl >/dev/null 2>&1; then
+    err "未找到 openssl —— ssl 子命令需要它来校验证书与私钥是否配对。"
+    err "安装: apt-get install -y openssl   (Debian/Ubuntu)"
+    exit 1
+  fi
+}
+
+# 文件权限，GNU stat 与 BSD stat 都试一遍
+file_mode() {
+  stat -c '%a' "$1" 2>/dev/null || stat -f '%Lp' "$1" 2>/dev/null || printf '?'
+}
+
+# 收紧私钥权限，并**校验结果**。在 chmod 语义不生效的文件系统上（NTFS / CIFS 挂载、
+# 某些容器卷）chmod 会静默失败，私钥仍是全局可读 —— 这种失败不能当成没发生。
+harden_key_perms() {
+  local f="$1" m
+  chmod 0600 "$f" 2>/dev/null || true
+  m="$(file_mode "$f")"
+  if [[ "$m" != "600" && "$m" != "400" ]]; then
+    warn "私钥权限未能收紧到 600（当前 $m）—— 该文件系统可能不支持 Unix 权限位。"
+    warn "  deploy/certs/ 所在卷的访问控制请自行确认，别把私钥暴露给其他账号。"
+    return 1
+  fi
+  return 0
+}
+
+# 证书 / 私钥的公钥 SHA-256 指纹（用于判断配对）。失败返回空串，不返回非 0。
+ssl_pubkey_hash_cert() {
+  openssl x509 -in "$1" -noout -pubkey 2>/dev/null \
+    | openssl pkey -pubin -outform DER 2>/dev/null \
+    | openssl dgst -sha256 2>/dev/null | awk '{print $NF}' || true
+}
+ssl_pubkey_hash_key() {
+  openssl pkey -in "$1" -pubout -outform DER 2>/dev/null \
+    | openssl dgst -sha256 2>/dev/null | awk '{print $NF}' || true
+}
+
+# openssl 的日期串 → epoch。GNU date 与 BSD date 都试。
+ssl_date_to_epoch() {
+  local s="$1" e=""
+  [[ -n "$s" ]] || { printf ''; return 0; }
+  e="$(date -d "$s" +%s 2>/dev/null || true)"
+  if [[ -z "$e" ]]; then
+    e="$(date -j -f "%b %e %T %Y %Z" "$s" +%s 2>/dev/null || true)"
+  fi
+  printf '%s' "$e"
+}
+
+ssl_cert_days_left() {
+  local crt="$1" end e now
+  end="$(openssl x509 -in "$crt" -noout -enddate 2>/dev/null | cut -d= -f2- || true)"
+  [[ -n "$end" ]] || { printf ''; return 0; }
+  e="$(ssl_date_to_epoch "$end")"
+  [[ -n "$e" ]] || { printf ''; return 0; }
+  now="$(date +%s)"
+  printf '%s' "$(( (e - now) / 86400 ))"
+}
+
+ssl_cert_sans() {
+  local crt="$1" out=""
+  out="$(openssl x509 -in "$crt" -noout -ext subjectAltName 2>/dev/null | sed '1d' || true)"
+  if [[ -z "$out" ]]; then
+    out="$(openssl x509 -in "$crt" -noout -text 2>/dev/null \
+      | awk '/X509v3 Subject Alternative Name/{getline; print}' || true)"
+  fi
+  printf '%s' "$out" | tr ',' '\n' | sed -n 's/^[[:space:]]*DNS://p' | tr -d ' ' | tr '\n' ' '
+}
+
+# 证书是否覆盖主机名 $2。注意通配规则：*.a.cn 只覆盖一级子域，
+# 既不匹配裸域 a.cn，也不匹配 x.y.a.cn。这条我踩过 —— 学校给的是
+# *.smbu.edu.cn，所以入口必须是 starbyte.smbu.edu.cn 这类子域名。
+ssl_host_covered() {
+  local crt="$1" want="$2" san suffix prefix
+  for san in $(ssl_cert_sans "$crt"); do
+    [[ "$san" == "$want" ]] && return 0
+    if [[ "$san" == \*.* ]]; then
+      suffix="${san#\*.}"
+      case "$want" in
+        *."$suffix")
+          prefix="${want%.$suffix}"
+          [[ -n "$prefix" && "$prefix" != *.* ]] && return 0
+          ;;
+      esac
+    fi
+  done
+  return 1
+}
+
+# 一份证书/私钥的体检报告。$1=crt $2=key $3=期望主机名(可空)
+# 返回 0 = 可用于启用；返回 1 = 有致命问题，不应启用。
+ssl_inspect_pair() {
+  local crt="$1" key="$2" host="${3:-}" failed=0
+  local subj iss end days sans nb now nb_epoch hc hk
+
+  if ! openssl x509 -in "$crt" -noout >/dev/null 2>&1; then
+    err "不是有效的 X.509 证书（openssl 解析失败）: $crt"
+    err "  常见原因：给的是 PKCS#12(.pfx/.p12) 或只有中间证书链。要的是 PEM 格式证书。"
+    return 1
+  fi
+  if ! openssl pkey -in "$key" -noout >/dev/null 2>&1; then
+    err "不是有效的私钥（openssl 解析失败）: $key"
+    err "  若私钥有口令，先解密：openssl pkey -in <key> -out starbyte.key"
+    return 1
+  fi
+
+  hc="$(ssl_pubkey_hash_cert "$crt")"
+  hk="$(ssl_pubkey_hash_key "$key")"
+  if [[ -z "$hc" || -z "$hk" ]]; then
+    warn "无法比对公钥指纹，跳过配对校验"
+  elif [[ "$hc" != "$hk" ]]; then
+    err "证书与私钥不配对（公钥指纹不一致）—— 这是最常见的部署事故"
+    return 1
+  else
+    ok "证书与私钥配对"
+  fi
+
+  subj="$(openssl x509 -in "$crt" -noout -subject 2>/dev/null | sed 's/^subject=//' || true)"
+  iss="$(openssl x509 -in "$crt" -noout -issuer 2>/dev/null | sed 's/^issuer=//' || true)"
+  info "主体:   ${subj:-未知}"
+  info "签发者: ${iss:-未知}"
+
+  sans="$(ssl_cert_sans "$crt")"
+  if [[ -n "$sans" ]]; then
+    info "覆盖:   $sans"
+  else
+    warn "证书里没有 SAN（subjectAltName）—— 现代浏览器不再认 CN，会报域名不匹配"
+  fi
+
+  # 生效期
+  now="$(date +%s)"
+  nb="$(openssl x509 -in "$crt" -noout -startdate 2>/dev/null | cut -d= -f2- || true)"
+  nb_epoch="$(ssl_date_to_epoch "$nb")"
+  if [[ -n "$nb_epoch" && "$nb_epoch" -gt "$now" ]]; then
+    err "证书尚未生效（notBefore=$nb）—— 多半是本机时间不对，先校时再启用"
+    failed=1
+  fi
+
+  end="$(openssl x509 -in "$crt" -noout -enddate 2>/dev/null | cut -d= -f2- || true)"
+  days="$(ssl_cert_days_left "$crt")"
+  if [[ -n "$end" ]]; then
+    if [[ -n "$days" ]]; then
+      if [[ "$days" -lt 0 ]]; then
+        err "证书已过期（$end），启用后浏览器会直接拦截"
+        failed=1
+      elif [[ "$days" -lt "$CERT_CRIT_DAYS" ]]; then
+        err "证书 ${days} 天后过期（$end），请立即向学校信息化申请续期"
+      elif [[ "$days" -lt "$CERT_WARN_DAYS" ]]; then
+        warn "证书 ${days} 天后过期（$end），现在就该去申请续期了"
+      else
+        ok "有效期至 $end（剩余 ${days} 天）"
+      fi
+    else
+      info "有效期至 $end（本机 date 解析不了这个格式，未算剩余天数）"
+    fi
+  else
+    warn "读不到证书有效期"
+  fi
+
+  if [[ -n "$host" ]]; then
+    if ssl_host_covered "$crt" "$host"; then
+      ok "证书覆盖 $host"
+    else
+      warn "证书 SAN 里没有 $host —— 浏览器会报域名不匹配"
+      warn "提醒：*.smbu.edu.cn 只覆盖一级子域，不覆盖裸域 smbu.edu.cn"
+    fi
+  fi
+
+  [[ "$failed" -eq 0 ]]
+}
+
+# 解析 --cert/--key 到 SSL_CERT / SSL_KEY；两者都空则回落到 deploy/certs 现有证书。
+ssl_resolve_pair() {
+  local cert="$1" key="$2"
+  if [[ -z "$cert" && -z "$key" ]]; then
+    cert="$(cert_path)"
+    key="$(key_path)"
+    if [[ ! -f "$cert" || ! -f "$key" ]]; then
+      err "未给 --cert/--key，且 deploy/certs 里没有可复用的 ${CERT_NAME}.crt / ${CERT_NAME}.key"
+      err "用法: starbyte ssl enable --cert <crt> --key <key>"
+      return 1
+    fi
+  elif [[ -z "$cert" || -z "$key" ]]; then
+    err "--cert 与 --key 必须同时提供（只给一个无法部署）"
+    return 1
+  fi
+  if [[ ! -f "$cert" ]]; then err "证书文件不存在: $cert"; return 1; fi
+  if [[ ! -r "$cert" ]]; then err "证书文件不可读: $cert"; return 1; fi
+  if [[ ! -f "$key" ]]; then err "私钥文件不存在: $key"; return 1; fi
+  if [[ ! -r "$key" ]]; then err "私钥文件不可读（多为权限问题，试加 sudo）: $key"; return 1; fi
+  SSL_CERT="$cert"
+  SSL_KEY="$key"
+}
+
+# 回滚：移除 443 配置，并把本次写入的证书文件恢复/删除。$1=备份目录(可为空)
+ssl_rollback() {
+  local backup="$1" f
+  rm -f "$ROOT/$HTTPS_CONF_REL"
+  for f in "$(cert_path)" "$(key_path)"; do
+    if [[ -n "$backup" && -f "$backup/$(basename "$f")" ]]; then
+      mv -f "$backup/$(basename "$f")" "$f"
+    else
+      rm -f "$f"
+    fi
+  done
+  [[ -n "$backup" && -d "$backup" ]] && rmdir "$backup" 2>/dev/null || true
+  warn "已回滚：移除 443 配置，证书文件恢复原状"
+}
+
+# ── starbyte ssl status ──────────────────────────────────
+cmd_ssl_status() {
+  local crt key tpl cur rc=0 hp
+  crt="$(cert_path)"
+  key="$(key_path)"
+  tpl="$ROOT/$HTTPS_TEMPLATE_REL"
+  cur="$ROOT/$HTTPS_CONF_REL"
+  hp="${STARBYTE_HTTPS_PORT:-443}"
+
+  log "HTTPS 状态（审计项 S-03）"
+  log ""
+  if https_enabled; then
+    ok "状态: 已启用"
+    info "生效配置: docker-compose.yml + $(basename "$HTTPS_OVERRIDE_REL")"
+    info "          （443 端口映射 + 证书/https.d 只读挂载）"
+  else
+    info "状态: 未启用（当前为纯 HTTP）"
+    info "生效配置: 仅 docker-compose.yml"
+  fi
+
+  log ""
+  if [[ -f "$crt" ]]; then
+    info "证书: $CERTS_REL/${CERT_NAME}.crt   权限 $(file_mode "$crt")"
+  else
+    info "证书: $CERTS_REL/${CERT_NAME}.crt   (不存在)"
+  fi
+  if [[ -f "$key" ]]; then
+    local kperm
+    kperm="$(file_mode "$key")"
+    info "私钥: $CERTS_REL/${CERT_NAME}.key   权限 $kperm"
+    if [[ "$kperm" != "600" && "$kperm" != "400" ]]; then
+      warn "私钥权限是 $kperm，建议 600（重跑 starbyte ssl enable 会自动收紧）"
+    fi
+  else
+    info "私钥: $CERTS_REL/${CERT_NAME}.key   (不存在)"
+  fi
+
+  if [[ -f "$crt" && -f "$key" ]] && command -v openssl >/dev/null 2>&1; then
+    log ""
+    ssl_inspect_pair "$crt" "$key" "" || rc=1
+  elif [[ -f "$crt" && ! -f "$key" ]]; then
+    log ""
+    warn "只有证书没有私钥 —— 无法部署。向学校要证书时要明确说「私钥 + 中间证书链」。"
+  fi
+
+  if [[ -f "$cur" && -f "$tpl" ]] && ! diff -q "$tpl" "$cur" >/dev/null 2>&1; then
+    log ""
+    warn "生效的 443 配置与仓库模板不一致（仓库升级过）。"
+    warn "应用新模板: starbyte ssl enable   # 不带参数，复用 deploy/certs 现有证书"
+  fi
+
+  if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+    log ""
+    log "frontend 容器:"
+    compose ps frontend 2>/dev/null || info "compose ps 无输出"
+  fi
+
+  log ""
+  if https_enabled; then
+    if command -v curl >/dev/null 2>&1 \
+      && curl -kfsS --max-time 5 "https://127.0.0.1:${hp}/" -o /dev/null 2>/dev/null; then
+      ok "https://127.0.0.1:${hp}/ 可达"
+    elif command -v curl >/dev/null 2>&1; then
+      warn "https://127.0.0.1:${hp}/ 无响应（查 starbyte logs frontend）"
+    fi
+  fi
+  if command -v curl >/dev/null 2>&1 \
+    && curl -sf --max-time 5 "http://127.0.0.1:${STARBYTE_HTTP_PORT:-80}/" -o /dev/null 2>/dev/null; then
+    ok "http://127.0.0.1:${STARBYTE_HTTP_PORT:-80}/ 可达（逃生通道在位）"
+  fi
+
+  if ! https_enabled && [[ -f "$crt" && -f "$key" ]]; then
+    log ""
+    info "证书已就位但未启用。启用: starbyte ssl enable"
+  fi
+
+  return "$rc"
+}
+
+# ── starbyte ssl verify ──────────────────────────────────
+cmd_ssl_verify() {
+  local cert="" key="" host=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --cert)
+        [[ $# -ge 2 && -n "${2:-}" ]] || { err "--cert 需要一个路径"; exit 2; }
+        cert="$2"; shift 2 ;;
+      --cert=*) cert="${1#--cert=}"; shift ;;
+      --key)
+        [[ $# -ge 2 && -n "${2:-}" ]] || { err "--key 需要一个路径"; exit 2; }
+        key="$2"; shift 2 ;;
+      --key=*) key="${1#--key=}"; shift ;;
+      --host)
+        [[ $# -ge 2 && -n "${2:-}" ]] || { err "--host 需要一个域名"; exit 2; }
+        host="$2"; shift 2 ;;
+      --host=*) host="${1#--host=}"; shift ;;
+      -h|--help) ssl_usage; exit 0 ;;
+      *) err "未知参数: $1"; exit 2 ;;
+    esac
+  done
+  need_openssl
+  ssl_resolve_pair "$cert" "$key" || exit 2
+  log "证书体检（不改动任何状态）: $SSL_CERT"
+  log ""
+  if ssl_inspect_pair "$SSL_CERT" "$SSL_KEY" "$host"; then
+    log ""
+    ok "结论：可用于启用 HTTPS"
+  else
+    log ""
+    err "结论：存在致命问题，不要启用"
+    exit 1
+  fi
+}
+
+# ── starbyte ssl enable ──────────────────────────────────
+cmd_ssl_enable() {
+  local cert="" key="" host=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --cert)
+        [[ $# -ge 2 && -n "${2:-}" ]] || { err "--cert 需要一个路径"; exit 2; }
+        cert="$2"; shift 2 ;;
+      --cert=*) cert="${1#--cert=}"; shift ;;
+      --key)
+        [[ $# -ge 2 && -n "${2:-}" ]] || { err "--key 需要一个路径"; exit 2; }
+        key="$2"; shift 2 ;;
+      --key=*) key="${1#--key=}"; shift ;;
+      --host)
+        [[ $# -ge 2 && -n "${2:-}" ]] || { err "--host 需要一个域名"; exit 2; }
+        host="$2"; shift 2 ;;
+      --host=*) host="${1#--host=}"; shift ;;
+      -h|--help) ssl_usage; exit 0 ;;
+      *) err "未知参数: $1（见 starbyte ssl help）"; exit 2 ;;
+    esac
+  done
+
+  need_openssl
+  need_docker
+  ssl_resolve_pair "$cert" "$key" || exit 2
+
+  local src_crt="$SSL_CERT" src_key="$SSL_KEY"
+  local dst_crt dst_key
+  dst_crt="$(cert_path)"
+  dst_key="$(key_path)"
+
+  if [[ ! -f "$ROOT/$HTTPS_TEMPLATE_REL" ]]; then
+    err "缺少模板 $HTTPS_TEMPLATE_REL —— 仓库不完整，先 git pull"
+    exit 1
+  fi
+
+  log "HTTPS 启用检查"
+  log ""
+  if ! ssl_inspect_pair "$src_crt" "$src_key" "$host"; then
+    log ""
+    err "体检未通过，未做任何改动。"
+    exit 1
+  fi
+  log ""
+
+  # 1) 落地证书。只在确实要覆盖已有文件时备份，失败可原样退回。
+  mkdir -p "$ROOT/$CERTS_REL"
+  chmod 700 "$ROOT/$CERTS_REL" 2>/dev/null || true
+  local backup=""
+  if [[ ( "$src_crt" != "$dst_crt" && -f "$dst_crt" ) || ( "$src_key" != "$dst_key" && -f "$dst_key" ) ]]; then
+    backup="$ROOT/$CERTS_REL/.backup-$(date +%Y%m%d%H%M%S)"
+    mkdir -p "$backup"
+    [[ -f "$dst_crt" ]] && cp -p "$dst_crt" "$backup/"
+    [[ -f "$dst_key" ]] && cp -p "$dst_key" "$backup/"
+    info "已备份原有证书到 $CERTS_REL/$(basename "$backup")"
+  fi
+
+  if [[ "$src_crt" != "$dst_crt" ]]; then
+    install -m 0644 "$src_crt" "$dst_crt"
+  else
+    chmod 0644 "$dst_crt" 2>/dev/null || true
+  fi
+  if [[ "$src_key" != "$dst_key" ]]; then
+    install -m 0600 "$src_key" "$dst_key"
+  fi
+  harden_key_perms "$dst_key" || true
+  ok "证书已就位 $CERTS_REL/${CERT_NAME}.crt(0644) / ${CERT_NAME}.key(600)"
+  info "复制而非软链：容器里的软链会指向宿主路径而解析失败"
+
+  # 2) 生成 443 配置 —— 这一步完成，启用状态即成立
+  mkdir -p "$ROOT/deploy/nginx/https.d"
+  install -m 0644 "$ROOT/$HTTPS_TEMPLATE_REL" "$ROOT/$HTTPS_CONF_REL"
+  ok "已写入 $HTTPS_CONF_REL（存在即启用）"
+
+  # 3) 构建 frontend：新的 nginx.conf 通配 include 与 Dockerfile 预建目录在镜像里
+  log ""
+  log "构建 frontend 镜像（纳入 nginx.conf 的通配 include 与 https.d 目录）..."
+  if ! compose build frontend; then
+    ssl_rollback "$backup"
+    err "frontend 构建失败，已回滚，服务保持原状。"
+    exit 1
+  fi
+
+  # 4) 预检：用一次性容器跑 nginx -t。不通过就绝不碰正在运行的容器。
+  log ""
+  log "预检：一次性容器执行 nginx -t ..."
+  if ! compose run --rm --no-deps -T --entrypoint nginx frontend -t; then
+    ssl_rollback "$backup"
+    err "nginx 配置校验未通过，已回滚，服务保持原状。"
+    exit 1
+  fi
+  ok "nginx -t 通过"
+
+  # 5) 重建 frontend
+  log ""
+  log "重建 frontend ..."
+  compose up -d --no-deps --force-recreate frontend
+
+  # 6) 复核
+  log ""
+  log "启用完成，复核:"
+  local hp="${STARBYTE_HTTPS_PORT:-443}" http_port="${STARBYTE_HTTP_PORT:-80}"
+  if command -v curl >/dev/null 2>&1; then
+    if curl -kfsS --max-time 5 "https://127.0.0.1:${hp}/" -o /dev/null 2>/dev/null; then
+      ok "https://127.0.0.1:${hp}/ 已响应"
+    else
+      warn "https://127.0.0.1:${hp}/ 暂无响应 —— 查 starbyte logs frontend"
+    fi
+    if curl -sf --max-time 5 "http://127.0.0.1:${http_port}/" -o /dev/null 2>/dev/null; then
+      ok "http://127.0.0.1:${http_port}/ 仍然可用（逃生通道在位）"
+    else
+      warn "HTTP 入口无响应 —— 逃生通道可能在校园网侧被单独关闭，检查一下"
+    fi
+  fi
+
+  log ""
+  log "后续必做:"
+  info "1. 把 CAS 回调地址改成 https://<你的域名>/api/v1/auth/cas/callback 并向学校备案"
+  info "2. 确认防火墙 80 与 443 都放行（80 必须留着，那是逃生通道）"
+  info "3. 观察几天无混合内容报错后，把模板里的 HSTS max-age 从 300 逐步调大，"
+  info "   改完运行 starbyte ssl enable 刷新"
+  info "4. 到期前 30 天 starbyte ssl status 会提醒；换新证书后重跑本命令即可"
+  if [[ "$host" == "localhost" || -z "$host" ]]; then
+    log ""
+    info "建议：下次带上 --host <域名>，体检会顺便校验证书是否覆盖该域名。"
+  fi
+}
+
+# ── starbyte ssl disable ─────────────────────────────────
+cmd_ssl_disable() {
+  if [[ $# -gt 0 ]]; then
+    case "$1" in
+      -h|--help) ssl_usage; exit 0 ;;
+      *) err "ssl disable 不接受参数"; exit 2 ;;
+    esac
+  fi
+  if ! https_enabled; then
+    info "当前未启用 HTTPS（纯 HTTP），无需操作。"
+    exit 0
+  fi
+  need_docker
+  log "停用 HTTPS：移除 443 配置并重建 frontend ..."
+  rm -f "$ROOT/$HTTPS_CONF_REL"
+  ok "已移除 $HTTPS_CONF_REL"
+
+  if ! compose up -d --no-deps --force-recreate frontend; then
+    err "frontend 重建失败。443 配置已移除，可手动重试："
+    err "  docker compose -f deploy/docker-compose.yml up -d --no-deps --force-recreate frontend"
+    exit 1
+  fi
+
+  local http_port="${STARBYTE_HTTP_PORT:-80}"
+  log ""
+  warn "证书文件仍保留在 $CERTS_REL —— 不删，那是学校签发的资产"
+  warn "浏览器侧已下发的 HSTS 会在 max-age(默认 300 秒) 后失效，这几分钟内可能仍强制 HTTPS"
+  log ""
+  if command -v curl >/dev/null 2>&1; then
+    if curl -sf --max-time 5 "http://127.0.0.1:${http_port}/" -o /dev/null 2>/dev/null; then
+      ok "http://127.0.0.1:${http_port}/ 已恢复"
+    else
+      warn "HTTP 入口暂无响应 —— 查 starbyte logs frontend"
+    fi
+  fi
+  log ""
+  info "注意：CAS 的回调地址若已改成 https，请同步向学校改回 http，否则登录会失败。"
+}
+
+# ── starbyte ssl selfsign ────────────────────────────────
+# 自签证书的唯一正当用途：在学校证书到位之前，先把整条 HTTPS 链路联调通
+# （挂载、include、nginx -t、443 可达）。**不要拿它上线** ——
+# 每个同学首次访问都会看到红色告警页，微信里点开还会被拦。
+cmd_ssl_selfsign() {
+  local host="localhost" days=365 yes=0 cfg
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --host)
+        [[ $# -ge 2 && -n "${2:-}" ]] || { err "--host 需要一个域名"; exit 2; }
+        host="$2"; shift 2 ;;
+      --host=*) host="${1#--host=}"; shift ;;
+      --days)
+        [[ $# -ge 2 && -n "${2:-}" ]] || { err "--days 需要一个数字"; exit 2; }
+        days="$2"; shift 2 ;;
+      --days=*) days="${1#--days=}"; shift ;;
+      --yes|-y) yes=1; shift ;;
+      -h|--help) ssl_usage; exit 0 ;;
+      *) err "未知参数: $1"; exit 2 ;;
+    esac
+  done
+  [[ "$days" =~ ^[0-9]+$ ]] || { err "--days 需要数字"; exit 2; }
+  need_openssl
+
+  if [[ "$yes" -ne 1 ]]; then
+    err "自签证书仅供联调，浏览器会报不受信任 —— 不要用于正式上线。"
+    err "确认要继续请显式加 --yes："
+    err "  starbyte ssl selfsign --host $host --yes"
+    exit 2
+  fi
+
+  mkdir -p "$ROOT/$CERTS_REL"
+  chmod 700 "$ROOT/$CERTS_REL" 2>/dev/null || true
+  local crt key_
+  crt="$(cert_path)"
+  key_="$(key_path)"
+
+  # 优先用 -addext（openssl >= 1.1.1）；不支持则退回临时配置文件，
+  # 否则证里没有 SAN，现代浏览器一律不认。
+  if ! openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days "$days" \
+        -keyout "$key_" -out "$crt" -subj "/CN=${host}" \
+        -addext "subjectAltName=DNS:${host}" >/dev/null 2>&1; then
+    warn "openssl 不支持 -addext，改用临时配置文件写入 SAN"
+    cfg="$(mktemp)"
+    cat > "$cfg" <<EOF
+[req]
+distinguished_name = dn
+x509_extensions = v3
+prompt = no
+[dn]
+CN = ${host}
+[v3]
+subjectAltName = DNS:${host}
+basicConstraints = CA:FALSE
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+EOF
+    if ! openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days "$days" \
+          -keyout "$key_" -out "$crt" -config "$cfg" >/dev/null 2>&1; then
+      rm -f "$cfg"
+      err "自签证书生成失败（openssl 报错被静默，可去掉 >/dev/null 手动重跑看详情）"
+      exit 1
+    fi
+    rm -f "$cfg"
+  fi
+
+  harden_key_perms "$key_" || true
+  chmod 0644 "$crt" 2>/dev/null || true
+  ok "自签证书已生成: $CERTS_REL/${CERT_NAME}.crt（CN=$host，${days} 天）"
+  warn "这是**测试用**证书，浏览器不受信任。正式上线请换成学校签发的："
+  warn "  starbyte ssl enable --cert <学校给的.crt> --key <学校给的.key>"
+  log ""
+  log "接着启用（复用刚生成的证书）:"
+  log "  starbyte ssl enable"
+}
+
+# ── starbyte ssl ─────────────────────────────────────────
+cmd_ssl() {
+  local sub="${1:-help}"
+  [[ $# -gt 0 ]] && shift || true
+  case "$sub" in
+    status|st) cmd_ssl_status "$@" ;;
+    enable|on) cmd_ssl_enable "$@" ;;
+    disable|off) cmd_ssl_disable "$@" ;;
+    verify|check) cmd_ssl_verify "$@" ;;
+    selfsign) cmd_ssl_selfsign "$@" ;;
+    help|-h|--help) ssl_usage ;;
+    *)
+      err "未知 ssl 子命令: $sub"
+      ssl_usage >&2
+      exit 2
+      ;;
+  esac
+}
+
 cmd_install() {
   local dest="/usr/local/bin/starbyte"
   local src
@@ -990,6 +1653,7 @@ main() {
     install) cmd_install "$@" ;;
     init) init_root; cmd_init "$@" ;;
     credentials) init_root; cmd_credentials "$@" ;;
+    ssl) init_root; cmd_ssl "$@" ;;
     status|logs|restart|rebuild|env-check|backup|doctor)
       init_root
       case "$cmd" in

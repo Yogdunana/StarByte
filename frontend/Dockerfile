@@ -54,16 +54,48 @@ COPY security-headers.conf /etc/nginx/snippets/security-headers.conf
 #
 # 关于端口，这里**不是**因为「非 root 绑不了 <1024」—— 那个说法不成立：
 # Docker 自 20.10.0 起默认 net.ipv4.ip_unprivileged_port_start=0
-# （moby/moby#41030），容器内 uid 101 可以 bind 443。所以 nginx.conf 末尾那段
-# 443 模板在 USER nginx 下直接取消注释即可生效，无需改回 root。
+# （moby/moby#41030），容器内 uid 101 可以 bind 443。所以启用 HTTPS 时
+# **不需要**改回 root —— 443 的 server 块见
+# deploy/nginx/starbyte-https.conf.template（运行时挂载，不参与本镜像构建）。
 # 选 8080 是为了**可移植性**：rootless Docker 与 K8s + containerd 会把 <1024
 # 重新变成特权端口，届时 443 会 bind 失败。别把这条改成「非 root 绑不了低端口」。
+# ── HTTPS 挂载点（审计项 S-03）───────────────────────────────
+# /etc/nginx/snippets/https.d 是留给 HTTPS server 块的常驻目录。
+# nginx.conf 末尾有一行通配 include：
+#     include /etc/nginx/snippets/https.d/*.conf;
+# 通配 include 在目录为空时匹配不到文件、**不报错**，所以这里必须把目录
+# 预建出来（若是非通配的 include，目录缺失会让 nginx 直接启动失败）。
+# 默认部署不挂载它 → 仍然是纯 HTTP，行为与引入本机制前完全一致。
+# `starbyte ssl enable` 会把宿主机 deploy/nginx/https.d 只读挂上去，
+# override 文件见 deploy/docker-compose.https.yml。
 RUN mkdir -p /var/cache/nginx/client_temp /var/cache/nginx/proxy_temp \
              /var/cache/nginx/fastcgi_temp /var/cache/nginx/uwsgi_temp \
              /var/cache/nginx/scgi_temp /etc/nginx/snippets \
+             /etc/nginx/snippets/https.d \
  && touch /var/run/nginx.pid \
  && chown -R nginx:nginx /var/cache/nginx /var/run/nginx.pid \
-       /etc/nginx/conf.d /etc/nginx/snippets /usr/share/nginx/html
+       /etc/nginx/conf.d /etc/nginx/snippets /etc/nginx/snippets/https.d /usr/share/nginx/html
+
+# ── 构建期校验配置（S-03）─────────────────────────────────
+# 到这一步 nginx.conf 与 security-headers.conf 都已 COPY 进来、https.d 还是空的 ——
+# 正好等价于**默认部署（纯 HTTP）** 的配置形态。这里跑一次 nginx -t，让
+# 「未启用 HTTPS 时配置必须仍然合法」有 CI 门禁，而不是靠人肉检查。
+#
+# 为什么不能直接 `nginx -t`（实测踩过，别删这段说明去「简化」）：
+#   nginx 会在**解析配置时**就解析 proxy_pass 里的字面主机名，而 `backend`
+#   是 compose 网络里的服务名，构建期不存在 —— 直接跑必然报
+#       [emerg] host not found in upstream "backend" in .../default.conf:45
+#   构建随之失败。这与配置是否正确无关，纯粹是解析时机问题。
+# 所以先把上游地址临时换成 127.0.0.1，做**纯语法与指令校验**，校验完立刻还原。
+#
+# 本步**不**覆盖两件事，别误以为它管了：
+#   ① 上游主机名在真实网络里能否解析 —— 只有在 compose 网络里才知道；
+#   ② 启用后的 443 块 —— 那份配置是运行时由 compose 只读挂载进去的，不参与镜像构建。
+#   这两条都由 `starbyte ssl enable` 里的「一次性容器跑 nginx -t」预检兜住
+#   （`compose run` 会加入 compose 网络，backend 能解析，所以那里可以直接跑）。
+RUN sed -i.bak 's|http://backend:[0-9][0-9]*|http://127.0.0.1:9|g' /etc/nginx/conf.d/default.conf \
+ && nginx -t \
+ && mv /etc/nginx/conf.d/default.conf.bak /etc/nginx/conf.d/default.conf
 
 USER nginx
 

@@ -265,7 +265,7 @@ CAS 所需的 `extra_hosts` 已写进仓库 compose（受保护、不会被 zip 
 3. 迁移：`make migrate-up DATABASE_URL=postgres://...`。
 4. 种子：`APP_ENV=prod make seed`（admin 口令生成与抄录方式见上）。
 5. 前端：`cd frontend && npm ci && npm run build`，用 Nginx 托管 `dist/` 并把 `/api/` 反代到后端。
-   反代配置请参考 `frontend/nginx.conf`（含安全响应头与 HTTPS 模板），不要只写裸 `proxy_pass`。
+   反代配置请参考 `frontend/nginx.conf`（含安全响应头），不要只写裸 `proxy_pass`。
 
 ## 学校统一认证（漏测先用 IP）
 
@@ -282,7 +282,9 @@ CAS 所需的 `extra_hosts` 已写进仓库 compose（受保护、不会被 zip 
 
 **优先直接用仓库里已加固的 `frontend/nginx.conf`**（由 `frontend/Dockerfile` 打进镜像），
 它已包含：`server_tokens off`、`nosniff` / `X-Frame-Options` / `Referrer-Policy` /
-`Permissions-Policy` / CSP、非 root 监听 8080、以及 443 server 块模板。
+`Permissions-Policy` / CSP、非 root 监听 8080。
+HTTPS 的 443 server 块**不在这里**，而在 `deploy/nginx/starbyte-https.conf.template`，
+由 `starbyte ssl enable` 挂载生效（见「HTTPS」一节）。
 
 若你在宿主机另起 nginx（不用容器内的那个），至少要照抄安全头：
 
@@ -296,7 +298,8 @@ server {
     ssl_protocols       TLSv1.2 TLSv1.3;
 
     server_tokens off;
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    # HSTS 首次用 300 秒验证无混合内容后再调大；大 max-age 一旦下发很难回退。
+    add_header Strict-Transport-Security "max-age=300" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
@@ -325,11 +328,22 @@ server {
     }
 }
 
-# 80 → 443
+# 80 端口：**默认不做全量 301**。
+# 强制跳转叠加 HSTS 大 max-age，会把一次证书配置错误变成不可恢复的锁定；
+# 校园网内用 IP 直访、CAS 回调、健康检查也都可能依赖明文 HTTP。
+# 容器内那份配置（frontend/nginx.conf）就是不做跳转的。
+# 若你确实要跳，至少给 ACME 挑战留一条明文通道：
 server {
     listen 80;
     server_name _;
-    return 301 https://$host$request_uri;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/acme;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
 }
 ```
 
@@ -339,17 +353,65 @@ server {
 理由：登录口令与 Bearer token 在校园局域网内明文传输，同网段可用 ARP 欺骗 / 流量镜像窃取；
 一旦配合固定或弱 JWT 密钥，攻击者可直接离线签发超管 token。
 
-落地步骤：
+### 用 CLI 开启（默认路径）
 
-1. 取证书：校园 CA 签发，或自签（自签需把 CA 证书分发给客户端，否则浏览器告警）。
-2. 把证书放到宿主机 `deploy/certs/starbyte.crt` 与 `starbyte.key`。
-3. 打开 `frontend/nginx.conf` 末尾的 443 server 块与 80→443 跳转块（取消注释）。
-4. 在 `deploy/docker-compose.yml` 里打开 `443:443` 端口映射与 `./certs:/etc/nginx/certs:ro` 卷挂载。
-5. `starbyte rebuild frontend`。
-6. 验证：`curl -sI https://<地址>/ | grep -i strict-transport` 应看到 HSTS；浏览器地址栏应为锁标。
-   HSTS 首次建议先用小 `max-age`（如 300）验证无混合内容问题，再调大。
+一期由学校提供 `*.smbu.edu.cn` 通配证书，整件事就是三条命令：
 
-不要单独做 `auth.` 子域，CAS 回调与站点同 Host：`https://<IP或域名>/api/v1/auth/cas/callback`。
+```bash
+# 1. 体检 + 启用（校验证书与私钥是否配对、是否过期、是否覆盖目标域名）
+sudo starbyte ssl enable --cert /root/starbyte.smbu.edu.cn.crt \
+                         --key  /root/starbyte.smbu.edu.cn.key \
+                         --host starbyte.smbu.edu.cn
+
+# 2. 看状态（签发者 / 到期日 / 剩余天数 / 是否已启用）
+starbyte ssl status
+
+# 3. 出问题时一键退回纯 HTTP（逃生门）
+starbyte ssl disable
+```
+
+只想体检不想动运行状态：`starbyte ssl verify --cert <crt> --key <key> --host <域名>`。
+
+`enable` 依次做：把证书复制到 `deploy/certs/starbyte.{crt,key}`（私钥 0600）→
+从 `deploy/nginx/starbyte-https.conf.template` 生成
+`deploy/nginx/https.d/starbyte-https.conf` → 构建 frontend →
+**用一次性容器跑 `nginx -t` 预检** → 通过才重建容器。
+预检不通过会连同证书文件一起自动回滚，**不会把站点搞挂**。
+
+### 机制（改动前先读）
+
+- `frontend/nginx.conf` 末尾只有一行通配 include：
+  `include /etc/nginx/snippets/https.d/*.conf;`。
+  通配 include 在目录为空时匹配不到文件且**不报错** —— 未启用时就是纯 HTTP，
+  行为与引入本机制之前完全一致。
+- 启用状态的唯一事实来源 = `deploy/nginx/https.d/starbyte-https.conf` 是否存在。
+  CLI 的 `compose()` 据此自动叠加 `deploy/docker-compose.https.yml`。
+  **只在启用时才叠加**：否则宿主 443 被占用会让最普通的 `docker compose up` 直接失败。
+- **不要手工去注释 compose / nginx.conf。** 那样既不幂等（跑第二次就坏），
+  也绕过了证书配对校验与自动回滚。
+
+### 两件必须注意的事
+
+1. **不做 80→443 强制跳转。** HTTP 入口始终保留 —— 那是证书配错或过期时的逃生通道。
+   强制跳转叠加 HSTS 大 `max-age`，会把一次配置错误变成不可恢复的锁定。
+   强制走 HTTPS 交给 HSTS 在浏览器侧完成。
+2. **HSTS 首次用 `max-age=300`。** 确认无混合内容问题后再逐步调大；一旦下发大值，
+   浏览器会在有效期内强制 HTTPS，想退回 HTTP 很痛苦。
+
+### 证书来源怎么选
+
+- **一期（学校通配证书，推荐）**：向信息化要 **PEM 格式证书 + 私钥 + 中间证书链**，缺一不可。
+  不少单位习惯只发 crt 不给 key（私钥不该离席是正当顾虑），那样部署不了，开口时就说清楚。
+- 注意 `*.smbu.edu.cn` 的星号**只覆盖一级子域**，不覆盖裸域 `smbu.edu.cn`。
+  所以入口必须是 `starbyte.smbu.edu.cn` 这样的子域名，不能用裸域。
+- **自签**：只用于学校证书到位前先把整条链路联调通 ——
+  `starbyte ssl selfsign --host <域名> --yes`。
+  不要用于上线：每个同学首次访问都会看到红色告警页，微信里点开还会被拦。
+- **Let's Encrypt 一期用不上。** 将来若需要（例如二期 `starbyte.work`）：
+  单域名证书走 HTTP-01 即可；通配证书必须走 DNS-01，且每 90 天要改一次
+  `_acme-challenge` 的 TXT，必须自动化，人肉续期会累死。
+
+不要单独做 `auth.` 子域，CAS 回调与站点同 Host：`https://<域名>/api/v1/auth/cas/callback`。
 
 ## 上线前核查清单
 
@@ -359,7 +421,8 @@ server {
 - [ ] `deploy/.env` 与 `deploy/.env.credentials` **未被提交**（`git check-ignore -v deploy/.env`）
 - [ ] `APP_ENV=prod`（`deploy/docker-compose.yml` 已写死；手动部署时自查）
 - [ ] `METRICS_TOKEN` 已设或明确接受 `/metrics` 返回 404
-- [ ] HTTPS 已启用，且 `Strict-Transport-Security` 生效
+- [ ] HTTPS 已启用且证书有效（`starbyte ssl status` 返回 0），`Strict-Transport-Security` 生效
+- [ ] 证书到期日已记录（`starbyte ssl status` 会在剩余 < 30 天时告警）
 - [ ] `make seed` 的 admin 随机口令已抄录、已登录改密
 - [ ] MinIO 桶 `starbyte` 已手动创建
 - [ ] 后端 8080 / MinIO 9000 **未**对校园网开放（`ss -lnt` 确认只绑 127.0.0.1）

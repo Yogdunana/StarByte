@@ -1,0 +1,111 @@
+# ─────────────────────────────────────────────────────────
+# HTTPS server 块（审计项 S-03）
+#
+# 本文件是**模板**。`starbyte ssl enable` 把它复制成
+#   deploy/nginx/https.d/starbyte-https.conf
+# 并叠加 deploy/docker-compose.https.yml，把该目录只读挂到容器里。
+# frontend/nginx.conf 末尾有一行通配 include：
+#   include /etc/nginx/snippets/https.d/*.conf;
+# 通配 include 在目录为空时匹配不到文件且**不报错**，所以未启用时默认部署
+# 就是纯 HTTP。**文件存在即启用** —— 这个文件同时是状态的唯一来源。
+#
+# 本文件进了版本库，https.d/ 里生成的那个没有（见 https.d/.gitignore）。
+# 所以升级仓库后，用 `starbyte ssl enable`（不带参数，复用 deploy/certs 现有证书）
+# 刷新即可把新版本模板应用上去。
+#
+# 一律用 CLI 开关，不要手工挂载：
+#   starbyte ssl enable --cert <starbyte.crt> --key <starbyte.key>
+#   starbyte ssl disable
+#
+# 设计要点（改动前先读完）：
+#
+#   1) 本块**不**抢 default_server。主配置里的 `listen 8080 default_server`
+#      保持不变，因此 HTTP 入口始终可达 —— 这是证书配错时的逃生通道。
+#      想改用 443 作默认入口要连带改主配置，别只在这里动手。
+#
+#   2) 刻意**不做** 80→443 强制跳转。三个理由：
+#        - 强制跳转叠加 HSTS 大 max-age，会把一次配置错误变成不可恢复的锁定；
+#        - 校园网内直接用 IP 访问、CAS 回调、健康检查都可能依赖明文 HTTP；
+#        - 强制走 HTTPS 交给 HSTS 在浏览器层完成（见下方 add_header），
+#          服务端不做重定向，逃生通道就一直在。
+#
+#   3) HSTS 首次用 max-age=300。确认无混合内容问题后再逐步调大。
+#      一旦下发大值，浏览器会在有效期内强制 HTTPS，回退极其痛苦。
+#
+#   4) 容器以非 root（UID 101）运行，bind 443 没问题 —— Docker 自 20.10.0 起
+#      默认 net.ipv4.ip_unprivileged_port_start=0。依据见 frontend/Dockerfile
+#      里的详细说明，别把这里改成"非 root 绑不了低端口"。
+#
+#   5) 证书路径固定为 /etc/nginx/certs/starbyte.{crt,key}，由 compose override
+#      把宿主机 deploy/certs/ 只读挂进来。改文件名要同时改 CLI。
+# ─────────────────────────────────────────────────────────
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    # nginx >= 1.25.1 的新语法；镜像钉的是 1.27-alpine。
+    http2 on;
+    server_name _;
+
+    ssl_certificate     /etc/nginx/certs/starbyte.crt;
+    ssl_certificate_key /etc/nginx/certs/starbyte.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    # 隐藏 nginx 版本号，不给攻击者做版本指纹
+    server_tokens off;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    include /etc/nginx/snippets/security-headers.conf;
+    # HSTS 只能出现在 HTTPS 响应上，故放在这里而不是 HTTP server 块。
+    # 首次启用先用 300 秒验证，确认无混合内容后再调大。
+    add_header Strict-Transport-Security "max-age=300" always;
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    # 与 nginx.conf 的 HTTP 块保持逐字一致 —— 两处不一致会导致
+    # 「切到 HTTPS 后某些 MIME 不再压缩」，属于难查的静默差异。
+    gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml+rss application/javascript application/json;
+
+    # 静态资源缓存。
+    # 本 location 自带 add_header，会覆盖 server 级 add_header，
+    # 所以安全头与 HSTS 都要重新 include / 重新声明，否则 js/css 响应会丢掉它们。
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Strict-Transport-Security "max-age=300" always;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    location /api/ {
+        proxy_pass http://backend:8080/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        client_max_body_size 32m;
+    }
+
+    location /ws/ {
+        proxy_pass http://backend:8080/ws/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400;
+    }
+
+    # SPA 路由回退
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

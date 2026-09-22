@@ -1,0 +1,46 @@
+# ─────────────────────────────────────────────────────────
+# HTTPS override（审计项 S-03）
+#
+# 不要手动 `-f` 这个文件 —— 由 deploy/cli/starbyte 的 compose() 在
+# `starbyte ssl enable` 之后自动叠加。完整命令行形如：
+#
+#   docker compose \
+#     -f deploy/docker-compose.yml \
+#     -f deploy/docker-compose.https.yml \
+#     --env-file deploy/.env up -d --no-deps frontend
+#
+# 为什么用 override 而不是直接改 docker-compose.yml：
+#
+#   1) 幂等。enable / disable 只是"挂载 / 不挂载"这个文件，
+#      不需要去注释再注释回来（sed 去注释重复执行必然出错）。
+#   2) 可回滚。disable 之后基础文件一字未动，风险为零。
+#   3) compose 对 ports / volumes 是**追加合并**，所以基础文件里的
+#      `80:8080` 会保留下来 —— HTTP 入口照旧可用，
+#      这正是证书配错时的逃生通道（详见 deploy/nginx/https.d/ 里的说明）。
+#
+# 什么时候叠加本文件：deploy/nginx/https.d/starbyte-https.conf 存在时。
+# 该文件由 `starbyte ssl enable` 从 deploy/nginx/starbyte-https.conf.template
+# 生成，**存在即表示已启用**；`ssl disable` 删掉它，本 override 就不再生效。
+#
+# 配套改动：frontend/nginx.conf 末尾有一行通配 include，
+# frontend/Dockerfile 会预建 /etc/nginx/snippets/https.d 常驻目录。
+# 这三处是一套，缺任何一个都不会生效（且空目录不会报错，容易误以为已启用）。
+# ─────────────────────────────────────────────────────────
+
+services:
+  frontend:
+    ports:
+      # 容器内 nginx 监听 443；宿主机端口可用 STARBYTE_HTTPS_PORT 覆盖。
+      # 容器以非 root（UID 101）运行也能 bind 443，理由见 frontend/Dockerfile。
+      - "${STARBYTE_HTTPS_PORT:-443}:443"
+    volumes:
+      # 证书。nginx 的 ssl_certificate 指向
+      #   /etc/nginx/certs/starbyte.crt 与 starbyte.key
+      # 私钥应为 600 —— CLI 的 `ssl enable` 会强制设置。
+      # 部署机上的 deploy/certs/ 已被根 .gitignore 挡住（certs/ 与 *.key 两条）。
+      - ./certs:/etc/nginx/certs:ro
+      # 443 server 块。挂进来之后，主配置末尾的
+      #   include /etc/nginx/snippets/https.d/*.conf;
+      # 就会加载它。不挂载时该目录为空，通配 include 匹配不到文件且**不报错**，
+      # 所以默认部署仍然是纯 HTTP，行为与启用此功能之前完全一致。
+      - ./nginx/https.d:/etc/nginx/snippets/https.d:ro
