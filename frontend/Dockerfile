@@ -77,14 +77,25 @@ RUN mkdir -p /var/cache/nginx/client_temp /var/cache/nginx/proxy_temp \
        /etc/nginx/conf.d /etc/nginx/snippets /etc/nginx/snippets/https.d /usr/share/nginx/html
 
 # ── 构建期校验配置（S-03）─────────────────────────────────
-# 到这一步 nginx.conf、security-headers.conf 都已 COPY 进来，https.d 是空的 ——
-# 正好等价于**默认部署（纯 HTTP）** 的配置形态。构建期跑一次 nginx -t，
-# 于是「未启用 HTTPS 时配置必须仍然合法」这条主张有了 CI 门禁，而不是靠人肉检查。
+# 到这一步 nginx.conf 与 security-headers.conf 都已 COPY 进来、https.d 还是空的 ——
+# 正好等价于**默认部署（纯 HTTP）** 的配置形态。这里跑一次 nginx -t，让
+# 「未启用 HTTPS 时配置必须仍然合法」有 CI 门禁，而不是靠人肉检查。
 #
-# 注意这里管不到启用后的 443 块：那份配置是运行时由 compose 只读挂载进去的
-# （见 deploy/docker-compose.https.yml），不参与镜像构建。
-# 它由 `starbyte ssl enable` 里的「一次性容器跑 nginx -t」预检兜住。
-RUN nginx -t
+# 为什么不能直接 `nginx -t`（实测踩过，别删这段说明去「简化」）：
+#   nginx 会在**解析配置时**就解析 proxy_pass 里的字面主机名，而 `backend`
+#   是 compose 网络里的服务名，构建期不存在 —— 直接跑必然报
+#       [emerg] host not found in upstream "backend" in .../default.conf:45
+#   构建随之失败。这与配置是否正确无关，纯粹是解析时机问题。
+# 所以先把上游地址临时换成 127.0.0.1，做**纯语法与指令校验**，校验完立刻还原。
+#
+# 本步**不**覆盖两件事，别误以为它管了：
+#   ① 上游主机名在真实网络里能否解析 —— 只有在 compose 网络里才知道；
+#   ② 启用后的 443 块 —— 那份配置是运行时由 compose 只读挂载进去的，不参与镜像构建。
+#   这两条都由 `starbyte ssl enable` 里的「一次性容器跑 nginx -t」预检兜住
+#   （`compose run` 会加入 compose 网络，backend 能解析，所以那里可以直接跑）。
+RUN sed -i.bak 's|http://backend:[0-9][0-9]*|http://127.0.0.1:9|g' /etc/nginx/conf.d/default.conf \
+ && nginx -t \
+ && mv /etc/nginx/conf.d/default.conf.bak /etc/nginx/conf.d/default.conf
 
 USER nginx
 
