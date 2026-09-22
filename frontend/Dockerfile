@@ -54,8 +54,9 @@ COPY security-headers.conf /etc/nginx/snippets/security-headers.conf
 #
 # 关于端口，这里**不是**因为「非 root 绑不了 <1024」—— 那个说法不成立：
 # Docker 自 20.10.0 起默认 net.ipv4.ip_unprivileged_port_start=0
-# （moby/moby#41030），容器内 uid 101 可以 bind 443。所以 nginx.conf 末尾那段
-# 443 模板在 USER nginx 下直接取消注释即可生效，无需改回 root。
+# （moby/moby#41030），容器内 uid 101 可以 bind 443。所以启用 HTTPS 时
+# **不需要**改回 root —— 443 的 server 块见
+# deploy/nginx/starbyte-https.conf.template（运行时挂载，不参与本镜像构建）。
 # 选 8080 是为了**可移植性**：rootless Docker 与 K8s + containerd 会把 <1024
 # 重新变成特权端口，届时 443 会 bind 失败。别把这条改成「非 root 绑不了低端口」。
 # ── HTTPS 挂载点（审计项 S-03）───────────────────────────────
@@ -74,6 +75,16 @@ RUN mkdir -p /var/cache/nginx/client_temp /var/cache/nginx/proxy_temp \
  && touch /var/run/nginx.pid \
  && chown -R nginx:nginx /var/cache/nginx /var/run/nginx.pid \
        /etc/nginx/conf.d /etc/nginx/snippets /etc/nginx/snippets/https.d /usr/share/nginx/html
+
+# ── 构建期校验配置（S-03）─────────────────────────────────
+# 到这一步 nginx.conf、security-headers.conf 都已 COPY 进来，https.d 是空的 ——
+# 正好等价于**默认部署（纯 HTTP）** 的配置形态。构建期跑一次 nginx -t，
+# 于是「未启用 HTTPS 时配置必须仍然合法」这条主张有了 CI 门禁，而不是靠人肉检查。
+#
+# 注意这里管不到启用后的 443 块：那份配置是运行时由 compose 只读挂载进去的
+# （见 deploy/docker-compose.https.yml），不参与镜像构建。
+# 它由 `starbyte ssl enable` 里的「一次性容器跑 nginx -t」预检兜住。
+RUN nginx -t
 
 USER nginx
 
