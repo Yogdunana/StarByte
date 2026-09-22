@@ -41,11 +41,11 @@ func TestValidateAdminUsername(t *testing.T) {
 		{name: "sys_admin", wantErr: false},
 		{name: "admin@smbu", wantErr: false},
 		{name: "a", wantErr: false},
-		{name: "", wantErr: true},                       // 空
-		{name: "   ", wantErr: true},                    // 只有空白
-		{name: strings.Repeat("a", 51), wantErr: true},  // 超 50
-		{name: "admin 123", wantErr: true},              // 空格
-		{name: "admin;drop", wantErr: true},             // 分号
+		{name: "", wantErr: true},                      // 空
+		{name: "   ", wantErr: true},                   // 只有空白
+		{name: strings.Repeat("a", 51), wantErr: true}, // 超 50
+		{name: "admin 123", wantErr: true},             // 空格
+		{name: "admin;drop", wantErr: true},            // 分号
 		{name: "管理员", wantErr: true},                   // 非白名单字符
 	}
 	for _, tt := range tests {
