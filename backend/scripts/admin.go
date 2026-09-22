@@ -122,7 +122,9 @@ func listAdmins(db *gorm.DB, username string) ([]adminAccount, error) {
 	if err != nil {
 		return nil, fmt.Errorf("query admins: %w", err)
 	}
-	defer rows.Close()
+	// errcheck 不放过 *sql.Rows.Close（它返回 error，且不匹配配置里
+	// 排除的 io.Closer.Close），显式丢弃。
+	defer func() { _ = rows.Close() }()
 
 	var out []adminAccount
 	for rows.Next() {
