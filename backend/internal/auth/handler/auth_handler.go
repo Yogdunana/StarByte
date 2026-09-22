@@ -264,7 +264,7 @@ func (h *AuthHandler) CASLogin(c *gin.Context) {
 // @Description 校验 Service Ticket 后重定向到前端 /login/cas?code=
 // @Tags 认证
 // @Param ticket query string true "CAS Service Ticket"
-// @Param state query string true "登录态"
+// @Param state cookie string true "登录态（BuildCASLoginURL 下发的 starbyte_cas_state，不接受 query 传入）"
 // @Success 302 {string} string "Redirect"
 // @Router /auth/cas/callback [get]
 func (h *AuthHandler) CASCallback(c *gin.Context) {
@@ -273,10 +273,28 @@ func (h *AuthHandler) CASCallback(c *gin.Context) {
 		response.NotImplemented(c, "学校统一认证暂未开通")
 		return
 	}
-	state := c.Query("state")
-	if ck, err := c.Request.Cookie(casStateCookie); err == nil && ck.Value != "" {
-		state = ck.Value
+	// state 只能来自本站下发的 Cookie，不接受 URL query。
+	//
+	// 为什么：state 是登录 CSRF 的防线 —— BuildCASLoginURL 生成随机 state 并存进 Redis
+	// （含落地去重用的 Service），回调时一次性取出。但 CAS 的登录地址是
+	//   ServerURL + "/login?service=" + QueryEscape(service)
+	// **state 不在这个 URL 里**，所以 CAS 回调永远不会合法地回传 state —— 允许 query 兜底
+	// 没有任何正当用途，只会给攻击者开门：攻击者把自己尚未消费的 state 拼在 ticket 后
+	// 发给受害者，受害者浏览器若无该 Cookie 就会用攻击者的 state 换票，最终被静默登入
+	// 攻击者账号（登录 CSRF / 会话固定，CWE-352）。
+	//
+	// 为什么要求 Cookie 不会误伤正常登录：该 Cookie 是 SameSite=Lax，而 CAS 回调是一次
+	// 顶层 GET 导航，Cookie 会照常带上。
+	ck, ckErr := c.Request.Cookie(casStateCookie)
+	if ckErr != nil || strings.TrimSpace(ck.Value) == "" {
+		http.SetCookie(c.Writer, &http.Cookie{Name: casStateCookie, Path: "/", MaxAge: -1})
+		// 与 service 层其他 CAS 失败保持一致：重定向回前端登录页并带上原因，
+		// 而不是往浏览器里甩一段 JSON。这里用相对路径，浏览器会基于当前 host 解析，
+		// 等价于 casFrontendError 在 origin 为空时的形态。
+		c.Redirect(http.StatusFound, "/login?cas_error=missing_state")
+		return
 	}
+	state := ck.Value
 	http.SetCookie(c.Writer, &http.Cookie{Name: casStateCookie, Path: "/", MaxAge: -1})
 	loc, err := h.authService.CompleteCASCallback(
 		c.Request.Context(),

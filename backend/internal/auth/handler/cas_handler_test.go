@@ -42,6 +42,9 @@ type casStubService struct {
 	cb      string
 	ex      *dto.CASExchangeResponse
 	err     error
+	// lastState 用指针记录 handler 实际传给 service 的 state，
+	// 用于在测试里区分"取自 Cookie"还是"取自 URL query"。
+	lastState *string
 }
 
 func (s casStubService) Login(context.Context, *dto.LoginRequest, string, string) (*dto.LoginResponse, error) {
@@ -75,7 +78,10 @@ func (s casStubService) BuildCASLoginURL(context.Context, string, string) (*dto.
 	}
 	return &dto.CASLoginStart{Location: s.login, State: "st-cookie", Service: "http://10.0.0.8/api/v1/auth/cas/callback"}, nil
 }
-func (s casStubService) CompleteCASCallback(context.Context, string, string, string, string, string) (string, error) {
+func (s casStubService) CompleteCASCallback(_ context.Context, _ string, state string, _ string, _ string, _ string) (string, error) {
+	if s.lastState != nil {
+		*s.lastState = state
+	}
 	return s.cb, s.err
 }
 func (s casStubService) ExchangeCASCode(context.Context, string) (*dto.CASExchangeResponse, error) {
@@ -124,14 +130,51 @@ func TestCASLogin_RedirectSetsNoReferrer(t *testing.T) {
 }
 
 func TestCASCallback_Redirect(t *testing.T) {
-	h := NewAuthHandler(casStubService{cb: "http://10.0.0.8/login/cas?code=abc"})
+	var got string
+	h := NewAuthHandler(casStubService{cb: "http://10.0.0.8/login/cas?code=abc", lastState: &got})
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/auth/cas/callback?ticket=ST-1&state=s", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/cas/callback?ticket=ST-1", nil)
+	// state 必须由 Cookie 提供：CAS 的登录地址里不含 state，正常回调不会出现在 query 里。
+	req.AddCookie(&http.Cookie{Name: casStateCookie, Value: "s"})
+	c.Request = req
 	h.CASCallback(c)
 	assert.Equal(t, http.StatusFound, w.Code)
 	assert.Equal(t, casReferrerPolicy, w.Header().Get("Referrer-Policy"))
 	assert.Contains(t, w.Header().Get("Location"), "/login/cas?code=abc")
+	assert.Equal(t, "s", got)
+}
+
+// TestCASCallback_IgnoresQueryState 是这次修复的回归用例：
+// 攻击者可以把自己的 state 拼到回调 URL 上发给受害者（登录 CSRF / 会话固定，CWE-352），
+// 所以即使 query 里有 state，也必须以 Cookie 为准。
+func TestCASCallback_IgnoresQueryState(t *testing.T) {
+	var got string
+	h := NewAuthHandler(casStubService{cb: "http://10.0.0.8/login/cas?code=abc", lastState: &got})
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/cas/callback?ticket=ST-1&state=attacker-state", nil)
+	req.AddCookie(&http.Cookie{Name: casStateCookie, Value: "victim-state"})
+	c.Request = req
+	h.CASCallback(c)
+	require.Equal(t, http.StatusFound, w.Code)
+	assert.Equal(t, "victim-state", got, "query 里的 state 必须被忽略")
+}
+
+// TestCASCallback_RequiresStateCookie：没有 Cookie 时不该继续换票，
+// 而应像 service 层其他 CAS 失败一样回跳前端登录页并带上原因。
+func TestCASCallback_RequiresStateCookie(t *testing.T) {
+	var got string
+	h := NewAuthHandler(casStubService{cb: "http://10.0.0.8/login/cas?code=abc", lastState: &got})
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/auth/cas/callback?ticket=ST-1&state=attacker-state", nil)
+	h.CASCallback(c)
+	require.Equal(t, http.StatusFound, w.Code)
+	assert.Contains(t, w.Header().Get("Location"), "/login?cas_error=missing_state")
+	assert.Equal(t, "", got, "缺少登录态 Cookie 时不得调用 CompleteCASCallback")
+	// 顺手清掉可能残留的 Cookie
+	assert.Contains(t, w.Header().Get("Set-Cookie"), casStateCookie)
 }
 
 func TestRequestPublicOrigin_IgnoresForwardedHost(t *testing.T) {
