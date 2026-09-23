@@ -528,7 +528,9 @@ POSTGRES_CONTAINER="starbyte-postgres"
 # 种子也不会在每次 up 时被顺带跑一遍。
 #
 #   --no-deps   依赖由 ensure_stack_deps 保证，避免 run 把 depends_on 全量拉起
-#   --no-build  镜像没构建就直接失败：改个口令不该触发一次 Go 全量编译
+#   （不写 --build 就是「不构建」：compose run 默认不构建镜像，改个口令不该
+#     触发一次 Go 全量编译。注意 --no-build 是 up 的选项，run 上没有，
+#     写上去会直接 unknown flag。）
 #
 # 用法: seed_run [docker compose run 的选项...] -- [传给种子的参数...]
 seed_run() {
@@ -540,9 +542,31 @@ seed_run() {
   if [[ "${1:-}" == "--" ]]; then
     shift
   fi
-  compose run --rm --no-deps --no-build -T \
+  compose run --rm --no-deps -T \
     ${runopts[@]+"${runopts[@]}"} \
     --entrypoint "$SEED_ENTRYPOINT" backend "$@"
+}
+
+# seed_hint 把几类「看不懂就白等」的种子失败翻译成下一步该做什么。
+# 返回 0 表示已经给出针对性提示，调用方不必再打印原始输出。
+seed_hint() {
+  local out="$1"
+  if printf '%s\n' "$out" | grep -qiE "no such image|not found|must be built|pull access denied"; then
+    err "backend 镜像尚未构建。请先:"
+    err "  docker compose --env-file $ENV_REL -f deploy/docker-compose.yml build backend"
+    return 0
+  fi
+  if printf '%s\n' "$out" | grep -qiE "connection refused|dial tcp|no such host|could not translate"; then
+    err "连不上数据库/缓存。确认 postgres 在跑:"
+    err "  docker ps --filter name=$POSTGRES_CONTAINER"
+    return 0
+  fi
+  if printf '%s\n' "$out" | grep -qiE "password authentication failed|invalid password"; then
+    err "数据库口令不对（.env 改过 postgres 口令但数据卷还是旧的？）。"
+    err "  查看当前口令: starbyte credentials（注意这会在终端显示明文）"
+    return 0
+  fi
+  return 1
 }
 
 # ensure_stack_deps 保证 postgres 已 healthy。种子只需要数据库，
@@ -600,8 +624,10 @@ cmd_bootstrap() {
   local out rc=0
   out="$(seed_run -- 2>&1)" || rc=$?
   if [[ "$rc" -ne 0 ]]; then
-    err "种子执行失败（退出码 ${rc}）。最后 20 行输出："
-    printf '%s\n' "$out" | tail -n 20
+    if ! seed_hint "$out"; then
+      err "种子执行失败（退出码 ${rc}）。最后 20 行输出："
+      printf '%s\n' "$out" | tail -n 20
+    fi
     return 1
   fi
 
@@ -694,8 +720,10 @@ admin_show() {
       err "还没有管理员账号。请先执行: starbyte bootstrap"
       return 1
     fi
-    err "查询失败："
-    printf '%s\n' "$out" | tail -n 10
+    if ! seed_hint "$out"; then
+      err "查询失败："
+      printf '%s\n' "$out" | tail -n 10
+    fi
     return 1
   fi
   log "管理员账号："
@@ -737,8 +765,10 @@ admin_set_password() {
       err "账号 ${username} 不存在。先确认: starbyte admin show"
       return 1
     fi
-    err "改口令失败："
-    printf '%s\n' "$out" | tail -n 10
+    if ! seed_hint "$out"; then
+      err "改口令失败："
+      printf '%s\n' "$out" | tail -n 10
+    fi
     return 1
   fi
 
@@ -781,8 +811,10 @@ admin_set_username() {
       err "账号 ${username} 不存在。先确认: starbyte admin show"
       return 1
     fi
-    err "改账号名失败："
-    printf '%s\n' "$out" | tail -n 10
+    if ! seed_hint "$out"; then
+      err "改账号名失败："
+      printf '%s\n' "$out" | tail -n 10
+    fi
     return 1
   fi
   ok "账号名已更新: ${username} -> ${newname}"
