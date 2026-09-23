@@ -177,6 +177,60 @@ services:
       retries: 3
       start_period: 15s
 
+  # 一次性种子 / 管理员维护工具（starbyte bootstrap / starbyte admin）
+  #
+  # 为什么单独成一个服务，而不是「run backend 时覆盖 entrypoint」：
+  # backend 在 web-proxy 上有固定 ipv4_address（默认 172.30.77.3），而 compose run
+  # 会照搬该服务的网络配置去开第二个容器 —— 于是去抢同一个地址，直接
+  # `failed to set up container networking: Address already in use`。
+  # 种子只需要连数据库，所以这里只进 default 网络，不碰 web-proxy 的固定 IP。
+  #
+  # profiles 让它默认不出现在 up -d / ps 里（默认部署行为不变），
+  # 只有 CLI 显式带 --profile seed 才会用到。
+  seed:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      target: production
+    profiles: ["seed"]
+    entrypoint: ["/usr/local/bin/starbyte-seed"]
+    command: []
+    networks:
+      - default
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      CONFIG_PATH: configs/config.yaml
+      APP_ENV: prod
+      # 数据库（与 backend 完全同一套变量，保证种子连的是同一个库）
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: ${POSTGRES_USER:-starbyte}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 未设置，请先运行 starbyte init}
+      DB_NAME: ${POSTGRES_DB:-starbyte}
+      DB_SSLMODE: disable
+      # Redis：改口令时要吊销会话，必须能连
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD 未设置，请先运行 starbyte init}
+      REDIS_DB: "0"
+      # MinIO
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?MINIO_ROOT_USER 未设置，请先运行 starbyte init}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD 未设置，请先运行 starbyte init}
+      MINIO_USE_SSL: "false"
+      MINIO_BUCKET: starbyte
+      # JWT：改口令吊销 access token 时要算剩余 TTL
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET 未设置，请先运行 starbyte init}
+      TZ: Asia/Shanghai
+    security_opt:
+      - no-new-privileges:true
+
   # 前端 Web 服务（Nginx + API 代理）
   # 容器内以非 root 用户 nginx 运行并监听 8080（非特权端口），故这里映射 80:8080。
   frontend:

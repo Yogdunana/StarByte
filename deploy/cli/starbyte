@@ -517,20 +517,22 @@ cmd_credentials() {
 # 它由 backend/scripts 的种子创建：首次跑 starbyte bootstrap，之后改名或
 # 改口令走 starbyte admin。
 # ─────────────────────────────────────────────────────────
-SEED_ENTRYPOINT="/usr/local/bin/starbyte-seed"
 # compose 里写死的 container_name（不发布端口，只能靠名字判断它在不在跑）
 POSTGRES_CONTAINER="starbyte-postgres"
 
-# 一次性执行 backend 镜像里的种子 / 管理员工具。
+# 一次性执行 seed 服务（compose 里的 seed，profiles: ["seed"]）。
 #
-# 刻意不新增 compose 服务：复用 backend 服务已有的 build / env / 网络定义，
-# 只覆盖 entrypoint。好处是默认 `docker compose up -d` 的行为一点都不变，
-# 种子也不会在每次 up 时被顺带跑一遍。
+# 早先的版本是「run backend 时 --entrypoint 覆盖成 starbyte-seed」，
+# 这样不用新增服务。但 backend 在 web-proxy 上有固定 ipv4_address
+# （默认 172.30.77.3），compose run 会把这份网络配置原样套到新开的容器上，
+# 于是去抢同一个地址：failed to set up container networking: Address already in use。
+# 所以改成独立的 seed 服务：只进 default 网络，不占那个 IP。
+# entrypoint 已经在 compose 里写死，这里不再需要 --entrypoint。
 #
-#   --no-deps   依赖由 ensure_stack_deps 保证，避免 run 把 depends_on 全量拉起
-#   （不写 --build 就是「不构建」：compose run 默认不构建镜像，改个口令不该
-#     触发一次 Go 全量编译。注意 --no-build 是 up 的选项，run 上没有，
-#     写上去会直接 unknown flag。）
+#   --profile seed   seed 服务默认不启用，避免污染 up -d / ps
+#   --no-deps        依赖由 ensure_stack_deps 保证，避免 run 把 depends_on 全量拉起
+#   （不写 --build 就是「不构建」：compose run 默认不构建镜像。注意 --no-build
+#     是 up 的选项，run 上没有，写上去直接 unknown flag。）
 #
 # 用法: seed_run [docker compose run 的选项...] -- [传给种子的参数...]
 seed_run() {
@@ -542,9 +544,12 @@ seed_run() {
   if [[ "${1:-}" == "--" ]]; then
     shift
   fi
-  compose run --rm --no-deps -T \
+  # seed 是带 profile 的服务，up -d --build 不会构建它，这里按需构建一次
+  #（层缓存命中时是秒级）。构建失败不在这里报，交给 run 给出真正的错误。
+  compose --profile seed build seed >/dev/null 2>&1 || true
+  compose --profile seed run --rm --no-deps -T \
     ${runopts[@]+"${runopts[@]}"} \
-    --entrypoint "$SEED_ENTRYPOINT" backend "$@"
+    seed "$@"
 }
 
 # seed_hint 把几类「看不懂就白等」的种子失败翻译成下一步该做什么。
