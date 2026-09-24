@@ -131,8 +131,10 @@ services:
       CAS_SERVER_URL: ${CAS_SERVER_URL:-https://authserver.smbu.edu.cn/authserver}
       # 漏测无域名：留空则按浏览器访问的 IP 自动拼 callback / 回跳
       CAS_SERVICE_URL: ${CAS_SERVICE_URL:-}
-      # 激活邮件只用该 origin，不信请求 Host。漏测默认校园网入口。
-      CAS_FRONTEND_URL: ${CAS_FRONTEND_URL:-http://10.100.13.17}
+      # 激活邮件只用该 origin，不信请求 Host。
+      # 默认落到学校已解析的正式域名（HTTPS 由学校那层终止），
+      # 不再用内网 IP：IP 形态下网关会按 Referer 直接拦掉 CAS 跳转。
+      CAS_FRONTEND_URL: ${CAS_FRONTEND_URL:-https://starbyte.smbu.edu.cn}
       # 与 backend/configs/config.prod.yaml 的 allow_auto_provision: false 对齐：
       # 默认不自动开户，避免任何能过 CAS 的账号都被静默建成系统账号。
       CAS_ALLOW_AUTO_PROVISION: ${CAS_ALLOW_AUTO_PROVISION:-false}

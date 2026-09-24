@@ -1634,6 +1634,7 @@
   "审批进度暂不可用": "Approval progress is temporarily unavailable",
   "超级管理员": "System administrator",
   "系统管理员": "System administrator",
+  "管理员": "Administrator",
   "激活账号": "Activate account",
   "请先验证邮箱后再登录": "Verify your email before signing in",
   "验证链接无效或已过期": "This activation link is invalid or has expired"

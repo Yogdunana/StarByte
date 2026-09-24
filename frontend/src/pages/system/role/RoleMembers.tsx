@@ -9,6 +9,7 @@ import { fetchCurrentUser } from '@/store/slices/userSlice';
 import type { AppDispatch } from '@/store';
 import { useTranslation } from 'react-i18next';
 import { addRoleMember, getRoleMembers, removeRoleMember, type RoleMember } from '@/api/role';
+import { associationOffice, isScopedOffice } from '@/utils/associationOffice';
 import { getUserList } from '@/api/user';
 import { usePermissions } from '@/hooks/usePermission';
 import type { Role, Department } from '@/types/api';
@@ -17,10 +18,11 @@ export default function RoleMembers({ role, onClose }: { role: Role; onClose: ()
   useLocale();
   const { t } = useTranslation();
   const roles = useSelector(selectRoles);
-  const leadership = ['president', 'vice_president', 'center_director', 'minister'].includes(
-    role.code,
-  );
-  const scoped = leadership && role.code !== 'president';
+  // 能不能往这个角色里加人，取决于它是不是章程里的协会职务（后端同款判定）：
+  // 协会职务只能由超管任命，普通角色不能是系统内置的。
+  // 原先这里用 is_system 直接否掉，把指导老师/荣誉会员/队长/副中心主任一起挡住了。
+  const office = associationOffice(role.code);
+  const scoped = isScopedOffice(role.code);
   const [departmentIds, setDepartmentIds] = useState<string[]>([]);
   const [departments, setDepartments] = useState<{ value: string; label: string }[]>([]);
   useEffect(() => {
@@ -30,7 +32,8 @@ export default function RoleMembers({ role, onClose }: { role: Role; onClose: ()
         const options: { value: string; label: string }[] = [];
         const walk = (items: Department[], parent?: string) =>
           items.forEach((d) => {
-            if (role.code === 'minister' ? !!(d.parent_id || parent) : !(d.parent_id || parent))
+            // 部长选职能部门（有父department_id），中心类职务选顶层中心。
+            if (office === 'department' ? !!(d.parent_id || parent) : !(d.parent_id || parent))
               options.push({ value: d.id, label: d.name });
             if (d.children) walk(d.children, d.id);
           });
@@ -38,10 +41,10 @@ export default function RoleMembers({ role, onClose }: { role: Role; onClose: ()
         setDepartments(options);
       })
       .catch(() => setDepartments([]));
-  }, [scoped, role.code, roles]);
+  }, [scoped, office, roles]);
   const dispatch = useDispatch<AppDispatch>();
   const [canAssign, canReadUsers] = usePermissions(['role:assign', 'user:read']);
-  const mutable = canAssign && (leadership ? roles.includes('super_admin') : !role.is_system);
+  const mutable = canAssign && (office ? roles.includes('super_admin') : !role.is_system);
   const [rows, setRows] = useState<RoleMember[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -116,11 +119,7 @@ export default function RoleMembers({ role, onClose }: { role: Role; onClose: ()
           )}
           <Button
             loading={busy}
-            disabled={
-              !userId ||
-              (['minister', 'center_director', 'vice_president'].includes(role.code) &&
-                departmentIds.length === 0)
-            }
+            disabled={!userId || (scoped && departmentIds.length === 0)}
             onClick={() => void add().catch(() => undefined)}
           >
             {t('rbac.addMember', '添加成员')}

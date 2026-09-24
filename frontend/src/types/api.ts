@@ -396,7 +396,7 @@ export interface MemberProfile {
   major: string;
   department?: MemberNamedRef;
   position?: MemberNamedRef;
-  member_type: 1 | 2 | 3 | 4;
+  member_type: 1 | 2 | 3 | 4 | 5;
   status: 0 | 1 | 2;
   join_date?: string;
   leave_date?: string;

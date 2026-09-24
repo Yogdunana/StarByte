@@ -80,6 +80,13 @@ export const MemberTypeMap: StatusMap = {
       return tx('会长');
     },
   },
+  // 技术运维账号：不是协会职务成员，只用于标记种子建的 admin。
+  5: {
+    color: 'volcano',
+    get text() {
+      return tx('管理员');
+    },
+  },
 };
 
 export const ProfileStatusMap: StatusMap = {

@@ -306,12 +306,20 @@ CAS 所需的 `extra_hosts` 已写进仓库 compose（受保护、不会被 zip 
 5. 前端：`cd frontend && npm ci && npm run build`，用 Nginx 托管 `dist/` 并把 `/api/` 反代到后端。
    反代配置请参考 `frontend/nginx.conf`（含安全响应头），不要只写裸 `proxy_pass`。
 
-## 学校统一认证（漏测先用 IP）
+## 学校统一认证（必须用域名，IP 会被网关拦）
 
 - 登录页「学校统一认证」跳到 `https://authserver.smbu.edu.cn/authserver/login`
-- **漏测没有域名**：用校园网 IP 打开系统（`http://<服务器IP>/`）。`service` / 回跳按访问 Host 自动拼，信息化备案：
-  `http://<服务器IP>/api/v1/auth/cas/callback`
-- 有 `starbyte.smbu.edu.cn` 后再改备案，或设 `CAS_SERVICE_URL` / `CAS_FRONTEND_URL`
+- **`starbyte.smbu.edu.cn` 已由学校解析到内网，HTTPS 由学校那层终止**，默认就用它。
+  compose 里 `CAS_FRONTEND_URL` 默认 `https://starbyte.smbu.edu.cn`，
+  后端据此拼 `service` / 回跳：`https://starbyte.smbu.edu.cn/api/v1/auth/cas/callback`
+- **不要用校园网 IP 走 CAS**：校园网网关按 `Referer` 的 host 做来源白名单，
+  只认 `*.smbu.edu.cn`。从 IP 页面点登录，网关直接返回 **404 + 空响应体**，
+  浏览器侧表现为 `net::ERR_HTTP_RESPONSE_CODE_FAILURE`。
+  这不是我们系统的问题，也不是 CORS —— CAS 跳转是浏览器顶层导航，根本不查 CORS。
+  （实测：不带 `Referer` = 200、`Referer: http://<IP>/` = 404、
+  `Referer: https://starbyte.smbu.edu.cn/` = 200）
+- 没有域名又要临时联调时，可以在地址栏直接粘贴 `/api/v1/auth/cas/login` 的完整 URL 打开
+  （这样这一跳不带 `Referer`），但**只用于排查，不作为正式入口**
 - **容器解析**：backend 带 `extra_hosts`，`authserver.smbu.edu.cn` → `${CAS_AUTHSERVER_IP:-<compose 内置默认值>}`。校园 DNS 常返回不可达 IPv6，callback 会 wget 超时约 20s（nginx 502）。改 IP 后必须 `starbyte rebuild backend`（或 `--force-recreate`）才会写入容器 `/etc/hosts`
 - 具体内网地址只写在运维本机 `deploy/.env`，不提交回仓库（`deploy/.env.example` 用 `<...>` 占位符，`starbyte init` 会忽略占位符并让 compose 默认值兜底）
 - 环境变量见 `deploy/.env.example` / `backend/.env.example` 的 `CAS_*`

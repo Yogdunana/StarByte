@@ -69,3 +69,9 @@ const (
 	RoleStatusEnabled  = iota // 启用
 	RoleStatusDisabled        // 禁用
 )
+
+// RoleCodeSuperAdmin 是唯一被焊死的角色编码。
+// 它的权限集合不允许改动：一旦被改窄，包括操作者自己在内没有人能再授权回去，
+// 等于把自己锁在系统外。其余系统角色（advisor / honorary / president …）
+// 只保留「不可删除、不可改编码与状态」的保护，权限允许按需调整。
+const RoleCodeSuperAdmin = "super_admin"
