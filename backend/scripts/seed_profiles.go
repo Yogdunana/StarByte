@@ -22,8 +22,9 @@ type seedProfileRow struct {
 // seedProfileData 是演示/内置账号的档案基线。
 //
 // 注意 admin 这一行的语义：它是【技术账号】，不是协会会员。
-// 所以刻意留空学号、不挂部门（d.code='' 匹配不到行 → department_id 为 NULL），
-// member_type 用 MemberTypeAdmin(5)，职位指向“系统管理员”。
+// 所以刻意留空学号、不挂部门（DeptCode 传空串时 LEFT JOIN 匹配不到行
+// → department_id 为 NULL），member_type 用 MemberTypeAdmin(5)，
+// 职位指向“系统管理员”。
 // 之前这里是 学号 20210001 / 部门 project / 职位 president / 类型 4（会长），
 // 会让管理员在人员档案里冒充会长、并在会长类业务里被算作在任会员。
 var seedProfileData = []seedProfileRow{
