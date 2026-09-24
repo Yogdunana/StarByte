@@ -26,7 +26,7 @@ type RoleService interface {
 	Update(ctx context.Context, id uuid.UUID, req *dto.UpdateRoleRequest) (*dto.RoleResponse, error)
 	// Delete 删除角色，系统内置角色和已关联用户的角色不可删除
 	Delete(ctx context.Context, id uuid.UUID) error
-	// AssignPermissions 为角色分配权限（全量替换），系统内置角色不可修改权限
+	// AssignPermissions 为角色分配权限（全量替换），super_admin 的权限集合不可修改
 	AssignPermissions(ctx context.Context, id uuid.UUID, req *dto.AssignPermissionsRequest) error
 	// GetRoleUsers 分页查询角色下的用户列表，支持数据权限过滤
 	GetRoleUsers(ctx context.Context, id uuid.UUID, page, pageSize int, dataScope *model.DataScopeCondition) ([]dto.RoleUserResponse, int64, error)
@@ -280,7 +280,8 @@ func (s *roleService) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 // AssignPermissions 为角色分配权限（事务执行，并失效相关用户权限缓存）
-// 系统内置角色不可修改权限，防止 super_admin 等关键角色权限被篡改
+// 仅 super_admin 的权限集合不可修改，防止把自己锁在系统外；其余角色（含系统内置）
+// 都可以调整，否则指导老师、荣誉会员这类需要按年度调可见范围的角色就没法维护。
 //
 // 注意：角色存在性校验放在事务内（加行锁时一并判断），省去一次事务外的独立查询。
 // 权限存在性校验仍放在事务外，避免持有行锁期间执行 N 次单条查询导致锁等待时间过长。
@@ -319,8 +320,12 @@ func (s *roleService) AssignPermissions(ctx context.Context, id uuid.UUID, req *
 			return fmt.Errorf("lock role: %w", err)
 		}
 
-		// 系统内置角色不可修改权限
-		if role.IsSystem {
+		// 只有 super_admin 焊死。
+		//
+		// 这里原来是一刀切的 `if role.IsSystem`，连带把指导老师、荣誉会员、队长这些
+		// 需要按年度微调可见范围的角色也封住了（UI 灰按钮 + 后端 3016）。
+		// is_system 的本意是「不可删除、不可改编码与状态」，不该顺手把权限也锁掉。
+		if role.Code == model.RoleCodeSuperAdmin {
 			return rbac.NewSystemRoleNoEditError()
 		}
 

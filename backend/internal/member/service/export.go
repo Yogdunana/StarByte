@@ -73,6 +73,8 @@ func memberTypeLabel(t int16) string {
 		return "部长"
 	case 4:
 		return "会长"
+	case 5:
+		return "管理员"
 	default:
 		return "未知"
 	}

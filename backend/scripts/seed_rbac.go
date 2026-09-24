@@ -32,6 +32,8 @@ var seedRolesData = []namedCode{
 	{Name: "队员", Code: "teammate", Description: "技术团队队员，兼职编制", Sort: 12, IsSystem: true},
 }
 
+// seedPositionsData 的顺序有意义：level 由下标算（10-i），所以新增项只能挂在末尾，
+// 插到中间会把后面所有职位的 level 整体挪位。
 var seedPositionsData = []namedCode{
 	{Name: "会长", Code: "president", Sort: 1},
 	{Name: "副会长", Code: "vice_president", Sort: 2},
@@ -39,6 +41,8 @@ var seedPositionsData = []namedCode{
 	{Name: "副部长", Code: "vice_minister", Sort: 4},
 	{Name: "正式干事", Code: "officer", Sort: 5},
 	{Name: "副中心主任", Code: "vice_center_director", Sort: 2},
+	// 技术运维账号的职位：不是协会职务，不参与投票（vote_weight 0），排在最末。
+	{Name: "系统管理员", Code: "system_admin", Sort: 99},
 }
 
 type seedPerm struct {
@@ -204,7 +208,12 @@ func seedPositions(db *gorm.DB) error {
 			ON CONFLICT (code) DO UPDATE SET
 				name = EXCLUDED.name,
 				sort_order = EXCLUDED.sort_order`,
-			p.Name, p.Code, 10-i, map[string]float64{"president": 2, "vice_president": 1, "center_director": 1, "vice_center_director": 1, "minister": 0.5, "vice_minister": 0.5, "officer": 0.25}[p.Code], p.Sort,
+			p.Name, p.Code, 10-i,
+			map[string]float64{
+				"president": 2, "vice_president": 1, "center_director": 1, "vice_center_director": 1,
+				"minister": 0.5, "vice_minister": 0.5, "officer": 0.25,
+				"system_admin": 0,
+			}[p.Code], p.Sort,
 		).Error; err != nil {
 			return err
 		}

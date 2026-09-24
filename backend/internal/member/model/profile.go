@@ -13,6 +13,11 @@ const (
 	MemberTypeOfficer   int16 = 2
 	MemberTypeMinister  int16 = 3
 	MemberTypePresident int16 = 4
+	// MemberTypeAdmin 是技术运维账号（种子建的 admin）的类型。
+	// 它刻意排在会长之后、不代表更高的协会职级：这类账号不属于某一届成员，
+	// 没有学号、不挂部门，职位是“系统管理员”。业务上凡判断“是不是干事/会员”
+	// 都用 >= MemberTypeMember，管理员照样会命中，所以不影响既有门控。
+	MemberTypeAdmin int16 = 5
 )
 
 // 档案状态

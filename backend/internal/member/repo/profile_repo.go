@@ -183,7 +183,7 @@ func (r *profileRepo) Stats(ctx context.Context, groupBy string, scope *rbacMode
 		selectSQL = "COALESCE(NULLIF(p.grade, ''), '未填') AS key, COALESCE(NULLIF(p.grade, ''), '未填') AS label, COUNT(*) AS count"
 		groupSQL = "p.grade"
 	case "type":
-		selectSQL = "p.member_type::text AS key, CASE p.member_type WHEN 1 THEN '会员' WHEN 2 THEN '干事' WHEN 3 THEN '部长' WHEN 4 THEN '会长' ELSE '其他' END AS label, COUNT(*) AS count"
+		selectSQL = "p.member_type::text AS key, CASE p.member_type WHEN 1 THEN '会员' WHEN 2 THEN '干事' WHEN 3 THEN '部长' WHEN 4 THEN '会长' WHEN 5 THEN '管理员' ELSE '其他' END AS label, COUNT(*) AS count"
 		groupSQL = "p.member_type"
 	case "status":
 		selectSQL = "p.status::text AS key, CASE p.status WHEN 0 THEN '正常' WHEN 1 THEN '禁用' WHEN 2 THEN '已退出' ELSE '其他' END AS label, COUNT(*) AS count"

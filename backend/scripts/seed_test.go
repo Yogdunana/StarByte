@@ -3,6 +3,7 @@ package main
 import (
 	"testing"
 
+	membermodel "github.com/Yogdunana/StarByte/backend/internal/member/model"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -262,19 +263,36 @@ func TestOfficerAndMemberPerms_NonEmpty(t *testing.T) {
 	assert.NotContains(t, memberPermCodes(), "backup:read")
 }
 
+// admin 是技术账号，不是协会会员：学号必须留空、不挂部门、类型是管理员。
+// 这段断言是为了防止以后有人又把它种回“会长/项目部/20210001”。
 func TestSeedMemberProfiles_StudentNos(t *testing.T) {
 	assert.Len(t, seedProfileData, 2)
 	seenUser := map[string]bool{}
 	seenNo := map[string]bool{}
 	for _, row := range seedProfileData {
 		assert.NotEmpty(t, row.Username)
-		assert.NotEmpty(t, row.StudentNo)
 		assert.NotEmpty(t, row.RealName)
 		assert.False(t, seenUser[row.Username], "duplicate username %s", row.Username)
-		assert.False(t, seenNo[row.StudentNo], "duplicate student_no %s", row.StudentNo)
 		seenUser[row.Username] = true
+		if row.StudentNo == "" {
+			continue
+		}
+		assert.False(t, seenNo[row.StudentNo], "duplicate student_no %s", row.StudentNo)
 		seenNo[row.StudentNo] = true
 	}
-	assert.Equal(t, "20210001", seedProfileData[0].StudentNo)
+	assert.Empty(t, seedProfileData[0].StudentNo, "技术管理员账号不应有学号")
+	assert.Empty(t, seedProfileData[0].DeptCode, "技术管理员账号不应隶属任何部门")
+	assert.Equal(t, int(membermodel.MemberTypeAdmin), seedProfileData[0].MemberType)
+	assert.Equal(t, "system_admin", seedProfileData[0].PosCode)
 	assert.Equal(t, "20210002", seedProfileData[1].StudentNo)
+}
+
+func TestSeedPositions_SystemAdminExists(t *testing.T) {
+	codes := map[string]bool{}
+	for _, p := range seedPositionsData {
+		assert.NotEmpty(t, p.Code)
+		assert.False(t, codes[p.Code], "duplicate position code %s", p.Code)
+		codes[p.Code] = true
+	}
+	assert.True(t, codes["system_admin"], "缺少 system_admin 职位，管理员档案的职位会落成空")
 }

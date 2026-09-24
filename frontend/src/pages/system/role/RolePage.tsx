@@ -32,6 +32,12 @@ import { fetchCurrentUser } from '@/store/slices/userSlice';
 import type { AppDispatch } from '@/store';
 import type { CreateRoleParams, Permission, Role, UpdateRoleParams } from '@/types/api';
 
+// isLockedSuperAdmin 是唯一权限被焊死的角色：改窄它的权限等于把所有人锁在系统外。
+// 其余系统内置角色（指导老师 / 荣誉会员 / 队长 / 会长 …）保留「不可删除、不可改编码
+// 与状态」的保护，但权限可以在页面上调整。
+export const isLockedSuperAdmin = (role: Pick<Role, 'code'>): boolean =>
+  role.code === 'super_admin';
+
 const permissionNodes = (items: Permission[]): DataNode[] =>
   items.map((p) => ({
     key: p.id,
@@ -180,8 +186,10 @@ const RolePage: React.FC = () => {
                   </Button>
                 )}
                 {canAssign && canReadPermissions && (
+                  // 只锁 super_admin：它的权限一旦被改窄就没人能授权回去。
+                  // 原先写的是 is_system，把指导老师/荣誉会员/队长也一起灰掉了。
                   <Button
-                    disabled={row.is_system}
+                    disabled={isLockedSuperAdmin(row)}
                     onClick={() => void assign(row).catch(() => undefined)}
                   >
                     {t('rbac.assignPermissions', '分配权限')}
