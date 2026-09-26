@@ -22,7 +22,7 @@ services:
     image: postgres:16-alpine
     pull_policy: if_not_present
     container_name: starbyte-postgres
-    # 显式钉住**服务端** timezone 为 UTC，别只靠上面的 TZ 环境变量。
+    # 显式钉住**服务端** timezone 为 UTC，别只靠下面的 TZ 环境变量。
     #
     # TZ 只影响容器操作系统；Postgres 自己的 timezone 参数是 initdb 那一刻写进
     # postgresql.conf 的，数据卷一旦建好就不会再变 —— 就算后来补上 TZ 也没用。
