@@ -30,7 +30,10 @@ func (r *statsRepo) MeetingByDepartment(ctx context.Context, q Query) ([]Bucket,
 func (r *statsRepo) MeetingCalendar(ctx context.Context, q Query) ([]Bucket, error) {
 	db := r.db.WithContext(ctx).Table("meetings AS m").
 		Joins("LEFT JOIN member_profiles p ON p.user_id = m.organizer_id").
-		Select("to_char(m.start_time::date, 'YYYY-MM-DD') AS k, to_char(m.start_time::date, 'YYYY-MM-DD') AS l, COUNT(*)::float AS v")
+		// start_time 是裸 timestamp、存 UTC 墙钟，直接 ::date 会按 UTC 分日
+		// （北京时间 00:00–08:00 的会议会被算到前一天）。先折成北京时间再取日期。
+		Select("to_char(" + shanghaiWallClock("m.start_time") + "::date, 'YYYY-MM-DD') AS k, " +
+			"to_char(" + shanghaiWallClock("m.start_time") + "::date, 'YYYY-MM-DD') AS l, COUNT(*)::float AS v")
 	db = applyDept(db, "p.department_id", q)
 	db = applyRange(db, "m.start_time", q)
 	return scanBuckets(db.Group("k, l").Order("k"))

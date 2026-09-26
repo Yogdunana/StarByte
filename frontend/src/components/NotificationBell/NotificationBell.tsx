@@ -1,5 +1,4 @@
 import { notificationText } from '@/pages/notification/localizedText';
-import i18n from '@/i18n';
 import { tx, useLocale } from '@/i18n/text';
 import { notificationActionURL } from '@/pages/notification/actionURL';
 import React, { useCallback } from 'react';
@@ -17,6 +16,7 @@ import {
   markNotificationAsRead,
 } from '@/store/slices/notificationSlice';
 import type { Notification, NotificationPriority, NotificationCategory } from '@/types/api';
+import { formatDate } from '@/utils/datetime';
 
 const { Text } = Typography;
 
@@ -70,7 +70,8 @@ function formatRelativeTime(dateStr: string): string {
   if (minutes < 60) return tx('{{value0}} 分钟前', { value0: minutes });
   if (hours < 24) return tx('{{value0}} 小时前', { value0: hours });
   if (days < 7) return tx('{{value0}} 天前', { value0: days });
-  return date.toLocaleDateString(i18n.language);
+  // 超过一周回退到日期，按北京取日界，避免跨时区同学差一天。
+  return formatDate(date);
 }
 
 const NotificationBell: React.FC = () => {

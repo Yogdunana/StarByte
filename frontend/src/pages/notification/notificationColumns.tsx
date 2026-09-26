@@ -1,10 +1,10 @@
 import { notificationText, notificationSender } from './localizedText';
-import i18n from '@/i18n';
 import { tx } from '@/i18n/text';
 import { Button, Space, Tag, Badge, Typography, Popconfirm } from 'antd';
 import { CheckOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { Notification, NotificationCategory } from '@/types/api';
+import { formatDateTime } from '@/utils/datetime';
 import {
   categoryColorMap,
   categoryLabelMap,
@@ -80,7 +80,8 @@ export function getNotificationColumns(
       dataIndex: 'created_at',
       key: 'created_at',
       width: 160,
-      render: (time: string) => new Date(time).toLocaleString(i18n.language, { hour12: false }),
+      // toLocaleString 按浏览器时区出，跨时区同学看到的时间不一致。
+      render: (time: string) => formatDateTime(time, 'YYYY-MM-DD HH:mm'),
     },
     {
       title: tx('操作'),

@@ -27,6 +27,15 @@ type Bucket struct {
 	Value float64
 }
 
+// truncExpr 按天/周/月分组。
+//
+// 传进来的列都是 timestamp（不带时区），里面存的是 **UTC 墙钟**：
+// pgx 写入时会把 time.Time 转 UTC（discardTimeZone），读取也按 UTC 解释。
+// 直接 date_trunc 就变成按 UTC 分天 ——「每天」的分界落在北京时间早上 8 点，
+// 统计口径是歪的。所以先把 UTC 墙钟折成北京时间墙钟再截断。
+//
+// 写成两段 AT TIME ZONE 而不是 + interval '8 hours'，是为了让读代码的人
+// 一眼看出基准是什么，也免得以后真换时区时改错常量。
 func truncExpr(col, granularity string) string {
 	g := strings.ToLower(strings.TrimSpace(granularity))
 	unit := "month"
@@ -36,7 +45,18 @@ func truncExpr(col, granularity string) string {
 	case "week":
 		unit = "week"
 	}
-	return "to_char(date_trunc('" + unit + "', " + col + "), 'YYYY-MM-DD')"
+	return "to_char(date_trunc('" + unit + "', " + shanghaiWallClock(col) + "), 'YYYY-MM-DD')"
+}
+
+// shanghaiWallClock 把「UTC 墙钟」的裸 timestamp 折成北京时间墙钟。
+//
+// 两段 AT TIME ZONE 的顺序不能反：先把裸值按 UTC 解释成一个确定的时刻
+// （裸 timestamp 本身不携带时区，不先钉死就无从谈转换），再取它在东八区的墙钟。
+// 不用 + interval '8 hours' 是为了让基准显式可读，也免得以后真换时区时漏改常量。
+//
+// 业务口径是北京时间，与 internal/leave/service/duration.go 的 bizTimezone 一致。
+func shanghaiWallClock(col string) string {
+	return col + " AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Shanghai'"
 }
 
 func applyRange(db *gorm.DB, col string, q Query) *gorm.DB {

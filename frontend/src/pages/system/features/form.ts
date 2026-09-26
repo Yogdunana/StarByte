@@ -1,5 +1,6 @@
 import dayjs, { type Dayjs } from 'dayjs';
 import type { FeatureFlag, FeatureRules, FeatureType, FeatureVariant } from '@/api/feature';
+import { toAppISO } from '@/utils/datetime';
 
 export const FEATURE_TYPES: FeatureType[] = [
   'boolean', 'user_allowlist', 'role_dept', 'percentage', 'ab_test',
@@ -31,8 +32,9 @@ export function splitLines(raw?: string): string[] {
 }
 
 export function toRules(v: FlagForm): FeatureRules {
-  const starts = v.starts_at && dayjs.isDayjs(v.starts_at) ? v.starts_at.toISOString() : undefined;
-  const ends = v.ends_at && dayjs.isDayjs(v.ends_at) ? v.ends_at.toISOString() : undefined;
+  // 灰度开关的生效/失效时刻是业务时刻，按北京时间解释，不跟浏览器时区跑。
+  const starts = v.starts_at && dayjs.isDayjs(v.starts_at) ? toAppISO(v.starts_at) : undefined;
+  const ends = v.ends_at && dayjs.isDayjs(v.ends_at) ? toAppISO(v.ends_at) : undefined;
   return {
     user_ids: splitLines(v.user_ids),
     role_codes: splitLines(v.role_codes),

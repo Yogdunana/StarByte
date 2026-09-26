@@ -22,6 +22,18 @@ services:
     image: postgres:16-alpine
     pull_policy: if_not_present
     container_name: starbyte-postgres
+    # 显式钉住**服务端** timezone 为 UTC，别只靠上面的 TZ 环境变量。
+    #
+    # TZ 只影响容器操作系统；Postgres 自己的 timezone 参数是 initdb 那一刻写进
+    # postgresql.conf 的，数据卷一旦建好就不会再变 —— 就算后来补上 TZ 也没用。
+    # 所以历史上出现过「服务端 timezone 是 Asia/Shanghai，写进 timestamp（无时区）
+    # 列的 DEFAULT CURRENT_TIMESTAMP 成了北京时间墙钟，而应用侧 pgx 写的是 UTC 墙钟」
+    # 这种两套基准混在同一列里的情况，部分记录显示就差 8 小时。
+    #
+    # timestamp（无时区）列上的正确语义是 UTC 墙钟（pgx 读写都按它），
+    # 因此这里固定 UTC 让 DB 默认值与应用写入对齐。
+    # 注意 entrypoint 会先 initdb 再 exec "$@"，所以 command 仍要以 postgres 开头。
+    command: postgres -c timezone=UTC -c log_timezone=UTC
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-starbyte}
       # 必填：由 starbyte init 自动随机生成，不提供默认口令

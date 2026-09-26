@@ -8,17 +8,20 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// 分组必须先把 UTC 墙钟折成北京时间，否则「每天」的分界会落在北京时间 08:00。
+const shanghaiShift = " AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Shanghai'"
+
 func TestTruncExpr(t *testing.T) {
-	if got := truncExpr("created_at", "day"); got != "to_char(date_trunc('day', created_at), 'YYYY-MM-DD')" {
+	if got := truncExpr("created_at", "day"); got != "to_char(date_trunc('day', created_at"+shanghaiShift+"), 'YYYY-MM-DD')" {
 		t.Fatalf("day: %s", got)
 	}
-	if got := truncExpr("m.start_time", "week"); got != "to_char(date_trunc('week', m.start_time), 'YYYY-MM-DD')" {
+	if got := truncExpr("m.start_time", "week"); got != "to_char(date_trunc('week', m.start_time"+shanghaiShift+"), 'YYYY-MM-DD')" {
 		t.Fatalf("week: %s", got)
 	}
-	if got := truncExpr("created_at", "MONTH"); got != "to_char(date_trunc('month', created_at), 'YYYY-MM-DD')" {
+	if got := truncExpr("created_at", "MONTH"); got != "to_char(date_trunc('month', created_at"+shanghaiShift+"), 'YYYY-MM-DD')" {
 		t.Fatalf("month: %s", got)
 	}
-	if got := truncExpr("created_at", ""); got != "to_char(date_trunc('month', created_at), 'YYYY-MM-DD')" {
+	if got := truncExpr("created_at", ""); got != "to_char(date_trunc('month', created_at"+shanghaiShift+"), 'YYYY-MM-DD')" {
 		t.Fatalf("default: %s", got)
 	}
 }

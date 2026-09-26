@@ -6,6 +6,7 @@ import type { CalendarProps, UploadFile } from 'antd';
 import { ImportOutlined, PlusOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
+import { toAppISO } from '@/utils/datetime';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { usePermission } from '@/hooks/usePermission';
@@ -387,8 +388,10 @@ const CalendarPage: React.FC = () => {
             calendar_id?: string; title: string; location?: string;
             start_at: Dayjs; end_at: Dayjs; recurrence?: string; remind_minutes?: number[];
           }) => {
-            const startISO = values.start_at.toISOString();
-            const endISO = values.end_at.toISOString();
+            // 日程的开始/结束是业务时刻：按北京时间解释，不跟浏览器时区跑。
+            // （上面 loadEvents 里的 windowRange 是查询窗口，那是绝对时刻，保持 toISOString。）
+            const startISO = toAppISO(values.start_at) as string;
+            const endISO = toAppISO(values.end_at) as string;
             const timesUnchanged = !!editing
               && values.start_at.isSame(dayjs(editing.start_at))
               && values.end_at.isSame(dayjs(editing.end_at));

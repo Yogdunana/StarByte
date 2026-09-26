@@ -1,10 +1,10 @@
 import { notificationText, notificationSender } from './localizedText';
-import i18n from '@/i18n';
 import { tx, useLocale } from '@/i18n/text';
 import { notificationActionURL } from './actionURL';
 import React from 'react';
 import { Drawer, Tag, Badge, Typography, Button } from 'antd';
 import type { Notification, NotificationCategory } from '@/types/api';
+import { formatDateTime } from '@/utils/datetime';
 import {
   categoryColorMap,
   categoryLabelMap,
@@ -57,7 +57,7 @@ const NotificationDetailDrawer: React.FC<NotificationDetailDrawerProps> = ({
             <br />
             <Text type="secondary">
               {tx('时间：')}
-              {new Date(notification.created_at).toLocaleString(i18n.language, { hour12: false })}
+              {formatDateTime(notification.created_at)}
             </Text>
           </div>
 

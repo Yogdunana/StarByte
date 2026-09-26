@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { DatePicker, Form, Input, Modal, Select } from 'antd';
 import dayjs from 'dayjs';
 import type { CreateMeetingParams, Meeting } from '@/types/api';
+import { toAppISO } from '@/utils/datetime';
 interface Props {
   open: boolean;
   editing: Meeting | null;
@@ -38,8 +39,8 @@ export default function FormModal({ open, editing, onCancel, onSubmit }: Props) 
       await onSubmit({
         ...data,
         title: data.title.trim(),
-        start_time: range[0].toISOString(),
-        end_time: range[1].toISOString(),
+        start_time: toAppISO(range[0]) as string,
+        end_time: toAppISO(range[1]) as string,
       });
     } catch {
       /* Preserve input and show the API error. */
