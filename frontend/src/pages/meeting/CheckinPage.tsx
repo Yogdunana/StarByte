@@ -5,6 +5,7 @@ import { useSelector } from 'react-redux';
 import { Button, Card, Result, Space, Spin, message } from 'antd';
 import { checkinMeeting, getAttendees, getMeetingDetail, getMeetingQRCode } from '@/api/meeting';
 import { selectCurrentUser } from '@/store/slices/userSlice';
+import { formatMinute } from '@/utils/datetime';
 import type { Meeting, MeetingAttendee } from '@/types/api';
 
 const CheckinPage: React.FC = () => {
@@ -63,7 +64,9 @@ const CheckinPage: React.FC = () => {
           </div>
           <div>
             {tx('开始：')}
-            {meeting.start_time?.replace('T', ' ').slice(0, 16)}
+            {/* 原来是 replace('T',' ').slice(0,16)，直接把 ISO 串（可能是 ...Z）
+                的头 16 个字符当本地时间显示，等于按 UTC 出时分，差 8 小时。 */}
+            {formatMinute(meeting.start_time)}
           </div>
           {qr && (
             <img

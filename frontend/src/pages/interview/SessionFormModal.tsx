@@ -3,6 +3,7 @@ import React, { useEffect } from 'react';
 import { DatePicker, Form, Input, InputNumber, Modal, Select } from 'antd';
 import dayjs from 'dayjs';
 import type { InterviewSession, MemberDepartmentOption } from '@/types/api';
+import { toAppISO } from '@/utils/datetime';
 
 interface Props {
   open: boolean;
@@ -46,8 +47,8 @@ const SessionFormModal: React.FC<Props> = ({ open, editing, departments, onCance
             title: values.title,
             round: values.round,
             department_id: values.department_id,
-            start_time: range[0].toISOString(),
-            end_time: range[1].toISOString(),
+            start_time: toAppISO(range[0]) as string,
+            end_time: toAppISO(range[1]) as string,
             location: values.location,
             online_link: values.online_link,
             max_candidates: values.max_candidates,

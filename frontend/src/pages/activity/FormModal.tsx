@@ -3,6 +3,7 @@ import React, { useEffect } from 'react';
 import { DatePicker, Form, Input, InputNumber, Modal, Select } from 'antd';
 import dayjs from 'dayjs';
 import type { Activity } from '@/api/activity';
+import { toAppISO } from '@/utils/datetime';
 import { ActivityCategoryOptions } from './meta';
 
 interface Props {
@@ -53,8 +54,8 @@ const FormModal: React.FC<Props> = ({ open, editing, onCancel, onSubmit }) => {
             latitude: values.latitude,
             longitude: values.longitude,
             checkin_radius_m: values.checkin_radius_m,
-            start_time: range[0].toISOString(),
-            end_time: range[1].toISOString(),
+            start_time: toAppISO(range[0]) as string,
+            end_time: toAppISO(range[1]) as string,
           });
         }}
       >

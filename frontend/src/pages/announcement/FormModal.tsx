@@ -10,6 +10,7 @@ import { getDepartmentTree } from '@/api/department';
 import { getUserList } from '@/api/user';
 import type { Announcement, AnnouncementAttachment, AnnouncementAudience } from '@/api/announcement';
 import type { Department } from '@/types/api';
+import { toAppISO } from '@/utils/datetime';
 import { AnnouncementCategories, collectPagedItems, expireUpdateFields } from './meta';
 
 interface Props {
@@ -118,12 +119,11 @@ const FormModal: React.FC<Props> = ({ open, editing, canSchedule, canManage, onC
         layout="vertical"
         onFinish={async (values) => {
           const isDraft = !editing || editing.status === 0;
-          const scheduled = canSchedule && values.scheduled_at
-            ? (values.scheduled_at as dayjs.Dayjs).toISOString()
-            : undefined;
+          const scheduled =
+            canSchedule && values.scheduled_at ? toAppISO(values.scheduled_at) : undefined;
           const expireFields = expireUpdateFields(
             editing?.expires_at,
-            values.expires_at ? (values.expires_at as dayjs.Dayjs).toISOString() : undefined,
+            values.expires_at ? toAppISO(values.expires_at) : undefined,
           );
           let attachments: AnnouncementAttachment[] = [];
           try {

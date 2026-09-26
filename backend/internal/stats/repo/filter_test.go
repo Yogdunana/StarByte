@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -8,19 +9,35 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// 分组必须先把 UTC 墙钟折成北京时间，否则「每天」的分界会落在北京时间 08:00。
+// 括号同样是语法的一部分，去掉就会变成把时区名强转成 date。
+const (
+	shanghaiCreatedAt = "(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Shanghai')"
+	shanghaiStartAt   = "(m.start_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Shanghai')"
+)
+
 func TestTruncExpr(t *testing.T) {
-	if got := truncExpr("created_at", "day"); got != "to_char(date_trunc('day', created_at), 'YYYY-MM-DD')" {
+	if got := truncExpr("created_at", "day"); got != "to_char(date_trunc('day', "+shanghaiCreatedAt+"), 'YYYY-MM-DD')" {
 		t.Fatalf("day: %s", got)
 	}
-	if got := truncExpr("m.start_time", "week"); got != "to_char(date_trunc('week', m.start_time), 'YYYY-MM-DD')" {
+	if got := truncExpr("m.start_time", "week"); got != "to_char(date_trunc('week', "+shanghaiStartAt+"), 'YYYY-MM-DD')" {
 		t.Fatalf("week: %s", got)
 	}
-	if got := truncExpr("created_at", "MONTH"); got != "to_char(date_trunc('month', created_at), 'YYYY-MM-DD')" {
+	if got := truncExpr("created_at", "MONTH"); got != "to_char(date_trunc('month', "+shanghaiCreatedAt+"), 'YYYY-MM-DD')" {
 		t.Fatalf("month: %s", got)
 	}
-	if got := truncExpr("created_at", ""); got != "to_char(date_trunc('month', created_at), 'YYYY-MM-DD')" {
+	if got := truncExpr("created_at", ""); got != "to_char(date_trunc('month', "+shanghaiCreatedAt+"), 'YYYY-MM-DD')" {
 		t.Fatalf("default: %s", got)
 	}
+}
+
+// 调用方会在后面直接拼 ::date（见 ops.go 的会议日历），所以返回值必须是完整的
+// 括号表达式，不能是裸的 AT TIME ZONE 片段。
+func TestShanghaiWallClock_Parenthesized(t *testing.T) {
+	got := shanghaiWallClock("m.start_time")
+	assert.Equal(t, shanghaiStartAt, got)
+	assert.True(t, strings.HasPrefix(got, "(") && strings.HasSuffix(got, ")"),
+		"缺括号时拼 ::date 会被解析成 AT TIME ZONE 'Asia/Shanghai'::date: %s", got)
 }
 
 func TestQueryFlags(t *testing.T) {

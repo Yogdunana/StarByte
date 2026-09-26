@@ -1,44 +1,15 @@
 import i18n from '@/i18n';
 import { tx } from '@/i18n/text';
+import { formatDate, formatDateTime } from './datetime';
 /**
  * 日期/数字/金额格式化工具
+ *
+ * 日期时间一律按北京时间渲染（@/utils/datetime），不跟浏览器时区走：
+ * 学校里北京时间与莫斯科时间都在用，跟浏览器走会出现同一条记录
+ * 在不同电脑上显示不同时间。
  */
 
-/**
- * 格式化日期时间
- * @param value 日期字符串、时间戳或 Date 对象
- * @param format 输出格式，默认 'YYYY-MM-DD HH:mm:ss'
- * @returns 格式化后的字符串，空值返回 '-'
- */
-export function formatDateTime(
-  value: string | number | Date | null | undefined,
-  format: string = 'YYYY-MM-DD HH:mm:ss',
-): string {
-  if (!value && value !== 0) return '-';
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-
-  const pad = (n: number) => String(n).padStart(2, '0');
-
-  const map: Record<string, string> = {
-    YYYY: String(date.getFullYear()),
-    MM: pad(date.getMonth() + 1),
-    DD: pad(date.getDate()),
-    HH: pad(date.getHours()),
-    mm: pad(date.getMinutes()),
-    ss: pad(date.getSeconds()),
-  };
-
-  return format.replace(/YYYY|MM|DD|HH|mm|ss/g, (match) => map[match]);
-}
-
-/**
- * 格式化日期（不含时间）
- */
-export function formatDate(value: string | number | Date | null | undefined): string {
-  return formatDateTime(value, 'YYYY-MM-DD');
-}
+export { formatDateTime, formatDate };
 
 /**
  * 格式化相对时间（"3分钟前"、"2小时前"等）
