@@ -55,8 +55,13 @@ func truncExpr(col, granularity string) string {
 // 不用 + interval '8 hours' 是为了让基准显式可读，也免得以后真换时区时漏改常量。
 //
 // 业务口径是北京时间，与 internal/leave/service/duration.go 的 bizTimezone 一致。
+//
+// 返回值自带一对括号，不是排版习惯，是语法必需：Postgres 里 :: 的结合优先于
+// AT TIME ZONE 的右操作数，不加括号直接拼 ::date 会被解析成
+// AT TIME ZONE 'Asia/Shanghai'::date，也就是把时区名强转成 date，
+// 运行时报 invalid input syntax for type date。调用方可以放心在后面接 ::date。
 func shanghaiWallClock(col string) string {
-	return col + " AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Shanghai'"
+	return "(" + col + " AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Shanghai')"
 }
 
 func applyRange(db *gorm.DB, col string, q Query) *gorm.DB {
