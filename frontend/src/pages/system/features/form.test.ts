@@ -10,7 +10,10 @@ describe('feature form helpers', () => {
   });
 
   it('serializes schedule, env and variants', () => {
-    const start = dayjs('2026-09-15T00:00:00Z');
+    // 不带 Z：这是个「墙钟」而不是绝对时刻。开关的生效/失效时刻按北京时间解释，
+    // 所以北京时间 09-15 00:00 应该序列化成 UTC 09-14 16:00。
+    // 写成带 Z 的绝对时刻会让断言跟着 CI 的 TZ 漂移。
+    const start = dayjs('2026-09-15T00:00:00');
     const rules = toRules({
       flag_key: 'exp.hero',
       name: 'Hero',
@@ -28,7 +31,7 @@ describe('feature form helpers', () => {
       ],
     });
     expect(rules.environments).toEqual(['prod']);
-    expect(rules.starts_at).toBe(start.toISOString());
+    expect(rules.starts_at).toBe('2026-09-14T16:00:00.000Z');
     expect(rules.ends_at).toBeUndefined();
     expect(rules.variants).toEqual([
       { key: 'control', weight: 50, enabled: false },
