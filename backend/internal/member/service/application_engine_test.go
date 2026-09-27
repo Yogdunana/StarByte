@@ -38,11 +38,21 @@ func TestApplicationVariables(t *testing.T) {
 	require.False(t, hasDept)
 
 	review, center := uuid.New(), uuid.New()
-	applyCharterScopeVars(member, review, center)
+	applyCharterScopeVars(member, review, &center)
 	require.Equal(t, review.String(), member["department_id"])
 	require.Equal(t, review.String(), member["department"])
 	require.Equal(t, center.String(), member["center_department_id"])
 	require.Nil(t, member[engine.SkipMinisterVariable])
+
+	// A review department outside any center leaves the scope unset so the node
+	// policy decides instead of rejecting the submission outright.
+	withoutCenter := applicationVariables(&model.MemberApplication{
+		ID: uuid.New(), UserID: uuid.New(), Type: model.ApplicantMember, RealName: "会员", StudentNo: "2024003",
+	})
+	applyCharterScopeVars(withoutCenter, review, nil)
+	_, hasCenter := withoutCenter["center_department_id"]
+	require.False(t, hasCenter)
+	require.Nil(t, withoutCenter[engine.SkipMinisterVariable])
 }
 
 func TestApplyEngineOutcome(t *testing.T) {

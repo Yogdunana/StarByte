@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -39,45 +40,52 @@ func (n *ApprovalNode) Execute(ctx context.Context, inst *model.FlowInstance, no
 
 func (n *ApprovalNode) OnEnter(ctx context.Context, inst *model.FlowInstance, node *engine.FlowNode, vars map[string]interface{}) error {
 	config := n.parseConfig(node)
+	role := engine.ResolveApprovalRole(node.ID, configRoleCode(config))
 	assignees := n.resolveAssignees(config, inst, vars)
+	var resolveErr error
 	if config["assigneeStrategy"] == "business_role" {
 		if n.BusinessApprovers == nil {
 			return response.NewAppError(response.CodeWorkflowInvalidNode, "业务审批人解析器未配置")
 		}
-		var err error
-		assignees, err = n.BusinessApprovers.Resolve(ctx, inst, node)
-		if err != nil {
-			return err
-		}
+		assignees, resolveErr = n.BusinessApprovers.Resolve(ctx, inst, node)
 	} else if n.Approvers != nil {
-		var err error
-		assignees, err = n.resolveRuntime(ctx, config, inst.InitiatorID, vars, assignees)
-		if err != nil {
-			return err
-		}
+		assignees, resolveErr = n.resolveRuntime(ctx, node.ID, config, inst.InitiatorID, vars, assignees)
 	}
-	unique := []uuid.UUID{}
-	seen := map[uuid.UUID]bool{}
-	for _, id := range assignees {
-		if inst.BusinessType == "member_application" && id == inst.InitiatorID {
-			continue
+	escalated := false
+	if resolveErr != nil {
+		if !engine.IsEmptyAssignee(resolveErr) {
+			return resolveErr
 		}
-		if id != uuid.Nil && !seen[id] {
-			seen[id] = true
-			unique = append(unique, id)
+		fallback, ferr := n.fallbackAssignees(ctx, node, role)
+		if ferr != nil {
+			return ferr
 		}
+		if len(fallback) == 0 {
+			return resolveErr
+		}
+		assignees, escalated = fallback, true
+		n.recordEscalation(ctx, inst, node, role, engine.FallbackRoleCode(node), engine.EmptyAssigneeOf(resolveErr))
+	}
+	unique := eligibleAssignees(inst, assignees)
+	if len(unique) == 0 && !escalated {
+		fallback, ferr := n.fallbackAssignees(ctx, node, role)
+		if ferr != nil {
+			return ferr
+		}
+		if len(fallback) == 0 {
+			label := strings.TrimSpace(node.Label)
+			if label == "" {
+				label = node.ID
+			}
+			return engine.NewEmptyAssignee(node.ID, role, "no_role_holder",
+				"审批节点没有处理人（"+label+"）")
+		}
+		unique, escalated = eligibleAssignees(inst, fallback), true
+		n.recordEscalation(ctx, inst, node, role, engine.FallbackRoleCode(node), nil)
 	}
 	assignees = unique
 	if config["approvalType"] == "single" && len(assignees) != 1 {
 		return response.NewAppError(response.CodeWorkflowInvalidNode, "单人审批必须且只能有一名处理人")
-	}
-	if len(assignees) == 0 {
-		label := strings.TrimSpace(node.Label)
-		if label == "" {
-			label = node.ID
-		}
-		return response.NewAppError(response.CodeWorkflowInvalidNode,
-			"审批节点没有处理人（"+label+"）")
 	}
 
 	activation := uuid.New()
@@ -194,6 +202,82 @@ func (n *ApprovalNode) parseConfig(node *engine.FlowNode) map[string]interface{}
 		return nil
 	}
 	return node.Config
+}
+
+func configRoleCode(config map[string]interface{}) string {
+	if config == nil {
+		return ""
+	}
+	code, _ := config["roleCode"].(string)
+	return strings.TrimSpace(code)
+}
+
+// eligibleAssignees drops duplicates, nil ids and, for membership flows, the
+// applicant themselves.
+func eligibleAssignees(inst *model.FlowInstance, assignees []uuid.UUID) []uuid.UUID {
+	unique := []uuid.UUID{}
+	seen := map[uuid.UUID]bool{}
+	for _, id := range assignees {
+		if inst != nil && inst.BusinessType == "member_application" && id == inst.InitiatorID {
+			continue
+		}
+		if id != uuid.Nil && !seen[id] {
+			seen[id] = true
+			unique = append(unique, id)
+		}
+	}
+	return unique
+}
+
+// fallbackAssignees hands the node to its fallback role when nobody in the
+// configured role can act.
+//
+// It fires for nodes whose policy is to escalate, and also for nodes that
+// would otherwise skip as soon as they name a fallbackRoleCode explicitly —
+// writing that key means "try this before giving up", while leaving the key
+// out keeps the historical skip-as-is behaviour.
+func (n *ApprovalNode) fallbackAssignees(ctx context.Context, node *engine.FlowNode, ownRole string) ([]uuid.UUID, error) {
+	if n.Approvers == nil {
+		return nil, nil
+	}
+	code, explicit := engine.ExplicitFallbackRoleCode(node)
+	policy := engine.EmptyPolicyOf(node)
+	if policy != engine.EmptyEscalate && !(explicit && policy == engine.EmptySkip) {
+		return nil, nil
+	}
+	if !explicit {
+		code = engine.FallbackRoleCode(node)
+	}
+	if code == "" || code == ownRole {
+		return nil, nil
+	}
+	return n.Approvers.ByRoleCode(ctx, code, nil)
+}
+
+// recordEscalation keeps the hand-over visible: an unstaffed node used to
+// silently skip, and nobody could tell afterwards which step disappeared.
+func (n *ApprovalNode) recordEscalation(ctx context.Context, inst *model.FlowInstance, node *engine.FlowNode, ownRole, fallback string, detail *engine.EmptyAssigneeError) {
+	if n.TaskRepo == nil || inst == nil || node == nil {
+		return
+	}
+	reason := "本级无人可指派"
+	if detail != nil && detail.Reason == "no_department_scope" {
+		reason = "本级缺少部门或中心范围"
+	}
+	from := ownRole
+	if from == "" {
+		from = strings.TrimSpace(node.Label)
+		if from == "" {
+			from = node.ID
+		}
+	}
+	hist := &model.FlowHistory{
+		ID: uuid.New(), InstanceID: inst.ID, NodeID: node.ID, NodeName: node.Label,
+		NodeType: node.Type, Action: "escalate",
+		Comment:   fmt.Sprintf("%s：%s → %s", reason, from, fallback),
+		CreatedAt: time.Now(),
+	}
+	_ = n.TaskRepo.CreateHistory(ctx, nil, hist)
 }
 
 func (n *ApprovalNode) resolveAssignees(config map[string]interface{}, inst *model.FlowInstance, vars map[string]interface{}) []uuid.UUID {

@@ -5,13 +5,14 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/Yogdunana/StarByte/backend/internal/workflow/engine"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 )
 
-func (n *ApprovalNode) resolveRuntime(ctx context.Context, config map[string]interface{}, initiator uuid.UUID, vars map[string]interface{}, fallback []uuid.UUID) ([]uuid.UUID, error) {
+func (n *ApprovalNode) resolveRuntime(ctx context.Context, nodeID string, config map[string]interface{}, initiator uuid.UUID, vars map[string]interface{}, fallback []uuid.UUID) ([]uuid.UUID, error) {
 	switch config["assigneeStrategy"] {
 	case "role":
-		return n.resolveRoleAssignees(ctx, config, vars)
+		return n.resolveRoleAssignees(ctx, nodeID, config, vars)
 	case "dept_leader":
 		return n.Approvers.DepartmentLeaders(ctx, initiator)
 	default:
@@ -30,14 +31,17 @@ func (n *ApprovalNode) resolveRuntime(ctx context.Context, config map[string]int
 	}
 }
 
-func (n *ApprovalNode) resolveRoleAssignees(ctx context.Context, config map[string]interface{}, vars map[string]interface{}) ([]uuid.UUID, error) {
+func (n *ApprovalNode) resolveRoleAssignees(ctx context.Context, nodeID string, config map[string]interface{}, vars map[string]interface{}) ([]uuid.UUID, error) {
 	if n.Approvers == nil {
 		return nil, response.NewAppError(response.CodeWorkflowInvalidNode, "角色审批人解析器未配置")
 	}
 	if code, _ := config["roleCode"].(string); code != "" {
 		department := scopedDepartment(config, vars)
 		if required, _ := config["requireDepartment"].(bool); required && department == nil {
-			return nil, response.NewAppError(response.CodeWorkflowInvalidNode, "审批缺少部门或中心范围")
+			// No scope means no role holder can be selected at all, which is the
+			// same "nobody can act" case as an empty role and must obey the same
+			// node policy instead of tearing the whole approval down.
+			return nil, engine.NewEmptyAssignee(nodeID, code, "no_department_scope", "审批缺少部门或中心范围")
 		}
 		return n.Approvers.ByRoleCode(ctx, code, department)
 	}

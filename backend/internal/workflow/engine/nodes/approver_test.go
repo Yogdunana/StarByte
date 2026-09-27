@@ -38,7 +38,7 @@ func TestResolveRoleAssigneesUsesCodeAndDepartment(t *testing.T) {
 	holder := uuid.New()
 	store := &roleApprovers{ids: []uuid.UUID{holder}}
 	node := &ApprovalNode{Approvers: store}
-	ids, err := node.resolveRuntime(context.Background(), map[string]interface{}{
+	ids, err := node.resolveRuntime(context.Background(), "minister", map[string]interface{}{
 		"assigneeStrategy": "role", "roleCode": "minister", "departmentScope": true,
 	}, uuid.New(), map[string]interface{}{"department_id": dept.String()}, nil)
 	require.NoError(t, err)

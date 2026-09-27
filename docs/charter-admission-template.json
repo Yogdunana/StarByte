@@ -74,7 +74,9 @@
           "approvalType": "all",
           "dueDays": 1,
           "allowReject": true,
-          "allowTransfer": false
+          "allowTransfer": false,
+          "onEmpty": "escalate",
+          "fallbackRoleCode": "president"
         }
       }
     },
