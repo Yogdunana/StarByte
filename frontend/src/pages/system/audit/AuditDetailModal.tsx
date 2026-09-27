@@ -1,7 +1,7 @@
+import { formatDateTime } from '@/utils/datetime';
 import { tx, useLocale } from '@/i18n/text';
 import React from 'react';
 import { Button, Descriptions, Modal, Tag, Typography } from 'antd';
-import dayjs from 'dayjs';
 import type { AuditLogItem } from '@/api/audit';
 import { actionColorMap, formatJSON, methodColorMap, statusColorMap } from './auditColumns';
 
@@ -61,7 +61,7 @@ const AuditDetailModal: React.FC<AuditDetailModalProps> = ({ open, loading, deta
             <Descriptions.Item label={tx('IP 地址')}>{detail.ip_address}</Descriptions.Item>
             <Descriptions.Item label={tx('耗时')}>{detail.duration_ms} ms</Descriptions.Item>
             <Descriptions.Item label={tx('时间')} span={2}>
-              {detail.timestamp ? dayjs(detail.timestamp).format('YYYY-MM-DD HH:mm:ss') : '-'}
+              {detail.timestamp ? formatDateTime(detail.timestamp, 'YYYY-MM-DD HH:mm:ss') : '-'}
             </Descriptions.Item>
             <Descriptions.Item label="User-Agent" span={2}>
               <Text style={{ fontSize: 12 }}>{detail.user_agent || '-'}</Text>

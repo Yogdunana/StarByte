@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/datetime';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Card, Col, Row, Space, Statistic, Switch, Table, Tag, Typography } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
@@ -83,12 +84,12 @@ const MonitorPage: React.FC = () => {
     setData(merged.next);
     setFailed(merged.failed);
     if (merged.succeeded.includes('server') && merged.next.server) {
-      const stamp = new Date().toLocaleTimeString();
+      const stamp = formatDateTime(new Date(), 'HH:mm:ss');
       setUpdatedAt(stamp);
       setCpuHist((hist) => pushSample(hist, formatPercent(merged.next.server?.cpu_percent)));
       setLabels((prevLabels) => pushSample(prevLabels, stamp));
     } else if (merged.succeeded.length > 0) {
-      setUpdatedAt(new Date().toLocaleTimeString());
+      setUpdatedAt(formatDateTime(new Date(), 'HH:mm:ss'));
     }
     setError(merged.failed.length ? t('monitor.loadFail') : undefined);
     setLoading(false);
@@ -110,12 +111,12 @@ const MonitorPage: React.FC = () => {
     setData(merged.next);
     setFailed(merged.failed);
     if (merged.succeeded.includes('server') && merged.next.server) {
-      const stamp = new Date().toLocaleTimeString();
+      const stamp = formatDateTime(new Date(), 'HH:mm:ss');
       setUpdatedAt(stamp);
       setCpuHist((hist) => pushSample(hist, formatPercent(merged.next.server?.cpu_percent)));
       setLabels((prevLabels) => pushSample(prevLabels, stamp));
     } else if (merged.succeeded.length > 0) {
-      setUpdatedAt(new Date().toLocaleTimeString());
+      setUpdatedAt(formatDateTime(new Date(), 'HH:mm:ss'));
     }
     setError(merged.failed.length ? t('monitor.loadFail') : undefined);
     setLoading(false);

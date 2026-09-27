@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/Yogdunana/StarByte/backend/internal/biztime"
 	"github.com/Yogdunana/StarByte/backend/internal/task/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 )
@@ -48,7 +49,7 @@ func (s *taskService) remindTask(ctx context.Context, id uuid.UUID, now time.Tim
 			if u != nil {
 				name = displayName(u)
 			}
-			if err := b.notify.Send(ctx, []uuid.UUID{uid}, template, map[string]interface{}{"title": t.Title, "real_name": name, "message": "", "due_date": t.DueDate.Format("2006-01-02 15:04")}); err != nil {
+			if err := b.notify.Send(ctx, []uuid.UUID{uid}, template, map[string]interface{}{"title": t.Title, "real_name": name, "message": "", "due_date": biztime.Format(*t.DueDate, "2006-01-02 15:04")}); err != nil {
 				return err
 			}
 		}

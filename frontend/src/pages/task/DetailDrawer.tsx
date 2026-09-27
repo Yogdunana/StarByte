@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/datetime';
 import { tx, useLocale } from '@/i18n/text';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -19,7 +20,6 @@ import {
 } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { useSelector } from 'react-redux';
-import dayjs from 'dayjs';
 import StatusTag from '@/components/StatusTag/StatusTag';
 import { selectCurrentUser } from '@/store/slices/userSlice';
 import {
@@ -238,7 +238,7 @@ export default function DetailDrawer({ taskId, open, onClose, onChanged }: Props
             <h2>{task.title}</h2>
             <p>
               {task.creator.name} {tx('创建于')}
-              {dayjs(task.created_at).format('YYYY-MM-DD HH:mm')}
+              {formatDateTime(task.created_at, 'YYYY-MM-DD HH:mm')}
             </p>
           </div>
           <Descriptions column={{ xs: 1, sm: 2 }} size="small">
@@ -357,7 +357,7 @@ export default function DetailDrawer({ taskId, open, onClose, onChanged }: Props
                       <article className={styles.comment} key={item.id}>
                         <div className={styles.commentHead}>
                           <strong>{item.user?.name || tx('协作成员')}</strong>
-                          <span>{dayjs(item.created_at).format('MM-DD HH:mm')}</span>
+                          <span>{formatDateTime(item.created_at, 'MM-DD HH:mm')}</span>
                         </div>
                         <p>{item.content}</p>
                         {task.can_comment && item.user_id === me?.id && (
@@ -502,7 +502,7 @@ export default function DetailDrawer({ taskId, open, onClose, onChanged }: Props
                           </strong>
                           {historyText(log) && <p>{historyText(log)}</p>}
                           {log.comment && <p>{log.comment}</p>}
-                          <small>{dayjs(log.created_at).format('YYYY-MM-DD HH:mm')}</small>
+                          <small>{formatDateTime(log.created_at, 'YYYY-MM-DD HH:mm')}</small>
                         </>
                       ),
                     }))}

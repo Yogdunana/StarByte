@@ -1,5 +1,5 @@
+import { formatDateTime } from '@/utils/datetime';
 import { tx } from '@/i18n/text';
-import dayjs from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
 import { Button, Space } from 'antd';
 import StatusTag from '@/components/StatusTag/StatusTag';
@@ -45,7 +45,7 @@ export function buildApplicationColumns(opts: ColumnOptions): ColumnsType<Member
       title: tx('提交时间'),
       dataIndex: 'submitted_at',
       width: 160,
-      render: (value: string) => dayjs(value).format('YYYY-MM-DD HH:mm'),
+      render: (value: string) => formatDateTime(value, 'YYYY-MM-DD HH:mm'),
     },
     {
       title: tx('操作'),

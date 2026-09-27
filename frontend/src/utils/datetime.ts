@@ -92,6 +92,33 @@ export function shanghaiWallClock(value: string | number | Date): string | undef
 }
 
 /**
+ * 用自定义 dayjs 模板格式化，日期分量仍按北京时间取。
+ *
+ * 给那些模板里带 MMM（月份缩写）之类的场景用 —— formatDateTime() 只认
+ * YYYY/MM/DD/HH/mm/ss 这几个固定记号，处理不了本地化的月份名。
+ *
+ * 做法是先取东八区墙钟的各个分量，再用它们拼一个本地 Date 交给 dayjs：
+ * dayjs 格式化取的就是这套分量，等于原样输出，不会被浏览器时区再搬一次。
+ */
+export function formatWithTemplate(
+  value: string | number | Date | null | undefined,
+  template: string,
+  fallback: string = '-',
+): string {
+  const map = !value && value !== 0 ? null : shanghaiParts(value);
+  if (!map) return fallback;
+  const local = new Date(
+    Number(map.YYYY),
+    Number(map.MM) - 1,
+    Number(map.DD),
+    Number(map.HH),
+    Number(map.mm),
+    Number(map.ss),
+  );
+  return dayjs(local).format(template);
+}
+
+/**
  * 把 dayjs 选择器选出来的墙钟按北京时间解释，转成给后端的 ISO 字符串。
  *
  * 用来替换 dayjs.toISOString()：那个按浏览器本地时区解释，

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/Yogdunana/StarByte/backend/internal/activity/model"
+	"github.com/Yogdunana/StarByte/backend/internal/biztime"
 	notifdto "github.com/Yogdunana/StarByte/backend/internal/notification/dto"
 	notifsvc "github.com/Yogdunana/StarByte/backend/internal/notification/service"
 	"github.com/Yogdunana/StarByte/backend/pkg/logger"
@@ -47,7 +48,7 @@ func (s *activityService) notifyActivity(ctx context.Context, userIDs []uuid.UUI
 	}
 	vars := map[string]interface{}{
 		"title":      a.Title,
-		"start_time": a.StartTime.Format("2006-01-02 15:04"),
+		"start_time": biztime.Format(a.StartTime, "2006-01-02 15:04"),
 		"location":   a.Location,
 	}
 	if err := s.notify.Send(ctx, userIDs, template, vars); err != nil {

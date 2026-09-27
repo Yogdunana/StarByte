@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/datetime';
 import { tx, useLocale } from '@/i18n/text';
 import React, { useState } from 'react';
 import {
@@ -13,7 +14,6 @@ import {
   message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import dayjs from 'dayjs';
 import { getAuditTrace, type AuditTraceItem } from '@/api/audit';
 import { actionColorMap, formatJSON } from './auditColumns';
 
@@ -74,7 +74,7 @@ const AuditTracePanel: React.FC = () => {
       title: tx('时间'),
       dataIndex: 'timestamp',
       width: 170,
-      render: (t: string) => (t ? dayjs(t).format('YYYY-MM-DD HH:mm:ss') : '-'),
+      render: (t: string) => (t ? formatDateTime(t, 'YYYY-MM-DD HH:mm:ss') : '-'),
     },
     {
       title: tx('操作人'),

@@ -1,3 +1,4 @@
+import { toAppISO } from '@/utils/datetime';
 import React, { useEffect, useState } from 'react';
 import { DatePicker, Form, Input, Modal, Select, Upload, message } from 'antd';
 import type { UploadFile } from 'antd/es/upload/interface';
@@ -74,8 +75,8 @@ const FormModal: React.FC<Props> = ({ open, types, onClose, onSubmit }) => {
           }
           await onSubmit({
             leave_type_id: values.leave_type_id,
-            start_time: values.range[0].format('YYYY-MM-DDTHH:mm:ssZ'),
-            end_time: values.range[1].format('YYYY-MM-DDTHH:mm:ssZ'),
+            start_time: toAppISO(values.range[0]) as string,
+            end_time: toAppISO(values.range[1]) as string,
             reason: values.reason,
             attachments,
           });

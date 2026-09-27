@@ -5,6 +5,7 @@ import {
   formatDate,
   formatDateTime,
   formatMinute,
+  formatWithTemplate,
   shanghaiWallClock,
   toAppISO,
 } from './datetime';
@@ -45,6 +46,27 @@ describe('datetime renders in Asia/Shanghai regardless of browser zone', () => {
 
   it('exposes the Shanghai wall clock for grouping', () => {
     expect(shanghaiWallClock(noonShanghai)).toBe('2026-09-26T12:00:00');
+  });
+});
+
+// 面试时间用带月份缩写的本地化模板（zh-CN 是 M月D日 HH:mm，ru-RU 是 D MMM HH:mm），
+// formatDateTime 只认固定记号处理不了，走 formatWithTemplate。
+describe('formatWithTemplate', () => {
+  it('renders localized month/day tokens against Shanghai wall clock', () => {
+    // 北京时间 2026-09-26 12:00 == UTC 04:00
+    expect(formatWithTemplate('2026-09-26T04:00:00.000Z', 'M月D日 HH:mm')).toBe('9月26日 12:00');
+  });
+
+  it('does not leak the browser zone into month names', () => {
+    expect(formatWithTemplate('2026-09-26T04:00:00.000Z', 'MMM D HH:mm', '-')).toBe(
+      'Sep 26 12:00',
+    );
+  });
+
+  it('falls back for empty or invalid input', () => {
+    expect(formatWithTemplate(undefined, 'MMM D')).toBe('-');
+    expect(formatWithTemplate('not-a-date', 'MMM D')).toBe('-');
+    expect(formatWithTemplate('', 'MMM D', '待定')).toBe('待定');
   });
 });
 

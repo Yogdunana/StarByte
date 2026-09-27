@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
+	"github.com/Yogdunana/StarByte/backend/internal/biztime"
 	"github.com/Yogdunana/StarByte/backend/internal/meeting/model"
 	notifdto "github.com/Yogdunana/StarByte/backend/internal/notification/dto"
 	notifsvc "github.com/Yogdunana/StarByte/backend/internal/notification/service"
@@ -47,7 +48,7 @@ func (s *meetingService) notifyMeeting(ctx context.Context, userIDs []uuid.UUID,
 	}
 	vars := map[string]interface{}{
 		"title":      m.Title,
-		"start_time": m.StartTime.Format("2006-01-02 15:04"),
+		"start_time": biztime.Format(m.StartTime, "2006-01-02 15:04"),
 		"location":   m.Location,
 	}
 	send := func() {
