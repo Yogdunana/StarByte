@@ -101,7 +101,12 @@ USER nginx
 
 EXPOSE 8080
 
+# 必须写 127.0.0.1，不能写 localhost：容器里 localhost 会解析到 ::1，
+# 而 nginx 只监听了 IPv4 的 8080（见 nginx.conf 的 listen 8080 default_server），
+# 打 ::1:8080 必然 Connection refused —— 服务明明是好的，健康检查却一直判
+# unhealthy，docker compose ps 上看着像故障。服务器上实测过：
+# 127.0.0.1:8080 返回首页，localhost:8080 拒连。
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-  CMD wget -qO- http://localhost:8080/ || exit 1
+  CMD wget -qO- http://127.0.0.1:8080/ || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]
