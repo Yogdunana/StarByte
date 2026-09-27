@@ -10,6 +10,8 @@ import type {
   MemberProfileHistory,
   MemberStatsResponse,
   MemberDepartmentOption,
+  MemberImportRow,
+  MemberImportResult,
   PageResponse,
   ApplicationProgress,
   TransferCandidate,
@@ -111,6 +113,15 @@ export function updateMemberStatus(
 
 export function getMemberHistory(id: string): Promise<MemberProfileHistory[]> {
   return request.get(`/member/profiles/${id}/history`);
+}
+
+// 批量录入：预检不写库，确认才写。rows 为空时后端返回空结果，不报错。
+export function previewMemberImport(rows: MemberImportRow[]): Promise<MemberImportResult> {
+  return request.post('/member/profiles/import/preview', { rows });
+}
+
+export function importMembers(rows: MemberImportRow[]): Promise<MemberImportResult> {
+  return request.post('/member/profiles/import', { rows });
 }
 
 export function exportMemberProfiles(params: ListMemberParams): Promise<{ data: Blob }> {

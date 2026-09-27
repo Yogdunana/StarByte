@@ -87,4 +87,8 @@ func RegisterRoutes(
 	manage := withReadScope(member, cacheService, db, deptRepo)
 	manage.Use(middleware.RequirePermission("member:manage"), middleware.PermissionRequired(cacheService))
 	manage.PUT("/profiles/:id/status", h.UpdateProfileStatus)
+	// 批量录入。gin 按方法分路由树，这里是 POST，与上面的 PUT /profiles/:id/status
+	// 不在同一棵树上，注册先后无所谓。
+	manage.POST("/profiles/import/preview", h.PreviewMemberImport)
+	manage.POST("/profiles/import", h.ImportMembers)
 }

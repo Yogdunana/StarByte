@@ -409,6 +409,40 @@ export interface MemberProfile {
   updated_at: string;
 }
 
+export interface MemberImportRow {
+  row: number;
+  student_no: string;
+  real_name: string;
+  gender?: number;
+  grade?: string;
+  major?: string;
+  contact_phone?: string;
+  contact_email?: string;
+  department?: string;
+  role?: string;
+}
+
+export type MemberImportRowStatus = 'create' | 'update' | 'skip' | 'error';
+
+export interface MemberImportRowResult {
+  row: number;
+  student_no: string;
+  real_name: string;
+  department: string;
+  role: string;
+  status: MemberImportRowStatus;
+  message: string;
+}
+
+export interface MemberImportResult {
+  total: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  failed: number;
+  results: MemberImportRowResult[];
+}
+
 export interface CreateMemberApplicationParams {
   applicant_type: MemberApplicantType;
   real_name: string;

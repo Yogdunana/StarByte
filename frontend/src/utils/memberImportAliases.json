@@ -1,0 +1,22 @@
+{
+  "fields": {
+    "student_no": ["学号", "student_no", "studentno", "studentid", "student id"],
+    "real_name": ["姓名", "real_name", "realname", "name"],
+    "gender": ["性别", "gender"],
+    "grade": ["年级", "grade"],
+    "major": ["专业", "major"],
+    "contact_phone": ["手机", "手机号", "联系电话", "电话", "phone", "contact_phone"],
+    "contact_email": ["邮箱", "电子邮件", "email", "contact_email"],
+    "department": ["部门", "中心", "department", "dept"],
+    "role": ["角色", "职务", "职位", "role", "position"]
+  },
+  "genders": {
+    "男": 1,
+    "女": 2,
+    "m": 1,
+    "f": 2,
+    "male": 1,
+    "female": 2
+  },
+  "templateHeader": ["学号", "姓名", "性别", "年级", "专业", "手机", "邮箱", "部门", "角色"]
+}

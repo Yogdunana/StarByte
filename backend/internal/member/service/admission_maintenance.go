@@ -27,7 +27,11 @@ func (s *admissionService) Maintenance(ctx context.Context, _ string, logf func(
 			return err
 		}
 	}
-	logf(fmt.Sprintf("检查预备期到期申请 %d 项", len(ids)))
+	promoted, err := s.promoteImportedProbations(ctx)
+	if err != nil {
+		return err
+	}
+	logf(fmt.Sprintf("检查预备期到期申请 %d 项，批量录入转正 %d 人", len(ids), promoted))
 	return nil
 }
 func (s *admissionService) finishProbation(ctx context.Context, id uuid.UUID) error {

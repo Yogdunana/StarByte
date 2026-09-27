@@ -51,6 +51,10 @@ type MemberProfile struct {
 	Points       int          `gorm:"not null;default:0" json:"points"`
 	CreatedAt    time.Time    `json:"created_at"`
 	UpdatedAt    time.Time    `json:"updated_at"`
+	// ProbationUntil 是预备期届满时间（列由迁移 000079 加的）。入会流程的预备期
+	// 记在 member_applications.probation_until 上，批量录入的人没有申请记录，
+	// 所以只能落在档案里。
+	ProbationUntil *time.Time `json:"probation_until"`
 }
 
 func (MemberProfile) TableName() string {
