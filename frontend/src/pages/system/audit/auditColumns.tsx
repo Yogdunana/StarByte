@@ -1,8 +1,8 @@
+import { formatDateTime } from '@/utils/datetime';
 import { tx } from '@/i18n/text';
 import { Button, Tag, Tooltip } from 'antd';
 import { EyeOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import dayjs from 'dayjs';
 import type { AuditLogItem } from '@/api/audit';
 
 export const methodColorMap: Record<string, string> = {
@@ -37,7 +37,7 @@ export function buildAuditColumns(
       dataIndex: 'timestamp',
       key: 'timestamp',
       width: 170,
-      render: (time: string) => (time ? dayjs(time).format('YYYY-MM-DD HH:mm:ss') : '-'),
+      render: (time: string) => (time ? formatDateTime(time, 'YYYY-MM-DD HH:mm:ss') : '-'),
     },
     {
       title: tx('用户'),

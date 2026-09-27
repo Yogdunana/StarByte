@@ -1,3 +1,4 @@
+import { formatDate } from '@/utils/datetime';
 import type { EChartsOption } from 'echarts';
 import type { StatsSeries } from '@/api/stats';
 
@@ -72,7 +73,7 @@ export function calendarOption(series: StatsSeries): EChartsOption {
   const values = series.data.map((d) => d.value);
   const max = values.length ? Math.max(...values) : 1;
   const labels = series.data.map((d) => d.label).filter(Boolean).sort();
-  const year = String(new Date().getFullYear());
+  const year = formatDate(new Date()).slice(0, 4);
   const calRange: string | [string, string] = labels.length
     ? (labels[0].slice(0, 4) === labels[labels.length - 1].slice(0, 4)
       ? labels[0].slice(0, 4)

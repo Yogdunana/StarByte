@@ -1,5 +1,5 @@
+import { formatDateTime } from '@/utils/datetime';
 import { tx } from '@/i18n/text';
-import dayjs from 'dayjs';
 export const instanceLabels: Record<number, string> = {
   get 0() {
     return tx('进行中');
@@ -58,4 +58,4 @@ export const actionLabels: Record<string, string> = {
   },
 };
 export const dateLabel = (value?: string) =>
-  value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '—';
+  value ? formatDateTime(value, 'YYYY-MM-DD HH:mm') : '—';

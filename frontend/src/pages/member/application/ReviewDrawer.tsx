@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/datetime';
 import { tx, useLocale } from '@/i18n/text';
 import React, { useEffect, useState } from 'react';
 import { Button, Descriptions, Drawer, Form, Input, Select, Timeline, message } from 'antd';
@@ -6,7 +7,6 @@ import type { MemberApplication, MemberApplicationHistory } from '@/types/api';
 import StatusTag from '@/components/StatusTag/StatusTag';
 import AdmissionPanel from './AdmissionPanel';
 import EngineChainPanel from './EngineChainPanel';
-import dayjs from 'dayjs';
 import { Link } from 'react-router-dom';
 import { ApplicationStatusMap } from '../meta';
 
@@ -155,7 +155,7 @@ const ReviewDrawer: React.FC<ReviewDrawerProps> = ({ open, record, mode, onClose
           <Timeline
             style={{ marginTop: 24 }}
             items={history.map((h) => ({
-              children: `${dayjs(h.created_at).format('YYYY-MM-DD HH:mm')}：${ApplicationStatusMap[h.from_status]?.text || h.from_status} → ${ApplicationStatusMap[h.to_status]?.text || h.to_status} ${h.comment || ''}`,
+              children: `${formatDateTime(h.created_at, 'YYYY-MM-DD HH:mm')}：${ApplicationStatusMap[h.from_status]?.text || h.from_status} → ${ApplicationStatusMap[h.to_status]?.text || h.to_status} ${h.comment || ''}`,
             }))}
           />
         </>

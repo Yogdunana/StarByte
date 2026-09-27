@@ -1,6 +1,6 @@
+import { formatDateTime } from '@/utils/datetime';
 import { tx, useLocale } from '@/i18n/text';
 import { Button, Empty, Skeleton, Space, Tag } from 'antd';
-import dayjs from 'dayjs';
 import type { MemberApplication } from '@/types/api';
 import { ApplicationStatusMap } from '../meta';
 import styles from './ApplicationCards.module.css';
@@ -40,7 +40,7 @@ export default function ApplicationCards({ rows, loading, review, mine, onOpen }
           </strong>
           <p className={styles.date}>
             {tx('提交于')}
-            {dayjs(row.submitted_at).format('YYYY-MM-DD HH:mm')}
+            {formatDateTime(row.submitted_at, 'YYYY-MM-DD HH:mm')}
           </p>
           <Space wrap>
             <Button onClick={() => onOpen(row, 'view')}>{tx('查看进度')}</Button>

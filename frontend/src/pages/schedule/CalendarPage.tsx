@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/datetime';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Badge, Button, Calendar, Card, Checkbox, DatePicker, Form, Input, Modal, Radio, Select, Space, Table, Tag, Upload, message,
@@ -318,7 +319,7 @@ const CalendarPage: React.FC = () => {
                 {
                   title: t('schedule.time'),
                   width: 280,
-                  render: (_, r) => `${dayjs(r.start_at).format('YYYY-MM-DD HH:mm')} – ${dayjs(r.end_at).format('HH:mm')}`,
+                  render: (_, r) => `${formatDateTime(r.start_at, 'YYYY-MM-DD HH:mm')} – ${formatDateTime(r.end_at, 'HH:mm')}`,
                 },
                 { title: t('schedule.location'), dataIndex: 'location', width: 140, render: (v: string) => v || '-' },
                 {

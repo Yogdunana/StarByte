@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/datetime';
 import { tx, useLocale } from '@/i18n/text';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -13,7 +14,6 @@ import {
   Timeline,
   message,
 } from 'antd';
-import dayjs from 'dayjs';
 import {
   getAdmission,
   signAdmission,
@@ -346,7 +346,7 @@ export default function AdmissionPanel({ id, officer, editable, onChanged }: Pro
                 </Space>
                 <p>
                   {item.signer_name || item.signer_id.slice(0, 8)} ·{' '}
-                  {dayjs(item.created_at).format('YYYY-MM-DD HH:mm')}
+                  {formatDateTime(item.created_at, 'YYYY-MM-DD HH:mm')}
                 </p>
                 {item.comment && <p>{item.comment}</p>}
                 {item.delegated && (

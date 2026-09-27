@@ -1,3 +1,4 @@
+import { APP_TIMEZONE } from '@/utils/datetime';
 import { Alert, Button, Card, Skeleton, Tag } from 'antd';
 import {
   ArrowRightOutlined,
@@ -50,6 +51,8 @@ export default function Dashboard() {
   const locale =
     i18n.language === 'ru-RU' ? 'ru-RU' : i18n.language === 'en-US' ? 'en-US' : 'zh-CN';
   const date = new Intl.DateTimeFormat(locale, {
+    // 不写 timeZone 就跟着浏览器时区跑，莫斯科的同学打开首页会看到「昨天」。
+    timeZone: APP_TIMEZONE,
     month: 'long',
     day: 'numeric',
     weekday: 'long',

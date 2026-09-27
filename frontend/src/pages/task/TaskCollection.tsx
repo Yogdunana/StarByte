@@ -1,3 +1,4 @@
+import { formatDateTime } from '@/utils/datetime';
 import { tx, useLocale } from '@/i18n/text';
 import { Empty, Grid, Pagination, Space, Table, Tag } from 'antd';
 import type { ReactNode } from 'react';
@@ -9,7 +10,7 @@ import { TaskPriorityMap, TaskStatusMap, TaskWorkflowStageMap } from './meta';
 import styles from './TaskWorkspace.module.css';
 
 export const taskDate = (value?: string) =>
-  value ? dayjs(value).format('MM-DD HH:mm') : tx('未设截止日期');
+  value ? formatDateTime(value, 'MM-DD HH:mm') : tx('未设截止日期');
 export const isOverdue = (task: Task) =>
   !!task.due_date && ![2, 3].includes(task.status) && dayjs(task.due_date).isBefore(dayjs());
 interface Props {

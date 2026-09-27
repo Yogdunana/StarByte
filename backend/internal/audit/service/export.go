@@ -10,6 +10,7 @@ import (
 	"github.com/Yogdunana/StarByte/backend/internal/audit/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/audit/model"
 	"github.com/Yogdunana/StarByte/backend/internal/audit/repo"
+	"github.com/Yogdunana/StarByte/backend/internal/biztime"
 	"github.com/Yogdunana/StarByte/backend/pkg/response"
 	"github.com/xuri/excelize/v2"
 )
@@ -111,7 +112,7 @@ func (s *auditService) writeExcel(ctx context.Context, params *repo.ListParams, 
 
 func exportRow(log model.AuditLog) []string {
 	return []string{
-		log.CreatedAt.Format("2006-01-02 15:04:05"),
+		biztime.Format(log.CreatedAt, "2006-01-02 15:04:05"),
 		log.Username,
 		log.Action,
 		log.Module,

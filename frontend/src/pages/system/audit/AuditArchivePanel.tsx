@@ -1,8 +1,8 @@
+import { formatDateTime } from '@/utils/datetime';
 import { tx, useLocale } from '@/i18n/text';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, Drawer, Input, Table, Tag, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import dayjs from 'dayjs';
 import {
   getAuditArchives,
   pullAuditArchive,
@@ -75,7 +75,7 @@ const AuditArchivePanel: React.FC = () => {
       title: tx('时间'),
       dataIndex: 'created_at',
       width: 170,
-      render: (t: string) => (t ? dayjs(t).format('YYYY-MM-DD HH:mm:ss') : '-'),
+      render: (t: string) => (t ? formatDateTime(t, 'YYYY-MM-DD HH:mm:ss') : '-'),
     },
     {
       title: tx('操作'),
@@ -93,7 +93,7 @@ const AuditArchivePanel: React.FC = () => {
       title: tx('时间'),
       dataIndex: 'timestamp',
       width: 170,
-      render: (t: string) => (t ? dayjs(t).format('YYYY-MM-DD HH:mm:ss') : '-'),
+      render: (t: string) => (t ? formatDateTime(t, 'YYYY-MM-DD HH:mm:ss') : '-'),
     },
     { title: tx('用户'), render: (_, r) => r.user?.username || '-' },
     {

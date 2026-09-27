@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Yogdunana/StarByte/backend/internal/biztime"
 	"github.com/Yogdunana/StarByte/backend/internal/contract/dto"
 	"github.com/Yogdunana/StarByte/backend/internal/contract/model"
 	rbacModel "github.com/Yogdunana/StarByte/backend/internal/rbac/model"
@@ -101,7 +102,9 @@ func (s *contractService) notifyOwner(ctx context.Context, row *model.ContractNa
 	}
 	exp := ""
 	if row.ExpiredAt != nil {
-		exp = row.ExpiredAt.Format("2006-01-02")
+		// 到期日只到天，更要注意：UTC 16:00 之后已经是北京时间第二天，
+		// 直接 Format 会整整差一天。
+		exp = biztime.Format(*row.ExpiredAt, "2006-01-02")
 	}
 	return s.notify.Send(ctx, []uuid.UUID{row.UserID}, "contract_expiring", map[string]interface{}{
 		"real_name": row.OwnerName, "title": row.Title, "expired_at": exp,

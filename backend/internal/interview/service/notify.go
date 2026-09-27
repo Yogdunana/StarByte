@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
+	"github.com/Yogdunana/StarByte/backend/internal/biztime"
 	"github.com/Yogdunana/StarByte/backend/internal/interview/model"
 	notifdto "github.com/Yogdunana/StarByte/backend/internal/notification/dto"
 	notifsvc "github.com/Yogdunana/StarByte/backend/internal/notification/service"
@@ -92,8 +93,5 @@ func (s *interviewService) notifyResult(ctx context.Context, iv *model.Interview
 }
 
 func formatTime(t *time.Time) string {
-	if t == nil {
-		return "待定"
-	}
-	return t.Format("2006-01-02 15:04")
+	return biztime.FormatPtr(t, "2006-01-02 15:04", "待定")
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
+	"github.com/Yogdunana/StarByte/backend/internal/biztime"
 	notifdto "github.com/Yogdunana/StarByte/backend/internal/notification/dto"
 	notifsvc "github.com/Yogdunana/StarByte/backend/internal/notification/service"
 	"github.com/Yogdunana/StarByte/backend/internal/task/model"
@@ -50,7 +51,7 @@ func (s *taskService) notifyUsers(ctx context.Context, userIDs []uuid.UUID, temp
 	}
 	due := ""
 	if t.DueDate != nil {
-		due = t.DueDate.Format("2006-01-02 15:04")
+		due = biztime.Format(*t.DueDate, "2006-01-02 15:04")
 	}
 	for _, uid := range userIDs {
 		name := ""

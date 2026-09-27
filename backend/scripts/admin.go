@@ -11,6 +11,7 @@ import (
 	"time"
 
 	authrepo "github.com/Yogdunana/StarByte/backend/internal/auth/repo"
+	"github.com/Yogdunana/StarByte/backend/internal/biztime"
 	"github.com/Yogdunana/StarByte/backend/pkg/config"
 	pkgredis "github.com/Yogdunana/StarByte/backend/pkg/redis"
 	"github.com/Yogdunana/StarByte/backend/pkg/utils"
@@ -93,12 +94,10 @@ func showAdmin(db *gorm.DB, username string) error {
 		fmt.Printf("ADMIN_USERNAME=%s\n", a.Username)
 		fmt.Printf("ADMIN_ID=%s\n", a.ID)
 		fmt.Printf("ADMIN_STATUS=%d\n", a.Status)
-		fmt.Printf("ADMIN_CREATED_AT=%s\n", a.CreatedAt.Format("2006-01-02 15:04:05"))
-		if a.LastLoginAt == nil {
-			fmt.Printf("ADMIN_LAST_LOGIN=-\n")
-		} else {
-			fmt.Printf("ADMIN_LAST_LOGIN=%s\n", a.LastLoginAt.Format("2006-01-02 15:04:05"))
-		}
+		// 这两个字段是从库里读出来的，pgx 给的是 UTC，直接 Format 会比北京时间
+		// 早 8 小时（实测「最近登录」显示 06:41，真实时间是 14:41）。
+		fmt.Printf("ADMIN_CREATED_AT=%s\n", biztime.Format(a.CreatedAt, "2006-01-02 15:04:05"))
+		fmt.Printf("ADMIN_LAST_LOGIN=%s\n", biztime.FormatPtr(a.LastLoginAt, "2006-01-02 15:04:05", "-"))
 	}
 	return nil
 }

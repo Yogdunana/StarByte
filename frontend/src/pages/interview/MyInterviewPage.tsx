@@ -1,8 +1,8 @@
+import { formatWithTemplate } from '@/utils/datetime';
 import { tx, useLocale } from '@/i18n/text';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Card, Empty, Grid, Table, Tabs } from 'antd';
 import { CalendarOutlined, EnvironmentOutlined, ReloadOutlined } from '@ant-design/icons';
-import dayjs from 'dayjs';
 import PageIntro from '@/components/PageIntro/PageIntro';
 import StatusTag from '@/components/StatusTag/StatusTag';
 import { getMyInterviews } from '@/api/interview';
@@ -41,7 +41,7 @@ const groups = [
   },
 ];
 const formatTime = (value?: string) =>
-  value ? dayjs(value).format(tx('M月D日 HH:mm')) : tx('时间待安排');
+  value ? formatWithTemplate(value, tx('M月D日 HH:mm'), tx('时间待安排')) : tx('时间待安排');
 
 const MyInterviewPage: React.FC = () => {
   useLocale();
