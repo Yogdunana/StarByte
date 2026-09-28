@@ -13,6 +13,35 @@
 
 兼任者可在不同环节分别签字；不能审批自己的入会申请。同一个常委会节点每人只生成一个任务。
 
+## 批量录入（会员档案页 / 系统管理两处入口）
+
+测评系统出结果后的集体入会用这个入口，和上面的手动任命是两条路。
+
+入口有两个，**同一个功能、同一套后端接口**：
+
+- 「会员档案 → 批量录入」：导完名单就地对着列表核对，适合录入和核对连着做。
+- 「系统管理 → 成员批量录入」：独立的说明页，适合习惯先进管理后台的人，
+  页面里把规则逐条写明，「去会员档案核对」按钮直接跳过去。
+
+两者共用 `components/member/MemberImportModal.tsx`，
+权限都是 `member:manage`（`POST /member/profiles/import/preview` 与 `/member/profiles/import`）。
+
+- 一次写账号、`member_profiles`、`user_roles`，必要时写 `user_role_departments`。
+  学号是唯一凭据：CAS 首次登录按学号回查档案，命中就自动绑定身份并以该账号登录，
+  所以录完之后给他们发登录链接即可，不需要再走进会审批。
+- 可录角色（见 `internal/member/service/import_rules.go` 的 `importRoles`）：
+  `member`、`probationary`、`officer`、`minister`、`vice_center_director`。
+  会长、指导老师、中心主任不在其中 —— 要么唯一要么另有程序，不适合批量给。
+- 部长 `minister` 必须给部门（职能部门），副中心主任 `vice_center_director` 必须给中心。
+  任职范围会一起写进 `user_role_departments`，否则带范围的工作流环节选不到人。
+- 写协会职务的行仍然只认系统管理员，跟「系统管理 → 角色管理 → 角色成员」同一条规则；
+  其余角色有 `member:manage` 就够。逐行判定，一行没权限不影响同批其他人。
+- 没写角色的行按预备干事处理。批量录入的人没有 `member_applications` 记录，
+  预备期到期时间存在 `member_profiles.probation_until`（迁移 000079），
+  由 `admission_maintenance` 每分钟扫一遍，满一个月自动转正式干事。
+- 重跑同一份名单是幂等的：按学号定位，内容没变就记为「无变化」，不做二次写入。
+  已经停用或被拉回的成员类型不会因为重复导入降级。
+
 ## 新默认入会流程
 
 对仍保持 000070 原始默认图的系统，迁移发布新版本：部门初审 → 中心复审 → 常委会会签。会员通道审核通过后直接成为会员；干事通道进入一个自然月预备期，由直属部长确认转正。

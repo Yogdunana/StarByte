@@ -35,6 +35,7 @@ const ExportPage = lazy(() => import('@/pages/system/export/ExportPage'));
 const CachePage = lazy(() => import('@/pages/system/cache/CachePage'));
 const SchedulerPage = lazy(() => import('@/pages/system/scheduler/SchedulerPage'));
 const SearchPage = lazy(() => import('@/pages/system/search/SearchPage'));
+const MemberImportPage = lazy(() => import('@/pages/system/member-import/MemberImportPage'));
 const FileList = lazy(() => import('@/pages/file/FileList'));
 const ApplicationPage = lazy(() => import('@/pages/member/application/ApplicationPage'));
 const ProfilePage = lazy(() => import('@/pages/member/profile/ProfilePage'));
@@ -1033,6 +1034,16 @@ const routes: AppRouteObject[] = [
                 return tx('统一搜索');
               },
               permission: 'search:read',
+            },
+          },
+          {
+            path: 'member-import',
+            element: lazyGuarded(MemberImportPage, 'member:manage'),
+            meta: {
+              get title() {
+                return tx('成员批量录入');
+              },
+              permission: 'member:manage',
             },
           },
           {

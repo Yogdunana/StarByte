@@ -7,6 +7,7 @@ import { usePermission } from '@/hooks/usePermission';
 import { downloadBlob } from '@/utils/download';
 import { buildProfileColumns } from './profileColumns';
 import ProfileDetailDrawer from './ProfileDetailDrawer';
+import MemberImportModal from '@/components/member/MemberImportModal';
 
 const ProfilePage: React.FC = () => {
   useLocale();
@@ -19,6 +20,7 @@ const ProfilePage: React.FC = () => {
   const [pageSize, setPageSize] = useState(10);
   const [keyword, setKeyword] = useState('');
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const [statusRecord, setStatusRecord] = useState<MemberProfile | null>(null);
   const [newStatus, setNewStatus] = useState<number>(1);
   const [reason, setReason] = useState('');
@@ -79,6 +81,11 @@ const ProfilePage: React.FC = () => {
           }}
           style={{ width: 280 }}
         />
+        {canManage && (
+          <Button type="primary" onClick={() => setImportOpen(true)}>
+            {tx('批量录入')}
+          </Button>
+        )}
       </Space>
       <Table
         rowKey="id"
@@ -106,6 +113,11 @@ const ProfilePage: React.FC = () => {
           setDetailId(null);
           void load();
         }}
+      />
+      <MemberImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImported={() => void load()}
       />
       <Modal
         title={tx('变更档案状态')}
