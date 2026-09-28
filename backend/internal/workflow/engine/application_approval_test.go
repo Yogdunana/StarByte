@@ -236,9 +236,9 @@ func TestApplicationProgressMarksCurrentAndSkipped(t *testing.T) {
 }
 
 func TestIsEmptyAssigneeError(t *testing.T) {
-	require.False(t, isEmptyAssigneeError(nil))
-	require.True(t, isEmptyAssigneeError(response.NewAppError(response.CodeWorkflowInvalidNode, "审批节点没有处理人")))
-	require.False(t, isEmptyAssigneeError(response.NewAppError(response.CodeWorkflowInvalidNode, "其它错误")))
+	require.False(t, IsEmptyAssignee(nil))
+	require.True(t, IsEmptyAssignee(NewEmptyAssignee("committee", "standing_committee", "no_role_holder", "审批节点没有处理人")))
+	require.False(t, IsEmptyAssignee(response.NewAppError(response.CodeWorkflowInvalidNode, "其它错误")))
 }
 
 func TestNodeAllowsTransferAndSkipIfEmpty(t *testing.T) {
@@ -443,7 +443,7 @@ func (n *emptyAssigneeUntilCommittee) OnEnter(ctx context.Context, inst *model.F
 	if node.ID == "committee" {
 		return n.waitingTestNode.OnEnter(ctx, inst, node, vars)
 	}
-	return response.NewAppError(response.CodeWorkflowInvalidNode, "审批节点没有处理人")
+	return NewEmptyAssignee(node.ID, "", "no_role_holder", "审批节点没有处理人")
 }
 
 func TestCharterStartSkipMinisterDoesNotEnterDepartmentReview(t *testing.T) {

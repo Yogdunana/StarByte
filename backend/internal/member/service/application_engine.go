@@ -42,15 +42,20 @@ func applicationVariables(app *model.MemberApplication) map[string]interface{} {
 	return vars
 }
 
-// applyCharterScopeVars binds the default review department / center and
-// clears skip_minister so 部门初审 / 中心复审 still run when leadership exists.
-func applyCharterScopeVars(vars map[string]interface{}, reviewDepartment, center uuid.UUID) {
+// applyCharterScopeVars binds the default review department and, when the
+// department sits inside a center, the center too. It keeps skip_minister
+// cleared so 部门初审 / 中心复审 still run when leadership exists.
+// A nil center is intentionally left unset: the node then raises the
+// empty-assignee situation and follows its own skip / escalate policy.
+func applyCharterScopeVars(vars map[string]interface{}, reviewDepartment uuid.UUID, center *uuid.UUID) {
 	if vars == nil {
 		return
 	}
 	vars["department_id"] = reviewDepartment.String()
 	vars["department"] = reviewDepartment.String()
-	vars["center_department_id"] = center.String()
+	if center != nil && *center != uuid.Nil {
+		vars["center_department_id"] = center.String()
+	}
 	delete(vars, engine.SkipMinisterVariable)
 }
 

@@ -10,6 +10,8 @@ import (
 
 	"github.com/Yogdunana/StarByte/backend/internal/member/model"
 	"github.com/Yogdunana/StarByte/backend/internal/member/repo"
+	"github.com/Yogdunana/StarByte/backend/internal/workflow/engine"
+	wfrepo "github.com/Yogdunana/StarByte/backend/internal/workflow/repo"
 )
 
 // Durable invalidations survive Redis failures and process restarts. A revision
@@ -45,6 +47,80 @@ func (s *admissionService) remindOverdue(ctx context.Context) error {
 	}
 	return nil
 }
+
+// overdueEscalationRoles is the ladder used when an approval step nobody picked
+// up reaches its due date. dueDays was written into flow_tasks but only the
+// collaboration flows were ever scanned, so a stalled membership approval had
+// no way out: one absent countersigner could park an application forever.
+var overdueEscalationRoles = []string{"president", "vice_president"}
+
+func (s *admissionService) escalateOverdueApprovals(ctx context.Context) (int, error) {
+	if s.flow == nil {
+		return 0, nil
+	}
+	todos, err := s.flow.ListOverdueApprovalTodos(ctx, s.now(), "member_application")
+	if err != nil {
+		return 0, err
+	}
+	// One escalation per instance: every overdue task of a node belongs to the
+	// same stalled step.
+	byInstance := map[uuid.UUID]engine.OverdueApprovalTodo{}
+	for _, todo := range todos {
+		if _, ok := byInstance[todo.InstanceID]; !ok {
+			byInstance[todo.InstanceID] = todo
+		}
+	}
+	if len(byInstance) == 0 {
+		return 0, nil
+	}
+	reviewers, err := s.escalationReviewers(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if len(reviewers) == 0 {
+		return 0, nil
+	}
+	total := 0
+	for _, todo := range byInstance {
+		err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			bound, _, err := s.flow.BindTransaction(tx)
+			if err != nil {
+				return err
+			}
+			n, err := bound.EscalateOverdueApproval(ctx, todo, reviewers, uuid.Nil)
+			total += n
+			return err
+		})
+		if err != nil {
+			return total, err
+		}
+	}
+	return total, nil
+}
+
+func (s *admissionService) escalationReviewers(ctx context.Context) ([]uuid.UUID, error) {
+	approvers := wfrepo.NewApproverRepo(s.db)
+	seen := map[uuid.UUID]bool{}
+	out := []uuid.UUID{}
+	for _, role := range overdueEscalationRoles {
+		users, err := approvers.ByRoleCode(ctx, role, nil)
+		if err != nil {
+			return nil, err
+		}
+		for _, id := range users {
+			if seen[id] {
+				continue
+			}
+			seen[id] = true
+			out = append(out, id)
+		}
+		if len(out) > 0 {
+			break
+		}
+	}
+	return out, nil
+}
+
 func (s *admissionService) remindApplication(ctx context.Context, id uuid.UUID) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		store, jobs := repo.NewAdmissionRepo(tx), repo.NewAdmissionJobsRepo(tx)
