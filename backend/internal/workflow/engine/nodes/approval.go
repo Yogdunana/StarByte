@@ -80,7 +80,7 @@ func (n *ApprovalNode) OnEnter(ctx context.Context, inst *model.FlowInstance, no
 			return engine.NewEmptyAssignee(node.ID, role, "no_role_holder",
 				"审批节点没有处理人（"+label+"）")
 		}
-		unique, escalated = eligibleAssignees(inst, fallback), true
+		unique = eligibleAssignees(inst, fallback)
 		n.recordEscalation(ctx, inst, node, role, engine.FallbackRoleCode(node), nil)
 	}
 	assignees = unique
