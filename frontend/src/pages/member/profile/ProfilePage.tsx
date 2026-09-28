@@ -7,7 +7,7 @@ import { usePermission } from '@/hooks/usePermission';
 import { downloadBlob } from '@/utils/download';
 import { buildProfileColumns } from './profileColumns';
 import ProfileDetailDrawer from './ProfileDetailDrawer';
-import MemberImportModal from './MemberImportModal';
+import MemberImportModal from '@/components/member/MemberImportModal';
 
 const ProfilePage: React.FC = () => {
   useLocale();
