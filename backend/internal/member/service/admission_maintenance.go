@@ -18,6 +18,10 @@ func (s *admissionService) Maintenance(ctx context.Context, _ string, logf func(
 	if err := s.remindOverdue(ctx); err != nil {
 		return err
 	}
+	escalated, err := s.escalateOverdueApprovals(ctx)
+	if err != nil {
+		return err
+	}
 	ids, err := repo.NewAdmissionMaintenanceRepo(s.db).DueApplications(ctx, s.now())
 	if err != nil {
 		return fmt.Errorf("list due probation: %w", err)
@@ -31,7 +35,7 @@ func (s *admissionService) Maintenance(ctx context.Context, _ string, logf func(
 	if err != nil {
 		return err
 	}
-	logf(fmt.Sprintf("检查预备期到期申请 %d 项，批量录入转正 %d 人", len(ids), promoted))
+	logf(fmt.Sprintf("检查预备期到期申请 %d 项，超时升级审批 %d 项，批量录入转正 %d 人", len(ids), escalated, promoted))
 	return nil
 }
 func (s *admissionService) finishProbation(ctx context.Context, id uuid.UUID) error {

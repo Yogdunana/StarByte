@@ -2,9 +2,11 @@ package engine
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"sort"
-	"strings"
+	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/Yogdunana/StarByte/backend/internal/workflow/model"
 	"github.com/Yogdunana/StarByte/backend/pkg/events"
@@ -60,16 +62,20 @@ func (e *FlowEngine) executeFromNodes(ctx context.Context, inst *model.FlowInsta
 			return err
 		}
 		e.eventBus.Publish(ctx, events.NodeEnteredEvent{InstanceID: inst.ID, NodeID: node.ID, NodeType: node.Type})
-		skipEmpty := func(err error) bool {
-			return skipIfEmptyNode(node) && isEmptyAssigneeError(err)
-		}
+		policy := EmptyPolicyOf(node)
 		passThrough := skipApplicationApproval(node, vars)
 		if !passThrough {
 			if err = handler.OnEnter(ctx, inst, node, vars); err != nil {
-				if !skipEmpty(err) {
+				detail := EmptyAssigneeOf(err)
+				if detail == nil || policy == EmptyFail {
 					return err
 				}
+				// Nothing can be staffed at this step right now. Escalate has
+				// already tried the fallback role inside OnEnter, so blocking
+				// here would only leave the business with no way forward.
+				// The audit row is what stops the step from vanishing silently.
 				passThrough = true
+				e.recordEmptyAssignee(ctx, inst, node, policy, detail)
 			}
 		}
 		if passThrough {
@@ -122,12 +128,23 @@ func (e *FlowEngine) executeFromNodes(ctx context.Context, inst *model.FlowInsta
 	return nil
 }
 
-func isEmptyAssigneeError(err error) bool {
-	var app *response.AppError
-	if !errors.As(err, &app) || app == nil {
-		return false
+// recordEmptyAssignee leaves an audit row for a step that nobody can handle,
+// so a skipped approval is visible in the instance history.
+func (e *FlowEngine) recordEmptyAssignee(ctx context.Context, inst *model.FlowInstance, node *FlowNode, policy EmptyPolicy, detail *EmptyAssigneeError) {
+	if e.taskRepo == nil || inst == nil || node == nil {
+		return
 	}
-	return app.Code == response.CodeWorkflowInvalidNode && strings.Contains(app.Message, "没有处理人")
+	reason := ""
+	if detail != nil {
+		reason = detail.Reason
+	}
+	hist := &model.FlowHistory{
+		ID: uuid.New(), InstanceID: inst.ID, NodeID: node.ID, NodeName: node.Label,
+		NodeType: node.Type, Action: "skip",
+		Comment:   fmt.Sprintf("环节无可用处理人（%s），按 %s 策略跳过", reason, policy),
+		CreatedAt: time.Now(),
+	}
+	_ = e.taskRepo.CreateHistory(ctx, nil, hist)
 }
 
 // executeNode runs a single node and returns the next node IDs.

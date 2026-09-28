@@ -60,10 +60,10 @@ func (s *admissionService) startAdmissionWorkflow(ctx context.Context, tx *gorm.
 		if err != nil {
 			return nil, err
 		}
-		if parent == nil {
-			return nil, admissionDenied("审批缺少部门或中心范围")
-		}
-		applyCharterScopeVars(vars, *app.ReviewDepartmentID, *parent)
+		// ReviewDepartmentID may already be a center or sit outside any center.
+		// Leaving center_department_id unset lets 中心复审 fall back to its own
+		// empty-assignee policy instead of rejecting the whole submission here.
+		applyCharterScopeVars(vars, *app.ReviewDepartmentID, parent)
 	}
 	flow, deliver, err := s.flow.BindTransaction(tx)
 	if err != nil {
