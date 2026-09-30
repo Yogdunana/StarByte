@@ -14,7 +14,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@ant-design/icons": "^5.3.0",
+    "@ant-design/icons": "^6.3.4",
     "@reduxjs/toolkit": "^2.2.0",
     "antd": "^5.15.0",
     "axios": "^1.6.7",
