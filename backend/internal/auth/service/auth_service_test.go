@@ -564,7 +564,7 @@ func TestChangePassword_Success(t *testing.T) {
 
 	err := svc.ChangePassword(ctx, userID.String(), &dto.ChangePasswordRequest{
 		OldPassword: "oldpass123",
-		NewPassword: "newpass456",
+		NewPassword: "Newpass456",
 	})
 
 	assert.NoError(t, err)
@@ -597,7 +597,7 @@ func TestChangePassword_RevokesActiveSessions(t *testing.T) {
 
 	err := svc.ChangePassword(ctx, userID.String(), &dto.ChangePasswordRequest{
 		OldPassword: "oldpass123",
-		NewPassword: "newpass456",
+		NewPassword: "Newpass456",
 	})
 
 	assert.NoError(t, err)
@@ -638,7 +638,7 @@ func TestChangePassword_WrongOldPassword(t *testing.T) {
 
 	err := svc.ChangePassword(ctx, userID.String(), &dto.ChangePasswordRequest{
 		OldPassword: "wrongoldpass",
-		NewPassword: "newpass456",
+		NewPassword: "Newpass456",
 	})
 
 	assert.Error(t, err)
@@ -725,7 +725,7 @@ func TestChangePassword_UserNotFound(t *testing.T) {
 
 	err := svc.ChangePassword(ctx, userID.String(), &dto.ChangePasswordRequest{
 		OldPassword: "oldpass123",
-		NewPassword: "newpass456",
+		NewPassword: "Newpass456",
 	})
 
 	assert.Error(t, err)
@@ -740,7 +740,7 @@ func TestChangePassword_InvalidUUID(t *testing.T) {
 
 	err := svc.ChangePassword(ctx, "not-a-uuid", &dto.ChangePasswordRequest{
 		OldPassword: "oldpass123",
-		NewPassword: "newpass456",
+		NewPassword: "Newpass456",
 	})
 
 	assert.Error(t, err)

@@ -74,6 +74,9 @@ func (s *userService) Register(ctx context.Context, req *dto.RegisterRequest, pu
 	if req.Gender != 1 && req.Gender != 2 {
 		return nil, response.NewError(response.CodeBadRequest, "请选择性别")
 	}
+	if !utils.ValidatePasswordStrength(req.Password) {
+		return nil, response.NewError(response.CodePasswordTooWeak, utils.PasswordPolicyHint)
+	}
 	// 检查用户名是否已存在
 	existing, err := s.userRepo.GetByUsername(ctx, req.Username)
 	if err != nil {
@@ -137,6 +140,11 @@ func (s *userService) ChangePassword(ctx context.Context, userID string, req *dt
 	}
 	if user == nil {
 		return response.NewError(response.CodeNotFound, "用户不存在")
+	}
+
+	// 先判新口令强度：旧密码不对是用户输错，新口令不合规是填了也白填，后者更该先说。
+	if !utils.ValidatePasswordStrength(req.NewPassword) {
+		return response.NewError(response.CodePasswordTooWeak, utils.PasswordPolicyHint)
 	}
 
 	// 校验旧密码
@@ -244,6 +252,10 @@ func (s *userService) List(ctx context.Context, req *dto.ListUserRequest) ([]dto
 }
 
 func (s *userService) Create(ctx context.Context, req *dto.CreateUserRequest) (*dto.UserInfoResponse, error) {
+	// 管理员代建账号也走同一套口令策略，不然这里就是最短的那块板。
+	if !utils.ValidatePasswordStrength(req.Password) {
+		return nil, response.NewError(response.CodePasswordTooWeak, utils.PasswordPolicyHint)
+	}
 	// 检查用户名
 	existing, err := s.userRepo.GetByUsername(ctx, req.Username)
 	if err != nil {

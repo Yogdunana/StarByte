@@ -6,6 +6,7 @@ import { changePassword } from '@/api/auth';
 import { useThemeLang } from '@/theme/ThemeLangContext';
 import type { AppLang } from '@/i18n';
 import type { ThemePreference } from '@/theme/preference';
+import { passwordRule } from '@/utils/validator';
 
 interface PasswordFormValues {
   old_password: string;
@@ -84,7 +85,7 @@ const AccountSettingsPage: React.FC = () => {
           <Form.Item
             name="new_password"
             label={t('settings.newPassword')}
-            rules={[{ required: true }, { min: 8 }, { pattern: /^(?=.*[A-Za-z])(?=.*\d).+$/ }]}
+            rules={passwordRule}
           >
             <Input.Password autoComplete="new-password" />
           </Form.Item>

@@ -10,17 +10,63 @@ import (
 	"gorm.io/gorm"
 )
 
-// genRandomPassword 生成 length 位、由大小写字母+数字组成的高熵口令。
-// 仅使用字母与数字（无 shell 元字符），避免部署脚本回显或复制时被截断/注入。
+// genRandomPassword 生成 length 位高熵口令。
+//
+// 只使用字母与数字（无 shell 元字符），避免部署脚本回显或复制时被截断/注入。
+// 代价是字符种类只有小写、大写、数字三类 —— 而口令策略要求四类里至少占三类，
+// 也就是这三类必须全部出现。纯随机的话 24 位口令仍有约 4% 的概率缺某一类，
+// 所以这里先每类各取一个，其余随机，最后整体打乱，保证一次就过校验。
 func genRandomPassword(length int) (string, error) {
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, length)
-	for i := range b {
-		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+	const (
+		lowers = "abcdefghijklmnopqrstuvwxyz"
+		uppers = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+		digits = "0123456789"
+	)
+	const charset = lowers + uppers + digits
+
+	randIndex := func(n int) (int, error) {
+		v, err := rand.Int(rand.Reader, big.NewInt(int64(n)))
+		if err != nil {
+			return 0, err
+		}
+		return int(v.Int64()), nil
+	}
+
+	if length < 3 {
+		// 太短就没法保证三类齐全，退化成纯随机（调用方会拿它去过强度校验）。
+		b := make([]byte, length)
+		for i := range b {
+			idx, err := randIndex(len(charset))
+			if err != nil {
+				return "", err
+			}
+			b[i] = charset[idx]
+		}
+		return string(b), nil
+	}
+
+	b := make([]byte, 0, length)
+	for _, class := range []string{lowers, uppers, digits} {
+		idx, err := randIndex(len(class))
 		if err != nil {
 			return "", err
 		}
-		b[i] = charset[n.Int64()]
+		b = append(b, class[idx])
+	}
+	for i := 3; i < length; i++ {
+		idx, err := randIndex(len(charset))
+		if err != nil {
+			return "", err
+		}
+		b = append(b, charset[idx])
+	}
+	// Fisher-Yates：前三个字符位置固定会泄露结构，打乱后才是均匀口令。
+	for i := len(b) - 1; i > 0; i-- {
+		j, err := randIndex(i + 1)
+		if err != nil {
+			return "", err
+		}
+		b[i], b[j] = b[j], b[i]
 	}
 	return string(b), nil
 }

@@ -257,8 +257,7 @@ func (s *authService) GetCurrentUser(ctx context.Context, userID string) (*dto.U
 func (s *authService) ChangePassword(ctx context.Context, userID string, req *dto.ChangePasswordRequest) error {
 	// 1. Validate new password strength
 	if !utils.ValidatePasswordStrength(req.NewPassword) {
-		return response.NewError(response.CodePasswordTooWeak,
-			"密码强度不足：至少 8 位，需包含字母和数字")
+		return response.NewError(response.CodePasswordTooWeak, utils.PasswordPolicyHint)
 	}
 
 	// 2. Query user

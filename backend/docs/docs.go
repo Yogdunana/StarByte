@@ -12925,7 +12925,7 @@ const docTemplate = `{
                 "password": {
                     "type": "string",
                     "maxLength": 50,
-                    "minLength": 6
+                    "minLength": 8
                 },
                 "phone": {
                     "type": "string",
@@ -13936,7 +13936,7 @@ const docTemplate = `{
                 "password": {
                     "type": "string",
                     "maxLength": 50,
-                    "minLength": 6
+                    "minLength": 8
                 },
                 "phone": {
                     "type": "string",

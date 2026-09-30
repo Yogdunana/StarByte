@@ -35,7 +35,29 @@ export const usernameRule: Rule[] = [
   },
 ];
 
-/** 密码校验（至少6位） */
+/**
+ * 口令是否达标：至少 8 位，且数字、小写字母、大写字母、特殊字符四类里至少占三类。
+ *
+ * 与后端 pkg/utils.ValidatePasswordStrength 同一套口径，改一边就得改另一边。
+ * 只统计可见 ASCII（0x21~0x7e）——中文不算任何一类，否则两段中文就能顶掉一整类。
+ */
+export const isStrongPassword = (value: string): boolean => {
+  if (!value || value.length < 8) return false;
+  let hasLower = false;
+  let hasUpper = false;
+  let hasDigit = false;
+  let hasSpecial = false;
+  for (let i = 0; i < value.length; i++) {
+    const ch = value.charCodeAt(i);
+    if (ch >= 0x61 && ch <= 0x7a) hasLower = true;
+    else if (ch >= 0x41 && ch <= 0x5a) hasUpper = true;
+    else if (ch >= 0x30 && ch <= 0x39) hasDigit = true;
+    else if (ch >= 0x21 && ch <= 0x7e) hasSpecial = true;
+  }
+  return (hasLower ? 1 : 0) + (hasUpper ? 1 : 0) + (hasDigit ? 1 : 0) + (hasSpecial ? 1 : 0) >= 3;
+};
+
+/** 设置密码的通用规则（登录框不要用它，登录时不该校验策略，否则老用户进不去） */
 export const passwordRule: Rule[] = [
   {
     required: true,
@@ -44,15 +66,17 @@ export const passwordRule: Rule[] = [
     },
   },
   {
-    min: 6,
+    min: 8,
     get message() {
-      return tx('密码至少6个字符');
+      return tx('密码至少8个字符');
     },
   },
   {
-    pattern: /^(?=.*[a-zA-Z])(?=.*\d).+$/,
-    get message() {
-      return tx('密码必须包含字母和数字');
+    validator: async (_, value) => {
+      if (!value) return;
+      if (!isStrongPassword(String(value))) {
+        throw new Error(tx('密码需包含数字、小写字母、大写字母、特殊字符中的至少三种'));
+      }
     },
   },
 ];

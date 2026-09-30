@@ -704,7 +704,7 @@ definitions:
         type: integer
       password:
         maxLength: 50
-        minLength: 6
+        minLength: 8
         type: string
       phone:
         maxLength: 20
@@ -1369,7 +1369,7 @@ definitions:
         type: string
       password:
         maxLength: 50
-        minLength: 6
+        minLength: 8
         type: string
       phone:
         maxLength: 20

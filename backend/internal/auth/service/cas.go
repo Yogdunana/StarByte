@@ -204,7 +204,7 @@ func (s *authService) RegisterWithCASToken(ctx context.Context, req *dto.CASRegi
 		return nil, response.NewError(response.CodeBadRequest, "用户名不能是学号或纯数字编号")
 	}
 	if !utils.ValidatePasswordStrength(req.Password) {
-		return nil, response.NewError(response.CodePasswordTooWeak, "密码强度不足：至少 8 位，需包含字母和数字")
+		return nil, response.NewError(response.CodePasswordTooWeak, utils.PasswordPolicyHint)
 	}
 	raw, err := s.casStore.TakeCode(ctx, token)
 	if err == goredis.Nil || len(raw) == 0 {

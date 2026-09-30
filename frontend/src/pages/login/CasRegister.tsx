@@ -11,6 +11,7 @@ import { fetchCurrentUser } from '@/store/slices/userSlice';
 import type { AppDispatch } from '@/store';
 import { resolveRedirect } from '@/utils/nextPath';
 import { clearCASRegisterDraft, isStudentIdLikeUsername, loadCASRegisterDraft } from './casRegisterDraft';
+import { passwordRule } from '@/utils/validator';
 import styles from './Login.module.css';
 
 interface RegisterFormValues {
@@ -175,18 +176,7 @@ const CasRegister: React.FC = () => {
             <Form.Item
               name="password"
               label={t('login.password')}
-              rules={[
-                { required: true, message: t('login.passwordRequired') },
-                {
-                  validator(_, value) {
-                    if (!value) return Promise.resolve();
-                    if (value.length >= 8 && /[A-Za-z]/.test(value) && /\d/.test(value)) {
-                      return Promise.resolve();
-                    }
-                    return Promise.reject(new Error(t('login.passwordStrength')));
-                  },
-                },
-              ]}
+              rules={passwordRule}
             >
               <Input.Password autoComplete="new-password" prefix={<LockOutlined />} placeholder={t('login.password')} />
             </Form.Item>

@@ -5,6 +5,7 @@ import { PlusOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons'
 
 import { getUserList, UserListItem, createUser, updateUser, deleteUser } from '@/api/user';
 import { getUserColumns } from './userColumns';
+import { passwordRule } from '@/utils/validator';
 
 function isFormValidateError(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'errorFields' in error;
@@ -200,10 +201,7 @@ const UserList: React.FC = () => {
             <Form.Item
               name="password"
               label={tx('初始密码')}
-              rules={[
-                { required: true, message: tx('请输入初始密码') },
-                { min: 6, message: tx('密码至少6个字符') },
-              ]}
+              rules={passwordRule}
             >
               <Input.Password placeholder={tx('请输入初始密码')} />
             </Form.Item>

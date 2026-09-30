@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { PUBLIC_CMS_KEYS } from '@/api/feature';
 import { resolveRedirect, sanitizeNext } from '@/utils/nextPath';
 import { FeatureProvider, useFeature } from '@/hooks/useFeature';
+import { passwordRule } from '@/utils/validator';
 
 interface LocationFromState {
   from?: { pathname?: string };
@@ -282,10 +283,9 @@ const Login: React.FC = () => {
                 <Form.Item
                   name="password"
                   label={t('login.password')}
-                  rules={[
-                    { required: true, message: t('login.passwordRequired') },
-                    { min: 6, message: t('login.passwordMin') },
-                  ]}
+                  // 登录框不校验口令策略：策略是给"设密码"用的，拿它卡登录会把
+                  // 历史遗留的弱口令用户直接关在门外，而他们必须先登录才能改密。
+                  rules={[{ required: true, message: t('login.passwordRequired') }]}
                 >
                   <Input.Password
                     autoComplete="current-password"
@@ -378,10 +378,7 @@ const Login: React.FC = () => {
                 <Form.Item
                   name="password"
                   label={t('login.password')}
-                  rules={[
-                    { required: true, message: t('login.passwordRequired') },
-                    { min: 6, message: t('login.passwordMin') },
-                  ]}
+                  rules={passwordRule}
                 >
                   <Input.Password
                     autoComplete="new-password"
