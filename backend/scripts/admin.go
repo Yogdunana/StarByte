@@ -193,16 +193,28 @@ func setAdminPassword(db *gorm.DB, cfg *config.Config, username, explicit string
 
 // resolveNewPassword 按「-value > 环境变量 > stdin > 自动生成」确定新口令。
 func resolveNewPassword(explicit string) (password string, generated bool, err error) {
+	// 人工给的口令同样要过策略：以前只有自动生成那一路校验，
+	// 用 -password 或环境变量塞一个 123456 进来是过得了的。
 	if v := strings.TrimSpace(explicit); v != "" {
+		if !utils.ValidatePasswordStrength(v) {
+			return "", false, errors.New(utils.PasswordPolicyHint)
+		}
 		return v, false, nil
 	}
 	if v := strings.TrimSpace(os.Getenv(adminPasswordEnvVar)); v != "" {
+		if !utils.ValidatePasswordStrength(v) {
+			return "", false, fmt.Errorf("%s（来自 %s）", utils.PasswordPolicyHint, adminPasswordEnvVar)
+		}
 		return v, false, nil
 	}
 	if v := readLineFromStdin(); v != "" {
+		if !utils.ValidatePasswordStrength(v) {
+			return "", false, errors.New(utils.PasswordPolicyHint)
+		}
 		return v, false, nil
 	}
-	// 最后兜底：生成 24 位随机口令。极低概率全字母或全数字，过不了强度校验就重来。
+	// 最后兜底：生成 24 位随机口令。字符集四类齐全，几乎不可能凑不满三类，
+	// 但真抽到就重来，不把不合格的口令写进库。
 	for i := 0; i < 5; i++ {
 		p, genErr := genRandomPassword(adminGeneratedPasswordLen)
 		if genErr != nil {

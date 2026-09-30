@@ -5,7 +5,7 @@ package dto
 // RegisterRequest 注册请求
 type RegisterRequest struct {
 	Username string `json:"username" binding:"required,min=3,max=50"`
-	Password string `json:"password" binding:"required,min=6,max=50"`
+	Password string `json:"password" binding:"required,min=8,max=50"`
 	RealName string `json:"real_name" binding:"omitempty,max=50"`
 	Email    string `json:"email" binding:"required,email"`
 	Phone    string `json:"phone" binding:"omitempty,max=20"`
@@ -24,7 +24,7 @@ type UpdateProfileRequest struct {
 // ChangePasswordRequest 修改密码请求
 type ChangePasswordRequest struct {
 	OldPassword string `json:"old_password" binding:"required"`
-	NewPassword string `json:"new_password" binding:"required,min=6,max=50"`
+	NewPassword string `json:"new_password" binding:"required,min=8,max=50"`
 }
 
 // ListUserRequest 用户列表请求
@@ -39,7 +39,7 @@ type ListUserRequest struct {
 // CreateUserRequest 创建用户请求
 type CreateUserRequest struct {
 	Username     string   `json:"username" binding:"required,min=3,max=50"`
-	Password     string   `json:"password" binding:"required,min=6,max=50"`
+	Password     string   `json:"password" binding:"required,min=8,max=50"`
 	RealName     string   `json:"real_name" binding:"omitempty,max=50"`
 	Email        string   `json:"email" binding:"omitempty,email"`
 	Phone        string   `json:"phone" binding:"omitempty,max=20"`

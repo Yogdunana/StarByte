@@ -128,7 +128,7 @@ func TestChangePassword_InvalidUUID(t *testing.T) {
 	svc := newTestUserService(&mockUserRepo{})
 	err := svc.ChangePassword(context.Background(), "%%%", &dto.ChangePasswordRequest{
 		OldPassword: "oldpass123",
-		NewPassword: "newpass456",
+		NewPassword: "Newpass456",
 	})
 	requireAppError(t, err, response.CodeBadRequest)
 }
@@ -158,7 +158,7 @@ func TestCreate_InvalidDepartmentID(t *testing.T) {
 
 	result, err := svc.Create(context.Background(), &dto.CreateUserRequest{
 		Username:     "alice",
-		Password:     "pass1234",
+		Password:     "Pass1234",
 		DepartmentID: "bad-dept",
 	})
 	assert.Nil(t, result)
@@ -172,7 +172,7 @@ func TestCreate_InvalidPositionID(t *testing.T) {
 
 	result, err := svc.Create(context.Background(), &dto.CreateUserRequest{
 		Username:   "alice",
-		Password:   "pass1234",
+		Password:   "Pass1234",
 		PositionID: "bad-pos",
 	})
 	assert.Nil(t, result)
@@ -262,7 +262,7 @@ func TestChangePassword_RevokesSessionsOnSuccess(t *testing.T) {
 
 	err = svc.ChangePassword(context.Background(), userID.String(), &dto.ChangePasswordRequest{
 		OldPassword: "oldpass123",
-		NewPassword: "newpass456",
+		NewPassword: "Newpass456",
 	})
 	assert.NoError(t, err)
 	revoker.AssertCalled(t, "RevokeAllUserSessions", mock.Anything, userID.String())
@@ -282,8 +282,36 @@ func TestChangePassword_DoesNotRevokeOnWrongOldPassword(t *testing.T) {
 
 	err = svc.ChangePassword(context.Background(), userID.String(), &dto.ChangePasswordRequest{
 		OldPassword: "wrongpass",
-		NewPassword: "newpass456",
+		NewPassword: "Newpass456",
 	})
 	assert.Error(t, err)
 	revoker.AssertNotCalled(t, "RevokeAllUserSessions", mock.Anything, mock.Anything)
+}
+
+// TestPasswordPolicy_EnforcedOnEveryEntry 守住"每个设置密码的入口都过策略"这件事。
+// 以前只有 auth 包和 CAS 注册校验，user 包的 Register/ChangePassword/Create 是敞口的，
+// 管理员在后台建号时塞 123456 也能成功。
+func TestPasswordPolicy_EnforcedOnEveryEntry(t *testing.T) {
+	weak := "password12" // 只有小写 + 数字两类，长度够但不够复杂
+
+	repo := &mockUserRepo{}
+	svc := newTestUserService(repo)
+
+	_, err := svc.Register(context.Background(), &dto.RegisterRequest{
+		Username: "weak-1", Password: weak, Email: "weak@example.test", Gender: 1,
+	}, "")
+	requireAppError(t, err, response.CodePasswordTooWeak)
+
+	_, err = svc.Create(context.Background(), &dto.CreateUserRequest{Username: "weak-2", Password: weak})
+	requireAppError(t, err, response.CodePasswordTooWeak)
+
+	userID := uuid.New()
+	hashed, hashErr := utils.HashPassword("oldpass123")
+	require.NoError(t, hashErr)
+	repo.On("GetByID", mock.Anything, userID).Return(&model.User{ID: userID, Username: "alice", PasswordHash: hashed}, nil)
+	err = svc.ChangePassword(context.Background(), userID.String(), &dto.ChangePasswordRequest{
+		OldPassword: "oldpass123",
+		NewPassword: weak,
+	})
+	requireAppError(t, err, response.CodePasswordTooWeak)
 }
