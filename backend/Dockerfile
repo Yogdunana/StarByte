@@ -3,7 +3,7 @@
 # 生产 compose 请设 SKIP_BUCKET_CREATE=true；桶可在控制台手动创建一次。
 # 入口脚本在 SKIP_BUCKET_CREATE=true 时不会调用 mc。
 # ─────────────────────────────────────────────────────────
-FROM alpine:3.21 AS mc-builder
+FROM alpine:3.24 AS mc-builder
 
 RUN printf '%s\n' '#!/bin/sh' 'exit 0' > /usr/local/bin/mc && chmod +x /usr/local/bin/mc
 
@@ -42,7 +42,7 @@ RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o starbyte-server ./cmd/
 # ─────────────────────────────────────────────────────────
 # Stage 3: 生产运行镜像
 # ─────────────────────────────────────────────────────────
-FROM alpine:3.21 AS production
+FROM alpine:3.24 AS production
 
 RUN apk add --no-cache ca-certificates tzdata bash postgresql-client
 
