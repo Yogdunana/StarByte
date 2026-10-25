@@ -15,7 +15,7 @@ RUN printf '%s\n' '#!/bin/sh' 'exit 0' > /usr/local/bin/mc && chmod +x /usr/loca
 # 与 golang.org/x/net v0.55+（GO-2026-5030）的最低要求。
 # 本镜像必须 >= 1.25，否则 go build 会直接拒绝。
 # ─────────────────────────────────────────────────────────
-FROM golang:1.25-alpine AS builder
+FROM golang:1.27-alpine AS builder
 
 RUN apk add --no-cache git gcc musl-dev
 
